@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2x2 CLL Recog trainer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            padding: 10px;
+            margin: 0;
+            max-width: 100%;
+        }
+
+        scramble-display {
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            aspect-ratio: 3 / 2;
+            resize: both;
+            overflow: hidden;
+            display: block;
+            margin: 20px auto;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .controls-container {
+            margin-bottom: 20px;
+            padding: 10px;
+            max-width: 100%;
+        }
+
+        .collapsible {
+            cursor: pointer;
+            padding: 10px 12px;
+            margin: 8px 0;
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            user-select: none;
+            font-weight: bold;
+            width: 100%;
+            text-align: left;
+            font-size: 1rem;
+        }
+
+        .collapsible:hover {
+            background-color: #e0e0e0;
+        }
+
+        .collapsible::before {
+            content: "▼ ";
+            display: inline-block;
+            transition: transform 0.3s ease;
+            margin-right: 5px;
+        }
+
+        .collapsible.collapsed::before {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible-content {
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            padding: 10px 0;
+        }
+
+        .collapsible.collapsed + .collapsible-content {
+            max-height: 0;
+            padding: 0;
+        }
+
+        select {
+            width: 100%;
+            max-width: 300px;
+            padding: 8px;
+            font-size: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        select[multiple] {
+            height: auto;
+            min-height: 100px;
+        }
+
+        label {
+            display: block;
+            padding: 8px 0;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        input[type="checkbox"] {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:active {
+            background-color: #004085;
+        }
+
+        /* Tablet and smaller screens */
+        @media (max-width: 768px) {
+            body {
+                padding: 8px;
+            }
+
+            .controls-container {
+                padding: 8px;
+                margin-bottom: 15px;
+            }
+
+            scramble-display {
+                margin: 15px auto;
+                max-width: 100%;
+            }
+
+            select {
+                max-width: 100%;
+            }
+
+            button {
+                max-width: 100%;
+            }
+        }
+
+        /* Mobile phones */
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+            }
+
+            .controls-container {
+                padding: 5px;
+            }
+
+            .collapsible {
+                padding: 8px 10px;
+                font-size: 0.95rem;
+            }
+
+            select {
+                font-size: 0.95rem;
+            }
+
+            label {
+                font-size: 0.95rem;
+            }
+
+            button {
+                padding: 8px 15px;
+                font-size: 0.95rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="controls-container">
+  <div class="collapsible collapsed" id="groupHeader">Groups</div>
+  <div class="collapsible-content">
+    <select id="groupSelect" multiple>
+      <option value="H" selected>H</option>
+      <option value="P" selected>P</option>
+      <option value="U" selected>U</option>
+      <option value="T" selected>T</option>
+      <option value="L" selected>L</option>
+      <option value="S" selected>S</option>
+      <option value="AS" selected>AS</option>
+    </select>
+  </div>
+  <br>
+  <div class="collapsible collapsed" id="caseHeader">Cases</div>
+  <div class="collapsible-content">
+    <select id="caseSelect" multiple>
+      <!-- Cases will be populated by JavaScript -->
+    </select>
+  </div>
+  <br>
+  <label>
+    <input type="checkbox" id="alwaysWhiteBottom" checked> Always White Bottom
+  </label>
+  <br>
+  <label>
+    <input type="checkbox" id="allowAUF" checked> Allow AUF
+  </label>
+  <br>
+  <button id="regenerateBtn">Regenerate Scramble</button>
+</div>
+
+<script type="module">
+  // 1. Import directly from the CDN URL
+  import { ScrambleDisplay } from "https://cdn.cubing.net/v0/js/scramble-display";
+
+  // CLL cases with scrambles
+  const cllCases = {
+    "cases": [
+      { "id": "H2", "group": "H", "scramble": "F R U R' U' R U R' U' R U R' U' F'" },
+      { "id": "H1", "group": "H", "scramble": "R2 U2 R U2 R2" },
+      { "id": "P4", "group": "P", "scramble": "U R' F R F' R U' R' U2 R' F R F'" },
+      { "id": "P3", "group": "P", "scramble": "U' R U R' U R U R' F R' F' R" },
+      { "id": "H4", "group": "H", "scramble": "U F R' F' R U2 R U R' F R' F' R" },
+      { "id": "H3", "group": "H", "scramble": "U2 R' F R F' R U' R' U' R U' R'" },
+      { "id": "P1", "group": "P", "scramble": "F R U R' U' R U R' U' F'" },
+      { "id": "P5", "group": "P", "scramble": "U2 R' F2 R U R' F' R U2 R U' R' F" },
+      { "id": "P6", "group": "P", "scramble": "R U2 R' U' R U R' U2 R' F R F'" },
+      { "id": "P2", "group": "P", "scramble": "R U' R' U2 R' F R F' U2 R U R'" },
+      { "id": "U3", "group": "U", "scramble": "F R U' R2 F R F' R U2 R' F'" },
+      { "id": "U1", "group": "U", "scramble": "F R U R' U' F'" },
+      { "id": "T4", "group": "T", "scramble": "R' F R F' R' F R F' R U R' U' R U R'" },
+      { "id": "U2", "group": "U", "scramble": "R U R' U R U2 R' U2 R' U' R U' R' U2 R" },
+      { "id": "T5", "group": "T", "scramble": "F R' F' R U' R U' R' U2 R U' R'" },
+      { "id": "U4", "group": "U", "scramble": "U2 R U R' U2 R U R' U R' F R F'" },
+      { "id": "T6", "group": "T", "scramble": "U' R U' R' U' F R' F' R2 U' R'" },
+      { "id": "T3", "group": "T", "scramble": "R2 U2 R' U2 R' F R F' U' R'" },
+      { "id": "AS1", "group": "AS", "scramble": "R U R' U R U2 R'" },
+      { "id": "S1", "group": "S", "scramble": "R' U' R U' R' U2 R" },
+      { "id": "AS4", "group": "AS", "scramble": "R U' R' F R' F' R" },
+      { "id": "S4", "group": "S", "scramble": "U2 R' F R F' R U R'" },
+      { "id": "T1", "group": "T", "scramble": "F R' F' R U R U' R'" },
+      { "id": "T2", "group": "T", "scramble": "F R U' R' U' R U R' F'" },
+      { "id": "L2", "group": "L", "scramble": "R U R' U' R' F R F'" },
+      { "id": "L1", "group": "L", "scramble": "U2 R' F' R U R U' R' F" },
+      { "id": "L6", "group": "L", "scramble": "U R' U R' F R F' R U2 R' U R" },
+      { "id": "L5", "group": "L", "scramble": "U R U' R2 F R F' R U R' U' R U R'" },
+      { "id": "AS3", "group": "AS", "scramble": "F R' F' R U R U2' R' F R' F' R" },
+      { "id": "AS6", "group": "AS", "scramble": "F R' F' R U2 R U2 R'" },
+      { "id": "AS5", "group": "AS", "scramble": "R U R' U' R' F R F' R U R' U R U2 R'" },
+      { "id": "AS2", "group": "AS", "scramble": "R U R' U' R' F R F' R U' R' F R' F' R" },
+      { "id": "S5", "group": "S", "scramble": "R U2 R' U' R U' R' F R' F' R U R U' R'" },
+      { "id": "S6", "group": "S", "scramble": "U R' F R F' R U2' R' U' R' F R F'" },
+      { "id": "S3", "group": "S", "scramble": "U2 R U2 R' U2 R' F R F'" },
+      { "id": "S2", "group": "S", "scramble": "R' F R F' R U R' F R' F' R U R U' R'" },
+      { "id": "L4", "group": "L", "scramble": "R U' R U' R U2 R' U R' U R'" },
+      { "id": "U5", "group": "U", "scramble": "U' R U' R' U R U' R' F R' F' R2 U R'" },
+      { "id": "U6", "group": "U", "scramble": "R' U' R U2 R' F R' F' R U' R" },
+      { "id": "L3", "group": "L", "scramble": "U R' F2 R2 U' R' F R' F2 R" }
+    ]
+  };
+
+  // 2. Create the element via JavaScript
+  let alwaysWhiteBottom = document.getElementById("alwaysWhiteBottom").checked;
+  let scramble = "";
+  let allowAUF = document.getElementById("allowAUF").checked;
+  let selectedGroups = ["H", "P", "U", "T", "L", "S", "AS"];
+  let selectedCases = [];
+  let availableCases = [];
+
+  // Function to get available cases based on selected groups
+  function updateAvailableCases() {
+    selectedGroups = Array.from(document.getElementById("groupSelect").selectedOptions).map(o => o.value);
+    availableCases = cllCases.cases.filter(c => selectedGroups.includes(c.group));
+    updateCaseSelect();
+  }
+
+  // Function to populate case select based on available cases
+  function updateCaseSelect() {
+    const caseSelect = document.getElementById("caseSelect");
+    const currentValues = Array.from(caseSelect.selectedOptions).map(o => o.value);
+    caseSelect.innerHTML = "";
+    availableCases.forEach(caseObj => {
+      const option = document.createElement("option");
+      option.value = caseObj.id;
+      option.textContent = caseObj.id;
+      option.selected = currentValues.includes(caseObj.id) || currentValues.length === 0;
+      caseSelect.appendChild(option);
+    });
+    updateSelectedCases();
+  }
+
+  // Function to update selected cases
+  function updateSelectedCases() {
+    selectedCases = Array.from(document.getElementById("caseSelect").selectedOptions).map(o => o.value);
+  }
+
+  // Initialize
+  updateAvailableCases();
+  const el = new ScrambleDisplay();
+  el.event = "222";
+  el.visualization = "3D";
+
+  function getRandomCase() {
+    if (selectedCases.length === 0) return null;
+    return selectedCases[Math.floor(Math.random() * selectedCases.length)];
+  }
+
+  function buildScramble() {
+    scramble = "";
+    if (alwaysWhiteBottom) {
+      scramble += "z2";
+    } else {
+      const xRandRotations = Math.floor(Math.random() * 4);
+      const yRandRotations = Math.floor(Math.random() * 4);
+      const zRandRotations = Math.floor(Math.random() * 4);
+      if (xRandRotations > 0) {
+        scramble += " x" + (xRandRotations > 1 ? xRandRotations : "");
+      }
+      if (yRandRotations > 0) {
+        scramble += " y" + (yRandRotations > 1 ? yRandRotations : "");
+      }
+      if (zRandRotations > 0) {
+        scramble += " z" + (zRandRotations > 1 ? zRandRotations : "");
+      }
+    }
+
+    const randomCase = getRandomCase();
+    if (randomCase) {
+      const caseObj = cllCases.cases.find(c => c.id === randomCase);
+      if (caseObj) {
+        scramble += " " + caseObj.scramble;
+      }
+    }
+
+    if (allowAUF) {
+      const aufRandRotations = Math.floor(Math.random() * 4);
+      if (aufRandRotations > 0) {
+        scramble += " U" + (aufRandRotations > 1 ? aufRandRotations : "");
+      }
+    }
+
+    return scramble;
+  }
+
+  buildScramble();
+  el.scramble = scramble;
+
+  // 3. Add it to the page
+  document.body.appendChild(el);
+
+  // 4. Add event listeners to regenerate on toggle
+  function regenerateScramble() {
+    alwaysWhiteBottom = document.getElementById("alwaysWhiteBottom").checked;
+    allowAUF = document.getElementById("allowAUF").checked;
+    buildScramble();
+    el.scramble = scramble;
+  }
+
+  document.getElementById("groupSelect").addEventListener("change", () => {
+    updateAvailableCases();
+    regenerateScramble();
+  });
+  document.getElementById("caseSelect").addEventListener("change", () => {
+    updateSelectedCases();
+    regenerateScramble();
+  });
+  document.getElementById("alwaysWhiteBottom").addEventListener("change", regenerateScramble);
+  document.getElementById("allowAUF").addEventListener("change", regenerateScramble);
+  document.getElementById("regenerateBtn").addEventListener("click", regenerateScramble);
+
+  // Collapsible functionality
+  const groupHeader = document.getElementById("groupHeader");
+  const caseHeader = document.getElementById("caseHeader");
+
+  groupHeader.addEventListener("click", () => {
+    groupHeader.classList.toggle("collapsed");
+  });
+
+  caseHeader.addEventListener("click", () => {
+    caseHeader.classList.toggle("collapsed");
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "cll-trainer-scramble-display",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "vite-plugin-pwa": "^0.17.0"
+  },
+  "dependencies": {
+    "scramble-display": "^0.59.1"
+  }
+}
