@@ -8,49 +8,49 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// CLL cases with scrambles
+// CLL cases with scrambles and solutions
 const cllCases = {
   "cases": [
-    { "id": "H2", "group": "H", "scramble": "F R U R' U' R U R' U' R U R' U' F'" },
-    { "id": "H1", "group": "H", "scramble": "R2 U2 R U2 R2" },
-    { "id": "P4", "group": "P", "scramble": "U R' F R F' R U' R' U2 R' F R F'" },
-    { "id": "P3", "group": "P", "scramble": "U' R U R' U R U R' F R' F' R" },
-    { "id": "H4", "group": "H", "scramble": "U F R' F' R U2 R U R' F R' F' R" },
-    { "id": "H3", "group": "H", "scramble": "U2 R' F R F' R U' R' U' R U' R'" },
-    { "id": "P1", "group": "P", "scramble": "F R U R' U' R U R' U' F'" },
-    { "id": "P5", "group": "P", "scramble": "U2 R' F2 R U R' F' R U2 R U' R' F" },
-    { "id": "P6", "group": "P", "scramble": "R U2 R' U' R U R' U2 R' F R F'" },
-    { "id": "P2", "group": "P", "scramble": "R U' R' U2 R' F R F' U2 R U R'" },
-    { "id": "U3", "group": "U", "scramble": "F R U' R2 F R F' R U2 R' F'" },
-    { "id": "U1", "group": "U", "scramble": "F R U R' U' F'" },
-    { "id": "T4", "group": "T", "scramble": "R' F R F' R' F R F' R U R' U' R U R'" },
-    { "id": "U2", "group": "U", "scramble": "R U R' U R U2 R' U2 R' U' R U' R' U2 R" },
-    { "id": "T5", "group": "T", "scramble": "F R' F' R U' R U' R' U2 R U' R'" },
-    { "id": "U4", "group": "U", "scramble": "U2 R U R' U2 R U R' U R' F R F'" },
-    { "id": "T6", "group": "T", "scramble": "U' R U' R' U' F R' F' R2 U' R'" },
-    { "id": "T3", "group": "T", "scramble": "R2 U2 R' U2 R' F R F' U' R'" },
-    { "id": "A1", "group": "A", "scramble": "R U R' U R U2 R'" },
-    { "id": "S1", "group": "S", "scramble": "R' U' R U' R' U2 R" },
-    { "id": "A4", "group": "A", "scramble": "R U' R' F R' F' R" },
-    { "id": "S4", "group": "S", "scramble": "U2 R' F R F' R U R'" },
-    { "id": "T1", "group": "T", "scramble": "F R' F' R U R U' R'" },
-    { "id": "T2", "group": "T", "scramble": "F R U' R' U' R U R' F'" },
-    { "id": "L2", "group": "L", "scramble": "R U R' U' R' F R F'" },
-    { "id": "L1", "group": "L", "scramble": "U2 R' F' R U R U' R' F" },
-    { "id": "L6", "group": "L", "scramble": "U R' U R' F R F' R U2 R' U R" },
-    { "id": "L5", "group": "L", "scramble": "U R U' R2 F R F' R U R' U' R U R'" },
-    { "id": "A3", "group": "A", "scramble": "F R' F' R U R U2' R' F R' F' R" },
-    { "id": "A6", "group": "A", "scramble": "F R' F' R U2 R U2 R'" },
-    { "id": "A5", "group": "A", "scramble": "R U R' U' R' F R F' R U R' U R U2 R'" },
-    { "id": "A2", "group": "A", "scramble": "R U R' U' R' F R F' R U' R' F R' F' R" },
-    { "id": "S5", "group": "S", "scramble": "R U2 R' U' R U' R' F R' F' R U R U' R'" },
-    { "id": "S6", "group": "S", "scramble": "U R' F R F' R U2' R' U' R' F R F'" },
-    { "id": "S3", "group": "S", "scramble": "U2 R U2 R' U2 R' F R F'" },
-    { "id": "S2", "group": "S", "scramble": "R' F R F' R U R' F R' F' R U R U' R'" },
-    { "id": "L4", "group": "L", "scramble": "R U' R U' R U2 R' U R' U R'" },
-    { "id": "U5", "group": "U", "scramble": "U' R U' R' U R U' R' F R' F' R2 U R'" },
-    { "id": "U6", "group": "U", "scramble": "R' U' R U2 R' F R' F' R U' R" },
-    { "id": "L3", "group": "L", "scramble": "U R' F2 R2 U' R' F R' F2 R" }
+    { "id": "A1", "group": "A", "scramble": "R U R' U R U2 R' U'", "solution": "(R' U' R U' R' U2 R)" },
+    { "id": "A2", "group": "A", "scramble": "R U R' U' R' F R F' R U' R' F R' F' R U", "solution": "(Sledge) (R U R') (Hedge) (*Righty)" },
+    { "id": "A3", "group": "A", "scramble": "F R' F' R U R U2' R' F R' F' R U'", "solution": "^(U) (Sledge) R U2' R' U' (Sledge)" },
+    { "id": "A4", "group": "A", "scramble": "R U' R' F R' F' R U2", "solution": "^(U2) (Sledge) (R U R')" },
+    { "id": "A5", "group": "A", "scramble": "R U R' U' R' F R F' R U R' U R U2 R' U", "solution": "(Anti-sune1a) (Hedge) (*Righty)" },
+    { "id": "A6", "group": "A", "scramble": "F R' F' R U2 R U2 R' U2", "solution": "^(U2) (R U2 R') U2 (Sledge)" },
+    { "id": "H1", "group": "H", "scramble": "R2 U2 R U2 R2", "solution": "R2 U2 R U2 R2" },
+    { "id": "H2", "group": "H", "scramble": "F R U R' U' R U R' U' R U R' U' F'", "solution": "F (Righty)3 F'" },
+    { "id": "H3", "group": "H", "scramble": "R' F R F' R U' R' U' R U' R' U", "solution": "^(U') R U R' U R U R' (Hedge)" },
+    { "id": "H4", "group": "H", "scramble": "F R' F' R U2 R U R' F R' F' R U'", "solution": "^(U) (Sledge) (R U' R') U2 (Sledge)" },
+    { "id": "L1", "group": "L", "scramble": "R' F' R U R U' R' F U'", "solution": "F R U' R' U' R U R' F'" },
+    { "id": "L2", "group": "L", "scramble": "R U R' U' R' F R F'", "solution": "(Hedge) (*Righty)" },
+    { "id": "L3", "group": "L", "scramble": "R' F2 R2 U' R' F R' F2 R U2", "solution": "^(U) R' F2 R2 U' R' F R' F2 R" },
+    { "id": "L4", "group": "L", "scramble": "R U' R U' R U2 R' U R' U R'", "solution": "R U' R U' R U2 R' U R' U R'" },
+    { "id": "L5", "group": "L", "scramble": "R U' R2 F R F' R U R' U' R U R' U", "solution": "^(U') R U' R' U R U' R' F R' F' R2 U R'" },
+    { "id": "L6", "group": "L", "scramble": "R' U R' F R F' R U2 R' U R", "solution": "R' U' R U2 R' F R' F' R U' R" },
+    { "id": "P1", "group": "P", "scramble": "F R U R' U' R U R' U' F' U2", "solution": "F (Righty)2 F'" },
+    { "id": "P2", "group": "P", "scramble": "R U' R' U2 R' F R F' U2 R U R' U2", "solution": "R U' R' U2 (Sledge) U2 R U R'" },
+    { "id": "P3", "group": "P", "scramble": "R U R' U R U R' F R' F' R U2", "solution": "^(U2) (Sledge) R U' R' U' R U' R'" },
+    { "id": "P4", "group": "P", "scramble": "R' F R F' R U' R' U2 R' F R F' U'", "solution": "^(U) (Hedge) U2 R U R' (Hedge)" },
+    { "id": "P5", "group": "P", "scramble": "R' F2 R U R' F' R U2 R U' R' F U'", "solution": "(R U2 R' U') (R U R') U2 (Sledge)" },
+    { "id": "P6", "group": "P", "scramble": "R U2 R' U' R U R' U2 R' F R F' U'", "solution": "^(U) (Hedge) U2 (R U' R') (U R U2 R')" },
+    { "id": "S1", "group": "S", "scramble": "R' U' R U' R' U2 R U", "solution": "(R U R' U R U2 R')" },
+    { "id": "S2", "group": "S", "scramble": "R' F R F' R U R' F R' F' R U R U' R'", "solution": "(Righty) (Sledge) (R U' R') (Hedge)" },
+    { "id": "S3", "group": "S", "scramble": "R U2 R' U2 R' F R F'", "solution": "(Hedge) U2 (R U2 R')" },
+    { "id": "S4", "group": "S", "scramble": "R' F R F' R U R'", "solution": "R U' R' (Hedge)" },
+    { "id": "S5", "group": "S", "scramble": "R U2 R' U' R U' R' F R' F' R U R U' R'", "solution": "(Righty) (Sledge) (Sune1a)" },
+    { "id": "S6", "group": "S", "scramble": "R' F R F' R U2' R' U' R' F R F'", "solution": "(Hedge) U R U2' R' (Hedge)" },
+    { "id": "T1", "group": "T", "scramble": "F R' F' R U R U' R'", "solution": "(Righty) (Sledge)" },
+    { "id": "T2", "group": "T", "scramble": "F R U' R' U' R U R' F'", "solution": "^(U2) R' F' R (*Righty) F" },
+    { "id": "T3", "group": "T", "scramble": "R2 U2 R' U2 R' F R F' U' R' U", "solution": "R2 U2 R' U2 (Sledge) U' R'" },
+    { "id": "T4", "group": "T", "scramble": "R' F R F' R' F R F' R U R' U' R U R' U'", "solution": "^(U) (R U' R') (*Righty) (Hedge)2" },
+    { "id": "T5", "group": "T", "scramble": "F R' F' R U' R U' R' U2 R U' R' U2", "solution": "^(U2) (R U R') U2 (R U R') U (Sledge)" },
+    { "id": "T6", "group": "T", "scramble": "R U' R' U' F R' F' R2 U' R' U'", "solution": "^(U') R U' R' U' (Hedge) (R U' R')" },
+    { "id": "U1", "group": "U", "scramble": "F R U R' U' F' U2", "solution": "F (Righty) F'" },
+    { "id": "U2", "group": "U", "scramble": "R U R' U R U2 R' U2 R' U' R U' R' U2 R U2", "solution": "(Sledge) (Sledge) (Righty) (R U R')" },
+    { "id": "U3", "group": "U", "scramble": "F R U' R2 F R F' R U2 R' F' U2", "solution": "F R U' R' (Sledge) R U2 R' F'" },
+    { "id": "U4", "group": "U", "scramble": "R U R' U2 R U R' U R' F R F'", "solution": "(Hedge) U' R U' R' U2 R U' R'" },
+    { "id": "U5", "group": "U", "scramble": "R U' R' U R U' R' F R' F' R2 U R' U'", "solution": "(*Righty) (Sledge) (Righty) (R U R')" },
+    { "id": "U6", "group": "U", "scramble": "R' U' R U2 R' F R' F' R U' R U'", "solution": "^(U) R' U (Sledge) R U2 R' U R" }
   ]
 };
 
@@ -135,13 +135,7 @@ document.getElementById('addAllBtn').addEventListener('click', () => {
 });
 
 document.getElementById('clearAllBtn').addEventListener('click', () => {
-  // Deselect all groups
-  const groupSelect = document.getElementById('groupSelect');
-  for (const option of groupSelect.options) {
-    option.selected = false;
-  }
-  updateAvailableCases();
-  // Deselect all cases
+  // Only deselect all cases
   const caseSelect = document.getElementById('caseSelect');
   for (const option of caseSelect.options) {
     option.selected = false;
@@ -275,9 +269,12 @@ function updateCaseInfoDisplay() {
   const showCaseInfo = document.getElementById("toggleShowCaseInfo").classList.contains("active");
 
   if (showCaseInfo && currentCaseId && currentCaseScramble) {
+    // Find the current case object to get the solution
+    const caseObj = cllCases.cases.find(c => c.id === currentCaseId);
     caseInfoContainer.innerHTML = `
       <div class="case-id">${currentCaseId}</div>
-      <div class="case-scramble">${currentCaseScramble}</div>
+      <!-- <div class="case-scramble"><b>Scramble:</b> ${currentCaseScramble}</div> // Optionally show the scramble here -->
+      <div class="case-solution"><b>Solution:</b> ${caseObj && caseObj.solution ? caseObj.solution : ''}</div>
     `;
     caseInfoContainer.style.display = 'block';
   } else {
