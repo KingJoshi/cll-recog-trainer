@@ -1,6 +1,7 @@
 # 2x2 CLL Recognition Trainer - PWA
 
 A Progressive Web App for practicing 2x2 CLL (Corner Last Layer) recognition offline on any device.
+Uses: https://github.com/cubing/scramble-display
 
 ## Features
 
