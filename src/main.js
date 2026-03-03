@@ -226,6 +226,13 @@ function buildScramble() {
     }
   }
 
+  if (allowAUF) {
+    const aufRandRotations = Math.floor(Math.random() * 4);
+    if (aufRandRotations > 0) {
+      scramble += " U" + (aufRandRotations > 1 ? aufRandRotations : "");
+    }
+  }
+
   const randomCase = getRandomCase();
   if (randomCase) {
     const caseObj = cllCases.cases.find(c => c.id === randomCase);
