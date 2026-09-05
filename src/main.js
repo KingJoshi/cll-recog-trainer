@@ -134,7 +134,10 @@ let guessedGroup = null;
 let guessedCase = null;
 let settingsCollapsed = true; // narrow screens only; the sidebar is always open
 
+// stats[caseId] = { shown, correct }: attempts at a case and how often it was
+// identified correctly (group and number). Group rows are summed from these.
 let stats = readJSON(STATS_KEY) || {};
+GROUPS.forEach(group => delete stats[group]); // older versions kept separate group counters
 
 function saveStats() {
   writeJSON(STATS_KEY, stats);
@@ -374,9 +377,7 @@ function buildScramble() {
     currentCaseScramble = caseObj.scramble;
     scramble += " " + caseObj.scramble;
 
-    // Initialize stats for group and case, but do not increment 'shown' here
-    const group = caseObj.group;
-    if (!stats[group]) stats[group] = { shown: 0, correct: 0 };
+    // Make sure the case has a stats entry, but do not count it as shown yet
     if (!stats[currentCaseId]) stats[currentCaseId] = { shown: 0, correct: 0 };
   } else {
     currentCaseId = null;
@@ -491,11 +492,11 @@ function checkAnswer(group, caseNum) {
   const groupCorrect = group === correctGroup;
   const caseCorrect = caseNum === correctCase;
 
-  // 'shown' counts every answered attempt
-  if (stats[correctGroup]) stats[correctGroup].shown++;
-  if (stats[currentCaseId]) stats[currentCaseId].shown++;
-  if (groupCorrect && stats[correctGroup]) stats[correctGroup].correct++;
-  if (caseCorrect && stats[currentCaseId]) stats[currentCaseId].correct++;
+  // Every answer is an attempt at the shown case; it counts as a correct
+  // identification only when both the group and the number are right.
+  const entry = stats[currentCaseId] ?? (stats[currentCaseId] = { shown: 0, correct: 0 });
+  entry.shown++;
+  if (groupCorrect && caseCorrect) entry.correct++;
   saveStats();
   updateStatsTable();
 
@@ -534,15 +535,27 @@ function verifyGuess() {
   renderStage();
 }
 
+function groupTotals(group) {
+  return casesByGroup[group].reduce((totals, caseObj) => {
+    const entry = stats[caseObj.id];
+    if (entry) {
+      totals.shown += entry.shown;
+      totals.correct += entry.correct;
+    }
+    return totals;
+  }, { shown: 0, correct: 0 });
+}
+
 function buildStatsDisplay() {
   const parts = [];
-  if (stats[guessedGroup]) {
-    parts.push(`${guessedGroup}: ${stats[guessedGroup].correct}/${stats[guessedGroup].shown}`);
+  const entry = stats[currentCaseId];
+  if (entry) {
+    parts.push(`${currentCaseId}: ${entry.correct}/${entry.shown}`);
   }
-  if (stats[currentCaseId]) {
-    parts.push(`${currentCaseId}: ${stats[currentCaseId].correct}/${stats[currentCaseId].shown}`);
-  }
-  return parts.join(", ");
+  const group = currentCaseId.slice(0, currentCaseId.length - 1);
+  const totals = groupTotals(group);
+  parts.push(`${group} total: ${totals.correct}/${totals.shown}`);
+  return parts.join(" · ");
 }
 
 function resetGuessingUI() {
@@ -919,10 +932,8 @@ function updateStatsTable() {
       html += `<td>${correct}/${shown}</td>`;
     });
 
-    const groupStat = stats[group];
-    const groupCorrect = groupStat ? groupStat.correct : 0;
-    const groupShown = groupStat ? groupStat.shown : 0;
-    html += `<td class="total">${groupCorrect}/${groupShown}</td></tr>`;
+    const totals = groupTotals(group);
+    html += `<td class="total">${totals.correct}/${totals.shown}</td></tr>`;
   });
 
   html += '</tbody></table>';
