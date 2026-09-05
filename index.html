@@ -2,9 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Practice 2x2 CLL recognition offline. Installable PWA for phones and tablets.">
     <meta name="theme-color" content="#007bff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <title>2x2 CLL Recog Trainer</title>
@@ -12,79 +15,103 @@
 </head>
 <body>
 
-<div class="main-container">
-  <div class="controls-container">
-    <div class="add-clear-row">
-      <button id="addAllBtn" class="add-clear-btn">Add all</button>
-      <button id="clearAllBtn" class="add-clear-btn wider">Clear all</button>
-    </div>
-    <div class="collapsible collapsed" id="groupHeader">Groups</div>
-    <div class="collapsible-content">
-      <select id="groupSelect" multiple>
-        <option value="A" selected>A</option>
-        <option value="H" selected>H</option>
-        <option value="L" selected>L</option>
-        <option value="P" selected>P</option>
-        <option value="S" selected>S</option>
-        <option value="T" selected>T</option>
-        <option value="U" selected>U</option>
-      </select>
-    </div>
-    <div class="collapsible collapsed" id="caseHeader">Cases</div>
-    <div class="collapsible-content">
-      <select id="caseSelect" multiple>
-        <!-- Cases will be populated by JavaScript -->
-      </select>
-    </div>
-    <div class="toggle-group">
-      <button class="toggle-btn" data-toggle="alwaysWhiteBottom" id="toggleAlwaysWhiteBottom">Always White Bottom</button>
-      <button class="toggle-btn" data-toggle="allowAUF" id="toggleAllowAUF">Allow AUF</button>
-      <button class="toggle-btn" data-toggle="showCaseInfo" id="toggleShowCaseInfo">Show Case Info</button>
-    </div>
-    <button id="regenerateBtn">Regenerate Scramble</button>
+<header class="app-header">
+  <h1 class="app-title">2x2 CLL Trainer</h1>
+</header>
 
-    <!-- Guessing UI (hidden when Show Case Info is checked) -->
-    <div id="guessing-container" style="display: none; margin-top: 20px;">
-      <div class="guess-section">
-        <label style="display: block; margin-bottom: 10px; font-weight: bold;">Guess the Group & Case:</label>
-        <div class="button-group">
-          <button class="group-btn" data-group="A">A</button>
-          <button class="group-btn" data-group="H">H</button>
-          <button class="group-btn" data-group="L">L</button>
-          <button class="group-btn" data-group="P">P</button>
-          <button class="group-btn" data-group="S">S</button>
-          <button class="group-btn" data-group="T">T</button>
-          <button class="group-btn" data-group="U">U</button>
+<main class="app">
+
+  <!-- Cases & options: collapsible bar on phones, always-open sidebar panel on wide screens -->
+  <section class="panel settings collapsed" id="settingsPanel">
+    <button type="button" class="panel-toggle" id="settingsToggle" aria-expanded="false" aria-controls="settingsBody">
+      <span class="panel-title">Cases &amp; options</span>
+      <span class="panel-meta" id="selectionCount"></span>
+      <span class="chevron" aria-hidden="true"></span>
+    </button>
+
+    <div class="panel-body" id="settingsBody">
+      <div class="section-head">
+        <h2>Cases</h2>
+        <div class="bulk-actions">
+          <button type="button" id="addAllBtn" class="btn btn-small">Add all</button>
+          <button type="button" id="clearAllBtn" class="btn btn-small">Clear all</button>
         </div>
       </div>
-
-      <div class="guess-section">
-        <div class="button-group">
-          <button class="case-btn" data-case="1">1</button>
-          <button class="case-btn" data-case="2">2</button>
-          <button class="case-btn" data-case="3">3</button>
-          <button class="case-btn" data-case="4">4</button>
-          <button class="case-btn" data-case="5">5</button>
-          <button class="case-btn" data-case="6">6</button>
-        </div>
+      <p class="hint">Tap a letter to add or remove a whole group, a number for a single case.</p>
+      <div id="casePicker" class="case-picker" role="group" aria-label="Cases to practice">
+        <!-- Rows are populated by JavaScript -->
       </div>
 
-      <button id="verifyBtn">Verify</button>
-
-      <div id="verify-message" style="display: none; margin-top: 15px; padding: 15px; border-radius: 4px; font-weight: bold; text-align: center;">
+      <h2 class="section-title">Options</h2>
+      <div class="toggle-list">
+        <button type="button" class="switch" data-toggle="alwaysWhiteBottom" id="toggleAlwaysWhiteBottom" aria-pressed="true">
+          <span class="switch-label">Always white bottom</span>
+          <span class="switch-track" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="switch" data-toggle="allowAUF" id="toggleAllowAUF" aria-pressed="true">
+          <span class="switch-label">Allow AUF</span>
+          <span class="switch-track" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="switch" data-toggle="showCaseInfo" id="toggleShowCaseInfo" aria-pressed="false">
+          <span class="switch-label">Show case info</span>
+          <span class="switch-track" aria-hidden="true"></span>
+        </button>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div id="display-container"></div>
-  <div id="case-info-container"></div>
+  <!-- Stage: cube, guessing UI, next scramble -->
+  <section class="stage">
+    <div class="cube-card">
+      <div id="display-container"></div>
+      <p id="empty-state" class="empty-state" hidden>
+        No cases selected. Open <strong>Cases &amp; options</strong> and pick some.
+      </p>
+    </div>
 
-  <!-- Stats Table -->
-  <div id="stats-table-container" style="margin-top: 20px; margin-bottom: 20px;"></div>
+    <div id="case-info-container" class="case-info" hidden></div>
 
-  <!-- Reset Stats Button -->
-  <button id="resetStatsBtn" style="margin-top: 20px; margin-bottom: 20px; padding: 8px 15px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; max-width: 300px;">Reset Stats</button>
-</div>
+    <div id="guessing-container" class="guess">
+      <p class="guess-label">Which case is it?</p>
+      <div class="seg" role="group" aria-label="Guess the group">
+        <button type="button" class="group-btn" data-group="A">A</button>
+        <button type="button" class="group-btn" data-group="H">H</button>
+        <button type="button" class="group-btn" data-group="L">L</button>
+        <button type="button" class="group-btn" data-group="P">P</button>
+        <button type="button" class="group-btn" data-group="S">S</button>
+        <button type="button" class="group-btn" data-group="T">T</button>
+        <button type="button" class="group-btn" data-group="U">U</button>
+      </div>
+      <div class="seg" role="group" aria-label="Guess the case number">
+        <button type="button" class="case-btn" data-case="1">1</button>
+        <button type="button" class="case-btn" data-case="2">2</button>
+        <button type="button" class="case-btn" data-case="3">3</button>
+        <button type="button" class="case-btn" data-case="4">4</button>
+        <button type="button" class="case-btn" data-case="5">5</button>
+        <button type="button" class="case-btn" data-case="6">6</button>
+      </div>
+      <button type="button" id="verifyBtn" class="btn btn-primary btn-block">Verify</button>
+      <div id="verify-message" class="verify-message" role="status" hidden></div>
+    </div>
+
+    <button type="button" id="regenerateBtn" class="btn btn-outline btn-block">New scramble</button>
+  </section>
+
+  <!-- Stats: collapsible, so the table can be hidden while just practicing -->
+  <section class="panel stats" id="statsPanel">
+    <div class="stats-head">
+      <button type="button" class="panel-toggle" id="statsToggle" aria-expanded="true" aria-controls="statsBody">
+        <span class="panel-title">Stats</span>
+        <span class="chevron" aria-hidden="true"></span>
+      </button>
+      <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger">Reset</button>
+    </div>
+    <div id="statsBody" class="stats-body">
+      <div id="stats-table-container"></div>
+    </div>
+  </section>
+
+</main>
 
 <script type="module" src="/src/main.js"></script>
 </body>

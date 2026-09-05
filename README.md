@@ -8,7 +8,7 @@ Uses: https://github.com/cubing/scramble-display
 ✅ **Offline Support** - Works completely offline with service worker caching
 ✅ **Installable** - Install on your phone/tablet home screen
 ✅ **3D Visualization** - See the cube state with 3D rendering
-✅ **Customizable Cases** - Filter by group (H, P, U, T, L, S, AS)
+✅ **Customizable Cases** - Pick whole groups (A, H, L, P, S, T, U) or single cases
 ✅ **All 40 CLL Cases** - Practice with the complete set
 ✅ **Random Rotations** - Optional AUF and random cube rotations
 ✅ **Responsive Design** - Works great on mobile and desktop
@@ -68,10 +68,14 @@ vercel --prod
 
 ## How to Use
 
-1. **Select Groups** - Click "Groups" to expand and choose which case groups to practice
-2. **Select Cases** - Click "Cases" to choose specific cases or keep all selected
-3. **Toggle Options** - Enable "Always White Bottom" for consistent orientation, "Allow AUF" for final layer rotations
-4. **Generate Scramble** - Click "Regenerate Scramble" for a new puzzle
+1. **Pick cases** - Open "Cases & options" (always visible in the sidebar on wide screens). Each row is a group: tap the letter to add or remove the whole group, tap a number to add or remove a single case. "Add all" / "Clear all" select or deselect every group and case.
+2. **Toggle options** - "Always white bottom" for a consistent orientation, "Allow AUF" for random U turns before and after the case, "Show case info" to see the case name and solution instead of guessing.
+3. **Guess** - Tap a group letter and a case number under the cube, then "Verify". Tap "New scramble" for the next case.
+4. **Stats** - Correct/attempted counts per case and per group are kept on the device; "Reset" clears them. Tap the "Stats" header to hide or show the table, for example while just practicing memorization.
+
+Case selection and options are remembered between visits.
+
+The layout adapts to the screen: a single column on phones (cube and guessing controls first, settings collapsed), cube beside the controls on landscape phones, and a sidebar with settings and stats on unfolded fold-phones, laptops and large screens.
 
 ## Project Structure
 
@@ -80,9 +84,7 @@ vercel --prod
 ├── src/
 │   ├── main.js        # App logic and initialization
 │   └── style.css      # Styling
-├── public/
-│   ├── manifest.json  # PWA manifest
-│   └── sw.js          # Service worker for offline support
+├── public/            # Static assets: icons, favicon
 ├── vite.config.js     # Vite and PWA plugin configuration
 └── package.json       # Dependencies
 ```

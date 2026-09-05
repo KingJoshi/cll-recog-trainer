@@ -1,8 +1,9 @@
 import { ScrambleDisplay } from 'scramble-display';
 import './style.css';
 
-// Register service worker for offline support
-if ('serviceWorker' in navigator) {
+// Register service worker for offline support (production only; the dev
+// server has no sw.js and would log a MIME-type error).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(err => {
     console.log('Service worker registration failed:', err);
   });
@@ -54,43 +55,95 @@ const cllCases = {
   ]
 };
 
+const GROUPS = ["A", "H", "L", "P", "S", "T", "U"];
+const CASE_IDS = cllCases.cases.map(c => c.id);
+const casesByGroup = Object.fromEntries(
+  GROUPS.map(g => [g, cllCases.cases.filter(c => c.group === g)])
+);
+const caseById = new Map(cllCases.cases.map(c => [c.id, c]));
+
+// ---------------------------------------------------------------------------
+// Persistence
+// ---------------------------------------------------------------------------
+
+const STATS_KEY = 'cllTrainerStats';
+const SETTINGS_KEY = 'cllTrainerSettings';
+
+function readJSON(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeJSON(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    // storage may be unavailable (private mode, quota); the app still works
+  }
+}
+
+// ---------------------------------------------------------------------------
 // App state
-let alwaysWhiteBottom = true; // Default to checked
+// ---------------------------------------------------------------------------
+
+const savedSettings = readJSON(SETTINGS_KEY) || {};
+
+let selectedCases = new Set(
+  Array.isArray(savedSettings.selected)
+    ? savedSettings.selected.filter(id => caseById.has(id))
+    : CASE_IDS
+);
+let alwaysWhiteBottom = savedSettings.alwaysWhiteBottom ?? true;
+let allowAUF = savedSettings.allowAUF ?? true;
+let showCaseInfo = savedSettings.showCaseInfo ?? false;
+let statsCollapsed = savedSettings.statsCollapsed ?? false;
+
 let scramble = "";
-let allowAUF = true; // Default to checked
-let selectedGroups = ["A", "H", "L", "P", "S", "T", "U"];
-let selectedCases = [];
-let availableCases = [];
 let currentCaseId = null;
 let currentCaseScramble = null;
 let guessedGroup = null;
 let guessedCase = null;
+let settingsCollapsed = true; // narrow screens only; the sidebar is always open
+
+let stats = readJSON(STATS_KEY) || {};
+
+function saveStats() {
+  writeJSON(STATS_KEY, stats);
+}
+
+function saveSettings() {
+  writeJSON(SETTINGS_KEY, {
+    selected: [...selectedCases],
+    alwaysWhiteBottom,
+    allowAUF,
+    showCaseInfo,
+    statsCollapsed
+  });
+}
+
+// ---------------------------------------------------------------------------
+// DOM references
+// ---------------------------------------------------------------------------
+
 const displayContainer = document.getElementById("display-container");
+const emptyState = document.getElementById("empty-state");
 const caseInfoContainer = document.getElementById("case-info-container");
 const guessingContainer = document.getElementById("guessing-container");
 const verifyMessage = document.getElementById("verify-message");
-
-// Stats tracking
-let stats = {};
-
-// Load stats from localStorage if available
-function loadStats() {
-  const saved = localStorage.getItem('cllTrainerStats');
-  if (saved) {
-    try {
-      stats = JSON.parse(saved);
-    } catch (e) {
-      stats = {};
-    }
-  }
-}
-
-// Save stats to localStorage
-function saveStats() {
-  localStorage.setItem('cllTrainerStats', JSON.stringify(stats));
-}
-
-loadStats();
+const verifyBtn = document.getElementById("verifyBtn");
+const regenerateBtn = document.getElementById("regenerateBtn");
+const casePicker = document.getElementById("casePicker");
+const selectionCount = document.getElementById("selectionCount");
+const settingsPanel = document.getElementById("settingsPanel");
+const settingsToggle = document.getElementById("settingsToggle");
+const statsPanel = document.getElementById("statsPanel");
+const statsToggle = document.getElementById("statsToggle");
+const groupButtons = Array.from(document.querySelectorAll(".group-btn"));
+const caseButtons = Array.from(document.querySelectorAll(".case-btn"));
 
 // Create scramble display element
 const el = new ScrambleDisplay();
@@ -98,115 +151,163 @@ el.event = "222";
 el.visualization = "3D";
 displayContainer.appendChild(el);
 
-// Function to get available cases based on selected groups
-function updateAvailableCases() {
-  selectedGroups = Array.from(document.getElementById("groupSelect").selectedOptions).map(o => o.value);
-  availableCases = cllCases.cases
-    .filter(c => selectedGroups.includes(c.group))
-    .sort((a, b) => {
-      // Sort by group first (alphabetically), then by case number
-      if (a.group !== b.group) {
-        const groupOrder = ["A", "H", "L", "P", "S", "T", "U"];
-        return groupOrder.indexOf(a.group) - groupOrder.indexOf(b.group);
-      }
-      const aNum = parseInt(a.id.slice(-1));
-      const bNum = parseInt(b.id.slice(-1));
-      return aNum - bNum;
-    });
-  updateCaseSelect();
-}
+// ---------------------------------------------------------------------------
+// Case picker: one row per group, a group button plus one chip per case
+// ---------------------------------------------------------------------------
 
-// Function to populate case select based on available cases
-// Add all / Clear all button handlers
-document.getElementById('addAllBtn').addEventListener('click', () => {
-  // Select all groups
-  const groupSelect = document.getElementById('groupSelect');
-  for (const option of groupSelect.options) {
-    option.selected = true;
-  }
-  updateAvailableCases();
-  // Select all cases
-  const caseSelect = document.getElementById('caseSelect');
-  for (const option of caseSelect.options) {
-    option.selected = true;
-  }
-  updateSelectedCases();
-  regenerateScramble();
-});
+function buildCasePicker() {
+  casePicker.innerHTML = "";
+  GROUPS.forEach(group => {
+    const row = document.createElement("div");
+    row.className = "case-row";
 
-document.getElementById('clearAllBtn').addEventListener('click', () => {
-  // Only deselect all cases
-  const caseSelect = document.getElementById('caseSelect');
-  for (const option of caseSelect.options) {
-    option.selected = false;
-  }
-  updateSelectedCases();
-  regenerateScramble();
-});
-function updateCaseSelect() {
-  const caseSelect = document.getElementById("caseSelect");
-  const currentValues = Array.from(caseSelect.selectedOptions).map(o => o.value);
-  caseSelect.innerHTML = "";
-  availableCases.forEach(caseObj => {
-    const option = document.createElement("option");
-    option.value = caseObj.id;
-    option.textContent = caseObj.id;
-    option.selected = currentValues.includes(caseObj.id) || currentValues.length === 0;
-    caseSelect.appendChild(option);
-  });
-  updateSelectedCases();
-}
+    const groupBtn = document.createElement("button");
+    groupBtn.type = "button";
+    groupBtn.className = "group-toggle";
+    groupBtn.dataset.group = group;
+    groupBtn.textContent = group;
+    groupBtn.title = `Add or remove all ${group} cases`;
+    groupBtn.setAttribute("aria-label", `Group ${group}: add or remove all cases`);
+    groupBtn.addEventListener("click", () => toggleGroup(group));
+    row.appendChild(groupBtn);
 
-// Function to update selected cases
-function updateSelectedCases() {
-  selectedCases = Array.from(document.getElementById("caseSelect").selectedOptions).map(o => o.value);
-}
-
-// Function to build and update stats table
-function updateStatsTable() {
-  const groups = ["A", "H", "L", "P", "S", "T", "U"];
-  const cases = [1, 2, 3, 4, 5, 6];
-
-  let html = '<table><thead><tr><th>Group</th>';
-  cases.forEach(c => {
-    html += `<th>${c}</th>`;
-  });
-  html += '<th>T</th></tr></thead><tbody>';
-
-  groups.forEach(group => {
-    html += `<tr><th style="font-weight: bold; background-color: #f1f1f1;">${group}</th>`;
-
-    cases.forEach(caseNum => {
-      const caseId = `${group}${caseNum}`;
-      const stat = stats[caseId];
-      const correct = stat ? stat.correct : 0;
-      const shown = stat ? stat.shown : 0;
-      html += `<td>${correct}/${shown}</td>`;
+    casesByGroup[group].forEach(caseObj => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "case-chip";
+      chip.dataset.case = caseObj.id;
+      chip.textContent = caseObj.id.slice(group.length);
+      chip.setAttribute("aria-label", `Case ${caseObj.id}`);
+      chip.addEventListener("click", () => toggleCase(caseObj.id));
+      row.appendChild(chip);
     });
 
-    // Show group total from stats
-    const groupStat = stats[group];
-    const groupCorrect = groupStat ? groupStat.correct : 0;
-    const groupShown = groupStat ? groupStat.shown : 0;
-    html += `<td style="font-weight: bold; background-color: #f1f1f1;">${groupCorrect}/${groupShown}</td>`;
-    html += '</tr>';
+    casePicker.appendChild(row);
   });
-
-  html += '</tbody></table>';
-  document.getElementById("stats-table-container").innerHTML = html;
+  renderSelection();
 }
 
-// Initialize
-updateAvailableCases();
-toggleGuessingUI();
+function renderSelection() {
+  casePicker.querySelectorAll(".case-chip").forEach(chip => {
+    chip.setAttribute("aria-pressed", String(selectedCases.has(chip.dataset.case)));
+  });
 
-// Get random case from selected cases
+  casePicker.querySelectorAll(".group-toggle").forEach(btn => {
+    const ids = casesByGroup[btn.dataset.group].map(c => c.id);
+    const selected = ids.filter(id => selectedCases.has(id)).length;
+    const state = selected === 0 ? "none" : selected === ids.length ? "all" : "some";
+    btn.dataset.state = state;
+    btn.setAttribute("aria-pressed", state === "all" ? "true" : state === "none" ? "false" : "mixed");
+  });
+
+  selectionCount.textContent = `${selectedCases.size} / ${CASE_IDS.length} cases`;
+}
+
+function setSelection(next) {
+  selectedCases = next;
+  renderSelection();
+  saveSettings();
+  regenerateScramble();
+}
+
+function toggleGroup(group) {
+  const ids = casesByGroup[group].map(c => c.id);
+  const allSelected = ids.every(id => selectedCases.has(id));
+  const next = new Set(selectedCases);
+  ids.forEach(id => (allSelected ? next.delete(id) : next.add(id)));
+  setSelection(next);
+}
+
+function toggleCase(id) {
+  const next = new Set(selectedCases);
+  if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+  setSelection(next);
+}
+
+document.getElementById("addAllBtn").addEventListener("click", () => {
+  setSelection(new Set(CASE_IDS));
+});
+
+document.getElementById("clearAllBtn").addEventListener("click", () => {
+  setSelection(new Set());
+});
+
+// ---------------------------------------------------------------------------
+// Collapsible settings (narrow screens); always open in the wide sidebar
+// ---------------------------------------------------------------------------
+
+const wideLayout = window.matchMedia("(min-width: 900px)");
+
+function syncSettingsPanel() {
+  const collapsed = settingsCollapsed && !wideLayout.matches;
+  settingsPanel.classList.toggle("collapsed", collapsed);
+  settingsToggle.setAttribute("aria-expanded", String(!collapsed));
+  settingsToggle.tabIndex = wideLayout.matches ? -1 : 0;
+}
+
+settingsToggle.addEventListener("click", () => {
+  settingsCollapsed = !settingsCollapsed;
+  syncSettingsPanel();
+});
+
+if (typeof wideLayout.addEventListener === "function") {
+  wideLayout.addEventListener("change", syncSettingsPanel);
+} else if (typeof wideLayout.addListener === "function") {
+  wideLayout.addListener(syncSettingsPanel);
+}
+
+// ---------------------------------------------------------------------------
+// Options
+// ---------------------------------------------------------------------------
+
+function renderToggles() {
+  document.getElementById("toggleAlwaysWhiteBottom").setAttribute("aria-pressed", String(alwaysWhiteBottom));
+  document.getElementById("toggleAllowAUF").setAttribute("aria-pressed", String(allowAUF));
+  document.getElementById("toggleShowCaseInfo").setAttribute("aria-pressed", String(showCaseInfo));
+}
+
+document.querySelectorAll(".switch").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const key = btn.dataset.toggle;
+    if (key === "alwaysWhiteBottom") {
+      alwaysWhiteBottom = !alwaysWhiteBottom;
+    } else if (key === "allowAUF") {
+      allowAUF = !allowAUF;
+    } else if (key === "showCaseInfo") {
+      showCaseInfo = !showCaseInfo;
+    }
+    renderToggles();
+    saveSettings();
+
+    if (key === "showCaseInfo") {
+      // Only switches between quiz mode and info mode; keep the current case
+      updateCaseInfoDisplay();
+      updateGuessingVisibility();
+    } else {
+      regenerateScramble();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scramble generation
+// ---------------------------------------------------------------------------
+
 function getRandomCase() {
-  if (selectedCases.length === 0) return null;
-  return selectedCases[Math.floor(Math.random() * selectedCases.length)];
+  if (selectedCases.size === 0) return null;
+  const ids = [...selectedCases];
+  return ids[Math.floor(Math.random() * ids.length)];
 }
 
-// Build scramble string
+function randomU() {
+  const turns = Math.floor(Math.random() * 4);
+  return turns > 0 ? " U" + (turns > 1 ? turns : "") : "";
+}
+
 function buildScramble() {
   scramble = "";
   if (alwaysWhiteBottom) {
@@ -226,141 +327,101 @@ function buildScramble() {
     }
   }
 
+  // Optional U turn before the case (changes which side the case "faces")
   if (allowAUF) {
-    const aufRandRotations = Math.floor(Math.random() * 4);
-    if (aufRandRotations > 0) {
-      scramble += " U" + (aufRandRotations > 1 ? aufRandRotations : "");
-    }
+    scramble += randomU();
   }
 
   const randomCase = getRandomCase();
-  if (randomCase) {
-    const caseObj = cllCases.cases.find(c => c.id === randomCase);
-    if (caseObj) {
-      currentCaseId = caseObj.id;
-      currentCaseScramble = caseObj.scramble;
-      scramble += " " + caseObj.scramble;
+  const caseObj = randomCase ? caseById.get(randomCase) : null;
+  if (caseObj) {
+    currentCaseId = caseObj.id;
+    currentCaseScramble = caseObj.scramble;
+    scramble += " " + caseObj.scramble;
 
-      // Initialize stats for group and case, but do not increment 'shown' here
-      const group = caseObj.group;
-      if (!stats[group]) stats[group] = { shown: 0, correct: 0 };
-      if (!stats[currentCaseId]) stats[currentCaseId] = { shown: 0, correct: 0 };
-    }
+    // Initialize stats for group and case, but do not increment 'shown' here
+    const group = caseObj.group;
+    if (!stats[group]) stats[group] = { shown: 0, correct: 0 };
+    if (!stats[currentCaseId]) stats[currentCaseId] = { shown: 0, correct: 0 };
+  } else {
+    currentCaseId = null;
+    currentCaseScramble = null;
   }
 
+  // Optional AUF after the case
   if (allowAUF) {
-    const aufRandRotations = Math.floor(Math.random() * 4);
-    if (aufRandRotations > 0) {
-      scramble += " U" + (aufRandRotations > 1 ? aufRandRotations : "");
-    }
+    scramble += randomU();
   }
 
-  updateCaseInfoDisplay();
+  scramble = scramble.trim();
   return scramble;
 }
-// Initial scramble
-buildScramble();
-el.scramble = scramble;
-updateStatsTable();
 
-// Regenerate scramble
 function regenerateScramble() {
-  buildScramble();
-  el.scramble = scramble;
+  const hasCases = selectedCases.size > 0;
+  emptyState.hidden = hasCases;
+
+  if (hasCases) {
+    buildScramble();
+    el.scramble = scramble;
+  } else {
+    currentCaseId = null;
+    currentCaseScramble = null;
+    scramble = "";
+    el.scramble = "";
+  }
+
   resetGuessingUI();
+  updateCaseInfoDisplay();
+  updateGuessingVisibility();
   updateStatsTable();
 }
 
-// Update case info display
-function updateCaseInfoDisplay() {
-  const showCaseInfo = document.getElementById("toggleShowCaseInfo").classList.contains("active");
+regenerateBtn.addEventListener("click", regenerateScramble);
 
-  if (showCaseInfo && currentCaseId && currentCaseScramble) {
-    // Find the current case object to get the solution
-    const caseObj = cllCases.cases.find(c => c.id === currentCaseId);
+// ---------------------------------------------------------------------------
+// Case info / guessing UI
+// ---------------------------------------------------------------------------
+
+function updateCaseInfoDisplay() {
+  const caseObj = currentCaseId ? caseById.get(currentCaseId) : null;
+  if (showCaseInfo && caseObj) {
     caseInfoContainer.innerHTML = `
-      <div class="case-id">${currentCaseId}</div>
-      <!-- <div class="case-scramble"><b>Scramble:</b> ${currentCaseScramble}</div> // Optionally show the scramble here -->
-      <div class="case-solution"><b>Solution:</b> ${caseObj && caseObj.solution ? caseObj.solution : ''}</div>
+      <div class="case-id">${caseObj.id}</div>
+      <div class="case-solution"><b>Solution:</b> ${caseObj.solution || ''}</div>
     `;
-    caseInfoContainer.style.display = 'block';
+    caseInfoContainer.hidden = false;
   } else {
-    caseInfoContainer.style.display = 'none';
+    caseInfoContainer.hidden = true;
   }
 }
 
-// Event listeners
-document.getElementById("groupSelect").addEventListener("change", () => {
-  updateAvailableCases();
-  regenerateScramble();
-});
-
-document.getElementById("caseSelect").addEventListener("change", () => {
-  updateSelectedCases();
-  regenerateScramble();
-});
-document.getElementById("regenerateBtn").addEventListener("click", regenerateScramble);
-
-// Toggle button listeners
-document.querySelectorAll(".toggle-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    const toggleId = btn.dataset.toggle;
-
-    if (toggleId === "alwaysWhiteBottom") {
-      alwaysWhiteBottom = !alwaysWhiteBottom;
-    } else if (toggleId === "allowAUF") {
-      allowAUF = !allowAUF;
-    } else if (toggleId === "showCaseInfo") {
-      // Handle show case info toggle
-      btn.classList.toggle("active");
-      updateCaseInfoDisplay();
-      toggleGuessingUI();
-      return;
-    }
-
-    btn.classList.toggle("active");
-    regenerateScramble();
-  });
-});
-
-// Initialize toggle button states
-function updateToggleStates() {
-  document.getElementById("toggleAlwaysWhiteBottom").classList.toggle("active", alwaysWhiteBottom);
-  document.getElementById("toggleAllowAUF").classList.toggle("active", allowAUF);
-  document.getElementById("toggleShowCaseInfo").classList.toggle("active", false); // showCaseInfo starts unchecked
+function updateGuessingVisibility() {
+  guessingContainer.hidden = showCaseInfo || selectedCases.size === 0;
 }
 
-updateToggleStates();
-
-// Guessing UI event listeners
-document.querySelectorAll(".group-btn").forEach(btn => {
+groupButtons.forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".group-btn").forEach(b => b.classList.remove("active"));
+    groupButtons.forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     guessedGroup = btn.dataset.group;
-    verifyMessage.style.display = "none";
+    verifyMessage.hidden = true;
   });
 });
 
-document.querySelectorAll(".case-btn").forEach(btn => {
+caseButtons.forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".case-btn").forEach(b => b.classList.remove("active"));
+    caseButtons.forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     guessedCase = btn.dataset.case;
-    verifyMessage.style.display = "none";
+    verifyMessage.hidden = true;
   });
 });
 
-document.getElementById("verifyBtn").addEventListener("click", verifyGuess);
+verifyBtn.addEventListener("click", verifyGuess);
 
-// Function to toggle guessing UI visibility
-function toggleGuessingUI() {
-  const showCaseInfo = document.getElementById("toggleShowCaseInfo").classList.contains("active");
-  guessingContainer.style.display = showCaseInfo ? "none" : "block";
-}
-
-// Function to verify guess
 function verifyGuess() {
+  if (!currentCaseId) return;
   if (!guessedGroup || !guessedCase) {
     alert("Please select both a group and a case number.");
     return;
@@ -372,110 +433,136 @@ function verifyGuess() {
   const groupCorrect = guessedGroup === correctGroup;
   const caseCorrect = guessedCase === correctCase;
 
-
   // Increment 'shown' for group and case on every guess
   if (stats[correctGroup]) stats[correctGroup].shown++;
   if (stats[currentCaseId]) stats[currentCaseId].shown++;
-  saveStats();
 
-  // Update stats for correct guesses
-  let statsChanged = false;
-  if (groupCorrect && stats[correctGroup]) {
-    stats[correctGroup].correct++;
-    statsChanged = true;
-  }
-  if (caseCorrect && stats[currentCaseId]) {
-    stats[currentCaseId].correct++;
-    statsChanged = true;
-  }
-  if (statsChanged) saveStats();
+  if (groupCorrect && stats[correctGroup]) stats[correctGroup].correct++;
+  if (caseCorrect && stats[currentCaseId]) stats[currentCaseId].correct++;
+  saveStats();
   updateStatsTable();
 
-  verifyMessage.style.display = "block";
-  verifyMessage.className = "";
-  document.getElementById("verifyBtn").style.display = "none";
+  // Lock the guess
+  verifyBtn.hidden = true;
+  groupButtons.forEach(btn => (btn.disabled = true));
+  caseButtons.forEach(btn => (btn.disabled = true));
+  regenerateBtn.classList.remove("btn-outline");
+  regenerateBtn.classList.add("btn-primary");
 
-  // Disable group and case guess buttons after verifying
-  document.querySelectorAll('.group-btn').forEach(btn => btn.disabled = true);
-  document.querySelectorAll('.case-btn').forEach(btn => btn.disabled = true);
-
+  let cls = "";
   let message = "";
   if (groupCorrect && caseCorrect) {
-    verifyMessage.className = "correct";
+    cls = "correct";
     message = "✓ Correct!";
   } else if (groupCorrect || caseCorrect) {
-    verifyMessage.className = "partial";
+    cls = "partial";
     message = `Partial! Correct answer: ${currentCaseId}`;
   } else {
-    verifyMessage.className = "incorrect";
+    cls = "incorrect";
     message = `Incorrect! Correct answer: ${currentCaseId}`;
   }
 
-  // Build stats display
-  const statsDisplay = buildStatsDisplay();
-  verifyMessage.innerHTML = `${message}<div style="margin-top: 8px; font-size: 0.9rem; font-weight: normal;">${statsDisplay}</div>`;
-
-  // Update stats table
-  updateStatsTable();
+  verifyMessage.className = `verify-message ${cls}`;
+  verifyMessage.innerHTML = statsCollapsed
+    ? message
+    : `${message}<div class="verify-stats">${buildStatsDisplay()}</div>`;
+  verifyMessage.hidden = false;
 }
 
-// Function to build stats display
 function buildStatsDisplay() {
-  const statsArray = [];
-
-  // Add group and case stats
+  const parts = [];
   if (stats[guessedGroup]) {
-    const group = guessedGroup;
-    const shown = stats[group].shown;
-    const correct = stats[group].correct;
-    statsArray.push(`${group}: ${correct}/${shown}`);
+    parts.push(`${guessedGroup}: ${stats[guessedGroup].correct}/${stats[guessedGroup].shown}`);
   }
-
   if (stats[currentCaseId]) {
-    const shown = stats[currentCaseId].shown;
-    const correct = stats[currentCaseId].correct;
-    statsArray.push(`${currentCaseId}: ${correct}/${shown}`);
+    parts.push(`${currentCaseId}: ${stats[currentCaseId].correct}/${stats[currentCaseId].shown}`);
   }
-
-  return statsArray.join(", ");
+  return parts.join(", ");
 }
 
-// Function to reset guessing UI
 function resetGuessingUI() {
   guessedGroup = null;
   guessedCase = null;
-  document.querySelectorAll(".group-btn").forEach(btn => {
+  groupButtons.forEach(btn => {
     btn.classList.remove("active");
     btn.disabled = false;
   });
-  document.querySelectorAll(".case-btn").forEach(btn => {
+  caseButtons.forEach(btn => {
     btn.classList.remove("active");
     btn.disabled = false;
   });
-  verifyMessage.style.display = "none";
-  document.getElementById("verifyBtn").style.display = "block";
+  verifyMessage.hidden = true;
+  verifyBtn.hidden = false;
+  regenerateBtn.classList.remove("btn-primary");
+  regenerateBtn.classList.add("btn-outline");
 }
 
-// Collapsible functionality
-const groupHeader = document.getElementById("groupHeader");
-const caseHeader = document.getElementById("caseHeader");
+// ---------------------------------------------------------------------------
+// Stats table
+// ---------------------------------------------------------------------------
 
-groupHeader.addEventListener("click", () => {
-  groupHeader.classList.toggle("collapsed");
+function updateStatsTable() {
+  const caseNumbers = [1, 2, 3, 4, 5, 6];
+
+  let html = '<table><thead><tr><th scope="col">Group</th>';
+  caseNumbers.forEach(c => {
+    html += `<th scope="col">${c}</th>`;
+  });
+  html += '<th scope="col">Total</th></tr></thead><tbody>';
+
+  GROUPS.forEach(group => {
+    html += `<tr><th scope="row">${group}</th>`;
+
+    caseNumbers.forEach(caseNum => {
+      const caseId = `${group}${caseNum}`;
+      if (!caseById.has(caseId)) {
+        html += '<td></td>';
+        return;
+      }
+      const stat = stats[caseId];
+      const correct = stat ? stat.correct : 0;
+      const shown = stat ? stat.shown : 0;
+      html += `<td>${correct}/${shown}</td>`;
+    });
+
+    const groupStat = stats[group];
+    const groupCorrect = groupStat ? groupStat.correct : 0;
+    const groupShown = groupStat ? groupStat.shown : 0;
+    html += `<td class="total">${groupCorrect}/${groupShown}</td></tr>`;
+  });
+
+  html += '</tbody></table>';
+  document.getElementById("stats-table-container").innerHTML = html;
+}
+
+// Collapsible stats (hide the table while just practicing)
+function syncStatsPanel() {
+  statsPanel.classList.toggle("collapsed", statsCollapsed);
+  statsToggle.setAttribute("aria-expanded", String(!statsCollapsed));
+}
+
+statsToggle.addEventListener("click", () => {
+  statsCollapsed = !statsCollapsed;
+  saveSettings();
+  syncStatsPanel();
 });
 
-caseHeader.addEventListener("click", () => {
-  caseHeader.classList.toggle("collapsed");
-});
-// Reset stats button
 document.getElementById("resetStatsBtn").addEventListener("click", () => {
   if (confirm("Are you sure you want to reset all statistics?")) {
-    // Clear all stats
     for (const key in stats) {
       delete stats[key];
     }
     saveStats();
-    // Update the table
     updateStatsTable();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+
+buildCasePicker();
+renderToggles();
+syncSettingsPanel();
+syncStatsPanel();
+regenerateScramble();

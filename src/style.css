@@ -1,443 +1,803 @@
-/* Add all / Clear all row */
-.add-clear-row {
-    display: flex;
-    gap: 6px;
-    width: 100%;
-    max-width: 300px;
-    margin-bottom: 6px;
+/* ==========================================================================
+   2x2 CLL Trainer - styles
+
+   Layout modes
+   - Narrow / portrait (phones, folded fold-phones, tablets in portrait):
+     one column - settings bar (collapsed), cube + guessing UI, stats.
+   - Landscape phones (short viewports): cube on the left, guessing UI on
+     the right, settings and stats below.
+   - Wide (>= 900px: unfolded fold-phones in landscape, laptops, desktops):
+     cube + guessing UI on the left, settings and stats in a right sidebar.
+   ========================================================================== */
+
+:root {
+    --bg: #eef1f5;
+    --surface: #ffffff;
+    --surface-2: #f4f6f9;
+    --text: #1f2933;
+    --muted: #667085;
+    --border: #d5dbe3;
+    --primary: #007bff;
+    --primary-dark: #0062cc;
+    --primary-soft: #e6f0ff;
+    --success: #28a745;
+    --warning: #ffc107;
+    --danger: #dc3545;
+    --danger-soft: #fdecee;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --tap: 44px;            /* minimum touch target */
+    --gap: 12px;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .10);
 }
-.add-clear-btn {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 6px 0;
-    font-size: 0.97rem;
-    border: 1px solid #bbb;
-    border-radius: 4px;
-    background: #f8f8f8;
-    color: #111;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-.add-clear-btn:hover {
-    background: #e0e0e0;
-}
-.add-clear-btn.wider {
-    flex: 1.3 1 0;
-}
-* {
+
+*, *::before, *::after {
     box-sizing: border-box;
 }
 
+html {
+    height: 100%;
+    -webkit-text-size-adjust: 100%;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    padding: 10px;
     margin: 0;
-    max-width: 100%;
-    background-color: #ffffff;
-    color: #333;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
+    min-height: 100%;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.35;
+    color: var(--text);
+    background: var(--bg);
+    /* keep content clear of notches / rounded corners in standalone mode */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
-.main-container {
-    width: 100%;
-    max-width: 700px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-#display-container, .display-container {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-scramble-display {
-    width: 100%;
-    max-width: 600px;
-    height: auto;
-    aspect-ratio: 3 / 2;
-    min-height: 320px;
-    resize: both;
-    overflow: hidden;
-    display: block;
-    margin: 20px auto;
-    border: 2px solid #ddd;
-    border-radius: 4px;
-}
-
-.controls-container {
-    margin-bottom: 8px;
-    padding: 5px;
-    max-width: 100%;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.collapsible {
-    cursor: pointer;
-    padding: 8px 10px;
-    margin: 3px 0;
-    background-color: #f1f1f1;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    user-select: none;
-    font-weight: bold;
-    width: 100%;
-    max-width: 300px;
-    text-align: left;
-    font-size: 1rem;
-}
-
-.collapsible:hover {
-    background-color: #e0e0e0;
-}
-
-.collapsible::before {
-    content: "▼ ";
-    display: inline-block;
-    transition: transform 0.3s ease;
-    margin-right: 5px;
-}
-
-.collapsible.collapsed::before {
-    transform: rotate(-90deg);
-}
-
-.collapsible-content {
-    max-height: 1000px;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-    padding: 4px 0;
-    width: 100%;
-    max-width: 300px;
-    display: flex;
-    justify-content: center;
-}
-
-.collapsible.collapsed + .collapsible-content {
-    max-height: 0;
-    padding: 0;
-}
-
-select {
-    width: 100%;
-    max-width: 300px;
-    padding: 8px;
-    font-size: 1rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-select[multiple] {
-    height: auto;
-    min-height: 100px;
-}
-
-.toggle-group {
-    display: flex;
-    gap: 4px;
-    justify-content: center;
-    margin: 6px 0;
-    width: 100%;
-    flex-wrap: wrap;
-}
-
-.toggle-btn {
-    flex: 1;
-    min-width: 100px;
-    padding: 6px 10px;
-    margin: 0;
-    font-size: 0.9rem;
-    background-color: #d3d3d3;
-    color: #333;
-    border: 1px solid #999;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.toggle-btn:hover {
-    background-color: #c0c0c0;
-}
-
-.toggle-btn.active {
-    background-color: #28a745;
-    color: white;
-    border-color: #218838;
-}
-
-label {
-    display: block;
-    padding: 3px 0;
-    font-size: 1rem;
-    cursor: pointer;
-    text-align: center;
-    margin: 2px 0;
-}
-
-input[type="checkbox"] {
-    margin-right: 8px;
-    cursor: pointer;
+[hidden] {
+    display: none !important;
 }
 
 button {
-    margin-top: 6px;
-    padding: 8px 15px;
-    font-size: 1rem;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    width: 100%;
-    max-width: 300px;
+    font: inherit;
+    color: inherit;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
-button:hover {
-    background-color: #0056b3;
+:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
 }
 
-button:active {
-    background-color: #004085;
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        transition: none !important;
+    }
 }
 
-.guess-section {
-    margin-bottom: 8px;
-}
+/* --------------------------------------------------------------------------
+   Header
+   -------------------------------------------------------------------------- */
 
-.button-group {
+.app-header {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0;
-    justify-content: center;
-    margin-bottom: 6px;
+    align-items: center;
+    min-height: 48px;
+    padding: 8px 16px;
+    padding-top: calc(8px + env(safe-area-inset-top));
+    background: var(--primary);
+    color: #fff;
 }
 
-.group-btn, .case-btn {
-    flex: 1;
-    min-width: 40px;
-    padding: 6px 4px;
+.app-title {
     margin: 0;
-    font-size: 1rem;
-    background-color: #e9ecef;
-    color: #333;
-    border: 1px solid #ced4da;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.group-btn:hover, .case-btn:hover {
-    background-color: #dee2e6;
-}
-
-.group-btn.active, .case-btn.active {
-    background-color: #007bff;
-    color: white;
-    border-color: #0056b3;
-}
-
-.group-btn:not(:last-child), .case-btn:not(:last-child) {
-    border-right: none;
-}
-
-.group-btn:first-child, .case-btn:first-child {
-    border-radius: 4px 0 0 4px;
-}
-
-.group-btn:last-child, .case-btn:last-child {
-    border-radius: 0 4px 4px 0;
-}
-
-#verifyBtn {
-    width: 100%;
-    max-width: 300px;
-    margin: 6px auto 0;
-    padding: 8px 15px;
-    display: block;
-}
-
-#verify-message {
     font-size: 1.1rem;
-    margin-top: 8px;
+    font-weight: 600;
+    letter-spacing: .01em;
+}
+
+/* --------------------------------------------------------------------------
+   App grid
+   -------------------------------------------------------------------------- */
+
+.app {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--gap);
+    display: grid;
+    gap: var(--gap);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+        "settings"
+        "stage"
+        "stats";
+}
+
+.settings { grid-area: settings; }
+.stage    { grid-area: stage; }
+.stats    { grid-area: stats; }
+
+.panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--tap);
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s, border-color .15s, color .15s;
+}
+
+.btn:hover {
+    background: var(--surface-2);
+}
+
+.btn-block {
+    width: 100%;
+}
+
+.btn-small {
+    min-height: 36px;
+    padding: 4px 12px;
+    font-size: .9rem;
+}
+
+.btn-primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+}
+
+.btn-outline {
+    background: transparent;
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.btn-outline:hover {
+    background: var(--primary-soft);
+}
+
+.btn-danger {
+    color: var(--danger);
+    border-color: #f1b0b7;
+}
+
+.btn-danger:hover {
+    background: var(--danger-soft);
+}
+
+/* --------------------------------------------------------------------------
+   Settings panel (collapsible on narrow screens)
+   -------------------------------------------------------------------------- */
+
+.panel-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: var(--tap);
+    padding: 8px 14px;
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    text-align: left;
+    cursor: pointer;
+}
+
+.panel-title {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.panel-meta {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: .9rem;
+    white-space: nowrap;
+}
+
+.chevron {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    margin: 0 4px 4px 2px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(45deg);
+    transition: transform .2s ease;
+}
+
+.panel.collapsed .chevron {
+    transform: rotate(-45deg);
     margin-bottom: 0;
-    padding: 10px;
 }
 
-#verify-message.correct {
-    background-color: #28a745;
-    color: white;
+.panel-body {
+    padding: 0 14px 14px;
 }
 
-#verify-message.partial {
-    background-color: #ffc107;
-    color: #333;
+.settings.collapsed .panel-body {
+    display: none;
 }
 
-#verify-message.incorrect {
-    background-color: #dc3545;
-    color: white;
+.section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 6px 0 6px;
+}
+
+.section-head h2,
+.section-title {
+    margin: 0;
+    font-size: .8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+}
+
+.section-title {
+    margin: 18px 0 8px;
+}
+
+.bulk-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.hint {
+    margin: 0 0 8px;
+    font-size: .8rem;
+    color: var(--muted);
+}
+
+/* Case picker: one row per group -> [letter] [1] [2] [3] [4] [5] [6] */
+
+.case-picker {
+    display: grid;
+    gap: 6px;
+}
+
+.case-row {
+    display: grid;
+    grid-template-columns: minmax(40px, 1.15fr) repeat(6, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.group-toggle,
+.case-chip {
+    min-height: 40px;
+    min-width: 0;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s, border-color .15s, color .15s;
+}
+
+.group-toggle {
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.group-toggle:hover,
+.case-chip:hover {
+    border-color: #b8c2cf;
+}
+
+.group-toggle[data-state="all"] {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.group-toggle[data-state="some"] {
+    border: 2px dashed var(--primary);
+    color: var(--primary-dark);
+}
+
+.case-chip {
+    font-weight: 500;
+    color: var(--muted);
+    background: var(--surface-2);
+}
+
+.case-chip[aria-pressed="true"] {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    color: var(--primary-dark);
+    font-weight: 600;
+}
+
+/* Option switches */
+
+.toggle-list {
+    display: grid;
+    gap: 6px;
+}
+
+.switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: var(--tap);
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+}
+
+.switch:hover {
+    background: var(--surface-2);
+}
+
+.switch-track {
+    position: relative;
+    flex: none;
+    width: 40px;
+    height: 24px;
+    border-radius: 12px;
+    background: #c6ccd6;
+    transition: background .2s ease;
+}
+
+.switch-track::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .3);
+    transition: transform .2s ease;
+}
+
+.switch[aria-pressed="true"] .switch-track {
+    background: var(--success);
+}
+
+.switch[aria-pressed="true"] .switch-track::after {
+    transform: translateX(16px);
+}
+
+/* --------------------------------------------------------------------------
+   Stage: cube, case info, guessing UI
+   -------------------------------------------------------------------------- */
+
+.stage {
+    /* --cube-w is the shared width of the cube card, the guessing UI and the
+       "New scramble" button, so they stay aligned. --vh is the viewport
+       height used to keep the cube inside the screen on short viewports. */
+    --vh: 100vh;
+    --cube-w: 640px;
+    display: grid;
+    gap: var(--gap);
+    align-content: start;
+    justify-items: center;
+}
+
+@supports (height: 1dvh) {
+    .stage {
+        --vh: 100dvh;
+    }
+}
+
+.stage > * {
+    width: min(100%, var(--cube-w));
+}
+
+.cube-card {
+    display: grid;
+    place-items: center;
+    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+#display-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+scramble-display {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 2;
+}
+
+.empty-state {
+    margin: 0;
+    padding: 12px;
+    text-align: center;
+    color: var(--muted);
+}
+
+.case-info {
+    padding: 12px 16px;
+    text-align: center;
+    background: var(--surface);
+    border: 2px solid var(--primary);
+    border-radius: var(--radius);
+}
+
+.case-id {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 4px;
+}
+
+.case-solution {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 1rem;
+    word-break: break-word;
+}
+
+.guess {
+    display: grid;
+    gap: 8px;
+}
+
+.guess-label {
+    margin: 0;
+    font-size: .85rem;
+    color: var(--muted);
+    text-align: center;
+}
+
+/* Segmented control for group / case guesses */
+
+.seg {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    user-select: none;
+}
+
+.seg > button {
+    min-height: var(--tap);
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+
+.seg > button:first-child {
+    border-left: 0;
+}
+
+.seg > button:hover {
+    background: var(--surface-2);
+}
+
+.seg > button.active {
+    background: var(--primary);
+    color: #fff;
+}
+
+.seg > button:disabled {
+    cursor: default;
+    color: var(--muted);
+}
+
+.seg > button:disabled.active {
+    color: #fff;
+}
+
+.verify-message {
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    font-size: 1.05rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.verify-stats {
+    margin-top: 6px;
+    font-size: .9rem;
+    font-weight: 400;
+}
+
+.verify-message.correct {
+    background: var(--success);
+    color: #fff;
+}
+
+.verify-message.partial {
+    background: var(--warning);
+    color: #222;
+}
+
+.verify-message.incorrect {
+    background: var(--danger);
+    color: #fff;
+}
+
+/* --------------------------------------------------------------------------
+   Stats
+   -------------------------------------------------------------------------- */
+
+.stats-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-right: 14px;
+}
+
+.stats-head .panel-toggle {
+    flex: 1;
+    min-width: 0;
+}
+
+.stats-head .chevron {
+    margin-left: auto;
+}
+
+.stats.collapsed .stats-body,
+.stats.collapsed #resetStatsBtn {
+    display: none;
 }
 
 #stats-table-container {
-    width: 100%;
-    max-width: 700px;
-    margin: 0 auto;
     overflow-x: auto;
+    padding: 0 10px 10px;
 }
 
 #stats-table-container table {
     width: 100%;
     border-collapse: collapse;
-    border: 1px solid #ddd;
-    font-size: 0.9rem;
+    font-size: .9rem;
     text-align: center;
+    font-variant-numeric: tabular-nums;
 }
 
 #stats-table-container th,
 #stats-table-container td {
-    border: 1px solid #ddd;
     padding: 6px 4px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
 }
 
 #stats-table-container th {
-    background-color: #f1f1f1;
-    font-weight: bold;
-    padding: 8px 4px;
+    background: var(--surface-2);
+    font-weight: 600;
 }
 
-#stats-table-container td {
-    height: 28px;
+#stats-table-container td.total {
+    background: var(--surface-2);
+    font-weight: 600;
 }
 
-#stats-table-container tr:nth-child(odd) td {
-    background-color: #fafafa;
-}
+/* --------------------------------------------------------------------------
+   Very narrow screens (folded fold-phones, small phones)
+   -------------------------------------------------------------------------- */
 
-#stats-table-container tr:nth-child(even) td {
-    background-color: #fff;
-}
-
-#guessing-container {
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-    margin-top: 10px;
-}
-
-#case-info-container {
-    margin-top: 20px;
-    padding: 15px;
-    background-color: #f9f9f9;
-    border: 2px solid #007bff;
-    border-radius: 4px;
-    text-align: center;
-    min-width: 300px;
-    max-width: 600px;
-    width: 100%;
-}
-
-.case-id {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #007bff;
-    margin-bottom: 10px;
-}
-
-.case-scramble {
-    font-family: 'Courier New', monospace;
-    font-size: 1.1rem;
-    color: #333;
-    word-break: break-word;
-}
-
-/* Tablet and smaller screens */
-@media (max-width: 768px) {
-    body {
+@media (max-width: 360px) {
+    .app {
         padding: 8px;
+        gap: 8px;
     }
 
-    .main-container {
-        max-width: 100%;
+    .panel-body {
+        padding: 0 10px 10px;
     }
 
-    .controls-container {
-        padding: 8px;
-        margin-bottom: 15px;
-        max-width: 100%;
+    .case-row {
+        gap: 3px;
     }
 
-    scramble-display {
-        margin: 15px auto;
-        max-width: 100%;
+    .group-toggle,
+    .case-chip {
+        min-height: 38px;
     }
 
-    #display-container, .display-container {
-        margin: 0 auto;
-        max-width: 100%;
+    #stats-table-container table {
+        font-size: .8rem;
     }
 
-    .collapsible {
-        max-width: 100%;
-    }
-
-    .collapsible-content {
-        max-width: 100%;
-    }
-
-    select {
-        max-width: 100%;
-    }
-
-    button {
-        max-width: 100%;
-    }
-
-    #case-info-container {
-        max-width: 100%;
-        min-width: auto;
+    #stats-table-container th,
+    #stats-table-container td {
+        padding: 5px 2px;
     }
 }
 
-/* Mobile phones */
-@media (max-width: 480px) {
-    body {
-        padding: 5px;
+/* --------------------------------------------------------------------------
+   Landscape phones: cube left, guessing UI right
+   -------------------------------------------------------------------------- */
+
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 899.98px) {
+    .app-header {
+        min-height: 36px;
+        padding-top: calc(4px + env(safe-area-inset-top));
+        padding-bottom: 4px;
     }
 
-    .controls-container {
-        padding: 5px;
+    .app-title {
+        font-size: 1rem;
     }
 
-    .collapsible {
-        padding: 8px 10px;
-        font-size: 0.95rem;
+    .app {
+        padding: 8px;
+        gap: 8px;
     }
 
-    select {
-        font-size: 0.95rem;
+    .stage {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
     }
 
-    label {
-        font-size: 0.95rem;
+    .cube-card {
+        grid-column: 1;
+        grid-row: 1 / span 3;
     }
 
-    button {
-        padding: 8px 15px;
-        font-size: 0.95rem;
+    .stage {
+        --cube-w: calc((var(--vh) - 6rem) * 1.5);
     }
 
-    .case-id {
-        font-size: 1.2rem;
+    .guess {
+        gap: 6px;
     }
 
-    .case-scramble {
-        font-size: 0.95rem;
+    .guess-label {
+        display: none;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Wide screens: sidebar layout
+   -------------------------------------------------------------------------- */
+
+@media (min-width: 900px) {
+    .app {
+        grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+        grid-template-areas:
+            "stage settings"
+            "stage stats";
+        align-items: start;
+        padding: 20px;
+        gap: 20px;
+    }
+
+    /* settings are always open in the sidebar */
+    .settings.collapsed .panel-body {
+        display: block;
+    }
+
+    .settings .panel-toggle {
+        cursor: default;
+        pointer-events: none;
+    }
+
+    .settings .chevron {
+        display: none;
+    }
+
+    .cube-card {
+        padding: 12px;
+    }
+
+    /* fit cube + guessing UI into the viewport height */
+    .stage {
+        --cube-w: min(720px, max(280px, calc((var(--vh) - 24rem) * 1.5)));
+    }
+}
+
+/* Large screens */
+
+@media (min-width: 1400px) {
+    :root {
+        font-size: 17px;
+    }
+
+    .app {
+        grid-template-columns: minmax(0, 1fr) 400px;
+        padding: 28px;
+        gap: 28px;
+    }
+
+    .stage {
+        --cube-w: min(900px, max(280px, calc((var(--vh) - 24rem) * 1.5)));
+    }
+}
+
+@media (min-width: 2000px) {
+    :root {
+        font-size: 18px;
+    }
+
+    .app {
+        max-width: 1700px;
+    }
+
+    .stage {
+        --cube-w: min(1100px, max(280px, calc((var(--vh) - 26rem) * 1.5)));
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Dual-screen / fold-phones spanning two segments with a vertical hinge:
+   put the two columns onto the two segments so nothing sits under the hinge.
+   -------------------------------------------------------------------------- */
+
+@media (horizontal-viewport-segments: 2) {
+    .app {
+        max-width: none;
+        padding-left: 0;
+        padding-right: 0;
+        grid-template-columns: env(viewport-segment-width 0 0) env(viewport-segment-width 1 0);
+        grid-template-areas:
+            "stage settings"
+            "stage stats";
+        column-gap: calc(env(viewport-segment-left 1 0) - env(viewport-segment-right 0 0));
+    }
+
+    .stage {
+        padding-left: var(--gap);
+    }
+
+    .settings,
+    .stats {
+        margin-right: var(--gap);
+    }
+
+    .settings.collapsed .panel-body {
+        display: block;
+    }
+
+    .settings .panel-toggle {
+        pointer-events: none;
+    }
+
+    .settings .chevron {
+        display: none;
     }
 }
