@@ -59,6 +59,9 @@ const cllCases = {
 };
 
 const GROUPS = ["A", "H", "L", "P", "S", "T", "U"];
+// Order for browsing cases (picker and overview): groups whose same-coloured
+// stickers sit next to each other are easier to recognise, so they come first.
+const GROUP_DISPLAY_ORDER = ["H", "P", "U", "T", "L", "S", "A"];
 const GROUP_NAMES = { A: "Anti-Sune", H: "H", L: "L", P: "Pi", S: "Sune", T: "T", U: "U" };
 const CASE_IDS = cllCases.cases.map(c => c.id);
 const casesByGroup = Object.fromEntries(
@@ -165,7 +168,7 @@ displayContainer.appendChild(el);
 
 function buildCasePicker() {
   casePicker.innerHTML = "";
-  GROUPS.forEach(group => {
+  GROUP_DISPLAY_ORDER.forEach(group => {
     const row = document.createElement("div");
     row.className = "case-row";
 
@@ -573,7 +576,7 @@ async function buildOverview() {
   hint.textContent = "Top view of each case (white on bottom). \"Opposite\" is the case you get by doing the alg on a solved cube.";
   overviewBody.appendChild(hint);
 
-  GROUPS.forEach(group => {
+  GROUP_DISPLAY_ORDER.forEach(group => {
     const section = document.createElement("section");
     section.className = "ov-group";
 
