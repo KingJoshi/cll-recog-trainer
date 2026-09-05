@@ -1,5 +1,5 @@
 import { ScrambleDisplay } from 'scramble-display';
-import { TwistyPlayer } from 'cubing/twisty';
+import { puzzles } from 'cubing/puzzles';
 import './style.css';
 
 // Register service worker for offline support (production only; the dev
@@ -512,23 +512,60 @@ function resetGuessingUI() {
 
 let overviewBuilt = false;
 
-function createCaseDiagram(caseObj) {
-  // Same orientation as the trainer with "Always white bottom": z2 first,
-  // then the case scramble; the 2D last-layer view shows the top face plus
-  // the side stickers of the top layer.
-  return new TwistyPlayer({
-    puzzle: "2x2x2",
-    alg: `z2 ${caseObj.scramble}`,
-    visualization: "experimental-2D-LL",
-    controlPanel: "none",
-    background: "none",
-    viewerLink: "none",
-    hintFacelets: "none",
-    experimentalDragInput: "none"
-  });
+// Sticker colours, matching the 3D view
+const FACE_COLORS = { U: "#ffffff", D: "#ffff00", F: "#32cd32", B: "#2266ff", R: "#ff0000", L: "#ffa500" };
+
+// Faces of the three stickers (orientation 0, 1, 2) of each corner location in
+// cubing.js's 2x2x2 definition: 0 UFR, 1 UBR, 2 UBL, 3 UFL, 4 DFR, 5 DFL,
+// 6 DBL, 7 DBR.
+const CORNER_FACES = [
+  ["U", "R", "F"], ["U", "B", "R"], ["U", "L", "B"], ["U", "F", "L"],
+  ["D", "F", "R"], ["D", "L", "F"], ["D", "B", "L"], ["D", "R", "B"]
+];
+
+// Cross-shaped top view: big 2x2 top face, thin side-sticker bars on the four
+// edges (F at the bottom, B at the top, L left, R right).
+function caseDiagramSVG(pattern, label) {
+  const { pieces, orientation } = pattern.patternData.CORNERS;
+  const color = (loc, o) =>
+    FACE_COLORS[CORNER_FACES[pieces[loc]][(o - orientation[loc] + 3) % 3]];
+
+  const S = 30;   // top sticker size
+  const D = 8;    // side sticker depth
+  const G = 3;    // gap between top face and side bars
+  const M = 1.5;  // margin
+  const T = M + D + G;      // top-left of the top face
+  const W = T * 2 + 2 * S;  // total size
+  const rect = (x, y, w, h, fill) =>
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/>`;
+
+  return `<svg viewBox="0 0 ${W} ${W}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Top view of case ${label}">` +
+    // top face: UBL, UBR, UFL, UFR
+    rect(T, T, S, S, color(2, 0)) +
+    rect(T + S, T, S, S, color(1, 0)) +
+    rect(T, T + S, S, S, color(3, 0)) +
+    rect(T + S, T + S, S, S, color(0, 0)) +
+    // B side (top bar): UBL's B, UBR's B
+    rect(T, M, S, D, color(2, 2)) +
+    rect(T + S, M, S, D, color(1, 1)) +
+    // F side (bottom bar): UFL's F, UFR's F
+    rect(T, T + 2 * S + G, S, D, color(3, 1)) +
+    rect(T + S, T + 2 * S + G, S, D, color(0, 2)) +
+    // L side (left bar): UBL's L, UFL's L
+    rect(M, T, D, S, color(2, 1)) +
+    rect(M, T + S, D, S, color(3, 2)) +
+    // R side (right bar): UBR's R, UFR's R
+    rect(T + 2 * S + G, T, D, S, color(1, 2)) +
+    rect(T + 2 * S + G, T + S, D, S, color(0, 1)) +
+    `</svg>`;
 }
 
-function buildOverview() {
+async function buildOverview() {
+  // Same orientation as the trainer with "Always white bottom": z2 first,
+  // then the case scramble.
+  const kpuzzle = await puzzles["2x2x2"].kpuzzle();
+  const solved = kpuzzle.defaultPattern();
+
   overviewBody.innerHTML = "";
 
   const hint = document.createElement("p");
@@ -553,7 +590,7 @@ function buildOverview() {
 
       const diagram = document.createElement("div");
       diagram.className = "ov-diagram";
-      diagram.appendChild(createCaseDiagram(caseObj));
+      diagram.innerHTML = caseDiagramSVG(solved.applyAlg(`z2 ${caseObj.scramble}`), caseObj.id);
 
       const id = document.createElement("div");
       id.className = "ov-id";
@@ -578,8 +615,8 @@ function buildOverview() {
   overviewBuilt = true;
 }
 
-function openOverview() {
-  if (!overviewBuilt) buildOverview();
+async function openOverview() {
+  if (!overviewBuilt) await buildOverview();
   overview.hidden = false;
   document.documentElement.classList.add("overview-open");
   overviewClose.focus();

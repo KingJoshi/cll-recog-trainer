@@ -727,8 +727,8 @@ html.overview-open body {
     margin: 0 auto 6px;
 }
 
-/* keep the player's own display: grid; a block host collapses its wrapper */
-.ov-diagram twisty-player {
+.ov-diagram svg {
+    display: block;
     width: 100%;
     height: 100%;
 }
