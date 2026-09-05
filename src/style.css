@@ -83,6 +83,8 @@ button {
 .app-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     min-height: 48px;
     padding: 8px 16px;
     padding-top: calc(8px + env(safe-area-inset-top));
@@ -95,6 +97,22 @@ button {
     font-size: 1.1rem;
     font-weight: 600;
     letter-spacing: .01em;
+}
+
+.header-btn {
+    min-height: 36px;
+    padding: 4px 12px;
+    border: 1px solid rgba(255, 255, 255, .7);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.header-btn:hover {
+    background: rgba(255, 255, 255, .24);
 }
 
 /* --------------------------------------------------------------------------
@@ -472,6 +490,16 @@ scramble-display {
     word-break: break-word;
 }
 
+.case-opposite {
+    margin-top: 6px;
+    font-size: .95rem;
+    color: var(--muted);
+}
+
+.case-opposite strong {
+    color: var(--text);
+}
+
 .guess {
     display: grid;
     gap: 8px;
@@ -614,6 +642,125 @@ scramble-display {
 #stats-table-container td.total {
     background: var(--surface-2);
     font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   Case overview (full-screen overlay)
+   -------------------------------------------------------------------------- */
+
+html.overview-open,
+html.overview-open body {
+    overflow: hidden;
+}
+
+.overview {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+}
+
+.overview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    padding: 8px 16px;
+    padding-top: calc(8px + env(safe-area-inset-top));
+    background: var(--primary);
+    color: #fff;
+}
+
+.overview-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.overview-body {
+    flex: 1;
+    overflow: auto;
+    padding: var(--gap);
+    padding-bottom: calc(var(--gap) + env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch;
+}
+
+.overview-hint {
+    max-width: 1400px;
+    margin: 0 auto 12px;
+    font-size: .85rem;
+    color: var(--muted);
+}
+
+.ov-group {
+    max-width: 1400px;
+    margin: 0 auto 20px;
+}
+
+.ov-group h3 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+}
+
+.ov-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.ov-card {
+    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+
+.ov-diagram {
+    width: 100%;
+    max-width: 150px;
+    aspect-ratio: 1;
+    margin: 0 auto 6px;
+}
+
+/* keep the player's own display: grid; a block host collapses its wrapper */
+.ov-diagram twisty-player {
+    width: 100%;
+    height: 100%;
+}
+
+.ov-id {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--primary);
+}
+
+.ov-opp {
+    font-size: .8rem;
+    color: var(--muted);
+}
+
+.ov-alg {
+    margin-top: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .8rem;
+    word-break: break-word;
+}
+
+@media (max-width: 360px) {
+    .ov-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1100px) {
+    .ov-cards {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
 }
 
 /* --------------------------------------------------------------------------

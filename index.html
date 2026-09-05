@@ -17,6 +17,7 @@
 
 <header class="app-header">
   <h1 class="app-title">2x2 CLL Trainer</h1>
+  <button type="button" id="overviewBtn" class="header-btn">Case overview</button>
 </header>
 
 <main class="app">
@@ -112,6 +113,17 @@
   </section>
 
 </main>
+
+<!-- Case overview: every case with its top-view diagram, opposite case and alg -->
+<div id="overview" class="overview" role="dialog" aria-modal="true" aria-labelledby="overviewTitle" hidden>
+  <div class="overview-header">
+    <h2 id="overviewTitle" class="overview-title">CLL case overview</h2>
+    <button type="button" id="overviewClose" class="header-btn">Close</button>
+  </div>
+  <div id="overviewBody" class="overview-body">
+    <!-- Populated by JavaScript on first open -->
+  </div>
+</div>
 
 <script type="module" src="/src/main.js"></script>
 </body>

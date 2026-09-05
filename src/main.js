@@ -1,4 +1,5 @@
 import { ScrambleDisplay } from 'scramble-display';
+import { TwistyPlayer } from 'cubing/twisty';
 import './style.css';
 
 // Register service worker for offline support (production only; the dev
@@ -9,53 +10,56 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   });
 }
 
-// CLL cases with scrambles and solutions
+// CLL cases with scrambles and solutions. "opposite" is the case you get by
+// performing the solution on a solved cube (the inverse case), handy for
+// chaining practice.
 const cllCases = {
   "cases": [
-    { "id": "A1", "group": "A", "scramble": "R U R' U R U2 R' U'", "solution": "(R' U' R U' R' U2 R)" },
-    { "id": "A2", "group": "A", "scramble": "R U R' U' R' F R F' R U' R' F R' F' R U", "solution": "(Sledge) (R U R') (Hedge) (*Righty)" },
-    { "id": "A3", "group": "A", "scramble": "F R' F' R U R U2' R' F R' F' R U'", "solution": "^(U) (Sledge) R U2' R' U' (Sledge)" },
-    { "id": "A4", "group": "A", "scramble": "R U' R' F R' F' R U2", "solution": "^(U2) (Sledge) (R U R')" },
-    { "id": "A5", "group": "A", "scramble": "R U R' U' R' F R F' R U R' U R U2 R' U", "solution": "(Anti-sune1a) (Hedge) (*Righty)" },
-    { "id": "A6", "group": "A", "scramble": "F R' F' R U2 R U2 R' U2", "solution": "^(U2) (R U2 R') U2 (Sledge)" },
-    { "id": "H1", "group": "H", "scramble": "R2 U2 R U2 R2", "solution": "R2 U2 R U2 R2" },
-    { "id": "H2", "group": "H", "scramble": "F R U R' U' R U R' U' R U R' U' F'", "solution": "F (Righty)3 F'" },
-    { "id": "H3", "group": "H", "scramble": "R' F R F' R U' R' U' R U' R' U", "solution": "^(U') R U R' U R U R' (Hedge)" },
-    { "id": "H4", "group": "H", "scramble": "F R' F' R U2 R U R' F R' F' R U'", "solution": "^(U) (Sledge) (R U' R') U2 (Sledge)" },
-    { "id": "L1", "group": "L", "scramble": "R' F' R U R U' R' F U'", "solution": "F R U' R' U' R U R' F'" },
-    { "id": "L2", "group": "L", "scramble": "R U R' U' R' F R F'", "solution": "(Hedge) (*Righty)" },
-    { "id": "L3", "group": "L", "scramble": "R' F2 R2 U' R' F R' F2 R U2", "solution": "^(U) R' F2 R2 U' R' F R' F2 R" },
-    { "id": "L4", "group": "L", "scramble": "R U' R U' R U2 R' U R' U R'", "solution": "R U' R U' R U2 R' U R' U R'" },
-    { "id": "L5", "group": "L", "scramble": "R U' R2 F R F' R U R' U' R U R' U", "solution": "^(U') R U' R' U R U' R' F R' F' R2 U R'" },
-    { "id": "L6", "group": "L", "scramble": "R' U R' F R F' R U2 R' U R", "solution": "R' U' R U2 R' F R' F' R U' R" },
-    { "id": "P1", "group": "P", "scramble": "F R U R' U' R U R' U' F' U2", "solution": "F (Righty)2 F'" },
-    { "id": "P2", "group": "P", "scramble": "R U' R' U2 R' F R F' U2 R U R' U2", "solution": "R U' R' U2 (Sledge) U2 R U R'" },
-    { "id": "P3", "group": "P", "scramble": "R U R' U R U R' F R' F' R U2", "solution": "^(U2) (Sledge) R U' R' U' R U' R'" },
-    { "id": "P4", "group": "P", "scramble": "R' F R F' R U' R' U2 R' F R F' U'", "solution": "^(U) (Hedge) U2 R U R' (Hedge)" },
-    { "id": "P5", "group": "P", "scramble": "R' F2 R U R' F' R U2 R U' R' F U'", "solution": "(R U2 R' U') (R U R') U2 (Sledge)" },
-    { "id": "P6", "group": "P", "scramble": "R U2 R' U' R U R' U2 R' F R F' U'", "solution": "^(U) (Hedge) U2 (R U' R') (U R U2 R')" },
-    { "id": "S1", "group": "S", "scramble": "R' U' R U' R' U2 R U", "solution": "(R U R' U R U2 R')" },
-    { "id": "S2", "group": "S", "scramble": "R' F R F' R U R' F R' F' R U R U' R'", "solution": "(Righty) (Sledge) (R U' R') (Hedge)" },
-    { "id": "S3", "group": "S", "scramble": "R U2 R' U2 R' F R F'", "solution": "(Hedge) U2 (R U2 R')" },
-    { "id": "S4", "group": "S", "scramble": "R' F R F' R U R'", "solution": "R U' R' (Hedge)" },
-    { "id": "S5", "group": "S", "scramble": "R U2 R' U' R U' R' F R' F' R U R U' R'", "solution": "(Righty) (Sledge) (Sune1a)" },
-    { "id": "S6", "group": "S", "scramble": "R' F R F' R U2' R' U' R' F R F'", "solution": "(Hedge) U R U2' R' (Hedge)" },
-    { "id": "T1", "group": "T", "scramble": "F R' F' R U R U' R'", "solution": "(Righty) (Sledge)" },
-    { "id": "T2", "group": "T", "scramble": "F R U' R' U' R U R' F'", "solution": "^(U2) R' F' R (*Righty) F" },
-    { "id": "T3", "group": "T", "scramble": "R2 U2 R' U2 R' F R F' U' R' U", "solution": "R2 U2 R' U2 (Sledge) U' R'" },
-    { "id": "T4", "group": "T", "scramble": "R' F R F' R' F R F' R U R' U' R U R' U'", "solution": "^(U) (R U' R') (*Righty) (Hedge)2" },
-    { "id": "T5", "group": "T", "scramble": "F R' F' R U' R U' R' U2 R U' R' U2", "solution": "^(U2) (R U R') U2 (R U R') U (Sledge)" },
-    { "id": "T6", "group": "T", "scramble": "R U' R' U' F R' F' R2 U' R' U'", "solution": "^(U') R U' R' U' (Hedge) (R U' R')" },
-    { "id": "U1", "group": "U", "scramble": "F R U R' U' F' U2", "solution": "F (Righty) F'" },
-    { "id": "U2", "group": "U", "scramble": "R U R' U R U2 R' U2 R' U' R U' R' U2 R U2", "solution": "(Sledge) (Sledge) (Righty) (R U R')" },
-    { "id": "U3", "group": "U", "scramble": "F R U' R2 F R F' R U2 R' F' U2", "solution": "F R U' R' (Sledge) R U2 R' F'" },
-    { "id": "U4", "group": "U", "scramble": "R U R' U2 R U R' U R' F R F'", "solution": "(Hedge) U' R U' R' U2 R U' R'" },
-    { "id": "U5", "group": "U", "scramble": "R U' R' U R U' R' F R' F' R2 U R' U'", "solution": "(*Righty) (Sledge) (Righty) (R U R')" },
-    { "id": "U6", "group": "U", "scramble": "R' U' R U2 R' F R' F' R U' R U'", "solution": "^(U) R' U (Sledge) R U2 R' U R" }
+    { "id": "A1", "group": "A", "opposite": "S1", "scramble": "R U R' U R U2 R' U'", "solution": "(R' U' R U' R' U2 R)" },
+    { "id": "A2", "group": "A", "opposite": "S2", "scramble": "R U R' U' R' F R F' R U' R' F R' F' R U", "solution": "(Sledge) (R U R') (Hedge) (*Righty)" },
+    { "id": "A3", "group": "A", "opposite": "S6", "scramble": "F R' F' R U R U2' R' F R' F' R U'", "solution": "^(U) (Sledge) R U2' R' U' (Sledge)" },
+    { "id": "A4", "group": "A", "opposite": "S4", "scramble": "R U' R' F R' F' R U2", "solution": "^(U2) (Sledge) (R U R')" },
+    { "id": "A5", "group": "A", "opposite": "S5", "scramble": "R U R' U' R' F R F' R U R' U R U2 R' U", "solution": "(Anti-sune1a) (Hedge) (*Righty)" },
+    { "id": "A6", "group": "A", "opposite": "S3", "scramble": "F R' F' R U2 R U2 R' U2", "solution": "^(U2) (R U2 R') U2 (Sledge)" },
+    { "id": "H1", "group": "H", "opposite": "H1", "scramble": "R2 U2 R U2 R2", "solution": "R2 U2 R U2 R2" },
+    { "id": "H2", "group": "H", "opposite": "H2", "scramble": "F R U R' U' R U R' U' R U R' U' F'", "solution": "F (Righty)3 F'" },
+    { "id": "H3", "group": "H", "opposite": "P3", "scramble": "R' F R F' R U' R' U' R U' R' U", "solution": "^(U') R U R' U R U R' (Hedge)" },
+    { "id": "H4", "group": "H", "opposite": "P4", "scramble": "F R' F' R U2 R U R' F R' F' R U'", "solution": "^(U) (Sledge) (R U' R') U2 (Sledge)" },
+    { "id": "L1", "group": "L", "opposite": "T2", "scramble": "R' F' R U R U' R' F U'", "solution": "F R U' R' U' R U R' F'" },
+    { "id": "L2", "group": "L", "opposite": "T1", "scramble": "R U R' U' R' F R F'", "solution": "(Hedge) (*Righty)" },
+    { "id": "L3", "group": "L", "opposite": "L3", "scramble": "R' F2 R2 U' R' F R' F2 R U2", "solution": "^(U) R' F2 R2 U' R' F R' F2 R" },
+    { "id": "L4", "group": "L", "opposite": "L4", "scramble": "R U' R U' R U2 R' U R' U R'", "solution": "R U' R U' R U2 R' U R' U R'" },
+    { "id": "L5", "group": "L", "opposite": "U5", "scramble": "R U' R2 F R F' R U R' U' R U R' U", "solution": "^(U') R U' R' U R U' R' F R' F' R2 U R'" },
+    { "id": "L6", "group": "L", "opposite": "U6", "scramble": "R' U R' F R F' R U2 R' U R", "solution": "R' U' R U2 R' F R' F' R U' R" },
+    { "id": "P1", "group": "P", "opposite": "P1", "scramble": "F R U R' U' R U R' U' F' U2", "solution": "F (Righty)2 F'" },
+    { "id": "P2", "group": "P", "opposite": "P2", "scramble": "R U' R' U2 R' F R F' U2 R U R' U2", "solution": "R U' R' U2 (Sledge) U2 R U R'" },
+    { "id": "P3", "group": "P", "opposite": "H3", "scramble": "R U R' U R U R' F R' F' R U2", "solution": "^(U2) (Sledge) R U' R' U' R U' R'" },
+    { "id": "P4", "group": "P", "opposite": "H4", "scramble": "R' F R F' R U' R' U2 R' F R F' U'", "solution": "^(U) (Hedge) U2 R U R' (Hedge)" },
+    { "id": "P5", "group": "P", "opposite": "P6", "scramble": "R' F2 R U R' F' R U2 R U' R' F U'", "solution": "(R U2 R' U') (R U R') U2 (Sledge)" },
+    { "id": "P6", "group": "P", "opposite": "P5", "scramble": "R U2 R' U' R U R' U2 R' F R F' U'", "solution": "^(U) (Hedge) U2 (R U' R') (U R U2 R')" },
+    { "id": "S1", "group": "S", "opposite": "A1", "scramble": "R' U' R U' R' U2 R U", "solution": "(R U R' U R U2 R')" },
+    { "id": "S2", "group": "S", "opposite": "A2", "scramble": "R' F R F' R U R' F R' F' R U R U' R'", "solution": "(Righty) (Sledge) (R U' R') (Hedge)" },
+    { "id": "S3", "group": "S", "opposite": "A6", "scramble": "R U2 R' U2 R' F R F'", "solution": "(Hedge) U2 (R U2 R')" },
+    { "id": "S4", "group": "S", "opposite": "A4", "scramble": "R' F R F' R U R'", "solution": "R U' R' (Hedge)" },
+    { "id": "S5", "group": "S", "opposite": "A5", "scramble": "R U2 R' U' R U' R' F R' F' R U R U' R'", "solution": "(Righty) (Sledge) (Sune1a)" },
+    { "id": "S6", "group": "S", "opposite": "A3", "scramble": "R' F R F' R U2' R' U' R' F R F'", "solution": "(Hedge) U R U2' R' (Hedge)" },
+    { "id": "T1", "group": "T", "opposite": "L2", "scramble": "F R' F' R U R U' R'", "solution": "(Righty) (Sledge)" },
+    { "id": "T2", "group": "T", "opposite": "L1", "scramble": "F R U' R' U' R U R' F'", "solution": "^(U2) R' F' R (*Righty) F" },
+    { "id": "T3", "group": "T", "opposite": "T3", "scramble": "R2 U2 R' U2 R' F R F' U' R' U", "solution": "R2 U2 R' U2 (Sledge) U' R'" },
+    { "id": "T4", "group": "T", "opposite": "U2", "scramble": "R' F R F' R' F R F' R U R' U' R U R' U'", "solution": "^(U) (R U' R') (*Righty) (Hedge)2" },
+    { "id": "T5", "group": "T", "opposite": "U4", "scramble": "F R' F' R U' R U' R' U2 R U' R' U2", "solution": "^(U2) (R U R') U2 (R U R') U (Sledge)" },
+    { "id": "T6", "group": "T", "opposite": "T6", "scramble": "R U' R' U' F R' F' R2 U' R' U'", "solution": "^(U') R U' R' U' (Hedge) (R U' R')" },
+    { "id": "U1", "group": "U", "opposite": "U1", "scramble": "F R U R' U' F' U2", "solution": "F (Righty) F'" },
+    { "id": "U2", "group": "U", "opposite": "T4", "scramble": "R U R' U R U2 R' U2 R' U' R U' R' U2 R U2", "solution": "(Sledge) (Sledge) (Righty) (R U R')" },
+    { "id": "U3", "group": "U", "opposite": "U3", "scramble": "F R U' R2 F R F' R U2 R' F' U2", "solution": "F R U' R' (Sledge) R U2 R' F'" },
+    { "id": "U4", "group": "U", "opposite": "T5", "scramble": "R U R' U2 R U R' U R' F R F'", "solution": "(Hedge) U' R U' R' U2 R U' R'" },
+    { "id": "U5", "group": "U", "opposite": "L5", "scramble": "R U' R' U R U' R' F R' F' R2 U R' U'", "solution": "(*Righty) (Sledge) (Righty) (R U R')" },
+    { "id": "U6", "group": "U", "opposite": "L6", "scramble": "R' U' R U2 R' F R' F' R U' R U'", "solution": "^(U) R' U (Sledge) R U2 R' U R" }
   ]
 };
 
 const GROUPS = ["A", "H", "L", "P", "S", "T", "U"];
+const GROUP_NAMES = { A: "Anti-Sune", H: "H", L: "L", P: "Pi", S: "Sune", T: "T", U: "U" };
 const CASE_IDS = cllCases.cases.map(c => c.id);
 const casesByGroup = Object.fromEntries(
   GROUPS.map(g => [g, cllCases.cases.filter(c => c.group === g)])
@@ -142,6 +146,10 @@ const settingsPanel = document.getElementById("settingsPanel");
 const settingsToggle = document.getElementById("settingsToggle");
 const statsPanel = document.getElementById("statsPanel");
 const statsToggle = document.getElementById("statsToggle");
+const overview = document.getElementById("overview");
+const overviewBtn = document.getElementById("overviewBtn");
+const overviewClose = document.getElementById("overviewClose");
+const overviewBody = document.getElementById("overviewBody");
 const groupButtons = Array.from(document.querySelectorAll(".group-btn"));
 const caseButtons = Array.from(document.querySelectorAll(".case-btn"));
 
@@ -389,6 +397,7 @@ function updateCaseInfoDisplay() {
     caseInfoContainer.innerHTML = `
       <div class="case-id">${caseObj.id}</div>
       <div class="case-solution"><b>Solution:</b> ${caseObj.solution || ''}</div>
+      <div class="case-opposite">Opposite (after the alg): <strong>${caseObj.opposite}</strong></div>
     `;
     caseInfoContainer.hidden = false;
   } else {
@@ -496,6 +505,97 @@ function resetGuessingUI() {
   regenerateBtn.classList.remove("btn-primary");
   regenerateBtn.classList.add("btn-outline");
 }
+
+// ---------------------------------------------------------------------------
+// Case overview: every case with a top-view diagram, its opposite and alg
+// ---------------------------------------------------------------------------
+
+let overviewBuilt = false;
+
+function createCaseDiagram(caseObj) {
+  // Same orientation as the trainer with "Always white bottom": z2 first,
+  // then the case scramble; the 2D last-layer view shows the top face plus
+  // the side stickers of the top layer.
+  return new TwistyPlayer({
+    puzzle: "2x2x2",
+    alg: `z2 ${caseObj.scramble}`,
+    visualization: "experimental-2D-LL",
+    controlPanel: "none",
+    background: "none",
+    viewerLink: "none",
+    hintFacelets: "none",
+    experimentalDragInput: "none"
+  });
+}
+
+function buildOverview() {
+  overviewBody.innerHTML = "";
+
+  const hint = document.createElement("p");
+  hint.className = "overview-hint";
+  hint.textContent = "Top view of each case (white on bottom). \"Opposite\" is the case you get by doing the alg on a solved cube.";
+  overviewBody.appendChild(hint);
+
+  GROUPS.forEach(group => {
+    const section = document.createElement("section");
+    section.className = "ov-group";
+
+    const heading = document.createElement("h3");
+    heading.textContent = GROUP_NAMES[group] === group ? group : `${GROUP_NAMES[group]} (${group})`;
+    section.appendChild(heading);
+
+    const cards = document.createElement("div");
+    cards.className = "ov-cards";
+
+    casesByGroup[group].forEach(caseObj => {
+      const card = document.createElement("article");
+      card.className = "ov-card";
+
+      const diagram = document.createElement("div");
+      diagram.className = "ov-diagram";
+      diagram.appendChild(createCaseDiagram(caseObj));
+
+      const id = document.createElement("div");
+      id.className = "ov-id";
+      id.textContent = caseObj.id;
+
+      const opp = document.createElement("div");
+      opp.className = "ov-opp";
+      opp.textContent = `Opposite: ${caseObj.opposite}`;
+
+      const alg = document.createElement("div");
+      alg.className = "ov-alg";
+      alg.textContent = caseObj.solution;
+
+      card.append(diagram, id, opp, alg);
+      cards.appendChild(card);
+    });
+
+    section.appendChild(cards);
+    overviewBody.appendChild(section);
+  });
+
+  overviewBuilt = true;
+}
+
+function openOverview() {
+  if (!overviewBuilt) buildOverview();
+  overview.hidden = false;
+  document.documentElement.classList.add("overview-open");
+  overviewClose.focus();
+}
+
+function closeOverview() {
+  overview.hidden = true;
+  document.documentElement.classList.remove("overview-open");
+  overviewBtn.focus();
+}
+
+overviewBtn.addEventListener("click", openOverview);
+overviewClose.addEventListener("click", closeOverview);
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !overview.hidden) closeOverview();
+});
 
 // ---------------------------------------------------------------------------
 // Stats table

@@ -69,9 +69,10 @@ vercel --prod
 ## How to Use
 
 1. **Pick cases** - Open "Cases & options" (always visible in the sidebar on wide screens). Each row is a group: tap the letter to add or remove the whole group, tap a number to add or remove a single case. "Add all" / "Clear all" select or deselect every group and case.
-2. **Toggle options** - "Always white bottom" for a consistent orientation, "Allow AUF" for random U turns before and after the case, "Show case info" to see the case name and solution instead of guessing.
+2. **Toggle options** - "Always white bottom" for a consistent orientation, "Allow AUF" for random U turns before and after the case, "Show case info" to see the case name, solution and the opposite case (the case you get by doing the alg on a solved cube) instead of guessing.
 3. **Guess** - Tap a group letter and a case number under the cube, then "Verify". Tap "New scramble" for the next case.
-4. **Stats** - Correct/attempted counts per case and per group are kept on the device; "Reset" clears them. Tap the "Stats" header to hide or show the table, for example while just practicing memorization.
+4. **Case overview** - "Case overview" in the header opens a full-screen sheet with every case: top view of the cube (with the side stickers of the top layer), case ID, opposite case and alg.
+5. **Stats** - Correct/attempted counts per case and per group are kept on the device; "Reset" clears them. Tap the "Stats" header to hide or show the table, for example while just practicing memorization.
 
 Case selection and options are remembered between visits.
 

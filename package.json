@@ -12,6 +12,7 @@
     "vite-plugin-pwa": "^0.17.0"
   },
   "dependencies": {
+    "cubing": "^0.63.4",
     "scramble-display": "^0.59.1"
   }
 }
