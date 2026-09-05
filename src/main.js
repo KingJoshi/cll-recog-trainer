@@ -106,8 +106,26 @@ let selectedCases = new Set(
 );
 let alwaysWhiteBottom = savedSettings.alwaysWhiteBottom ?? true;
 let allowAUF = savedSettings.allowAUF ?? true;
-let showCaseInfo = savedSettings.showCaseInfo ?? false;
 let statsCollapsed = savedSettings.statsCollapsed ?? false;
+
+// Modes: study (case info shown, no quiz), practice (untimed quiz with a
+// Verify step), timed (countdown; answers are checked instantly and the next
+// case appears right away). Older saves used a "showCaseInfo" flag.
+const MODES = ["study", "practice", "timed"];
+let mode = MODES.includes(savedSettings.mode)
+  ? savedSettings.mode
+  : (savedSettings.showCaseInfo ? "study" : "practice");
+let timedMinutes = clampMinutes(savedSettings.timedMinutes ?? 3);
+
+let session = null;        // running timed session
+let sessionSummary = null; // last finished session, shown until dismissed
+let practiceAnswered = false;
+let flashTimer = 0;
+
+function clampMinutes(value) {
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) ? Math.min(60, Math.max(1, n)) : 3;
+}
 
 let scramble = "";
 let currentCaseId = null;
@@ -127,7 +145,8 @@ function saveSettings() {
     selected: [...selectedCases],
     alwaysWhiteBottom,
     allowAUF,
-    showCaseInfo,
+    mode,
+    timedMinutes,
     statsCollapsed
   });
 }
@@ -155,6 +174,21 @@ const overviewClose = document.getElementById("overviewClose");
 const overviewBody = document.getElementById("overviewBody");
 const groupButtons = Array.from(document.querySelectorAll(".group-btn"));
 const caseButtons = Array.from(document.querySelectorAll(".case-btn"));
+const cubeCard = document.querySelector(".cube-card");
+const guessLabel = document.querySelector(".guess-label");
+const modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
+const timedBar = document.getElementById("timedBar");
+const countdownEl = document.getElementById("countdown");
+const liveTallyEl = document.getElementById("liveTally");
+const timedProgress = document.getElementById("timedProgress");
+const endSessionBtn = document.getElementById("endSessionBtn");
+const timedSetup = document.getElementById("timedSetup");
+const minutesInput = document.getElementById("minutesInput");
+const minutesDec = document.getElementById("minutesDec");
+const minutesInc = document.getElementById("minutesInc");
+const startSessionBtn = document.getElementById("startSessionBtn");
+const timedFeedback = document.getElementById("timedFeedback");
+const timedSummary = document.getElementById("timedSummary");
 
 // Create scramble display element
 const el = new ScrambleDisplay();
@@ -278,7 +312,6 @@ if (typeof wideLayout.addEventListener === "function") {
 function renderToggles() {
   document.getElementById("toggleAlwaysWhiteBottom").setAttribute("aria-pressed", String(alwaysWhiteBottom));
   document.getElementById("toggleAllowAUF").setAttribute("aria-pressed", String(allowAUF));
-  document.getElementById("toggleShowCaseInfo").setAttribute("aria-pressed", String(showCaseInfo));
 }
 
 document.querySelectorAll(".switch").forEach(btn => {
@@ -288,19 +321,10 @@ document.querySelectorAll(".switch").forEach(btn => {
       alwaysWhiteBottom = !alwaysWhiteBottom;
     } else if (key === "allowAUF") {
       allowAUF = !allowAUF;
-    } else if (key === "showCaseInfo") {
-      showCaseInfo = !showCaseInfo;
     }
     renderToggles();
     saveSettings();
-
-    if (key === "showCaseInfo") {
-      // Only switches between quiz mode and info mode; keep the current case
-      updateCaseInfoDisplay();
-      updateGuessingVisibility();
-    } else {
-      regenerateScramble();
-    }
+    regenerateScramble();
   });
 });
 
@@ -382,21 +406,52 @@ function regenerateScramble() {
     el.scramble = "";
   }
 
-  resetGuessingUI();
-  updateCaseInfoDisplay();
-  updateGuessingVisibility();
+  resetGuessingUI(); // also re-renders the stage for the current mode
   updateStatsTable();
 }
 
 regenerateBtn.addEventListener("click", regenerateScramble);
 
 // ---------------------------------------------------------------------------
-// Case info / guessing UI
+// Modes and the stage
 // ---------------------------------------------------------------------------
+
+function setMode(next) {
+  if (!MODES.includes(next) || next === mode) return;
+  if (session) finishSession(); // leaving Timed ends a running session
+  mode = next;
+  saveSettings();
+  renderStage();
+}
+
+modeButtons.forEach(btn => btn.addEventListener("click", () => setMode(btn.dataset.mode)));
+
+// Shows/hides everything on the stage according to mode and session state.
+function renderStage() {
+  const hasCases = selectedCases.size > 0;
+  const running = !!session;
+
+  modeButtons.forEach(btn => btn.setAttribute("aria-pressed", String(btn.dataset.mode === mode)));
+
+  updateCaseInfoDisplay();
+
+  guessingContainer.hidden = !hasCases || !(mode === "practice" || (mode === "timed" && running));
+  guessLabel.hidden = mode !== "practice";
+  verifyBtn.hidden = mode !== "practice" || practiceAnswered;
+  verifyMessage.hidden = !(mode === "practice" && practiceAnswered);
+  timedFeedback.hidden = !(running && session.lastResult);
+
+  timedBar.hidden = !running;
+  timedSetup.hidden = !(mode === "timed" && !running && !sessionSummary);
+  startSessionBtn.disabled = !hasCases;
+  timedSummary.hidden = !(mode === "timed" && !running && sessionSummary);
+
+  regenerateBtn.hidden = mode === "timed";
+}
 
 function updateCaseInfoDisplay() {
   const caseObj = currentCaseId ? caseById.get(currentCaseId) : null;
-  if (showCaseInfo && caseObj) {
+  if (mode === "study" && caseObj) {
     caseInfoContainer.innerHTML = `
       <div class="case-id">${caseObj.id}</div>
       <div class="case-solution"><b>Solution:</b> ${caseObj.solution || ''}</div>
@@ -408,77 +463,75 @@ function updateCaseInfoDisplay() {
   }
 }
 
-function updateGuessingVisibility() {
-  guessingContainer.hidden = showCaseInfo || selectedCases.size === 0;
+// ---------------------------------------------------------------------------
+// Guessing (shared by Practice and Timed)
+// ---------------------------------------------------------------------------
+
+function selectGroup(group) {
+  if (practiceAnswered || guessingContainer.hidden) return;
+  groupButtons.forEach(b => b.classList.toggle("active", b.dataset.group === group));
+  guessedGroup = group;
+  maybeSubmitTimedAnswer();
 }
 
-groupButtons.forEach(btn => {
-  btn.addEventListener("click", () => {
-    groupButtons.forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    guessedGroup = btn.dataset.group;
-    verifyMessage.hidden = true;
-  });
-});
+function selectCase(caseNum) {
+  if (practiceAnswered || guessingContainer.hidden) return;
+  caseButtons.forEach(b => b.classList.toggle("active", b.dataset.case === caseNum));
+  guessedCase = caseNum;
+  maybeSubmitTimedAnswer();
+}
 
-caseButtons.forEach(btn => {
-  btn.addEventListener("click", () => {
-    caseButtons.forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    guessedCase = btn.dataset.case;
-    verifyMessage.hidden = true;
-  });
-});
+groupButtons.forEach(btn => btn.addEventListener("click", () => selectGroup(btn.dataset.group)));
+caseButtons.forEach(btn => btn.addEventListener("click", () => selectCase(btn.dataset.case)));
 
-verifyBtn.addEventListener("click", verifyGuess);
-
-function verifyGuess() {
-  if (!currentCaseId) return;
-  if (!guessedGroup || !guessedCase) {
-    alert("Please select both a group and a case number.");
-    return;
-  }
-
+// Scores a guess against the current case and records it in the lifetime stats.
+function checkAnswer(group, caseNum) {
   const correctGroup = currentCaseId.slice(0, currentCaseId.length - 1);
   const correctCase = currentCaseId.slice(-1);
+  const groupCorrect = group === correctGroup;
+  const caseCorrect = caseNum === correctCase;
 
-  const groupCorrect = guessedGroup === correctGroup;
-  const caseCorrect = guessedCase === correctCase;
-
-  // Increment 'shown' for group and case on every guess
+  // 'shown' counts every answered attempt
   if (stats[correctGroup]) stats[correctGroup].shown++;
   if (stats[currentCaseId]) stats[currentCaseId].shown++;
-
   if (groupCorrect && stats[correctGroup]) stats[correctGroup].correct++;
   if (caseCorrect && stats[currentCaseId]) stats[currentCaseId].correct++;
   saveStats();
   updateStatsTable();
 
-  // Lock the guess
-  verifyBtn.hidden = true;
+  const result = groupCorrect && caseCorrect ? "correct" : (groupCorrect || caseCorrect) ? "partial" : "incorrect";
+  return { result, correctId: currentCaseId, correctGroup, guessedId: `${group}${caseNum}` };
+}
+
+verifyBtn.addEventListener("click", verifyGuess);
+
+// Practice: explicit Verify step, then "New scramble"
+function verifyGuess() {
+  if (!currentCaseId || practiceAnswered || mode !== "practice") return;
+  if (!guessedGroup || !guessedCase) {
+    alert("Please select both a group and a case number.");
+    return;
+  }
+
+  const { result, correctId } = checkAnswer(guessedGroup, guessedCase);
+  practiceAnswered = true;
+
   groupButtons.forEach(btn => (btn.disabled = true));
   caseButtons.forEach(btn => (btn.disabled = true));
   regenerateBtn.classList.remove("btn-outline");
   regenerateBtn.classList.add("btn-primary");
 
-  let cls = "";
-  let message = "";
-  if (groupCorrect && caseCorrect) {
-    cls = "correct";
-    message = "✓ Correct!";
-  } else if (groupCorrect || caseCorrect) {
-    cls = "partial";
-    message = `Partial! Correct answer: ${currentCaseId}`;
-  } else {
-    cls = "incorrect";
-    message = `Incorrect! Correct answer: ${currentCaseId}`;
-  }
+  const message = result === "correct"
+    ? "✓ Correct!"
+    : result === "partial"
+      ? `Partial! Correct answer: ${correctId}`
+      : `Incorrect! Correct answer: ${correctId}`;
 
-  verifyMessage.className = `verify-message ${cls}`;
+  verifyMessage.className = `verify-message ${result}`;
   verifyMessage.innerHTML = statsCollapsed
     ? message
     : `${message}<div class="verify-stats">${buildStatsDisplay()}</div>`;
-  verifyMessage.hidden = false;
+  renderStage();
 }
 
 function buildStatsDisplay() {
@@ -495,6 +548,7 @@ function buildStatsDisplay() {
 function resetGuessingUI() {
   guessedGroup = null;
   guessedCase = null;
+  practiceAnswered = false;
   groupButtons.forEach(btn => {
     btn.classList.remove("active");
     btn.disabled = false;
@@ -503,10 +557,210 @@ function resetGuessingUI() {
     btn.classList.remove("active");
     btn.disabled = false;
   });
-  verifyMessage.hidden = true;
-  verifyBtn.hidden = false;
   regenerateBtn.classList.remove("btn-primary");
   regenerateBtn.classList.add("btn-outline");
+  renderStage();
+}
+
+// Keyboard entry (laptops): letter = group, digit = case, Enter = verify /
+// next scramble.
+document.addEventListener("keydown", e => {
+  if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (!overview.hidden) return;
+  const target = e.target;
+  if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+
+  const key = e.key.toUpperCase();
+  if (!guessingContainer.hidden && !practiceAnswered) {
+    if (GROUPS.includes(key)) {
+      selectGroup(key);
+      e.preventDefault();
+      return;
+    }
+    if (/^[1-6]$/.test(key)) {
+      selectCase(key);
+      e.preventDefault();
+      return;
+    }
+  }
+
+  if (e.key === "Enter") {
+    // Buttons keep their native Enter behaviour, except the ones whose focus
+    // typically lingers after a mouse click (mode, Verify, New scramble):
+    // there Enter follows the guess flow and the duplicate click is suppressed.
+    const btn = target && target.tagName === "BUTTON" ? target : null;
+    if (btn && !(btn.classList.contains("mode-btn") || btn === verifyBtn || btn === regenerateBtn)) return;
+
+    if (mode === "practice" && !guessingContainer.hidden) {
+      if (practiceAnswered) {
+        regenerateScramble();
+      } else if (guessedGroup && guessedCase) {
+        verifyGuess();
+      } else {
+        return;
+      }
+      e.preventDefault();
+    } else if (mode === "study") {
+      regenerateScramble();
+      e.preventDefault();
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Timed sessions
+// ---------------------------------------------------------------------------
+
+function renderMinutes() {
+  minutesInput.value = String(timedMinutes);
+}
+
+function setMinutes(value) {
+  timedMinutes = clampMinutes(value);
+  saveSettings();
+  renderMinutes();
+}
+
+minutesDec.addEventListener("click", () => setMinutes(timedMinutes - 1));
+minutesInc.addEventListener("click", () => setMinutes(timedMinutes + 1));
+minutesInput.addEventListener("change", () => setMinutes(minutesInput.value));
+
+startSessionBtn.addEventListener("click", () => {
+  setMinutes(minutesInput.value);
+  startSession();
+});
+
+endSessionBtn.addEventListener("click", finishSession);
+
+timedSummary.addEventListener("click", e => {
+  const action = e.target.closest("[data-action]");
+  if (!action) return;
+  if (action.dataset.action === "again") {
+    startSession();
+  } else if (action.dataset.action === "done") {
+    sessionSummary = null;
+    renderStage();
+  }
+});
+
+function formatTime(ms) {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function startSession() {
+  if (selectedCases.size === 0 || session) return;
+  const durationMs = timedMinutes * 60 * 1000;
+  const now = Date.now();
+  session = {
+    durationMs,
+    startedAt: now,
+    endTime: now + durationMs,
+    attempts: 0,
+    correct: 0,
+    partial: 0,
+    incorrect: 0,
+    perGroup: {},
+    lastResult: null,
+    timerId: 0
+  };
+  sessionSummary = null;
+  session.timerId = setInterval(tickSession, 200);
+  renderLiveTally();
+  regenerateScramble(); // fresh case; also renders the stage
+  tickSession();
+}
+
+function tickSession() {
+  if (!session) return;
+  const remaining = Math.max(0, session.endTime - Date.now());
+  countdownEl.textContent = formatTime(remaining);
+  countdownEl.classList.toggle("urgent", remaining <= 10000);
+  timedProgress.style.width = `${(remaining / session.durationMs) * 100}%`;
+  if (remaining === 0) finishSession();
+}
+
+function renderLiveTally() {
+  liveTallyEl.textContent = session.attempts
+    ? `${session.correct} / ${session.attempts} correct`
+    : "Tap a letter and a number";
+}
+
+function maybeSubmitTimedAnswer() {
+  if (mode !== "timed" || !session || !currentCaseId) return;
+  if (!guessedGroup || !guessedCase) return;
+
+  const { result, correctId, correctGroup, guessedId } = checkAnswer(guessedGroup, guessedCase);
+  session.attempts++;
+  session[result]++;
+  const groupTally = session.perGroup[correctGroup] ?? (session.perGroup[correctGroup] = { attempts: 0, correct: 0 });
+  groupTally.attempts++;
+  if (result === "correct") groupTally.correct++;
+  session.lastResult = { result, correctId, guessedId };
+
+  timedFeedback.className = `verify-message ${result}`;
+  timedFeedback.textContent = result === "correct"
+    ? `✓ ${correctId}`
+    : result === "partial"
+      ? `Partial: it was ${correctId} (you said ${guessedId})`
+      : `✗ It was ${correctId} (you said ${guessedId})`;
+  flashCube(result);
+  renderLiveTally();
+
+  regenerateScramble(); // straight on to the next case
+}
+
+function flashCube(result) {
+  cubeCard.classList.remove("flash-correct", "flash-partial", "flash-incorrect");
+  void cubeCard.offsetWidth; // restart the transition
+  cubeCard.classList.add(`flash-${result}`);
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => cubeCard.classList.remove(`flash-${result}`), 700);
+}
+
+function finishSession() {
+  if (!session) return;
+  clearInterval(session.timerId);
+  clearTimeout(flashTimer);
+  cubeCard.classList.remove("flash-correct", "flash-partial", "flash-incorrect");
+  const finished = session;
+  session = null;
+  sessionSummary = {
+    ...finished,
+    elapsedMs: Math.min(finished.durationMs, Date.now() - finished.startedAt)
+  };
+  renderSummary();
+  resetGuessingUI(); // clears any half-entered guess and renders the stage
+}
+
+function renderSummary() {
+  const s = sessionSummary;
+  const accuracy = s.attempts ? Math.round((100 * s.correct) / s.attempts) : 0;
+  const pace = s.attempts ? (s.elapsedMs / s.attempts / 1000).toFixed(1) + "s" : "–";
+  const timedOut = s.elapsedMs >= s.durationMs;
+  const groups = GROUP_DISPLAY_ORDER
+    .filter(g => s.perGroup[g])
+    .map(g => `<span class="summary-group"><b>${g}</b> ${s.perGroup[g].correct}/${s.perGroup[g].attempts}</span>`)
+    .join("");
+
+  timedSummary.innerHTML = `
+    <p class="summary-title">${timedOut ? "Time's up!" : "Session ended"} <span class="summary-time">${formatTime(s.elapsedMs)}</span></p>
+    <div class="summary-stats">
+      <div class="stat"><b>${s.attempts}</b><span>answered</span></div>
+      <div class="stat stat-correct"><b>${s.correct}</b><span>correct</span></div>
+      <div class="stat stat-partial"><b>${s.partial}</b><span>partial</span></div>
+      <div class="stat stat-incorrect"><b>${s.incorrect}</b><span>wrong</span></div>
+      <div class="stat"><b>${accuracy}%</b><span>accuracy</span></div>
+      <div class="stat"><b>${pace}</b><span>per case</span></div>
+    </div>
+    ${groups ? `<div class="summary-groups">${groups}</div>` : ""}
+    <div class="summary-actions">
+      <button type="button" class="btn btn-primary" data-action="again">Start another</button>
+      <button type="button" class="btn" data-action="done">Done</button>
+    </div>
+  `;
 }
 
 // ---------------------------------------------------------------------------
@@ -703,6 +957,7 @@ document.getElementById("resetStatsBtn").addEventListener("click", () => {
 
 buildCasePicker();
 renderToggles();
+renderMinutes();
 syncSettingsPanel();
 syncStatsPanel();
 regenerateScramble();

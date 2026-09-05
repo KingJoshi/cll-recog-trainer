@@ -546,7 +546,8 @@ scramble-display {
     background: var(--surface-2);
 }
 
-.seg > button.active {
+.seg > button.active,
+.seg > button[aria-pressed="true"] {
     background: var(--primary);
     color: #fff;
 }
@@ -642,6 +643,216 @@ scramble-display {
 #stats-table-container td.total {
     background: var(--surface-2);
     font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   Modes and timed sessions
+   -------------------------------------------------------------------------- */
+
+.mode-seg > button {
+    min-height: 40px;
+    font-size: .95rem;
+}
+
+.kbd-hint {
+    display: none;
+    margin: 0;
+    text-align: center;
+    font-size: .75rem;
+    color: var(--muted);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .kbd-hint {
+        display: block;
+    }
+}
+
+.timed-bar {
+    padding: 8px 12px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.timed-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.countdown {
+    min-width: 4.2ch;
+    font-size: 1.6rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.countdown.urgent {
+    color: var(--danger);
+}
+
+.live-tally {
+    flex: 1;
+    min-width: 0;
+    color: var(--muted);
+    font-size: .95rem;
+}
+
+.timed-progress {
+    height: 4px;
+    margin-top: 8px;
+    border-radius: 2px;
+    background: var(--border);
+    overflow: hidden;
+}
+
+.timed-progress-fill {
+    height: 100%;
+    width: 100%;
+    background: var(--primary);
+    transition: width .2s linear;
+}
+
+.timed-setup,
+.timed-summary {
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+
+.timed-title,
+.summary-title {
+    margin: 0 0 4px;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.timed-setup .hint {
+    margin-bottom: 10px;
+}
+
+.minutes-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 4px 0 12px;
+}
+
+.minutes-row .btn {
+    width: var(--tap);
+    padding: 0;
+    font-size: 1.3rem;
+}
+
+.minutes-field {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    color: var(--muted);
+}
+
+.minutes-field input {
+    width: 4.5ch;
+    padding: 6px 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-align: center;
+    color: var(--text);
+    background: var(--surface);
+}
+
+.summary-time {
+    margin-left: 6px;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.summary-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.stat {
+    padding: 8px 4px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+}
+
+.stat b {
+    display: block;
+    font-size: 1.4rem;
+    line-height: 1.1;
+}
+
+.stat span {
+    font-size: .75rem;
+    color: var(--muted);
+}
+
+.stat-correct b {
+    color: var(--success);
+}
+
+.stat-partial b {
+    color: #b8860b;
+}
+
+.stat-incorrect b {
+    color: var(--danger);
+}
+
+.summary-groups {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: .9rem;
+}
+
+.summary-group {
+    padding: 3px 9px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+}
+
+.summary-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+/* brief flash of the cube card after a timed answer */
+.cube-card {
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.cube-card.flash-correct {
+    border-color: var(--success);
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, .35);
+}
+
+.cube-card.flash-partial {
+    border-color: var(--warning);
+    box-shadow: 0 0 0 3px rgba(255, 193, 7, .4);
+}
+
+.cube-card.flash-incorrect {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, .35);
 }
 
 /* --------------------------------------------------------------------------
@@ -821,9 +1032,14 @@ html.overview-open body {
         align-items: start;
     }
 
+    .mode-seg,
+    .timed-bar {
+        grid-column: 1 / -1;
+    }
+
     .cube-card {
         grid-column: 1;
-        grid-row: 1 / span 3;
+        grid-row: span 8;
     }
 
     .stage {

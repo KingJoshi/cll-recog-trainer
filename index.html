@@ -53,16 +53,27 @@
           <span class="switch-label">Allow AUF</span>
           <span class="switch-track" aria-hidden="true"></span>
         </button>
-        <button type="button" class="switch" data-toggle="showCaseInfo" id="toggleShowCaseInfo" aria-pressed="false">
-          <span class="switch-label">Show case info</span>
-          <span class="switch-track" aria-hidden="true"></span>
-        </button>
       </div>
     </div>
   </section>
 
-  <!-- Stage: cube, guessing UI, next scramble -->
+  <!-- Stage: mode, cube, guessing UI, timed session -->
   <section class="stage">
+    <div class="seg mode-seg" role="group" aria-label="Mode">
+      <button type="button" class="mode-btn" data-mode="study" aria-pressed="false">Study</button>
+      <button type="button" class="mode-btn" data-mode="practice" aria-pressed="true">Practice</button>
+      <button type="button" class="mode-btn" data-mode="timed" aria-pressed="false">Timed</button>
+    </div>
+
+    <div id="timedBar" class="timed-bar" hidden>
+      <div class="timed-bar-row">
+        <span id="countdown" class="countdown" role="timer">0:00</span>
+        <span id="liveTally" class="live-tally"></span>
+        <button type="button" id="endSessionBtn" class="btn btn-small">End</button>
+      </div>
+      <div class="timed-progress"><div id="timedProgress" class="timed-progress-fill"></div></div>
+    </div>
+
     <div class="cube-card">
       <div id="display-container"></div>
       <p id="empty-state" class="empty-state" hidden>
@@ -93,6 +104,26 @@
       </div>
       <button type="button" id="verifyBtn" class="btn btn-primary btn-block">Verify</button>
       <div id="verify-message" class="verify-message" role="status" hidden></div>
+      <div id="timedFeedback" class="verify-message" role="status" hidden></div>
+      <p class="kbd-hint">Keyboard: letter, number, Enter</p>
+    </div>
+
+    <div id="timedSetup" class="timed-setup" hidden>
+      <p class="timed-title">Timed session</p>
+      <p class="hint">Answers are checked as soon as you pick a letter and a number, and the next case appears right away.</p>
+      <div class="minutes-row">
+        <button type="button" id="minutesDec" class="btn" aria-label="One minute less">&minus;</button>
+        <label class="minutes-field">
+          <input type="number" id="minutesInput" min="1" max="60" step="1" inputmode="numeric" value="3" aria-label="Minutes">
+          <span>min</span>
+        </label>
+        <button type="button" id="minutesInc" class="btn" aria-label="One minute more">+</button>
+      </div>
+      <button type="button" id="startSessionBtn" class="btn btn-primary btn-block">Start</button>
+    </div>
+
+    <div id="timedSummary" class="timed-summary" role="status" hidden>
+      <!-- Populated by JavaScript when a session ends -->
     </div>
 
     <button type="button" id="regenerateBtn" class="btn btn-outline btn-block">New scramble</button>
