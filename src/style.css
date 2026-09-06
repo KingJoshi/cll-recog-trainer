@@ -856,6 +856,176 @@ scramble-display {
 }
 
 /* --------------------------------------------------------------------------
+   Solve mode
+   -------------------------------------------------------------------------- */
+
+.solve-scramble {
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+
+.solve-label {
+    margin: 0 0 6px;
+    font-size: .8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+}
+
+.solve-orient {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 500;
+}
+
+.solve-scramble-text {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: clamp(1.15rem, 4.5vw, 1.6rem);
+    font-weight: 600;
+    line-height: 1.45;
+    word-spacing: .2em;
+}
+
+.solve-surface {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 30vh;
+    padding: 16px;
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+}
+
+.solve-time {
+    font-size: clamp(3rem, 14vw, 5rem);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.solve-case {
+    margin-top: 10px;
+    font-size: .95rem;
+    color: var(--muted);
+}
+
+.solve-case strong {
+    font-size: 1.2rem;
+    color: var(--primary);
+}
+
+.solve-hint {
+    margin: 12px 0 0;
+    font-size: .8rem;
+    color: var(--muted);
+}
+
+.solve-hint kbd {
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    font: inherit;
+    font-size: .75rem;
+    background: var(--surface-2);
+}
+
+.solve-hint-key {
+    display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .solve-hint-key {
+        display: block;
+    }
+
+    .solve-hint-touch {
+        display: none;
+    }
+}
+
+.solve-times .section-head {
+    padding: 8px 14px 0;
+    margin: 0 0 6px;
+}
+
+.solve-summary {
+    flex: 1;
+    min-width: 0;
+    font-size: .85rem;
+    color: var(--muted);
+    text-align: right;
+}
+
+.solve-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 14px 12px;
+    min-height: 12px;
+}
+
+.solve-chip {
+    padding: 3px 9px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: .9rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.solve-chip span {
+    margin-left: 5px;
+    font-size: .8rem;
+    color: var(--muted);
+}
+
+.solve-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+.solve-overlay-time {
+    font-size: clamp(4rem, 22vw, 12rem);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.solve-overlay.armed .solve-overlay-time {
+    color: var(--success);
+}
+
+.solve-overlay-hint {
+    margin: 20px 0 0;
+    font-size: 1rem;
+    color: var(--muted);
+}
+
+/* --------------------------------------------------------------------------
    Case overview (full-screen overlay)
    -------------------------------------------------------------------------- */
 
@@ -1033,8 +1203,13 @@ html.overview-open body {
     }
 
     .mode-seg,
-    .timed-bar {
+    .timed-bar,
+    .solve-scramble {
         grid-column: 1 / -1;
+    }
+
+    .solve-surface {
+        min-height: 0;
     }
 
     .cube-card {

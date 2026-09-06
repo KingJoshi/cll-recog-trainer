@@ -75,6 +75,8 @@ const caseById = new Map(cllCases.cases.map(c => [c.id, c]));
 
 const STATS_KEY = 'cllTrainerStats';
 const SETTINGS_KEY = 'cllTrainerSettings';
+const SOLVES_KEY = 'cllTrainerSolves';
+const MAX_SOLVES = 500;
 
 function readJSON(key) {
   try {
@@ -111,7 +113,7 @@ let statsCollapsed = savedSettings.statsCollapsed ?? false;
 // Modes: study (case info shown, no quiz), practice (untimed quiz with a
 // Verify step), timed (countdown; answers are checked instantly and the next
 // case appears right away). Older saves used a "showCaseInfo" flag.
-const MODES = ["study", "practice", "timed"];
+const MODES = ["study", "practice", "timed", "solve"];
 let mode = MODES.includes(savedSettings.mode)
   ? savedSettings.mode
   : (savedSettings.showCaseInfo ? "study" : "practice");
@@ -122,12 +124,26 @@ let sessionSummary = null; // last finished session, shown until dismissed
 let practiceAnswered = false;
 let flashTimer = 0;
 
+// Solve mode (stackmat-style timer): idle -> armed (key/finger held) -> running
+let solveState = "idle";
+let solveStart = 0;
+let solveRaf = 0;
+let overlayHideOnPointerUp = false;
+let swallowNextClick = false;
+let lastSolve = null;
+let solves = Array.isArray(readJSON(SOLVES_KEY)) ? readJSON(SOLVES_KEY).filter(x => x && caseById.has(x.id) && Number.isFinite(x.ms)) : [];
+
+function saveSolves() {
+  writeJSON(SOLVES_KEY, solves);
+}
+
 function clampMinutes(value) {
   const n = Math.round(Number(value));
   return Number.isFinite(n) ? Math.min(60, Math.max(1, n)) : 3;
 }
 
-let scramble = "";
+let scramble = "";      // full alg for the 3D view (orientation + moves)
+let scrambleMoves = ""; // moves only, for scrambling a physical cube (white on bottom)
 let currentCaseId = null;
 let currentCaseScramble = null;
 let guessedGroup = null;
@@ -192,6 +208,18 @@ const minutesInc = document.getElementById("minutesInc");
 const startSessionBtn = document.getElementById("startSessionBtn");
 const timedFeedback = document.getElementById("timedFeedback");
 const timedSummary = document.getElementById("timedSummary");
+const solveScramble = document.getElementById("solveScramble");
+const solveScrambleText = document.getElementById("solveScrambleText");
+const solveSurface = document.getElementById("solveSurface");
+const solveTimeEl = document.getElementById("solveTime");
+const solveCaseEl = document.getElementById("solveCase");
+const solveTimes = document.getElementById("solveTimes");
+const solveSummaryEl = document.getElementById("solveSummary");
+const solveList = document.getElementById("solveList");
+const clearSolvesBtn = document.getElementById("clearSolvesBtn");
+const solveOverlay = document.getElementById("solveOverlay");
+const solveOverlayTime = document.getElementById("solveOverlayTime");
+const solveOverlayHint = document.getElementById("solveOverlayHint");
 
 // Create scramble display element
 const el = new ScrambleDisplay();
@@ -347,27 +375,29 @@ function randomU() {
 }
 
 function buildScramble() {
-  scramble = "";
+  let orientation = "";
   if (alwaysWhiteBottom) {
-    scramble += "z2";
+    orientation = "z2";
   } else {
     const xRandRotations = Math.floor(Math.random() * 4);
     const yRandRotations = Math.floor(Math.random() * 4);
     const zRandRotations = Math.floor(Math.random() * 4);
     if (xRandRotations > 0) {
-      scramble += " x" + (xRandRotations > 1 ? xRandRotations : "");
+      orientation += " x" + (xRandRotations > 1 ? xRandRotations : "");
     }
     if (yRandRotations > 0) {
-      scramble += " y" + (yRandRotations > 1 ? yRandRotations : "");
+      orientation += " y" + (yRandRotations > 1 ? yRandRotations : "");
     }
     if (zRandRotations > 0) {
-      scramble += " z" + (zRandRotations > 1 ? zRandRotations : "");
+      orientation += " z" + (zRandRotations > 1 ? zRandRotations : "");
     }
   }
 
+  let moves = "";
+
   // Optional U turn before the case (changes which side the case "faces")
   if (allowAUF) {
-    scramble += randomU();
+    moves += randomU();
   }
 
   const randomCase = getRandomCase();
@@ -375,7 +405,7 @@ function buildScramble() {
   if (caseObj) {
     currentCaseId = caseObj.id;
     currentCaseScramble = caseObj.scramble;
-    scramble += " " + caseObj.scramble;
+    moves += " " + caseObj.scramble;
 
     // Make sure the case has a stats entry, but do not count it as shown yet
     if (!stats[currentCaseId]) stats[currentCaseId] = { shown: 0, correct: 0 };
@@ -386,10 +416,11 @@ function buildScramble() {
 
   // Optional AUF after the case
   if (allowAUF) {
-    scramble += randomU();
+    moves += randomU();
   }
 
-  scramble = scramble.trim();
+  scrambleMoves = moves.trim();
+  scramble = `${orientation.trim()} ${scrambleMoves}`.trim();
   return scramble;
 }
 
@@ -404,6 +435,7 @@ function regenerateScramble() {
     currentCaseId = null;
     currentCaseScramble = null;
     scramble = "";
+    scrambleMoves = "";
     el.scramble = "";
   }
 
@@ -420,6 +452,7 @@ regenerateBtn.addEventListener("click", regenerateScramble);
 function setMode(next) {
   if (!MODES.includes(next) || next === mode) return;
   if (session) finishSession(); // leaving Timed ends a running session
+  if (solveState !== "idle") cancelSolve(); // leaving Solve drops an unfinished attempt
   mode = next;
   saveSettings();
   renderStage();
@@ -448,6 +481,15 @@ function renderStage() {
   timedSummary.hidden = !(mode === "timed" && !running && sessionSummary);
 
   regenerateBtn.hidden = mode === "timed";
+
+  // Solve mode: hide the cube (it would give the case away), show the
+  // scramble as text plus the timer and the list of times.
+  const solving = mode === "solve";
+  cubeCard.hidden = solving && hasCases;
+  solveScramble.hidden = !(solving && hasCases);
+  solveSurface.hidden = !(solving && hasCases);
+  solveTimes.hidden = !solving;
+  if (solving) renderSolvePanel();
 }
 
 function updateCaseInfoDisplay() {
@@ -775,6 +817,179 @@ function renderSummary() {
     </div>
   `;
 }
+
+// ---------------------------------------------------------------------------
+// Solve mode: scramble a real cube, then time recognition + execution.
+// Hold Space (or a finger on the timer area), release to start; any key or a
+// tap anywhere stops. The case is revealed after the solve.
+// ---------------------------------------------------------------------------
+
+function formatSolveTime(ms) {
+  if (ms < 60000) return (ms / 1000).toFixed(2);
+  const minutes = Math.floor(ms / 60000);
+  const seconds = (ms % 60000) / 1000;
+  return `${minutes}:${seconds.toFixed(2).padStart(5, "0")}`;
+}
+
+function renderSolvePanel() {
+  solveScrambleText.textContent = scrambleMoves;
+
+  if (lastSolve) {
+    const caseObj = caseById.get(lastSolve.id);
+    solveTimeEl.textContent = formatSolveTime(lastSolve.ms);
+    solveCaseEl.innerHTML = `<strong>${lastSolve.id}</strong> · ${caseObj.solution} · opposite ${caseObj.opposite}`;
+  } else {
+    solveTimeEl.textContent = "0.00";
+    solveCaseEl.textContent = "Scramble your cube, then time the solve. The case is revealed afterwards.";
+  }
+
+  if (solves.length) {
+    const best = Math.min(...solves.map(x => x.ms));
+    const mean = solves.reduce((sum, x) => sum + x.ms, 0) / solves.length;
+    solveSummaryEl.textContent = `${solves.length} solve${solves.length === 1 ? "" : "s"} · best ${formatSolveTime(best)} · mean ${formatSolveTime(mean)}`;
+  } else {
+    solveSummaryEl.textContent = "No times yet";
+  }
+  clearSolvesBtn.hidden = solves.length === 0;
+  solveList.innerHTML = solves
+    .slice(-12)
+    .reverse()
+    .map(x => `<span class="solve-chip">${formatSolveTime(x.ms)}<span>${x.id}</span></span>`)
+    .join("");
+}
+
+function armSolve() {
+  if (mode !== "solve" || solveState !== "idle" || !currentCaseId) return;
+  solveState = "armed";
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  solveOverlayTime.textContent = "0.00";
+  solveOverlayHint.textContent = "Release to start";
+  solveOverlay.classList.add("armed");
+  solveOverlay.hidden = false;
+}
+
+function startSolve() {
+  if (solveState !== "armed") return;
+  solveState = "running";
+  solveOverlay.classList.remove("armed");
+  solveOverlayHint.textContent = "Any key or tap to stop";
+  solveStart = performance.now();
+  const tick = () => {
+    if (solveState !== "running") return;
+    solveOverlayTime.textContent = formatSolveTime(performance.now() - solveStart);
+    solveRaf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+function stopSolve(byPointer) {
+  if (solveState !== "running") return;
+  const ms = performance.now() - solveStart;
+  solveState = "idle";
+  cancelAnimationFrame(solveRaf);
+
+  lastSolve = { id: currentCaseId, ms: Math.round(ms), at: Date.now() };
+  solves.push(lastSolve);
+  if (solves.length > MAX_SOLVES) solves.splice(0, solves.length - MAX_SOLVES);
+  saveSolves();
+
+  solveOverlayTime.textContent = formatSolveTime(ms);
+  if (byPointer) {
+    // keep covering the page until the finger lifts, so the tap that stopped
+    // the timer cannot also press whatever is underneath
+    overlayHideOnPointerUp = true;
+    setTimeout(() => { if (overlayHideOnPointerUp) hideSolveOverlay(); }, 700);
+  } else {
+    hideSolveOverlay();
+  }
+
+  regenerateScramble(); // next scramble is ready while the case is revealed
+}
+
+function hideSolveOverlay() {
+  overlayHideOnPointerUp = false;
+  solveOverlay.hidden = true;
+  solveOverlay.classList.remove("armed");
+}
+
+function cancelSolve() {
+  solveState = "idle";
+  cancelAnimationFrame(solveRaf);
+  hideSolveOverlay();
+}
+
+// Keyboard: Space arms on keydown (ignoring auto-repeat), starts on keyup;
+// any key stops a running timer; Escape cancels an armed one.
+document.addEventListener("keydown", e => {
+  if (mode !== "solve" || !overview.hidden) return;
+  const target = e.target;
+  if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+
+  if (solveState === "running") {
+    e.preventDefault();
+    stopSolve(false);
+    return;
+  }
+  if (e.code === "Space") {
+    e.preventDefault(); // no page scroll, no button activation
+    if (!e.repeat && solveState === "idle") armSolve();
+    return;
+  }
+  if (e.key === "Escape" && solveState === "armed") cancelSolve();
+});
+
+document.addEventListener("keyup", e => {
+  if (mode !== "solve" || !overview.hidden) return;
+  if (e.code === "Space") {
+    e.preventDefault();
+    if (solveState === "armed") startSolve();
+  }
+});
+
+// Touch / mouse: hold on the timer area, release anywhere to start; tap the
+// full-screen overlay to stop.
+solveSurface.addEventListener("pointerdown", e => {
+  if (e.target.closest("button") || solveState !== "idle") return;
+  e.preventDefault();
+  armSolve();
+});
+
+solveOverlay.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  if (solveState === "running") stopSolve(true);
+});
+
+document.addEventListener("pointerup", () => {
+  if (solveState === "armed") {
+    startSolve();
+  } else if (overlayHideOnPointerUp) {
+    hideSolveOverlay();
+    // the click that follows this pointerup belongs to the stopping tap
+    swallowNextClick = true;
+    setTimeout(() => { swallowNextClick = false; }, 300);
+  }
+});
+
+document.addEventListener("pointercancel", () => {
+  if (solveState === "armed") cancelSolve();
+});
+
+document.addEventListener("click", e => {
+  if (swallowNextClick) {
+    swallowNextClick = false;
+    e.stopPropagation();
+    e.preventDefault();
+  }
+}, true);
+
+clearSolvesBtn.addEventListener("click", () => {
+  if (confirm("Clear all recorded solve times?")) {
+    solves = [];
+    lastSolve = null;
+    saveSolves();
+    renderSolvePanel();
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Case overview: every case with a top-view diagram, its opposite and alg

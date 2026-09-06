@@ -63,6 +63,7 @@
       <button type="button" class="mode-btn" data-mode="study" aria-pressed="false">Study</button>
       <button type="button" class="mode-btn" data-mode="practice" aria-pressed="true">Practice</button>
       <button type="button" class="mode-btn" data-mode="timed" aria-pressed="false">Timed</button>
+      <button type="button" class="mode-btn" data-mode="solve" aria-pressed="false">Solve</button>
     </div>
 
     <div id="timedBar" class="timed-bar" hidden>
@@ -72,6 +73,12 @@
         <button type="button" id="endSessionBtn" class="btn btn-small">End</button>
       </div>
       <div class="timed-progress"><div id="timedProgress" class="timed-progress-fill"></div></div>
+    </div>
+
+    <!-- Solve mode: scramble for a physical cube (the 3D cube is hidden) -->
+    <div id="solveScramble" class="solve-scramble" hidden>
+      <p class="solve-label">Scramble <span class="solve-orient">(white on bottom)</span></p>
+      <p id="solveScrambleText" class="solve-scramble-text"></p>
     </div>
 
     <div class="cube-card">
@@ -126,6 +133,23 @@
       <!-- Populated by JavaScript when a session ends -->
     </div>
 
+    <!-- Solve mode: timer area (hold here on touch devices) and recorded times -->
+    <div id="solveSurface" class="solve-surface" hidden>
+      <div id="solveTime" class="solve-time">0.00</div>
+      <div id="solveCase" class="solve-case"></div>
+      <p class="solve-hint solve-hint-key">Hold <kbd>Space</kbd>, release to start. Any key stops.</p>
+      <p class="solve-hint solve-hint-touch">Touch and hold here, release to start. Tap anywhere to stop.</p>
+    </div>
+
+    <div id="solveTimes" class="panel solve-times" hidden>
+      <div class="section-head">
+        <h2>Times</h2>
+        <span id="solveSummary" class="solve-summary"></span>
+        <button type="button" id="clearSolvesBtn" class="btn btn-small btn-danger" hidden>Clear</button>
+      </div>
+      <div id="solveList" class="solve-list"></div>
+    </div>
+
     <button type="button" id="regenerateBtn" class="btn btn-outline btn-block">New scramble</button>
   </section>
 
@@ -154,6 +178,12 @@
   <div id="overviewBody" class="overview-body">
     <!-- Populated by JavaScript on first open -->
   </div>
+</div>
+
+<!-- Solve mode: full-screen timer while armed / running -->
+<div id="solveOverlay" class="solve-overlay" hidden>
+  <div id="solveOverlayTime" class="solve-overlay-time">0.00</div>
+  <p id="solveOverlayHint" class="solve-overlay-hint"></p>
 </div>
 
 <script type="module" src="/src/main.js"></script>

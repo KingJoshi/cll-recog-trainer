@@ -74,7 +74,8 @@ vercel --prod
    - **Study** - shows the case name, solution and the opposite case (the case you get by doing the alg on a solved cube). "New scramble" for the next case.
    - **Practice** - untimed recognition test: tap a group letter and a case number, then "Verify". "New scramble" for the next case.
    - **Timed** - choose the minutes and press Start. A countdown runs; each answer is checked the moment a letter and a number are picked, the result is shown, and the next case appears immediately. When time is up you get your tally (answered, correct, partial, wrong, accuracy, seconds per case, per group). Timed answers also count in the stats table.
-   On a keyboard, type the letter, the number, and Enter.
+   - **Solve** - for a real cube: the 3D cube is hidden and the scramble is shown as text (hold white on the bottom). Hold Space and release to start the timer, press any key to stop; on a phone, touch and hold the timer area, release to start, tap anywhere to stop. The case and its solution are revealed after each solve, the next scramble appears immediately, and times are kept with best and mean.
+   On a keyboard in Practice, type the letter, the number, and Enter.
 4. **Case overview** - "Case overview" in the header opens a full-screen sheet with every case: top view of the cube (with the side stickers of the top layer), case ID, opposite case and alg.
 5. **Stats** - Correct/attempted counts per case and per group are kept on the device; "Reset" clears them. Tap the "Stats" header to hide or show the table, for example while just practicing memorization.
 
