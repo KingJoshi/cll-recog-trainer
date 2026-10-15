@@ -15,46 +15,46 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 // chaining practice.
 const cllCases = {
   "cases": [
-    { "id": "A1", "group": "A", "opposite": "S1", "scramble": "R U R' U R U2 R' U'", "solution": "(R' U' R U' R' U2 R)" },
-    { "id": "A2", "group": "A", "opposite": "S2", "scramble": "R U R' U' R' F R F' R U' R' F R' F' R U", "solution": "(Sledge) (R U R') (Hedge) (*Righty)" },
-    { "id": "A3", "group": "A", "opposite": "S6", "scramble": "F R' F' R U R U2' R' F R' F' R U'", "solution": "U (Sledge) (R U2 R' U') (Sledge)" },
-    { "id": "A4", "group": "A", "opposite": "S4", "scramble": "R U' R' F R' F' R U2", "solution": "U2 (Sledge) (R U R')" },
-    { "id": "A5", "group": "A", "opposite": "S5", "scramble": "R U R' U' R' F R F' R U R' U R U2 R' U", "solution": "(Anti-sune1a) (Hedge) (*Righty)" },
-    { "id": "A6", "group": "A", "opposite": "S3", "scramble": "F R' F' R U2 R U2 R' U2", "solution": "U2 (R U2 R') U2 (Sledge)" },
-    { "id": "H1", "group": "H", "opposite": "H1", "scramble": "R2 U2 R U2 R2", "solution": "R2 U2 R U2 R2" },
-    { "id": "H2", "group": "H", "opposite": "H2", "scramble": "F R U R' U' R U R' U' R U R' U' F'", "solution": "F (Righty)3 F'" },
-    { "id": "H3", "group": "H", "opposite": "P3", "scramble": "R' F R F' R U' R' U' R U' R' U", "solution": "U' (R U R' U R U R') (Hedge)" },
-    { "id": "H4", "group": "H", "opposite": "P4", "scramble": "F R' F' R U2 R U R' F R' F' R U'", "solution": "U (Sledge) (R U' R') U2 (Sledge)" },
-    { "id": "L1", "group": "L", "opposite": "T2", "scramble": "R' F' R U R U' R' F U'", "solution": "F R U' R' U' R U R' F'" },
-    { "id": "L2", "group": "L", "opposite": "T1", "scramble": "R U R' U' R' F R F'", "solution": "(Hedge) (*Righty)" },
-    { "id": "L3", "group": "L", "opposite": "L3", "scramble": "R' F2 R2 U' R' F R' F2 R U2", "solution": "U R' F2 R2 U' R' F R' F2 R" },
-    { "id": "L4", "group": "L", "opposite": "L4", "scramble": "R U' R U' R U2 R' U R' U R'", "solution": "(R U' R U' R) U2 (R' U R' U R')" },
-    { "id": "L5", "group": "L", "opposite": "U5", "scramble": "R U' R2 F R F' R U R' U' R U R' U", "solution": "U' (R U' R') (*Righty) (Hedge) (R U R')" },
-    { "id": "L6", "group": "L", "opposite": "U6", "scramble": "R' U R' F R F' R U2 R' U R", "solution": "(R' U' R) U2 R' (Hedge) U' R" },
-    { "id": "P1", "group": "P", "opposite": "P1", "scramble": "F R U R' U' R U R' U' F' U2", "solution": "F (Righty)2 F'" },
-    { "id": "P2", "group": "P", "opposite": "P2", "scramble": "R U' R' U2 R' F R F' U2 R U R' U2", "solution": "(R U' R') U2 (Sledge) U2 (R U R')" },
-    { "id": "P3", "group": "P", "opposite": "H3", "scramble": "R U R' U R U R' F R' F' R U2", "solution": "U2 (Sledge) R U' R' U' R U' R'" },
-    { "id": "P4", "group": "P", "opposite": "H4", "scramble": "R' F R F' R U' R' U2 R' F R F' U'", "solution": "U (Hedge) U2 (R U R') (Hedge)" },
-    { "id": "P5", "group": "P", "opposite": "P6", "scramble": "R' F2 R U R' F' R U2 R U' R' F U'", "solution": "(R U2 R' U') (R U R') U2 (Sledge)" },
-    { "id": "P6", "group": "P", "opposite": "P5", "scramble": "R U2 R' U' R U R' U2 R' F R F' U'", "solution": "U (Hedge) U2 (R U' R') (U R U2 R')" },
-    { "id": "S1", "group": "S", "opposite": "A1", "scramble": "R' U' R U' R' U2 R U", "solution": "(R U R' U R U2 R')" },
-    { "id": "S2", "group": "S", "opposite": "A2", "scramble": "R' F R F' R U R' F R' F' R U R U' R'", "solution": "(Righty) (Sledge) (R U' R') (Hedge)" },
-    { "id": "S3", "group": "S", "opposite": "A6", "scramble": "R U2 R' U2 R' F R F'", "solution": "(Hedge) U2 (R U2 R')" },
-    { "id": "S4", "group": "S", "opposite": "A4", "scramble": "R' F R F' R U R'", "solution": "R U' R' (Hedge)" },
-    { "id": "S5", "group": "S", "opposite": "A5", "scramble": "R U2 R' U' R U' R' F R' F' R U R U' R'", "solution": "(Righty) (Sledge) (Sune1a)" },
-    { "id": "S6", "group": "S", "opposite": "A3", "scramble": "R' F R F' R U2' R' U' R' F R F'", "solution": "(Hedge) (U R U2 R') (Hedge)" },
-    { "id": "T1", "group": "T", "opposite": "L2", "scramble": "F R' F' R U R U' R'", "solution": "(Righty) (Sledge)" },
-    { "id": "T2", "group": "T", "opposite": "L1", "scramble": "F R U' R' U' R U R' F'", "solution": "U2 (R' F' R) (*Righty) F" },
-    { "id": "T3", "group": "T", "opposite": "T3", "scramble": "R2 U2 R' U2 R' F R F' U' R' U", "solution": "R2 U2 R' U2 (Sledge) U' R'" },
-    { "id": "T4", "group": "T", "opposite": "U2", "scramble": "R' F R F' R' F R F' R U R' U' R U R' U'", "solution": "(*Righty)2 (Hedge)2" },
-    { "id": "T5", "group": "T", "opposite": "U4", "scramble": "F R' F' R U' R U' R' U2 R U' R' U2", "solution": "U2 (R U R') U2 (R U R') U (Sledge)" },
-    { "id": "T6", "group": "T", "opposite": "T6", "scramble": "R U' R' U' F R' F' R2 U' R' U'", "solution": "U' (R U' R') U' (Hedge) (R U' R')" },
-    { "id": "U1", "group": "U", "opposite": "U1", "scramble": "F R U R' U' F' U2", "solution": "F (Righty) F'" },
-    { "id": "U2", "group": "U", "opposite": "T4", "scramble": "R U R' U R U2 R' U2 R' U' R U' R' U2 R U2", "solution": "(Sledge)2 (Righty)2" },
-    { "id": "U3", "group": "U", "opposite": "U3", "scramble": "F R U' R2 F R F' R U2 R' F' U2", "solution": "F R U' R' (Sledge) R U2 R' F'" },
-    { "id": "U4", "group": "U", "opposite": "T5", "scramble": "R U R' U2 R U R' U R' F R F'", "solution": "(Hedge) U' R U' R' U2 R U' R'" },
-    { "id": "U5", "group": "U", "opposite": "L5", "scramble": "R U' R' U R U' R' F R' F' R2 U R' U'", "solution": "(*Righty) (Sledge) (Righty)2" },
-    { "id": "U6", "group": "U", "opposite": "L6", "scramble": "R' U' R U2 R' F R' F' R U' R U'", "solution": "U (R' U) (Sledge) (R U2 R') U R" }
+    {"id":"A1","group":"A","opposite":"S1","scramble":"R F' U F R' U F R2 F' R'","scrambles":["R F' U F R' U F R2 F' R'","R U R2 U' F2 R2 U' R2 F2 R'","R U F2 R2 U F2 U' R2 F2 R'","F U R2 U' R' F' U R' U R"],"solution":"(R' U' R U' R' U2 R)"},
+    {"id":"A2","group":"A","opposite":"S2","scramble":"F2 U' F R' U' R2 F R' U R","scrambles":["F2 U' F R' U' R2 F R' U R","R U2 F R' U2 R2 U' F U2 R","R U2 F R U2 R2 U F U2 R","F2 R F U2 F U2 F2 R U' F'"],"solution":"(Sledge) (R U R') (Hedge) (*Righty)"},
+    {"id":"A3","group":"A","opposite":"S6","scramble":"R' U' R2 F' R F' R U' F2 R'","scrambles":["R' U' R2 F' R F' R U' F2 R'","F2 R2 F' U' F R' F2 R' F2 R","R2 U2 R U2 R' U2 F R' F' U2 R'","F U F2 U' F' R U' F R F' R'"],"solution":"U (Sledge) (R U2 R' U') (Sledge)"},
+    {"id":"A4","group":"A","opposite":"S4","scramble":"R' F R' F' U F' U2 F U R'","scrambles":["R' F R' F' U F' U2 F U R'","R2 U2 R F U R' F2 U' F' R'","R' U F R2 F' U F' U' F R'","F' U' F' U F2 U F' R' F R"],"solution":"U2 (Sledge) (R U R')"},
+    {"id":"A5","group":"A","opposite":"S5","scramble":"R2 F' U' R2 U' F U R2 F R'","scrambles":["R2 F' U' R2 U' F U R2 F R'","R' F U2 R U R' U2 R' F' R2","R2 F' U2 F' U F R' F R U R'","R2 U' R' U' F' U F2 R F' U R'"],"solution":"(Anti-sune1a) (Hedge) (*Righty)"},
+    {"id":"A6","group":"A","opposite":"S3","scramble":"R' F2 U' F R' U F' R2 U' R'","scrambles":["R' F2 U' F R' U F' R2 U' R'","R F2 R' U2 R' F U' F' R2 F2","R F2 R' F U R' F U' R' F R'","R F2 U R' U R' U' F R' F R'"],"solution":"U2 (R U2 R') U2 (Sledge)"},
+    {"id":"H1","group":"H","opposite":"H1","scramble":"R2 U2 F' U' R' F2 R F U R'","scrambles":["R2 U2 F' U' R' F2 R F U R'","R2 U2 R F2 U2 R U2 F2 U2 R'","R2 F2 U2 R' F2 R U2 F2 U2 R'","R2 U2 F' R' U' F2 U R F R'"],"solution":"R2 U2 R U2 R2"},
+    {"id":"H2","group":"H","opposite":"H2","scramble":"F2 R F2 R2 U2 R' F2 R2 F2 R2","scrambles":["F2 R F2 R2 U2 R' F2 R2 F2 R2","F2 R' U2 R2 F2 R F2 R2 F2 R2","F2 R U2 F2 U2 F2 R2 U2 R' F2","F2 U2 F2 U2 R' F2 R2 U2 R' F2"],"solution":"F (Righty)3 F'"},
+    {"id":"H3","group":"H","opposite":"P3","scramble":"R' U R' F' R2 U2 F' R U R'","scrambles":["R' U R' F' R2 U2 F' R U R'","R U' F2 U2 R F' U F2 U F2","R U R' F2 U2 F U F2 U F2","R' F R F' R2 U2 R' U2 R' U' R'"],"solution":"U' (R U R' U R U R') (Hedge)"},
+    {"id":"H4","group":"H","opposite":"P4","scramble":"R2 U R' F R' F2 U' F U R'","scrambles":["R2 U R' F R' F2 U' F U R'","F U2 R2 F' U' R' U F' U' R","F R F2 R2 F' R2 F R' U2 R","F R' F2 R2 F R2 F R' U2 R"],"solution":"U (Sledge) (R U' R') U2 (Sledge)"},
+    {"id":"L1","group":"L","opposite":"T2","scramble":"F U F' R F2 R' F' U' F' R'","scrambles":["F U F' R F2 R' F' U' F' R'","F R2 F' R' U R U R' U' R","F U F2 R' F' U' F' R U R","F U F U' F' R' U' R2 U R"],"solution":"F R U' R' U' R U R' F'"},
+    {"id":"L2","group":"L","opposite":"T1","scramble":"R2 U R' F' U2 F U' R' U' R'","scrambles":["R2 U R' F' U2 F U' R' U' R'","R2 U2 F R2 F' R' U2 R' U' R'","F' U2 R U F2 R F' R F' R'","R U' F R U R2 U' R2 F' R'"],"solution":"(Hedge) (*Righty)"},
+    {"id":"L3","group":"L","opposite":"L3","scramble":"F' R' U2 F' R' U2 R F' U' R'","scrambles":["F' R' U2 F' R' U2 R F' U' R'","F' R' U' F R2 F' U' F2 U' R'","F' U2 F R' F U2 F2 U2 R' F'","R' F' U2 F' R' U2 R F' R' F'"],"solution":"U R' F2 R2 U' R' F R' F2 R"},
+    {"id":"L4","group":"L","opposite":"L4","scramble":"R2 F U R2 U F2 U2 R2 F' U' R'","scrambles":["R2 F U R2 U F2 U2 R2 F' U' R'","R2 F U F2 R2 U R2 U2 F U' R'","R2 F U R2 U' R2 F2 U2 F U' R'","R U' R U' R U2 R' U R' U R'"],"solution":"(R U' R U' R) U2 (R' U R' U R')"},
+    {"id":"L5","group":"L","opposite":"U5","scramble":"F U F2 U F U2 F' R U2 R'","scrambles":["F U F2 U F U2 F' R U2 R'","F2 U' R2 F R U F2 R' U' F","R' U F' U2 F U R2 U R U' R'","R' U R U2 R U F' U2 F U' R'"],"solution":"U' (R U' R') (*Righty) (Hedge) (R U R')"},
+    {"id":"L6","group":"L","opposite":"U6","scramble":"R2 U2 R U' R U' F' U' F R'","scrambles":["R2 U2 R U' R U' F' U' F R'","R U' F U F2 U F R2 U' F","R2 U2 R F U2 R F' R U2 F","F' U2 R' F R U' F U R U' R'"],"solution":"(R' U' R) U2 R' (Hedge) U' R"},
+    {"id":"P1","group":"P","opposite":"P1","scramble":"F2 R2 F R2 F2 R' U' R2 U2 R'","scrambles":["F2 R2 F R2 F2 R' U' R2 U2 R'","F2 R2 F' R2 F2 R U' R2 U2 R'","F2 R2 F R2 F2 R' U R2 U2 R","F2 R2 F' R2 F2 R U R2 U2 R"],"solution":"F (Righty)2 F'"},
+    {"id":"P2","group":"P","opposite":"P2","scramble":"F2 R2 U' F2 R U2 R F2 U' R2","scrambles":["F2 R2 U' F2 R U2 R F2 U' R2","R2 U' F2 R U2 F2 R F2 U' R2","R2 U F2 R' F2 U2 R' F2 U R2","F2 R2 U F2 R' F2 R' F2 U R2"],"solution":"(R U' R') U2 (Sledge) U2 (R U R')"},
+    {"id":"P3","group":"P","opposite":"H3","scramble":"R U2 R2 F2 U' F U F' R F'","scrambles":["R U2 R2 F2 U' F U F' R F'","R' F2 U2 R2 U F U F' R F'","R F2 U2 R2 U' R' U' F U' F","R' U2 R2 F2 U R' U' F U' F"],"solution":"U2 (Sledge) R U' R' U' R U' R'"},
+    {"id":"P4","group":"P","opposite":"H4","scramble":"F U' R' U F' U' R' F2 U2 R","scrambles":["F U' R' U F' U' R' F2 U2 R","F U2 F' R F2 R F2 R2 F' R","F U2 F' R F2 R' F2 R2 F R","F' U R U' R2 F' R F' U F2"],"solution":"U (Hedge) U2 (R U R') (Hedge)"},
+    {"id":"P5","group":"P","opposite":"P6","scramble":"F R' U' F2 U F' U2 R F2 R'","scrambles":["F R' U' F2 U F' U2 R F2 R'","R' U2 R F2 U' F R2 F' R' F","R' F' U2 F' R F' R' F2 R U' R'","F2 R F R2 U R' F R2 F2 U' R'"],"solution":"(R U2 R' U') (R U R') U2 (Sledge)"},
+    {"id":"P6","group":"P","opposite":"P5","scramble":"R U' F2 R U F' R U' F2 U' R'","scrambles":["R U' F2 R U F' R U' F2 U' R'","R2 F' U R F2 R F2 R' U2 F R'","R' U' F2 U' F R' F R F2 U' R","R2 U2 F' R F U' R U F' U2 R2"],"solution":"U (Hedge) U2 (R U' R') (U R U2 R')"},
+    {"id":"S1","group":"S","opposite":"A1","scramble":"F' R' F2 R U F U' R U' R'","scrambles":["F' R' F2 R U F U' R U' R'","R' F R U F2 U' F' R U' R'","R F2 R2 U R2 F2 U R2 U' R'","R F2 R2 U F2 U' R2 F2 U' R'"],"solution":"(R U R' U R U2 R')"},
+    {"id":"S2","group":"S","opposite":"A2","scramble":"R2 U' R' F2 U F R U2 F' R","scrambles":["R2 U' R' F2 U F R U2 F' R","F U' R2 F R U F2 R' U' F2","F2 R2 U2 R' U R F' R2 F U' R'","F' R2 U F' U' R' F U' R' U2 R'"],"solution":"(Righty) (Sledge) (R U' R') (Hedge)"},
+    {"id":"S3","group":"S","opposite":"A6","scramble":"R F' U2 R' U' F2 R U' F R","scrambles":["R F' U2 R' U' F2 R U' F R","R2 F2 R U2 R F2 R F' R F'","R' U2 R2 U2 R U2 R' F R F'","R F2 U2 R U2 F2 R' F R F'"],"solution":"(Hedge) U2 (R U2 R')"},
+    {"id":"S4","group":"S","opposite":"A4","scramble":"R' U' F2 U' F' R' U F' U' R'","scrambles":["R' U' F2 U' F' R' U F' U' R'","R2 U' F' R' F2 R' U2 F' U' R'","R' U2 R' F' U' R2 U2 F' U' R'","R U' F' U F R2 U R U R'"],"solution":"R U' R' (Hedge)"},
+    {"id":"S5","group":"S","opposite":"A5","scramble":"F2 R' U F' U' R2 F R U R'","scrambles":["F2 R' U F' U' R2 F R U R'","F' R F2 R' U F U' F2 U R'","F' R U R F2 U' F' U F' R2","F2 R2 F R' F' U R U2 F' R2"],"solution":"(Righty) (Sledge) (Sune1a)"},
+    {"id":"S6","group":"S","opposite":"A3","scramble":"F2 R F' R' F2 R U' R' U2 R'","scrambles":["F2 R F' R' F2 R U' R' U2 R'","F2 U' R F' R' F' U F2 U2 R'","F2 U' R U' R F' R' U' F R'","F2 U' R U2 F' U' R' U F2 R'"],"solution":"(Hedge) (U R U2 R') (Hedge)"},
+    {"id":"T1","group":"T","opposite":"L2","scramble":"R F R2 F' U' R' U2 R U R'","scrambles":["R F R2 F' U' R' U2 R U R'","R F R2 U R2 U' R' F' U R'","F' U' R2 F' U2 R2 F' R' U2 R'","F R U F2 R F' U' F' U2 R'"],"solution":"(Righty) (Sledge)"},
+    {"id":"T2","group":"T","opposite":"L1","scramble":"F R' U F R' F U R2 F R'","scrambles":["F R' U F R' F U R2 F R'","R' U' F' U2 F R U' R' U' R","F R2 F U2 F2 U2 F2 R' U' R","F R2 F' R2 U2 R2 U2 R U' R"],"solution":"U2 (R' F' R) (*Righty) F"},
+    {"id":"T3","group":"T","opposite":"T3","scramble":"F R' F' R2 U F R2 F' U R'","scrambles":["F R' F' R2 U F R2 F' U R'","F' U F R2 U' F' U2 F U' R","F U R F' R F' U' F' U2 R2","F' R' F' U F' U R F U2 R2"],"solution":"R2 U2 R' U2 (Sledge) U' R'"},
+    {"id":"T4","group":"T","opposite":"U2","scramble":"R U R2 F2 U' F' U F' R F'","scrambles":["R U R2 F2 U' F' U F' R F'","R' U' R2 F2 U R U' F U' F","R U R' F U' R U' R' U2 F2","R' U' R F' R F' U R U2 F2"],"solution":"(*Righty)2 (Hedge)2"},
+    {"id":"T5","group":"T","opposite":"U4","scramble":"F R' F2 R F' U' F2 R U2 R'","scrambles":["F R' F2 R F' U' F2 R U2 R'","F2 U' F' U F' R' F' R2 U2 R'","F2 U R U' F U' R2 U2 F' R'","F' U F2 U' R U F2 R' U2 R"],"solution":"U2 (R U R') U2 (R U R') U (Sledge)"},
+    {"id":"T6","group":"T","opposite":"T6","scramble":"F R2 F' U' F2 U' R' U F' R'","scrambles":["F R2 F' U' F2 U' R' U F' R'","F' U' F R' U' R2 U' R' U2 R","F2 R' F2 R' U R2 U2 R' F U2 R'","F2 R' F2 R' U' R2 U2 R F U2 R'"],"solution":"U' (R U' R') U' (Hedge) (R U' R')"},
+    {"id":"U1","group":"U","opposite":"U1","scramble":"R U2 R' U' F' U2 F R U' R'","scrambles":["R U2 R' U' F' U2 F R U' R'","F' U' R' F2 R U2 F R U' R'","R U R' F' U2 F U R U2 R'","R' U2 F' U2 F R2 U2 R2 U2 R'"],"solution":"F (Righty) F'"},
+    {"id":"U2","group":"U","opposite":"T4","scramble":"F2 U2 R U R' U F' R U' R'","scrambles":["F2 U2 R U R' U F' R U' R'","F R' F U' F U F2 R2 U' R'","F2 U2 R' U' F R' F R' U R","F' U F' U R' U' F2 R2 U R"],"solution":"(Sledge)2 (Righty)2"},
+    {"id":"U3","group":"U","opposite":"U3","scramble":"F R2 U R' F U F' U2 F' U' R'","scrambles":["F R2 U R' F U F' U2 F' U' R'","F R F' R U2 F R' F' R' U2 R'","F R2 U R' U' F' U2 F' U F R'","F R F' U2 F' R' F' R U2 F R'"],"solution":"F R U' R' (Sledge) R U2 R' F'"},
+    {"id":"U4","group":"U","opposite":"T5","scramble":"R U' F' R2 F R2 F2 R' F' R'","scrambles":["R U' F' R2 F R2 F2 R' F' R'","R U' F' R2 F' R2 F2 R F' R'","R' U F U2 F U2 F2 U' F R","R' U F U2 F' U2 F2 U F R"],"solution":"(Hedge) U' R U' R' U2 R U' R'"},
+    {"id":"U5","group":"U","opposite":"L5","scramble":"F R2 F' R U2 R' U' R2 U' R'","scrambles":["F R2 F' R U2 R' U' R2 U' R'","R' U F U2 R' U' R' F2 U R2","R' U' F' U2 F U' R2 U R' U' R'","F R2 F' U' R' U' R2 U R' U' R'"],"solution":"(*Righty) (Sledge) (Righty)2"},
+    {"id":"U6","group":"U","opposite":"L6","scramble":"F' U2 F R' U2 R U R2 U R","scrambles":["F' U2 F R' U2 R U R2 U R","R U' F' R2 U F R F2 U' R2","F' R2 F R' U' F2 U R' U F R'","F R2 F2 R' U2 R' F' R2 U F R'"],"solution":"U (R' U) (Sledge) (R U2 R') U R"}
   ]
 };
 
@@ -76,6 +76,7 @@ const caseById = new Map(cllCases.cases.map(c => [c.id, c]));
 const STATS_KEY = 'cllTrainerStats';
 const SETTINGS_KEY = 'cllTrainerSettings';
 const SOLVES_KEY = 'cllTrainerSolves';
+const APPEARANCES_KEY = 'cllTrainerAppearances';
 const MAX_SOLVES = 500;
 
 function readJSON(key) {
@@ -95,6 +96,33 @@ function writeJSON(key, value) {
   }
 }
 
+function readSessionJSON(key) {
+  try {
+    const raw = sessionStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeSessionJSON(key, value) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+  }
+}
+
+let caseAppearances = readSessionJSON(APPEARANCES_KEY) || {};
+
+function saveCaseAppearances() {
+  writeSessionJSON(APPEARANCES_KEY, caseAppearances);
+}
+
+function resetCaseAppearances() {
+  caseAppearances = {};
+  saveCaseAppearances();
+}
+
 // ---------------------------------------------------------------------------
 // App state
 // ---------------------------------------------------------------------------
@@ -108,6 +136,7 @@ let selectedCases = new Set(
 );
 let alwaysWhiteBottom = savedSettings.alwaysWhiteBottom ?? true;
 let allowAUF = savedSettings.allowAUF ?? true;
+let showReflection = savedSettings.showReflection ?? true;
 let statsCollapsed = savedSettings.statsCollapsed ?? false;
 let statsType = (savedSettings.mode === "solve" || savedSettings.statsType === "solve")
   ? "solve"
@@ -168,6 +197,7 @@ function saveSettings() {
     selected: [...selectedCases],
     alwaysWhiteBottom,
     allowAUF,
+    showReflection,
     mode,
     timedMinutes,
     statsCollapsed,
@@ -230,8 +260,10 @@ const solveOverlayHint = document.getElementById("solveOverlayHint");
 
 // Create scramble display element
 const el = new ScrambleDisplay();
+el.player.hintFacelets = showReflection ? "floating" : "none";
 el.event = "222";
 el.visualization = "3D";
+applyReflection();
 displayContainer.appendChild(el);
 
 // ---------------------------------------------------------------------------
@@ -288,6 +320,12 @@ function renderSelection() {
 
 function setSelection(next) {
   selectedCases = next;
+  for (const id in caseAppearances) {
+    if (!selectedCases.has(id)) {
+      delete caseAppearances[id];
+    }
+  }
+  saveCaseAppearances();
   renderSelection();
   saveSettings();
   regenerateScramble();
@@ -350,6 +388,25 @@ if (typeof wideLayout.addEventListener === "function") {
 function renderToggles() {
   document.getElementById("toggleAlwaysWhiteBottom").setAttribute("aria-pressed", String(alwaysWhiteBottom));
   document.getElementById("toggleAllowAUF").setAttribute("aria-pressed", String(allowAUF));
+  const toggleReflect = document.getElementById("toggleShowReflection");
+  if (toggleReflect) {
+    toggleReflect.setAttribute("aria-pressed", String(showReflection));
+  }
+}
+
+function applyReflection() {
+  if (!el || !el.player) return;
+  try {
+    el.player.hintFacelets = showReflection ? "floating" : "none";
+    el.player.experimentalCurrentThreeJSPuzzleObject?.().then(p => {
+      if (p && typeof p.updateMaterialArrays === "function") {
+        p.updateMaterialArrays();
+        p.scheduleRenderCallback?.();
+      }
+    }).catch(() => {});
+  } catch (err) {
+    console.warn("Could not update reflection facelets:", err);
+  }
 }
 
 document.querySelectorAll(".switch").forEach(btn => {
@@ -359,10 +416,15 @@ document.querySelectorAll(".switch").forEach(btn => {
       alwaysWhiteBottom = !alwaysWhiteBottom;
     } else if (key === "allowAUF") {
       allowAUF = !allowAUF;
+    } else if (key === "showReflection") {
+      showReflection = !showReflection;
+      applyReflection();
     }
     renderToggles();
     saveSettings();
-    regenerateScramble();
+    if (key !== "showReflection") {
+      regenerateScramble();
+    }
   });
 });
 
@@ -370,15 +432,169 @@ document.querySelectorAll(".switch").forEach(btn => {
 // Scramble generation
 // ---------------------------------------------------------------------------
 
+function getPerformanceMultipliers(ids) {
+  const caseSolves = new Map();
+  for (const s of solves) {
+    if (!caseSolves.has(s.id)) caseSolves.set(s.id, []);
+    caseSolves.get(s.id).push(s.ms);
+  }
+
+  const list = ids.map(id => {
+    const times = caseSolves.get(id);
+    if (!times || times.length === 0) {
+      return { id, median: null, mean: null };
+    }
+    const attempts = times.length;
+    const mean = times.reduce((sum, t) => sum + t, 0) / attempts;
+    const sorted = [...times].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    return { id, median, mean };
+  });
+
+  function compareCasesByPerformance(a, b) {
+    // Cases without recorded times are considered unmastered / top priority
+    if (a.median == null && b.median == null) return 0;
+    if (a.median == null) return -1;
+    if (b.median == null) return 1;
+
+    const medDiff = Math.abs(a.median - b.median);
+    const avgMed = (a.median + b.median) / 2;
+    // Similar medians: within 50ms or 3%
+    const isSimilarMedian = medDiff <= Math.max(50, avgMed * 0.03);
+
+    if (isSimilarMedian) {
+      // Between similar medians, worse mean (greater times) is preferred
+      if (a.mean !== b.mean) {
+        return b.mean - a.mean;
+      }
+    }
+    // Worse median (higher times) is preferred
+    return b.median - a.median;
+  }
+
+  list.sort(compareCasesByPerformance);
+
+  const n = list.length;
+  const multipliers = {};
+  if (n <= 1) {
+    ids.forEach(id => { multipliers[id] = 1.0; });
+    return multipliers;
+  }
+
+  // Assign multipliers from 2.0 (worst performance) down to 0.5 (best performance),
+  // handling ties with equal rank
+  let i = 0;
+  while (i < n) {
+    let j = i;
+    while (j + 1 < n && compareCasesByPerformance(list[i], list[j + 1]) === 0) {
+      j++;
+    }
+    const avgRank = (i + j) / 2;
+    const t = avgRank / (n - 1);
+    const mult = 2.0 - 1.5 * t;
+    for (let k = i; k <= j; k++) {
+      multipliers[list[k].id] = mult;
+    }
+    i = j + 1;
+  }
+
+  return multipliers;
+}
+
 function getRandomCase() {
   if (selectedCases.size === 0) return null;
   const ids = [...selectedCases];
-  return ids[Math.floor(Math.random() * ids.length)];
+  if (ids.length === 1) return ids[0];
+
+  // Find the minimum appearance count among currently selected cases
+  let minCount = Infinity;
+  for (const id of ids) {
+    const count = caseAppearances[id] || 0;
+    if (count < minCount) minCount = count;
+  }
+  if (!Number.isFinite(minCount)) minCount = 0;
+
+  // Normalize so the least-appeared case(s) have count 0
+  if (minCount > 0) {
+    for (const id of ids) {
+      caseAppearances[id] = (caseAppearances[id] || 0) - minCount;
+    }
+    minCount = 0;
+  }
+
+  // Performance multipliers: amongst cases with similar number of attempts,
+  // cases with worse median (higher times) are preferred; between similar medians,
+  // worse mean (greater times) is preferred.
+  const perfMultipliers = getPerformanceMultipliers(ids);
+
+  // Weight each case:
+  // 1. Attempts: 5^-delta biases strongly toward under-represented cases so appearances stay mostly even
+  // 2. Performance: Amongst similar attempts, worse median and worse mean receive higher multipliers
+  const weights = [];
+  let totalWeight = 0;
+  for (const id of ids) {
+    const delta = (caseAppearances[id] || 0) - minCount;
+    const attemptWeight = Math.pow(5, -delta);
+    const perfMult = perfMultipliers[id] || 1.0;
+    const w = attemptWeight * perfMult;
+    weights.push(w);
+    totalWeight += w;
+  }
+
+  let r = Math.random() * totalWeight;
+  let chosenId = ids[ids.length - 1];
+  for (let i = 0; i < ids.length; i++) {
+    r -= weights[i];
+    if (r <= 0) {
+      chosenId = ids[i];
+      break;
+    }
+  }
+
+  caseAppearances[chosenId] = (caseAppearances[chosenId] || 0) + 1;
+  saveCaseAppearances();
+  return chosenId;
 }
 
 function randomU() {
-  const turns = Math.floor(Math.random() * 4);
-  return turns > 0 ? " U" + (turns > 1 ? turns : "") : "";
+  const choices = ["", " U", " U2", " U'"];
+  return choices[Math.floor(Math.random() * choices.length)];
+}
+
+function cleanAlg(algStr) {
+  const tokens = algStr.trim().split(/\s+/).filter(Boolean);
+  const result = [];
+
+  for (const token of tokens) {
+    const match = token.match(/^([RUFBLDxyz])([23']?)$/);
+    if (!match) {
+      result.push(token);
+      continue;
+    }
+    const face = match[1];
+    const mod = match[2];
+    const amount = mod === "'" || mod === "3" ? 3 : (mod === "2" ? 2 : 1);
+
+    if (result.length > 0) {
+      const prev = result[result.length - 1];
+      const prevMatch = prev.match(/^([RUFBLDxyz])([23']?)$/);
+      if (prevMatch && prevMatch[1] === face) {
+        const prevMod = prevMatch[2];
+        const prevAmount = prevMod === "'" || prevMod === "3" ? 3 : (prevMod === "2" ? 2 : 1);
+        const total = (prevAmount + amount) % 4;
+        result.pop();
+        if (total === 1) result.push(face);
+        else if (total === 2) result.push(face + "2");
+        else if (total === 3) result.push(face + "'");
+        continue;
+      }
+    }
+    if (amount === 1) result.push(face);
+    else if (amount === 2) result.push(face + "2");
+    else if (amount === 3) result.push(face + "'");
+  }
+  return result.join(" ");
 }
 
 function buildScramble() {
@@ -386,18 +602,13 @@ function buildScramble() {
   if (alwaysWhiteBottom) {
     orientation = "z2";
   } else {
-    const xRandRotations = Math.floor(Math.random() * 4);
-    const yRandRotations = Math.floor(Math.random() * 4);
-    const zRandRotations = Math.floor(Math.random() * 4);
-    if (xRandRotations > 0) {
-      orientation += " x" + (xRandRotations > 1 ? xRandRotations : "");
-    }
-    if (yRandRotations > 0) {
-      orientation += " y" + (yRandRotations > 1 ? yRandRotations : "");
-    }
-    if (zRandRotations > 0) {
-      orientation += " z" + (zRandRotations > 1 ? zRandRotations : "");
-    }
+    const rot = (axis, turns) => {
+      if (turns === 1) return ` ${axis}`;
+      if (turns === 2) return ` ${axis}2`;
+      if (turns === 3) return ` ${axis}'`;
+      return "";
+    };
+    orientation = `${rot("x", Math.floor(Math.random() * 4))}${rot("y", Math.floor(Math.random() * 4))}${rot("z", Math.floor(Math.random() * 4))}`.trim();
   }
 
   let moves = "";
@@ -411,8 +622,9 @@ function buildScramble() {
   const caseObj = randomCase ? caseById.get(randomCase) : null;
   if (caseObj) {
     currentCaseId = caseObj.id;
-    currentCaseScramble = caseObj.scramble;
-    moves += " " + caseObj.scramble;
+    const caseScrambles = caseObj.scrambles && caseObj.scrambles.length ? caseObj.scrambles : [caseObj.scramble];
+    currentCaseScramble = caseScrambles[Math.floor(Math.random() * caseScrambles.length)];
+    moves += " " + currentCaseScramble;
 
     // Make sure the case has a stats entry, but do not count it as shown yet
     if (!stats[currentCaseId]) stats[currentCaseId] = { shown: 0, correct: 0 };
@@ -426,7 +638,7 @@ function buildScramble() {
     moves += randomU();
   }
 
-  scrambleMoves = moves.trim();
+  scrambleMoves = cleanAlg(moves);
   scramble = `${orientation.trim()} ${scrambleMoves}`.trim();
   return scramble;
 }
@@ -461,6 +673,7 @@ function setMode(next) {
   if (session) finishSession(); // leaving Timed ends a running session
   if (solveState !== "idle") cancelSolve(); // leaving Solve drops an unfinished attempt
   mode = next;
+  resetCaseAppearances();
   if (mode === "solve") {
     statsType = "solve";
   } else {
@@ -721,6 +934,7 @@ function formatTime(ms) {
 
 function startSession() {
   if (selectedCases.size === 0 || session) return;
+  resetCaseAppearances();
   const durationMs = timedMinutes * 60 * 1000;
   const now = Date.now();
   session = {
@@ -865,10 +1079,15 @@ function renderSolvePanel() {
     solveSummaryEl.textContent = "No times yet";
   }
   clearSolvesBtn.hidden = solves.length === 0;
-  solveList.innerHTML = solves
-    .slice(-12)
-    .reverse()
-    .map(x => `<span class="solve-chip">${formatSolveTime(x.ms)}<span>${x.id}</span></span>`)
+  const recent = solves.map((solve, index) => ({ solve, index })).slice(-12).reverse();
+  solveList.innerHTML = recent
+    .map(({ solve, index }) => `
+      <button type="button" class="solve-chip" data-index="${index}" title="Click to delete solve ${formatSolveTime(solve.ms)} (${solve.id})">
+        <span class="solve-chip-time">${formatSolveTime(solve.ms)}</span>
+        <span class="solve-chip-id">${solve.id}</span>
+        <span class="solve-chip-del" aria-hidden="true">&times;</span>
+      </button>
+    `.trim())
     .join("");
 }
 
@@ -1000,6 +1219,26 @@ clearSolvesBtn.addEventListener("click", () => {
   if (confirm("Clear all recorded solve times?")) {
     solves = [];
     lastSolve = null;
+    resetCaseAppearances();
+    saveSolves();
+    renderSolvePanel();
+    updateStatsTable();
+  }
+});
+
+solveList.addEventListener("click", e => {
+  const chip = e.target.closest(".solve-chip");
+  if (!chip) return;
+  const index = Number(chip.dataset.index);
+  if (!Number.isInteger(index) || index < 0 || index >= solves.length) return;
+  const s = solves[index];
+  if (!s) return;
+
+  if (confirm(`Delete solve ${formatSolveTime(s.ms)} (${s.id})?`)) {
+    solves.splice(index, 1);
+    if (lastSolve === s || (lastSolve && lastSolve.at === s.at && lastSolve.id === s.id && lastSolve.ms === s.ms)) {
+      lastSolve = solves.length ? solves[solves.length - 1] : null;
+    }
     saveSolves();
     renderSolvePanel();
     updateStatsTable();
@@ -1338,6 +1577,7 @@ document.getElementById("resetStatsBtn").addEventListener("click", () => {
     if (confirm("Are you sure you want to clear all recorded solve times?")) {
       solves = [];
       lastSolve = null;
+      resetCaseAppearances();
       saveSolves();
       renderSolvePanel();
       updateStatsTable();
@@ -1347,6 +1587,7 @@ document.getElementById("resetStatsBtn").addEventListener("click", () => {
       for (const key in stats) {
         delete stats[key];
       }
+      resetCaseAppearances();
       saveStats();
       updateStatsTable();
     }
