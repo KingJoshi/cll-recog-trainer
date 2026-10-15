@@ -109,6 +109,10 @@ let selectedCases = new Set(
 let alwaysWhiteBottom = savedSettings.alwaysWhiteBottom ?? true;
 let allowAUF = savedSettings.allowAUF ?? true;
 let statsCollapsed = savedSettings.statsCollapsed ?? false;
+let statsType = (savedSettings.mode === "solve" || savedSettings.statsType === "solve")
+  ? "solve"
+  : (savedSettings.statsType || "recog");
+let solveStatsSort = { col: "case", dir: "asc" };
 
 // Modes: study (case info shown, no quiz), practice (untimed quiz with a
 // Verify step), timed (countdown; answers are checked instantly and the next
@@ -166,7 +170,8 @@ function saveSettings() {
     allowAUF,
     mode,
     timedMinutes,
-    statsCollapsed
+    statsCollapsed,
+    statsType
   });
 }
 
@@ -187,6 +192,8 @@ const settingsPanel = document.getElementById("settingsPanel");
 const settingsToggle = document.getElementById("settingsToggle");
 const statsPanel = document.getElementById("statsPanel");
 const statsToggle = document.getElementById("statsToggle");
+const statsTabRecog = document.getElementById("statsTabRecog");
+const statsTabSolve = document.getElementById("statsTabSolve");
 const overview = document.getElementById("overview");
 const overviewBtn = document.getElementById("overviewBtn");
 const overviewClose = document.getElementById("overviewClose");
@@ -454,8 +461,15 @@ function setMode(next) {
   if (session) finishSession(); // leaving Timed ends a running session
   if (solveState !== "idle") cancelSolve(); // leaving Solve drops an unfinished attempt
   mode = next;
+  if (mode === "solve") {
+    statsType = "solve";
+  } else {
+    statsType = "recog";
+  }
   saveSettings();
   renderStage();
+  renderStatsToggle();
+  updateStatsTable();
 }
 
 modeButtons.forEach(btn => btn.addEventListener("click", () => setMode(btn.dataset.mode)));
@@ -988,6 +1002,7 @@ clearSolvesBtn.addEventListener("click", () => {
     lastSolve = null;
     saveSolves();
     renderSolvePanel();
+    updateStatsTable();
   }
 });
 
@@ -1123,7 +1138,32 @@ document.addEventListener("keydown", e => {
 // Stats table
 // ---------------------------------------------------------------------------
 
-function updateStatsTable() {
+function renderStatsToggle() {
+  if (statsTabRecog && statsTabSolve) {
+    const isRecog = statsType === "recog";
+    statsTabRecog.setAttribute("aria-pressed", String(isRecog));
+    statsTabRecog.classList.toggle("active", isRecog);
+    statsTabSolve.setAttribute("aria-pressed", String(!isRecog));
+    statsTabSolve.classList.toggle("active", !isRecog);
+  }
+}
+
+function setStatsType(next) {
+  if (statsType === next) return;
+  statsType = next;
+  saveSettings();
+  renderStatsToggle();
+  updateStatsTable();
+}
+
+if (statsTabRecog) {
+  statsTabRecog.addEventListener("click", () => setStatsType("recog"));
+}
+if (statsTabSolve) {
+  statsTabSolve.addEventListener("click", () => setStatsType("solve"));
+}
+
+function renderRecogStatsTable() {
   const caseNumbers = [1, 2, 3, 4, 5, 6];
 
   let html = '<table><thead><tr><th scope="col">Group</th>';
@@ -1155,6 +1195,132 @@ function updateStatsTable() {
   document.getElementById("stats-table-container").innerHTML = html;
 }
 
+function renderSolveStatsTable() {
+  const caseSolves = new Map();
+  for (const s of solves) {
+    if (selectedCases.has(s.id)) {
+      if (!caseSolves.has(s.id)) {
+        caseSolves.set(s.id, []);
+      }
+      caseSolves.get(s.id).push(s.ms);
+    }
+  }
+
+  const casesWithTimes = CASE_IDS.filter(id => caseSolves.has(id));
+
+  const sortCols = [
+    { key: "case", label: "Case" },
+    { key: "attempts", label: "Attempts" },
+    { key: "best", label: "Best", title: "Best time" },
+    { key: "mean", label: "Mean", title: "Mean time" },
+    { key: "median", label: "Median", title: "Median time" },
+    { key: "worst", label: "Worst", title: "Worst time" }
+  ];
+
+  let html = '<table class="solve-stats-table"><thead><tr>';
+  sortCols.forEach(col => {
+    const isSorted = solveStatsSort.col === col.key;
+    const arrow = isSorted ? (solveStatsSort.dir === "asc" ? " ▲" : " ▼") : "";
+    html += `<th scope="col" class="sortable" data-sort="${col.key}" title="${col.title || ('Sort by ' + col.label)}">${col.label}<span class="sort-icon">${arrow}</span></th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  const container = document.getElementById("stats-table-container");
+
+  if (casesWithTimes.length === 0) {
+    html += '<tr><td colspan="6" class="empty-stats">No solve times for selected cases</td></tr></tbody></table>';
+    container.innerHTML = html;
+    attachSortListeners(container);
+    return;
+  }
+
+  const caseStatsList = casesWithTimes.map(id => {
+    const times = caseSolves.get(id);
+    const attempts = times.length;
+    const best = Math.min(...times);
+    const worst = Math.max(...times);
+    const mean = times.reduce((sum, t) => sum + t, 0) / attempts;
+    const sorted = [...times].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    return { id, attempts, best, worst, mean, median };
+  });
+
+  caseStatsList.sort((a, b) => {
+    let valA = a[solveStatsSort.col];
+    let valB = b[solveStatsSort.col];
+    if (solveStatsSort.col === "case") {
+      valA = CASE_IDS.indexOf(a.id);
+      valB = CASE_IDS.indexOf(b.id);
+    }
+    if (valA < valB) return solveStatsSort.dir === "asc" ? -1 : 1;
+    if (valA > valB) return solveStatsSort.dir === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  caseStatsList.forEach(stat => {
+    html += `<tr>
+      <th scope="row">${stat.id}</th>
+      <td>${stat.attempts}</td>
+      <td>${formatSolveTime(stat.best)}</td>
+      <td>${formatSolveTime(stat.mean)}</td>
+      <td>${formatSolveTime(stat.median)}</td>
+      <td>${formatSolveTime(stat.worst)}</td>
+    </tr>`;
+  });
+
+  html += '</tbody>';
+
+  if (caseStatsList.length > 1) {
+    const allTimes = solves.filter(s => selectedCases.has(s.id)).map(s => s.ms);
+    const totalAttempts = allTimes.length;
+    const overallBest = Math.min(...allTimes);
+    const overallWorst = Math.max(...allTimes);
+    const overallMean = allTimes.reduce((sum, t) => sum + t, 0) / totalAttempts;
+    const sortedAll = [...allTimes].sort((a, b) => a - b);
+    const midAll = Math.floor(sortedAll.length / 2);
+    const overallMedian = sortedAll.length % 2 !== 0 ? sortedAll[midAll] : (sortedAll[midAll - 1] + sortedAll[midAll]) / 2;
+
+    html += `<tfoot><tr>
+      <th scope="row">Total</th>
+      <td>${totalAttempts}</td>
+      <td>${formatSolveTime(overallBest)}</td>
+      <td>${formatSolveTime(overallMean)}</td>
+      <td>${formatSolveTime(overallMedian)}</td>
+      <td>${formatSolveTime(overallWorst)}</td>
+    </tr></tfoot>`;
+  }
+
+  html += '</table>';
+  container.innerHTML = html;
+  attachSortListeners(container);
+}
+
+function attachSortListeners(container) {
+  container.querySelectorAll("th.sortable").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.sort;
+      if (!col) return;
+      if (solveStatsSort.col === col) {
+        solveStatsSort.dir = solveStatsSort.dir === "asc" ? "desc" : "asc";
+      } else {
+        solveStatsSort.col = col;
+        solveStatsSort.dir = (col === "case" || col === "best" || col === "mean" || col === "median" || col === "worst") ? "asc" : "desc";
+      }
+      renderSolveStatsTable();
+    });
+  });
+}
+
+function updateStatsTable() {
+  renderStatsToggle();
+  if (statsType === "solve") {
+    renderSolveStatsTable();
+  } else {
+    renderRecogStatsTable();
+  }
+}
+
 // Collapsible stats (hide the table while just practicing)
 function syncStatsPanel() {
   statsPanel.classList.toggle("collapsed", statsCollapsed);
@@ -1168,12 +1334,22 @@ statsToggle.addEventListener("click", () => {
 });
 
 document.getElementById("resetStatsBtn").addEventListener("click", () => {
-  if (confirm("Are you sure you want to reset all statistics?")) {
-    for (const key in stats) {
-      delete stats[key];
+  if (statsType === "solve") {
+    if (confirm("Are you sure you want to clear all recorded solve times?")) {
+      solves = [];
+      lastSolve = null;
+      saveSolves();
+      renderSolvePanel();
+      updateStatsTable();
     }
-    saveStats();
-    updateStatsTable();
+  } else {
+    if (confirm("Are you sure you want to reset all recognition statistics?")) {
+      for (const key in stats) {
+        delete stats[key];
+      }
+      saveStats();
+      updateStatsTable();
+    }
   }
 });
 
@@ -1186,4 +1362,5 @@ renderToggles();
 renderMinutes();
 syncSettingsPanel();
 syncStatsPanel();
+renderStatsToggle();
 regenerateScramble();

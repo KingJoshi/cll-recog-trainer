@@ -615,6 +615,15 @@ scramble-display {
     display: none;
 }
 
+.stats-seg {
+    margin: 0 10px 10px;
+}
+
+.stats-seg > button {
+    min-height: 34px;
+    font-size: .85rem;
+}
+
 #stats-table-container {
     overflow-x: auto;
     padding: 0 10px 10px;
@@ -643,6 +652,36 @@ scramble-display {
 #stats-table-container td.total {
     background: var(--surface-2);
     font-weight: 600;
+}
+
+#stats-table-container tfoot th,
+#stats-table-container tfoot td {
+    background: var(--surface-2);
+    font-weight: 600;
+    border-top: 2px solid var(--border);
+}
+
+#stats-table-container th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+#stats-table-container th.sortable:hover {
+    background: #e5ebf3;
+}
+
+.sort-icon {
+    display: inline-block;
+    margin-left: 3px;
+    font-size: .7rem;
+    opacity: .75;
+}
+
+#stats-table-container .empty-stats {
+    padding: 18px 8px;
+    color: var(--muted);
+    font-style: italic;
+    background: none;
 }
 
 /* --------------------------------------------------------------------------
@@ -1174,6 +1213,15 @@ html.overview-open body {
     #stats-table-container th,
     #stats-table-container td {
         padding: 5px 2px;
+    }
+
+    .stats-seg {
+        margin: 0 8px 8px;
+    }
+
+    .stats-seg > button {
+        min-height: 32px;
+        font-size: .8rem;
     }
 }
 

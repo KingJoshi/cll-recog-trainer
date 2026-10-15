@@ -163,6 +163,10 @@
       <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger">Reset</button>
     </div>
     <div id="statsBody" class="stats-body">
+      <div class="seg stats-seg" role="group" aria-label="Stats type">
+        <button type="button" class="stats-tab-btn" id="statsTabRecog" data-stats="recog" aria-pressed="true">Recognition</button>
+        <button type="button" class="stats-tab-btn" id="statsTabSolve" data-stats="solve" aria-pressed="false">Solve</button>
+      </div>
       <div id="stats-table-container"></div>
     </div>
   </section>
