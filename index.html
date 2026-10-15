@@ -68,6 +68,8 @@
       <button type="button" class="mode-btn" data-mode="practice" aria-pressed="true">Practice</button>
       <button type="button" class="mode-btn" data-mode="timed" aria-pressed="false">Timed</button>
       <button type="button" class="mode-btn" data-mode="solve" aria-pressed="false">Solve</button>
+      <button type="button" class="mode-btn" data-mode="simulate" aria-pressed="false">Simulate</button>
+      <button type="button" class="mode-btn" data-mode="layer" aria-pressed="false">1st Layer</button>
     </div>
 
     <div id="timedBar" class="timed-bar" hidden>
@@ -85,8 +87,20 @@
       <p id="solveScrambleText" class="solve-scramble-text"></p>
     </div>
 
+    <!-- 1st Layer mode: WCA 2x2 scramble -->
+    <div id="layerScramble" class="layer-scramble" hidden>
+      <div class="layer-scramble-head">
+        <p class="solve-label">WCA 2x2 Scramble</p>
+        <button type="button" id="layerNewScrambleBtn" class="btn btn-small">New Scramble</button>
+      </div>
+      <p id="layerScrambleText" class="layer-scramble-text"></p>
+    </div>
+
     <div class="cube-card">
       <div id="display-container"></div>
+      <button type="button" id="resetOrientationBtn" class="reset-orientation-btn" title="Reset 3D camera orientation">
+        <span class="reset-orient-icon" aria-hidden="true">&#x21bb;</span> Reset orientation
+      </button>
       <p id="empty-state" class="empty-state" hidden>
         No cases selected. Open <strong>Cases &amp; options</strong> and pick some.
       </p>
@@ -94,16 +108,115 @@
 
     <div id="case-info-container" class="case-info" hidden></div>
 
+    <!-- Simulate mode: input, stepping, scrubber, and playback controls -->
+    <div id="simulatePanel" class="simulate-panel" hidden>
+      <div class="sim-card">
+        <div class="sim-header">
+          <h2 class="sim-title">Scramble Simulator</h2>
+          <span id="simStatusBadge" class="sim-badge">Ready</span>
+        </div>
+
+        <div class="sim-input-row">
+          <div class="sim-input-wrap">
+            <input type="text" id="simScrambleInput" class="sim-input" placeholder="Enter scramble (e.g. R U' R2 F R F' R U2 R' U2)" spellcheck="false" autocomplete="off" />
+            <button type="button" id="simClearBtn" class="sim-btn-clear" title="Clear input">&times;</button>
+          </div>
+          <button type="button" id="simLoadBtn" class="btn btn-primary sim-btn-load">Load</button>
+        </div>
+
+        <div class="sim-preset-row">
+          <button type="button" id="simUseCurrentBtn" class="btn btn-small">Current Scramble</button>
+          <div class="sim-case-select-wrap">
+            <select id="simCaseSelect" class="sim-select" aria-label="Select a CLL case to simulate">
+              <option value="">Load a CLL case...</option>
+            </select>
+          </div>
+          <div class="sim-scramble-select-wrap" id="simScrambleSelectWrap" hidden>
+            <select id="simScrambleSelect" class="sim-select" aria-label="Select preset scramble">
+            </select>
+          </div>
+          <button type="button" id="simAppendSolutionBtn" class="btn btn-small" title="Append CLL solution to verify solve">Append Solution</button>
+        </div>
+
+        <div id="simCaseDetails" class="sim-case-details" hidden>
+          <div class="sim-case-meta">
+            <div class="sim-case-tags">
+              <span class="sim-case-tag" id="simCaseTag">Case: T1</span>
+              <span class="sim-solution-tag" id="simSolutionTag"><strong>Solution:</strong> R U R' U' R' F R F'</span>
+            </div>
+            <div class="sim-orient-tag" id="simOrientTag">Orientation: White on bottom (z2)</div>
+          </div>
+          <div class="sim-presets-bar" id="simPresetsBar">
+            <span class="sim-presets-label">Preset Scrambles:</span>
+            <div class="sim-preset-chips" id="simPresetButtons" role="group" aria-label="Preset scrambles for this case"></div>
+          </div>
+        </div>
+
+        <div id="simErrorMsg" class="sim-error-msg" hidden></div>
+
+        <!-- Playback Controls -->
+        <div class="sim-controls-card">
+          <div class="sim-btn-group">
+            <button type="button" id="simBtnStart" class="btn btn-ctrl" title="Jump to start (Home)">
+              <span class="ctrl-icon" aria-hidden="true">&#x23EE;</span>
+            </button>
+            <button type="button" id="simBtnPrev" class="btn btn-ctrl" title="Step backward (Left arrow)">
+              <span class="ctrl-icon" aria-hidden="true">&#x25C0;</span>
+            </button>
+            <button type="button" id="simBtnPlay" class="btn btn-primary btn-play" title="Play / Pause (Space)">
+              <span id="simPlayIcon" class="ctrl-icon" aria-hidden="true">&#x25B6;</span>
+              <span id="simPlayText">Play</span>
+            </button>
+            <button type="button" id="simBtnNext" class="btn btn-ctrl" title="Step forward (Right arrow)">
+              <span class="ctrl-icon" aria-hidden="true">&#x25B6;</span>
+            </button>
+            <button type="button" id="simBtnEnd" class="btn btn-ctrl" title="Jump to end (End)">
+              <span class="ctrl-icon" aria-hidden="true">&#x23ED;</span>
+            </button>
+          </div>
+
+          <div class="sim-info-bar">
+            <span id="simStepCounter" class="sim-counter">Move 0 / 0</span>
+            <div class="sim-speed-group" role="group" aria-label="Playback speed">
+              <span class="sim-speed-label">Speed:</span>
+              <button type="button" class="sim-speed-btn" data-speed="0.5">0.5x</button>
+              <button type="button" class="sim-speed-btn active" data-speed="1">1x</button>
+              <button type="button" class="sim-speed-btn" data-speed="1.5">1.5x</button>
+              <button type="button" class="sim-speed-btn" data-speed="2">2x</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Move Timeline Scrubber -->
+        <div class="sim-timeline-box">
+          <div class="sim-timeline-head">
+            <div class="sim-timeline-title-wrap">
+              <span>Move Sequence</span>
+              <button type="button" id="simTimelineResetBtn" class="sim-timeline-reset-btn" title="Reset to beginning (|<<)">
+                <span class="ctrl-icon" aria-hidden="true">&#x23EE;</span> Reset
+              </button>
+            </div>
+            <span class="sim-timeline-hint">Tap any move to jump</span>
+          </div>
+          <div id="simMoveList" class="sim-move-list">
+            <!-- Populated dynamically with move badges -->
+          </div>
+        </div>
+
+        <p class="kbd-hint">Keyboard: &larr; / &rarr; step moves &bull; Space to play/pause &bull; Home/End start/finish</p>
+      </div>
+    </div>
+
     <div id="guessing-container" class="guess">
       <p class="guess-label">Which case is it?</p>
       <div class="seg" role="group" aria-label="Guess the group">
-        <button type="button" class="group-btn" data-group="A">A</button>
         <button type="button" class="group-btn" data-group="H">H</button>
-        <button type="button" class="group-btn" data-group="L">L</button>
         <button type="button" class="group-btn" data-group="P">P</button>
-        <button type="button" class="group-btn" data-group="S">S</button>
-        <button type="button" class="group-btn" data-group="T">T</button>
         <button type="button" class="group-btn" data-group="U">U</button>
+        <button type="button" class="group-btn" data-group="T">T</button>
+        <button type="button" class="group-btn" data-group="L">L</button>
+        <button type="button" class="group-btn" data-group="S">S</button>
+        <button type="button" class="group-btn" data-group="A">A</button>
       </div>
       <div class="seg" role="group" aria-label="Guess the case number">
         <button type="button" class="case-btn" data-case="1">1</button>
@@ -154,6 +267,46 @@
       <div id="solveList" class="solve-list"></div>
     </div>
 
+    <!-- 1st Layer mode: timer area and recorded times -->
+    <div id="layerSurface" class="layer-surface" hidden>
+      <div class="layer-controls-row">
+        <label class="layer-toggle-label">
+          <input type="checkbox" id="layerInspectionToggle" checked>
+          <span>WCA Inspection (15s)</span>
+        </label>
+        <span id="layerStatusBadge" class="layer-badge">Ready</span>
+      </div>
+      <div id="layerTime" class="layer-time">0.00</div>
+      <div id="layerSubtext" class="layer-subtext">Scramble cube, then inspect &amp; start timer</div>
+      <p class="layer-hint layer-hint-key">Space to inspect &bull; Hold Space to arm &bull; Release to start</p>
+      <p class="layer-hint layer-hint-touch">Tap to inspect &bull; Hold to arm &bull; Release to start</p>
+    </div>
+
+    <div id="layerTimes" class="panel layer-times" hidden>
+      <div class="section-head">
+        <h2>1st Layer Times</h2>
+        <span id="layerSummary" class="layer-summary"></span>
+        <button type="button" id="clearLayerSolvesBtn" class="btn btn-small btn-danger" hidden>Clear</button>
+      </div>
+      <div id="layerList" class="layer-list"></div>
+    </div>
+
+    <!-- White 1st Layer Solutions Widget (collapsed by default) -->
+    <details id="layerSolutionsWidget" class="panel layer-solutions-widget" hidden>
+      <summary class="layer-solutions-summary">
+        <div class="layer-solutions-title-wrap">
+          <span class="panel-title">White 1st layer solutions</span>
+          <span id="layerSolutionsBadge" class="badge"></span>
+        </div>
+        <span class="chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="layer-solutions-body">
+        <div id="layerSolutionsList" class="layer-solutions-list">
+          <p class="layer-solutions-empty">Generating solutions...</p>
+        </div>
+      </div>
+    </details>
+
     <button type="button" id="regenerateBtn" class="btn btn-outline btn-block">New scramble</button>
   </section>
 
@@ -170,6 +323,7 @@
       <div class="seg stats-seg" role="group" aria-label="Stats type">
         <button type="button" class="stats-tab-btn" id="statsTabRecog" data-stats="recog" aria-pressed="true">Recognition</button>
         <button type="button" class="stats-tab-btn" id="statsTabSolve" data-stats="solve" aria-pressed="false">Solve</button>
+        <button type="button" class="stats-tab-btn" id="statsTabLayer" data-stats="layer" aria-pressed="false">1st Layer</button>
       </div>
       <div id="stats-table-container"></div>
     </div>
@@ -190,8 +344,41 @@
 
 <!-- Solve mode: full-screen timer while armed / running -->
 <div id="solveOverlay" class="solve-overlay" hidden>
+  <button type="button" id="solveOverlayCancelBtn" class="solve-overlay-cancel-btn" hidden title="Cancel inspection (Esc)">&times; Cancel</button>
   <div id="solveOverlayTime" class="solve-overlay-time">0.00</div>
   <p id="solveOverlayHint" class="solve-overlay-hint"></p>
+</div>
+
+<!-- Solve details popup modal -->
+<div id="solveDetailModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="solveModalTitle" hidden>
+  <div class="solve-modal-card">
+    <div class="solve-modal-header">
+      <div class="solve-modal-title-wrap">
+        <h3 id="solveModalTitle" class="solve-modal-title">Solve Details</h3>
+        <span id="solveModalTime" class="solve-modal-time">0.00</span>
+      </div>
+      <button type="button" id="solveModalCloseBtn" class="solve-modal-close" aria-label="Close dialog">&times;</button>
+    </div>
+    <div class="solve-modal-body">
+      <div class="solve-modal-field">
+        <span class="solve-modal-label">Scramble</span>
+        <div class="solve-modal-scramble-box">
+          <p id="solveModalScramble" class="solve-modal-scramble"></p>
+          <button type="button" id="solveModalCopyScrambleBtn" class="btn btn-small" title="Copy scramble">Copy</button>
+        </div>
+      </div>
+      <div class="solve-modal-field">
+        <span class="solve-modal-label">Date &amp; Time</span>
+        <p id="solveModalDate" class="solve-modal-date"></p>
+      </div>
+    </div>
+    <div class="solve-modal-actions">
+      <button type="button" id="solveModalSimBtn" class="btn btn-primary btn-small">
+        <span aria-hidden="true">&#x25B6;</span> Simulate in 3D
+      </button>
+      <button type="button" id="solveModalDismissBtn" class="btn btn-small">Close</button>
+    </div>
+  </div>
 </div>
 
 <script type="module" src="/src/main.js"></script>
