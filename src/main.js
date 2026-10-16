@@ -522,6 +522,10 @@ function addViewRotation(move) {
   rotateCubeIn3D(move);
 }
 
+function clearViewRotations() {
+  resetCubeOrientation();
+}
+
 function applyScrambleToDisplay(scrambleString) {
   currentBaseDisplayScramble = scrambleString || "";
   if (!el) return;
@@ -1068,7 +1072,7 @@ function buildScramble() {
 }
 
 function regenerateScramble() {
-  clearViewRotations();
+  resetCubeOrientation();
   const hasCases = selectedCases.size > 0;
   emptyState.hidden = hasCases;
 
