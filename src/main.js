@@ -107,23 +107,21 @@ let selectedCases = new Set(
 let alwaysWhiteBottom = savedSettings.alwaysWhiteBottom ?? true;
 let allowAUF = savedSettings.allowAUF ?? true;
 let showReflection = savedSettings.showReflection ?? true;
+let darkMode = savedSettings.darkMode ?? false;
 let statsCollapsed = savedSettings.statsCollapsed ?? false;
-let layerUseInspection = savedSettings.layerUseInspection ?? true;
 let layerTargetFaces = Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
   ? savedSettings.layerTargetFaces
   : ["white"];
-let statsType = (savedSettings.mode === "layer" || savedSettings.statsType === "layer")
-  ? "layer"
-  : ((savedSettings.mode === "solve" || savedSettings.statsType === "solve")
-    ? "solve"
-    : (savedSettings.statsType || "layer"));
+let statsType = (savedSettings.statsType === "recog" || savedSettings.statsType === "cll")
+  ? savedSettings.statsType
+  : "log";
 let solveStatsSort = { col: "case", dir: "asc" };
 
-// Modes: layer, study, practice, timed, solve, simulate
-const MODES = ["layer", "study", "practice", "timed", "solve", "simulate"];
+// Modes: solve, study, practice, timed, simulate
+const MODES = ["solve", "study", "practice", "timed", "simulate"];
 let mode = MODES.includes(savedSettings.mode)
   ? savedSettings.mode
-  : "layer";
+  : "solve";
 let timedMinutes = clampMinutes(savedSettings.timedMinutes ?? 3);
 
 let session = null;        // running timed session
@@ -131,10 +129,16 @@ let sessionSummary = null; // last finished session, shown until dismissed
 let practiceAnswered = false;
 let flashTimer = 0;
 
-// Solve mode (stackmat-style timer): idle -> armed (key/finger held) -> running
-let solveState = "idle";
+// Solve mode (stackmat-style timer with WCA inspection)
+let solveState = "idle"; // "idle" | "inspecting" | "armed" | "running"
 let solveStart = 0;
 let solveRaf = 0;
+let solveInspectionStart = 0;
+let solveInspectionInterval = 0;
+let solveArmTimeout = 0;
+let solvePenalty = null; // null | "+2" | "DNF"
+let solveWarning8Played = false;
+let solveWarning12Played = false;
 let overlayHideOnPointerUp = false;
 let swallowNextClick = false;
 let lastSolve = null;
@@ -157,6 +161,16 @@ if (!Array.isArray(sessions) || sessions.length === 0) {
     sessions[1].solves = [...legacyLayerSolves];
   }
   writeJSON(SESSIONS_KEY, sessions);
+} else {
+  // Ensure legacy layer solves are imported if layer session is empty
+  const layerSess = sessions.find(s => s.id === "layer");
+  if (layerSess && (!layerSess.solves || layerSess.solves.length === 0)) {
+    const legacyLayerSolves = Array.isArray(readJSON(LAYER_SOLVES_KEY)) ? readJSON(LAYER_SOLVES_KEY).filter(x => x && Number.isFinite(x.ms)) : [];
+    if (legacyLayerSolves.length) {
+      layerSess.solves = [...legacyLayerSolves];
+      writeJSON(SESSIONS_KEY, sessions);
+    }
+  }
 }
 
 let activeSessionId = savedSettings.activeSessionId || sessions[0].id;
@@ -300,11 +314,11 @@ function saveSettings() {
     alwaysWhiteBottom,
     allowAUF,
     showReflection,
+    darkMode,
     mode,
     timedMinutes,
     statsCollapsed,
     statsType,
-    layerUseInspection,
     layerTargetFaces,
     activeSessionId,
     solveTarget,
@@ -330,8 +344,10 @@ const settingsPanel = document.getElementById("settingsPanel");
 const settingsToggle = document.getElementById("settingsToggle");
 const statsPanel = document.getElementById("statsPanel");
 const statsToggle = document.getElementById("statsToggle");
+const statsSessionSelect = document.getElementById("statsSessionSelect");
+const statsTabLog = document.getElementById("statsTabLog");
+const statsTabCll = document.getElementById("statsTabCll");
 const statsTabRecog = document.getElementById("statsTabRecog");
-const statsTabSolve = document.getElementById("statsTabSolve");
 const overview = document.getElementById("overview");
 const overviewBtn = document.getElementById("overviewBtn");
 const overviewClose = document.getElementById("overviewClose");
@@ -355,6 +371,14 @@ const timedFeedback = document.getElementById("timedFeedback");
 const timedSummary = document.getElementById("timedSummary");
 const solveScramble = document.getElementById("solveScramble");
 const solveScrambleText = document.getElementById("solveScrambleText");
+const solveScrambleSubtext = document.getElementById("solveScrambleSubtext");
+const solveNewScrambleBtn = document.getElementById("solveNewScrambleBtn");
+const solveCustomScrambleBtn = document.getElementById("solveCustomScrambleBtn");
+const solveCustomScrambleRow = document.getElementById("solveCustomScrambleRow");
+const solveCustomInput = document.getElementById("solveCustomInput");
+const solveCustomClearBtn = document.getElementById("solveCustomClearBtn");
+const solveCustomApplyBtn = document.getElementById("solveCustomApplyBtn");
+const solveCustomCancelBtn = document.getElementById("solveCustomCancelBtn");
 const solveSurface = document.getElementById("solveSurface");
 const solveTimeEl = document.getElementById("solveTime");
 const solveCaseEl = document.getElementById("solveCase");
@@ -366,27 +390,6 @@ const solveOverlay = document.getElementById("solveOverlay");
 const solveOverlayTime = document.getElementById("solveOverlayTime");
 const solveOverlayHint = document.getElementById("solveOverlayHint");
 const solveOverlayCancelBtn = document.getElementById("solveOverlayCancelBtn");
-
-// 1st Layer practice elements
-const layerScrambleEl = document.getElementById("layerScramble");
-const layerScrambleTextEl = document.getElementById("layerScrambleText");
-const layerNewScrambleBtn = document.getElementById("layerNewScrambleBtn");
-const layerCustomScrambleBtn = document.getElementById("layerCustomScrambleBtn");
-const layerCustomScrambleRow = document.getElementById("layerCustomScrambleRow");
-const layerCustomInput = document.getElementById("layerCustomInput");
-const layerCustomClearBtn = document.getElementById("layerCustomClearBtn");
-const layerCustomApplyBtn = document.getElementById("layerCustomApplyBtn");
-const layerCustomCancelBtn = document.getElementById("layerCustomCancelBtn");
-const layerSurfaceEl = document.getElementById("layerSurface");
-const layerInspectionToggle = document.getElementById("layerInspectionToggle");
-const layerStatusBadge = document.getElementById("layerStatusBadge");
-const layerTimeEl = document.getElementById("layerTime");
-const layerSubtextEl = document.getElementById("layerSubtext");
-const layerTimesEl = document.getElementById("layerTimes");
-const layerSummaryEl = document.getElementById("layerSummary");
-const layerListEl = document.getElementById("layerList");
-const clearLayerSolvesBtn = document.getElementById("clearLayerSolvesBtn");
-const statsTabLayer = document.getElementById("statsTabLayer");
 const layerSolutionsWidget = document.getElementById("layerSolutionsWidget");
 const layerSolutionsTitle = document.getElementById("layerSolutionsTitle");
 const layerSolutionsBadge = document.getElementById("layerSolutionsBadge");
@@ -727,7 +730,34 @@ if (typeof wideLayout.addEventListener === "function") {
 // Options
 // ---------------------------------------------------------------------------
 
+function applyTheme() {
+  if (darkMode) {
+    document.documentElement.setAttribute("data-theme", "dark");
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+  const themeToggleBtn = document.getElementById("themeToggleBtn");
+  if (themeToggleBtn) {
+    themeToggleBtn.innerHTML = darkMode ? "☀️ Light" : "🌙 Dark";
+    themeToggleBtn.setAttribute("title", darkMode ? "Switch to Light Theme" : "Switch to Dark Theme");
+  }
+  const toggleDark = document.getElementById("toggleDarkMode");
+  if (toggleDark) {
+    toggleDark.setAttribute("aria-pressed", String(darkMode));
+  }
+}
+
+function setDarkMode(enabled) {
+  darkMode = !!enabled;
+  applyTheme();
+  saveSettings();
+}
+
 function renderToggles() {
+  const toggleDark = document.getElementById("toggleDarkMode");
+  if (toggleDark) {
+    toggleDark.setAttribute("aria-pressed", String(darkMode));
+  }
   document.getElementById("toggleAlwaysWhiteBottom").setAttribute("aria-pressed", String(alwaysWhiteBottom));
   document.getElementById("toggleAllowAUF").setAttribute("aria-pressed", String(allowAUF));
   const toggleReflect = document.getElementById("toggleShowReflection");
@@ -751,9 +781,20 @@ function applyReflection() {
   }
 }
 
+const themeToggleBtn = document.getElementById("themeToggleBtn");
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener("click", () => {
+    setDarkMode(!darkMode);
+  });
+}
+
 document.querySelectorAll(".switch").forEach(btn => {
   btn.addEventListener("click", () => {
     const key = btn.dataset.toggle;
+    if (key === "darkMode") {
+      setDarkMode(!darkMode);
+      return;
+    }
     if (key === "alwaysWhiteBottom") {
       alwaysWhiteBottom = !alwaysWhiteBottom;
     } else if (key === "allowAUF") {
@@ -1011,6 +1052,12 @@ function regenerateScramble() {
   const hasCases = selectedCases.size > 0;
   emptyState.hidden = hasCases;
 
+  solveScrambleSource = null;
+  if (solveScrambleSubtext) {
+    solveScrambleSubtext.hidden = true;
+    solveScrambleSubtext.textContent = "";
+  }
+
   if (mode === "solve" && solveTarget !== "cll") {
     generateWca2x2Scramble().then(wcaScr => {
       currentSolveScramble = wcaScr;
@@ -1019,6 +1066,9 @@ function regenerateScramble() {
       currentCaseId = null;
       applyScrambleToDisplay(wcaScr);
       if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+      if (solveTarget === "layer" || solveTarget === "face") {
+        updateLayerSolutions(wcaScr);
+      }
     });
     resetGuessingUI();
     updateStatsTable();
@@ -1028,12 +1078,18 @@ function regenerateScramble() {
   if (hasCases) {
     buildScramble();
     applyScrambleToDisplay(scramble);
+    if (mode === "solve") {
+      currentSolveScramble = scrambleMoves;
+      if (solveScrambleText) solveScrambleText.textContent = scrambleMoves;
+    }
   } else {
     currentCaseId = null;
     currentCaseScramble = null;
     scramble = "";
     scrambleMoves = "";
+    currentSolveScramble = "";
     applyScrambleToDisplay("");
+    if (solveScrambleText) solveScrambleText.textContent = "";
   }
 
   if (mode === "study") {
@@ -1054,27 +1110,18 @@ function setMode(next) {
   if (!MODES.includes(next) || next === mode) return;
   if (session) finishSession(); // leaving Timed ends a running session
   if (solveState !== "idle") cancelSolve(); // leaving Solve drops an unfinished attempt
-  if (typeof cancelLayerSolve === "function" && layerState !== "idle") cancelLayerSolve();
 
   const leavingSimulate = mode === "simulate" && next !== "simulate";
   if (leavingSimulate) {
     simTeardown();
   }
 
-  const leavingLayer = mode === "layer" && next !== "layer";
-  if (leavingLayer) {
-    if (scramble) {
-      applyScrambleToDisplay(scramble);
-      applyReflection();
-    }
-  }
-
   mode = next;
   resetCaseAppearances();
   if (mode === "solve") {
-    statsType = "solve";
-  } else if (mode === "layer") {
-    statsType = "layer";
+    if (statsType !== "cll" && statsType !== "recog") {
+      statsType = "log";
+    }
   } else {
     statsType = "recog";
   }
@@ -1085,14 +1132,14 @@ function setMode(next) {
 
   if (mode === "simulate") {
     simInit();
-  } else if (mode === "layer") {
-    if (!layerScramble) {
-      generateNewLayerScramble();
+  } else if (mode === "solve") {
+    if (!currentSolveScramble) {
+      regenerateScramble();
     } else {
-      applyScrambleToDisplay(layerScramble);
+      applyScrambleToDisplay(currentSolveScramble);
       applyReflection();
-      if (!currentLayerSolutionsScramble || currentLayerSolutionsScramble !== layerScramble) {
-        updateLayerSolutions(layerScramble);
+      if ((solveTarget === "layer" || solveTarget === "face") && (!currentLayerSolutionsScramble || currentLayerSolutionsScramble !== currentSolveScramble)) {
+        updateLayerSolutions(currentSolveScramble);
       }
     }
   } else if (mode === "study") {
@@ -1114,10 +1161,9 @@ function renderStage() {
 
   const simulating = mode === "simulate";
   const solving = mode === "solve";
-  const isLayer = mode === "layer";
 
   simulatePanel.hidden = !simulating;
-  if (simulating || isLayer) {
+  if (simulating) {
     emptyState.hidden = true;
     displayContainer.hidden = false;
   }
@@ -1133,7 +1179,7 @@ function renderStage() {
   startSessionBtn.disabled = !hasCases;
   timedSummary.hidden = !(mode === "timed" && !running && sessionSummary);
 
-  regenerateBtn.hidden = mode === "timed" || simulating || isLayer;
+  regenerateBtn.hidden = mode === "timed" || simulating || solving;
 
   // Solve mode: show or hide cube based on solveShowCube
   const hideCubeInSolve = solving && !solveShowCube;
@@ -1144,16 +1190,10 @@ function renderStage() {
   solveScramble.hidden = !solving;
   solveSurface.hidden = !solving;
   solveTimes.hidden = !solving;
-  if (solving) renderSolvePanel();
-
-  // 1st layer mode
-  layerScrambleEl.hidden = !isLayer;
-  layerSurfaceEl.hidden = !isLayer;
-  layerTimesEl.hidden = !isLayer;
   if (layerSolutionsWidget) {
-    layerSolutionsWidget.hidden = !isLayer;
+    layerSolutionsWidget.hidden = !solving || (solveTarget !== "layer" && solveTarget !== "face");
   }
-  if (isLayer) renderLayerPanel();
+  if (solving) renderSolvePanel();
 }
 
 function updateCaseInfoDisplay() {
@@ -1975,12 +2015,16 @@ if (sessionModalSaveBtn) {
 }
 
 function populateSessionSelect() {
-  if (!solveSessionSelect) return;
-  solveSessionSelect.innerHTML = sessions.map(s => {
-    return `<option value="${s.id}" ${s.id === activeSessionId ? "selected" : ""}>${escapeHtml(s.name)} (${s.solves.length})</option>`;
+  const options = sessions.map(s => {
+    return `<option value="${s.id}" ${s.id === activeSessionId ? "selected" : ""}>${escapeHtml(s.name)} (${s.solves ? s.solves.length : 0})</option>`;
   }).join("");
+
+  if (solveSessionSelect) solveSessionSelect.innerHTML = options;
+  if (statsSessionSelect) statsSessionSelect.innerHTML = options;
+
+  const current = getActiveSession();
   if (solveSessionBadge) {
-    solveSessionBadge.textContent = `${getActiveSession().name} (${getActiveSession().solves.length})`;
+    solveSessionBadge.textContent = `${current.name} (${current.solves ? current.solves.length : 0})`;
   }
 }
 
@@ -1997,10 +2041,14 @@ function switchSession(sessId) {
   if (solveTargetSelect) solveTargetSelect.value = solveTarget;
   if (solveShowCubeToggle) solveShowCubeToggle.checked = solveShowCube;
   if (solveInspectionToggle) solveInspectionToggle.checked = solveInspection;
+  if (solveSessionSelect) solveSessionSelect.value = sessId;
+  if (statsSessionSelect) statsSessionSelect.value = sessId;
 
   saveSettings();
   populateSessionSelect();
+  renderStage();
   renderSolvePanel();
+  updateStatsTable();
   regenerateScramble();
 }
 
@@ -2024,6 +2072,11 @@ if (solveSessionSelect) {
     switchSession(solveSessionSelect.value);
   });
 }
+if (statsSessionSelect) {
+  statsSessionSelect.addEventListener("change", () => {
+    switchSession(statsSessionSelect.value);
+  });
+}
 if (newSessionBtn) {
   newSessionBtn.addEventListener("click", () => openSessionModal("create"));
 }
@@ -2039,6 +2092,7 @@ if (solveTargetSelect) {
     getActiveSession().target = solveTarget;
     saveSessions();
     saveSettings();
+    renderStage();
     renderSolvePanel();
     regenerateScramble();
   });
@@ -2058,147 +2112,13 @@ if (solveInspectionToggle) {
     getActiveSession().inspection = solveInspection;
     saveSessions();
     saveSettings();
+    renderSolvePanel();
   });
 }
 
 // ---------------------------------------------------------------------------
 // Solve Mode: Scramble, Timer, Sessions, and Stats
 // ---------------------------------------------------------------------------
-
-function renderSolvePanel() {
-  populateSessionSelect();
-  const currentSess = getActiveSession();
-  solves = currentSess.solves || [];
-
-  if (solveTargetSelect) solveTargetSelect.value = solveTarget;
-  if (solveShowCubeToggle) solveShowCubeToggle.checked = solveShowCube;
-  if (solveInspectionToggle) solveInspectionToggle.checked = solveInspection;
-
-  solveScrambleText.textContent = scrambleMoves || currentSolveScramble || scramble;
-  if (solveScrambleOrient) {
-    solveScrambleOrient.textContent = solveTarget === "cll" ? "(white on bottom)" : "(WCA orientation)";
-  }
-
-  if (lastSolve) {
-    solveTimeEl.textContent = formatSolveTime(lastSolve.ms);
-    if (lastSolve.id && caseById.has(lastSolve.id)) {
-      const caseObj = caseById.get(lastSolve.id);
-      solveCaseEl.innerHTML = `<strong>${lastSolve.id}</strong> · ${getCllCaseSolutionDisplay(caseObj)} · opposite ${caseObj.opposite}`;
-    } else {
-      const targetLabel = lastSolve.target === "layer" ? "1st Layer" : (lastSolve.target === "face" ? "1st Face" : "Full Solve");
-      solveCaseEl.innerHTML = `<strong>${targetLabel}</strong> · ${formatSolveTime(lastSolve.ms)}`;
-    }
-  } else {
-    solveTimeEl.textContent = "0.00";
-    solveCaseEl.textContent = "Scramble your cube, then time the solve.";
-  }
-
-  if (solves.length) {
-    const valid = solves.filter(s => s.penalty !== "DNF").map(s => (s.penalty === "+2" ? s.ms + 2000 : s.ms));
-    const best = valid.length ? Math.min(...valid) : null;
-    const mean = valid.length ? Math.round(valid.reduce((sum, x) => sum + x, 0) / valid.length) : null;
-    solveSummaryEl.textContent = `${solves.length} solve${solves.length === 1 ? "" : "s"} · best ${best != null ? formatSolveTime(best) : "-"} · mean ${mean != null ? formatSolveTime(mean) : "-"}`;
-  } else {
-    solveSummaryEl.textContent = "No times in this session yet";
-  }
-  clearSolvesBtn.hidden = solves.length === 0;
-
-  renderSolveStatsBar(solveStatsBar, solves);
-
-  const recent = solves.map((solve, index) => ({ solve, index })).slice(-15).reverse();
-  solveList.innerHTML = recent
-    .map(({ solve, index }) => `
-      <button type="button" class="solve-chip" data-index="${index}" title="Solve #${index + 1}: ${formatSolveTime(solve.ms)} ${solve.id ? `(${solve.id})` : ''} (Click to view details, × to delete)">
-        <span class="solve-chip-time">${formatSolveTime(solve.ms)}</span>
-        ${solve.id ? `<span class="solve-chip-id">${solve.id}</span>` : ''}
-        <span class="solve-chip-del" aria-label="Delete solve">&times;</span>
-      </button>
-    `.trim())
-    .join("");
-}
-
-function armSolve() {
-  if (mode !== "solve" || solveState !== "idle") return;
-  if (solveTarget === "cll" && !currentCaseId) return;
-  solveState = "armed";
-  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-  solveOverlayTime.textContent = "0.00";
-  solveOverlayHint.textContent = "Release to start";
-  solveOverlay.classList.add("armed");
-  solveOverlay.hidden = false;
-}
-
-function startSolve() {
-  if (solveState !== "armed") return;
-  solveState = "running";
-  solveOverlay.classList.remove("armed");
-  solveOverlayHint.textContent = "Any key or tap to stop";
-  solveStart = performance.now();
-  const tick = () => {
-    if (solveState !== "running") return;
-    solveOverlayTime.textContent = formatSolveTime(performance.now() - solveStart);
-    solveRaf = requestAnimationFrame(tick);
-  };
-  tick();
-}
-
-function stopSolve(byPointer) {
-  if (solveState !== "running") return;
-  const ms = performance.now() - solveStart;
-  solveState = "idle";
-  cancelAnimationFrame(solveRaf);
-
-  const scr = scrambleMoves || currentSolveScramble || scramble;
-  lastSolve = {
-    id: solveTarget === "cll" ? currentCaseId : null,
-    target: solveTarget,
-    ms: Math.round(ms),
-    at: Date.now(),
-    scramble: scr
-  };
-  solves.push(lastSolve);
-  if (solves.length > MAX_SOLVES) solves.splice(0, solves.length - MAX_SOLVES);
-  saveSolves();
-
-  solveOverlayTime.textContent = formatSolveTime(ms);
-  if (byPointer) {
-    overlayHideOnPointerUp = true;
-    setTimeout(() => { if (overlayHideOnPointerUp) hideSolveOverlay(); }, 700);
-  } else {
-    hideSolveOverlay();
-  }
-
-  regenerateScramble();
-}
-
-function hideSolveOverlay() {
-  overlayHideOnPointerUp = false;
-  solveOverlay.hidden = true;
-  solveOverlay.className = "solve-overlay";
-  if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = true;
-}
-
-function cancelSolve() {
-  solveState = "idle";
-  cancelAnimationFrame(solveRaf);
-  hideSolveOverlay();
-}
-
-// ---------------------------------------------------------------------------
-// 1st Layer Practice: WCA 2x2 Scrambles, Inspection, Timer, and Solves Log
-// ---------------------------------------------------------------------------
-
-let layerScramble = "";
-let layerState = "idle"; // "idle" | "inspecting" | "armed" | "running"
-let layerSolveStart = 0;
-let layerSolveRaf = 0;
-let layerInspectionStart = 0;
-let layerInspectionInterval = 0;
-let layerArmTimeout = 0;
-let layerPenalty = null; // null | "+2" | "DNF"
-let layerWarning8Played = false;
-let layerWarning12Played = false;
-let nextLayerScramblePromise = null;
 
 let audioCtx = null;
 function playInspectionBeep(freq = 440, duration = 0.08) {
@@ -2247,86 +2167,299 @@ async function generateWca2x2Scramble() {
   return moves.join(" ");
 }
 
-function prefetchNextLayerScramble() {
-  nextLayerScramblePromise = generateWca2x2Scramble();
+function formatSolveDisplay(s) {
+  if (!s) return "-";
+  if (s.penalty === "DNF") return "DNF";
+  const formatted = formatSolveTime(s.ms);
+  if (s.penalty === "+2") return `${formatted} (+2)`;
+  return formatted;
 }
 
-async function getNextLayerScramble() {
-  if (nextLayerScramblePromise) {
-    const p = nextLayerScramblePromise;
-    nextLayerScramblePromise = null;
-    const s = await p;
-    prefetchNextLayerScramble();
-    return s;
+function renderSolvePanel() {
+  populateSessionSelect();
+  const currentSess = getActiveSession();
+  solves = currentSess.solves || [];
+
+  if (solveTargetSelect) solveTargetSelect.value = solveTarget;
+  if (solveShowCubeToggle) solveShowCubeToggle.checked = solveShowCube;
+  if (solveInspectionToggle) solveInspectionToggle.checked = solveInspection;
+
+  const currentScr = scrambleMoves || currentSolveScramble || scramble;
+  solveScrambleText.textContent = currentScr;
+  if (solveScrambleOrient) {
+    solveScrambleOrient.textContent = solveTarget === "cll" ? "(white on bottom)" : "(WCA orientation)";
   }
-  const s = await generateWca2x2Scramble();
-  prefetchNextLayerScramble();
-  return s;
-}
 
-const ALL_LAYER_FACES = ["white", "yellow", "green", "blue", "red", "orange"];
-
-function capitalize(str) {
-  if (!str) return "";
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-function setLayerScramble(scr) {
-  layerScramble = scr;
-  if (layerScrambleTextEl) {
-    layerScrambleTextEl.textContent = scr;
+  if (solveScrambleSource) {
+    solveScrambleSubtext.innerHTML = solveScrambleSource;
+    solveScrambleSubtext.hidden = false;
+  } else {
+    solveScrambleSubtext.hidden = true;
+    solveScrambleSubtext.textContent = "";
   }
-  if (mode === "layer") {
-    applyScrambleToDisplay(scr);
-    applyReflection();
+
+  if (lastSolve) {
+    solveTimeEl.textContent = formatSolveDisplay(lastSolve);
+    if (lastSolve.id && caseById.has(lastSolve.id)) {
+      const caseObj = caseById.get(lastSolve.id);
+      solveCaseEl.innerHTML = `<strong>${lastSolve.id}</strong> · ${getCllCaseSolutionDisplay(caseObj)} · opposite ${caseObj.opposite}`;
+    } else {
+      const targetLabel = lastSolve.target === "layer" ? "1st Layer" : (lastSolve.target === "face" ? "1st Face" : "Full Solve");
+      solveCaseEl.innerHTML = `<strong>${targetLabel}</strong> · ${formatSolveDisplay(lastSolve)}`;
+    }
+  } else {
+    solveTimeEl.textContent = "0.00";
+    solveCaseEl.textContent = solveInspection
+      ? "Scramble cube, then inspect & start timer."
+      : "Scramble cube, then hold to arm & start timer.";
   }
-  updateLayerSolutions(scr);
+
+  const keyHint = solveSurface.querySelector(".solve-hint-key");
+  const touchHint = solveSurface.querySelector(".solve-hint-touch");
+  if (keyHint) {
+    keyHint.innerHTML = solveInspection
+      ? "Space to inspect &bull; Hold Space to arm &bull; Release to start"
+      : "Hold Space to arm &bull; Release to start &bull; any key to stop";
+  }
+  if (touchHint) {
+    touchHint.innerHTML = solveInspection
+      ? "Tap to inspect &bull; Hold to arm &bull; Release to start"
+      : "Tap and hold to arm &bull; Release to start";
+  }
+
+  if (solves.length) {
+    const valid = solves.filter(s => s.penalty !== "DNF").map(s => (s.penalty === "+2" ? s.ms + 2000 : s.ms));
+    const best = valid.length ? Math.min(...valid) : null;
+    const mean = valid.length ? Math.round(valid.reduce((sum, x) => sum + x, 0) / valid.length) : null;
+    solveSummaryEl.textContent = `${solves.length} solve${solves.length === 1 ? "" : "s"} · best ${best != null ? formatSolveTime(best) : "-"} · mean ${mean != null ? formatSolveTime(mean) : "-"}`;
+  } else {
+    solveSummaryEl.textContent = "No times in this session yet";
+  }
+  clearSolvesBtn.hidden = solves.length === 0;
+
+  renderSolveStatsBar(solveStatsBar, solves);
+
+  const recent = solves.map((solve, index) => ({ solve, index })).slice(-15).reverse();
+  solveList.innerHTML = recent
+    .map(({ solve, index }) => `
+      <button type="button" class="solve-chip" data-index="${index}" title="Solve #${index + 1}: ${formatSolveDisplay(solve)} ${solve.id ? `(${solve.id})` : ''} (Click to view details, × to delete)">
+        <span class="solve-chip-time">${formatSolveDisplay(solve)}</span>
+        ${solve.id ? `<span class="solve-chip-id">${solve.id}</span>` : ''}
+        <span class="solve-chip-del" aria-label="Delete solve">&times;</span>
+      </button>
+    `.trim())
+    .join("");
+
+  if (layerSolutionsWidget) {
+    layerSolutionsWidget.hidden = solveTarget !== "layer" && solveTarget !== "face";
+    if (!layerSolutionsWidget.hidden) {
+      updateFaceChipsUI();
+    }
+  }
 }
 
-let layerScrambleSource = null;
+function startSolveInspection() {
+  if (mode !== "solve" || solveState !== "idle") return;
+  solveState = "inspecting";
+  solvePenalty = null;
+  solveWarning8Played = false;
+  solveWarning12Played = false;
+  solveInspectionStart = performance.now();
 
-async function generateNewLayerScramble() {
-  layerScrambleSource = null;
-  const scr = await getNextLayerScramble();
-  setLayerScramble(scr);
-  renderLayerPanel();
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+
+  solveOverlay.className = "solve-overlay inspecting";
+  solveOverlay.hidden = false;
+  if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = false;
+  solveOverlayTime.textContent = "15";
+  solveOverlayHint.textContent = "Hold Space when ready · Esc to cancel";
+
+  clearInterval(solveInspectionInterval);
+  solveInspectionInterval = setInterval(() => {
+    if (solveState !== "inspecting" && solveState !== "armed") return;
+    const elapsedSec = Math.floor((performance.now() - solveInspectionStart) / 1000);
+    const remaining = 15 - elapsedSec;
+
+    if (remaining > 0) {
+      if (solveState === "inspecting") {
+        solveOverlayTime.textContent = String(remaining);
+      }
+      if (remaining <= 7 && remaining > 3 && !solveWarning8Played) {
+        solveWarning8Played = true;
+        playInspectionBeep(440, 0.08);
+        solveOverlay.classList.add("warning-8");
+      }
+      if (remaining <= 3 && !solveWarning12Played) {
+        solveWarning12Played = true;
+        playInspectionBeep(880, 0.1);
+        solveOverlay.classList.remove("warning-8");
+        solveOverlay.classList.add("warning-12");
+      }
+    } else if (remaining <= 0 && remaining >= -2) {
+      solvePenalty = "+2";
+      solveOverlay.classList.remove("warning-8", "warning-12");
+      solveOverlay.classList.add("penalty-plus2");
+      if (solveState === "inspecting") {
+        solveOverlayTime.textContent = "+2";
+      }
+      solveOverlayHint.textContent = "+2 penalty · Hold Space when ready";
+    } else {
+      solvePenalty = "DNF";
+      solveOverlay.classList.remove("warning-8", "warning-12", "penalty-plus2");
+      solveOverlay.classList.add("penalty-dnf");
+      if (solveState === "inspecting") {
+        solveOverlayTime.textContent = "DNF";
+      }
+      solveOverlayHint.textContent = "Inspection exceeded 17s (DNF)";
+    }
+  }, 100);
+}
+
+function armSolve() {
+  if (mode !== "solve" || (solveState !== "idle" && solveState !== "inspecting")) return;
+  if (solveTarget === "cll" && !currentCaseId) return;
+  solveState = "armed";
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+
+  solveOverlay.hidden = false;
+  solveOverlay.classList.add("armed");
+  if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = false;
+
+  if (solvePenalty === "+2") {
+    solveOverlayTime.textContent = "+2";
+  } else if (solvePenalty === "DNF") {
+    solveOverlayTime.textContent = "DNF";
+  } else {
+    solveOverlayTime.textContent = "0.00";
+  }
+  solveOverlayHint.textContent = "Release to start";
+}
+
+function startSolve() {
+  if (solveState !== "armed") return;
+  solveState = "running";
+  clearInterval(solveInspectionInterval);
+
+  solveOverlay.className = "solve-overlay";
+  if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = true;
+  solveOverlayHint.textContent = solvePenalty === "+2"
+    ? "Running (+2 penalty) · Any key or tap to stop"
+    : (solvePenalty === "DNF" ? "Running (DNF) · Any key or tap to stop" : "Any key or tap to stop");
+
+  solveStart = performance.now();
+  const tick = () => {
+    if (solveState !== "running") return;
+    solveOverlayTime.textContent = formatSolveTime(performance.now() - solveStart);
+    solveRaf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+function stopSolve(byPointer) {
+  if (solveState !== "running") return;
+  const rawMs = performance.now() - solveStart;
+  solveState = "idle";
+  cancelAnimationFrame(solveRaf);
+  clearInterval(solveInspectionInterval);
+
+  let finalMs = Math.round(rawMs);
+  if (solvePenalty === "+2") {
+    finalMs += 2000;
+  }
+
+  const scr = scrambleMoves || currentSolveScramble || scramble;
+  lastSolve = {
+    id: solveTarget === "cll" ? currentCaseId : null,
+    target: solveTarget,
+    ms: finalMs,
+    rawMs: Math.round(rawMs),
+    penalty: solvePenalty,
+    at: Date.now(),
+    scramble: scr
+  };
+  solves.push(lastSolve);
+  if (solves.length > MAX_SOLVES) solves.splice(0, solves.length - MAX_SOLVES);
+  saveSolves();
+
+  solveOverlayTime.textContent = formatSolveDisplay(lastSolve);
+
+  if (byPointer) {
+    overlayHideOnPointerUp = true;
+    setTimeout(() => { if (overlayHideOnPointerUp) hideSolveOverlay(); }, 500);
+  } else {
+    hideSolveOverlay();
+  }
+
+  renderSolvePanel();
+  updateStatsTable();
+  regenerateScramble();
+}
+
+function hideSolveOverlay() {
+  overlayHideOnPointerUp = false;
+  solveOverlay.hidden = true;
+  solveOverlay.className = "solve-overlay";
+  if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = true;
+}
+
+function cancelSolve() {
+  solveState = "idle";
+  cancelAnimationFrame(solveRaf);
+  clearInterval(solveInspectionInterval);
+  clearTimeout(solveArmTimeout);
+  solvePenalty = null;
+  hideSolveOverlay();
+  renderSolvePanel();
 }
 
 function reattemptScramble(scrambleStr, label = "") {
   if (!scrambleStr) return;
-  setMode("layer");
-  layerScrambleSource = `Loaded scramble from <strong>${escapeHtml(label || 'previous solve')}</strong> · Ready to inspect &amp; start`;
-  setLayerScramble(scrambleStr);
-  resetCubeOrientation();
-  if (layerState !== "idle") {
-    cancelLayerSolve();
+  setMode("solve");
+  currentSolveScramble = scrambleStr;
+  scrambleMoves = scrambleStr;
+  scramble = scrambleStr;
+  currentCaseId = null;
+  solveScrambleSource = `Loaded scramble from <strong>${escapeHtml(label || 'previous solve')}</strong> · Ready to inspect &amp; start`;
+  if (solveScrambleText) solveScrambleText.textContent = scrambleStr;
+  if (solveScrambleSubtext) {
+    solveScrambleSubtext.innerHTML = solveScrambleSource;
+    solveScrambleSubtext.hidden = false;
   }
-  renderLayerPanel();
+  applyScrambleToDisplay(scrambleStr);
+  applyReflection();
+  resetCubeOrientation();
+  if (solveTarget === "layer" || solveTarget === "face") {
+    updateLayerSolutions(scrambleStr);
+  }
+  if (solveState !== "idle") {
+    cancelSolve();
+  }
+  renderSolvePanel();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function toggleLayerCustomScramble(show) {
-  if (!layerCustomScrambleRow) return;
-  const willShow = show !== undefined ? show : layerCustomScrambleRow.hidden;
-  layerCustomScrambleRow.hidden = !willShow;
+function toggleSolveCustomScramble(show) {
+  if (!solveCustomScrambleRow) return;
+  const willShow = show !== undefined ? show : solveCustomScrambleRow.hidden;
+  solveCustomScrambleRow.hidden = !willShow;
   if (willShow) {
-    layerCustomScrambleBtn?.classList.add("active");
-    if (layerCustomInput) {
-      layerCustomInput.value = layerScramble || "";
-      layerCustomInput.focus();
-      layerCustomInput.select();
+    solveCustomScrambleBtn?.classList.add("active");
+    if (solveCustomInput) {
+      solveCustomInput.value = currentSolveScramble || scrambleMoves || scramble || "";
+      solveCustomInput.focus();
+      solveCustomInput.select();
     }
   } else {
-    layerCustomScrambleBtn?.classList.remove("active");
+    solveCustomScrambleBtn?.classList.remove("active");
   }
 }
 
-function applyCustomLayerScramble() {
-  if (!layerCustomInput) return;
-  const raw = layerCustomInput.value.trim();
+function applyCustomSolveScramble() {
+  if (!solveCustomInput) return;
+  const raw = solveCustomInput.value.trim();
   if (!raw) {
     alert("Please enter a scramble sequence.");
-    layerCustomInput.focus();
+    solveCustomInput.focus();
     return;
   }
   try {
@@ -2336,18 +2469,33 @@ function applyCustomLayerScramble() {
       alert("Please enter a valid scramble.");
       return;
     }
-    layerScrambleSource = `Custom scramble loaded · Ready to inspect &amp; start`;
-    setLayerScramble(normalized);
+    solveScrambleSource = `Custom scramble loaded · Ready to inspect &amp; start`;
+    currentSolveScramble = normalized;
+    scrambleMoves = normalized;
+    scramble = normalized;
+    currentCaseId = null;
+    applyScrambleToDisplay(normalized);
+    applyReflection();
     resetCubeOrientation();
-    if (layerState !== "idle") {
-      cancelLayerSolve();
+    if (solveTarget === "layer" || solveTarget === "face") {
+      updateLayerSolutions(normalized);
     }
-    toggleLayerCustomScramble(false);
-    renderLayerPanel();
+    if (solveState !== "idle") {
+      cancelSolve();
+    }
+    toggleSolveCustomScramble(false);
+    renderSolvePanel();
   } catch (err) {
     alert(`Invalid scramble syntax: ${err.message || 'Check for invalid moves'}`);
-    layerCustomInput.focus();
+    solveCustomInput.focus();
   }
+}
+
+const ALL_LAYER_FACES = ["white", "yellow", "green", "blue", "red", "orange"];
+
+function capitalize(str) {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 function updateFaceChipsUI() {
@@ -2360,15 +2508,17 @@ function updateFaceChipsUI() {
     chip.setAttribute("aria-pressed", String(isActive));
   });
 
+  const targetName = solveTarget === "face" ? "1st face" : "1st layer";
+
   if (layerSolutionsTitle) {
     if (layerTargetFaces.length === 6) {
-      layerSolutionsTitle.textContent = "1st layer solutions (All 6 / CN)";
+      layerSolutionsTitle.textContent = `${targetName} solutions (All 6 / CN)`;
     } else if (layerTargetFaces.length === 1) {
-      layerSolutionsTitle.textContent = `1st layer solutions (${capitalize(layerTargetFaces[0])})`;
+      layerSolutionsTitle.textContent = `${targetName} solutions (${capitalize(layerTargetFaces[0])})`;
     } else if (layerTargetFaces.length === 2 && layerTargetFaces.includes('white') && layerTargetFaces.includes('yellow')) {
-      layerSolutionsTitle.textContent = "1st layer solutions (W / Y)";
+      layerSolutionsTitle.textContent = `${targetName} solutions (W / Y)`;
     } else {
-      layerSolutionsTitle.textContent = `1st layer solutions (${layerTargetFaces.map(f => capitalize(f)).join(', ')})`;
+      layerSolutionsTitle.textContent = `${targetName} solutions (${layerTargetFaces.map(f => capitalize(f)).join(', ')})`;
     }
   }
 
@@ -2389,8 +2539,9 @@ function setTargetFaces(faces) {
   layerTargetFaces = filtered;
   saveSettings();
   updateFaceChipsUI();
-  if (layerScramble) {
-    updateLayerSolutions(layerScramble);
+  const scr = currentSolveScramble || scrambleMoves || scramble;
+  if (scr) {
+    updateLayerSolutions(scr);
   }
 }
 
@@ -2406,77 +2557,6 @@ function toggleTargetFace(face) {
     next = [...layerTargetFaces, face];
   }
   setTargetFaces(next);
-}
-
-function formatLayerTime(s) {
-  if (!s) return "-";
-  if (s.penalty === "DNF") return "DNF";
-  const formatted = formatSolveTime(s.ms);
-  if (s.penalty === "+2") return `${formatted} (+2)`;
-  return formatted;
-}
-
-function renderLayerPanel() {
-  if (layerScramble) {
-    layerScrambleTextEl.textContent = layerScramble;
-    if (!currentLayerSolutionsScramble || currentLayerSolutionsScramble !== layerScramble) {
-      updateLayerSolutions(layerScramble);
-    }
-  }
-  if (layerScrambleSource) {
-    layerTimeEl.textContent = "0.00";
-    layerSubtextEl.innerHTML = layerScrambleSource;
-  } else if (lastLayerSolve) {
-    layerTimeEl.textContent = formatLayerTime(lastLayerSolve);
-    layerSubtextEl.innerHTML = `Last: <strong>${formatLayerTime(lastLayerSolve)}</strong> · Scramble: <span style="font-family: monospace;">${escapeHtml(lastLayerSolve.scramble || '')}</span>`;
-  } else {
-    layerTimeEl.textContent = "0.00";
-    layerSubtextEl.textContent = "Scramble cube, then inspect & start timer";
-  }
-
-  if (layerSolves.length) {
-    const valid = layerSolves.filter(s => s.penalty !== "DNF").map(s => s.ms);
-    const best = valid.length ? Math.min(...valid) : null;
-    const mean = valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
-    layerSummaryEl.textContent = `${layerSolves.length} solve${layerSolves.length === 1 ? "" : "s"} · best ${best != null ? formatSolveTime(best) : "-"} · mean ${mean != null ? formatSolveTime(mean) : "-"}`;
-  } else {
-    layerSummaryEl.textContent = "No times yet";
-  }
-  clearLayerSolvesBtn.hidden = layerSolves.length === 0;
-  renderSolveStatsBar(layerStatsBar, layerSolves);
-
-  const recent = layerSolves.slice(-12).reverse();
-  layerListEl.innerHTML = recent.map((solve) => {
-    const origIdx = layerSolves.findIndex(s => String(s.id) === String(solve.id));
-    const num = origIdx !== -1 ? origIdx + 1 : "";
-    return `
-      <button type="button" class="solve-chip" data-id="${solve.id}" data-num="${num}" title="Solve #${num}: ${formatLayerTime(solve)} (click to view details, × to delete)">
-        <span class="solve-chip-time">${formatLayerTime(solve)}</span>
-        <span class="solve-chip-del" aria-label="Delete solve">&times;</span>
-      </button>
-    `;
-  }).join("");
-
-  if (layerInspectionToggle) {
-    layerInspectionToggle.checked = layerUseInspection;
-  }
-
-  updateFaceChipsUI();
-
-  if (layerStatusBadge) {
-    layerStatusBadge.className = "layer-badge";
-    if (layerState === "inspecting") {
-      layerStatusBadge.classList.add("inspecting");
-      layerStatusBadge.textContent = "Inspecting";
-    } else if (layerState === "armed") {
-      layerStatusBadge.classList.add("armed");
-      layerStatusBadge.textContent = "Armed";
-    } else if (layerState === "running") {
-      layerStatusBadge.textContent = "Running";
-    } else {
-      layerStatusBadge.textContent = "Ready";
-    }
-  }
 }
 
 let currentLayerSolutions = [];
@@ -2497,7 +2577,8 @@ function updateLayerSolutions(scrambleStr) {
   if (layerSolutionsBadge) layerSolutionsBadge.textContent = "searching...";
   if (layerSolutionsList) {
     const facesDesc = layerTargetFaces.length === 6 ? 'all 6 faces' : layerTargetFaces.map(f => capitalize(f)).join('/');
-    layerSolutionsList.innerHTML = `<p class="layer-solutions-empty">Searching for ${escapeHtml(facesDesc)} 1st layer solutions...</p>`;
+    const targetName = solveTarget === "face" ? "1st face" : "1st layer";
+    layerSolutionsList.innerHTML = `<p class="layer-solutions-empty">Searching for ${escapeHtml(facesDesc)} ${targetName} solutions...</p>`;
   }
 
   setTimeout(async () => {
@@ -2518,9 +2599,10 @@ function updateLayerSolutions(scrambleStr) {
 
 function renderLayerSolutions(sols, showAll = false) {
   if (!layerSolutionsList) return;
+  const targetName = solveTarget === "face" ? "1st face" : "1st layer";
   if (!sols || sols.length === 0) {
     const facesDesc = layerTargetFaces.length === 6 ? 'selected faces' : layerTargetFaces.map(f => capitalize(f)).join(', ');
-    layerSolutionsList.innerHTML = `<p class="layer-solutions-empty">No 1st layer solutions found for ${escapeHtml(facesDesc)} within 6 moves.</p>`;
+    layerSolutionsList.innerHTML = `<p class="layer-solutions-empty">No ${targetName} solutions found for ${escapeHtml(facesDesc)} within 6 moves.</p>`;
     if (layerSolutionsBadge) layerSolutionsBadge.textContent = "0";
     return;
   }
@@ -2589,7 +2671,7 @@ function renderLayerSolutions(sols, showAll = false) {
       const idx = Number(btn.dataset.idx);
       const sol = displayed[idx];
       if (!sol) return;
-      const base = layerScramble;
+      const base = currentSolveScramble || scrambleMoves || scramble;
       const solMoves = (sol.inspection && sol.inspection !== 'none' ? sol.inspection + ' ' : '') + (sol.moves || '');
       const fullSeq = `${base} ${solMoves}`.trim();
       setMode("simulate");
@@ -2612,10 +2694,11 @@ function renderLayerSolutions(sols, showAll = false) {
       const idx = Number(btn.dataset.idx);
       const sol = displayed[idx];
       if (!sol) return;
+      const base = currentSolveScramble || scrambleMoves || scramble;
       const cObj = caseById.get(sol.caseId);
       const alg = cObj?.alg || cObj?.solutionAlg || '';
       const text = [
-        `Scramble: ${layerScramble}`,
+        `Scramble: ${base}`,
         `Face: ${capitalize(sol.face || 'white')}`,
         sol.inspection && sol.inspection !== 'none' ? `Inspection: ${sol.inspection}` : '',
         `1st Layer: ${sol.moves || '(already solved)'}`,
@@ -2642,231 +2725,8 @@ function renderLayerSolutions(sols, showAll = false) {
   }
 }
 
-function startLayerInspection() {
-  if (mode !== "layer" || layerState !== "idle") return;
-  layerState = "inspecting";
-  layerPenalty = null;
-  layerWarning8Played = false;
-  layerWarning12Played = false;
-  layerInspectionStart = performance.now();
-
-  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-
-  solveOverlay.className = "solve-overlay inspecting";
-  solveOverlay.hidden = false;
-  if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = false;
-  solveOverlayTime.textContent = "15";
-  solveOverlayHint.textContent = "Hold Space when ready · Esc to cancel";
-
-  clearInterval(layerInspectionInterval);
-  layerInspectionInterval = setInterval(() => {
-    if (layerState !== "inspecting" && layerState !== "armed") return;
-    const elapsedSec = Math.floor((performance.now() - layerInspectionStart) / 1000);
-    const remaining = 15 - elapsedSec;
-
-    if (remaining > 0) {
-      if (layerState === "inspecting") {
-        solveOverlayTime.textContent = String(remaining);
-      }
-      if (remaining <= 7 && remaining > 3 && !layerWarning8Played) {
-        layerWarning8Played = true;
-        playInspectionBeep(440, 0.08);
-        solveOverlay.classList.add("warning-8");
-      }
-      if (remaining <= 3 && !layerWarning12Played) {
-        layerWarning12Played = true;
-        playInspectionBeep(880, 0.1);
-        solveOverlay.classList.remove("warning-8");
-        solveOverlay.classList.add("warning-12");
-      }
-    } else if (remaining <= 0 && remaining >= -2) {
-      layerPenalty = "+2";
-      solveOverlay.classList.remove("warning-8", "warning-12");
-      solveOverlay.classList.add("penalty-plus2");
-      if (layerState === "inspecting") {
-        solveOverlayTime.textContent = "+2";
-      }
-      solveOverlayHint.textContent = "+2 penalty · Hold Space when ready";
-    } else {
-      layerPenalty = "DNF";
-      solveOverlay.classList.remove("warning-8", "warning-12", "penalty-plus2");
-      solveOverlay.classList.add("penalty-dnf");
-      if (layerState === "inspecting") {
-        solveOverlayTime.textContent = "DNF";
-      }
-      solveOverlayHint.textContent = "Inspection exceeded 17s (DNF)";
-    }
-  }, 100);
-
-  renderLayerPanel();
-}
-
-function armLayerSolve() {
-  if (mode !== "layer" || (layerState !== "idle" && layerState !== "inspecting")) return;
-  layerState = "armed";
-  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-
-  solveOverlay.hidden = false;
-  solveOverlay.classList.add("armed");
-  if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = false;
-  if (layerPenalty === "+2") {
-    solveOverlayTime.textContent = "+2";
-  } else if (layerPenalty === "DNF") {
-    solveOverlayTime.textContent = "DNF";
-  } else {
-    solveOverlayTime.textContent = "0.00";
-  }
-  solveOverlayHint.textContent = "Release to start";
-  renderLayerPanel();
-}
-
-function startLayerSolve() {
-  if (layerState !== "armed") return;
-  layerState = "running";
-  clearInterval(layerInspectionInterval);
-
-  solveOverlay.className = "solve-overlay";
-  if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = true;
-  solveOverlayHint.textContent = layerPenalty === "+2"
-    ? "Running (+2 penalty) · Any key or tap to stop"
-    : (layerPenalty === "DNF" ? "Running (DNF) · Any key or tap to stop" : "Any key or tap to stop");
-
-  layerSolveStart = performance.now();
-  const tick = () => {
-    if (layerState !== "running") return;
-    solveOverlayTime.textContent = formatSolveTime(performance.now() - layerSolveStart);
-    layerSolveRaf = requestAnimationFrame(tick);
-  };
-  tick();
-  renderLayerPanel();
-}
-
-function stopLayerSolve(byPointer) {
-  if (layerState !== "running") return;
-  const rawMs = performance.now() - layerSolveStart;
-  layerState = "idle";
-  cancelAnimationFrame(layerSolveRaf);
-  clearInterval(layerInspectionInterval);
-
-  let finalMs = Math.round(rawMs);
-  if (layerPenalty === "+2") {
-    finalMs += 2000;
-  }
-
-  lastLayerSolve = {
-    id: Date.now() + "_" + Math.random().toString(36).substr(2, 5),
-    ms: finalMs,
-    rawMs: Math.round(rawMs),
-    scramble: layerScramble,
-    penalty: layerPenalty,
-    at: Date.now()
-  };
-  layerSolves.push(lastLayerSolve);
-  if (layerSolves.length > MAX_SOLVES) {
-    layerSolves.splice(0, layerSolves.length - MAX_SOLVES);
-  }
-  saveLayerSolves();
-
-  solveOverlayTime.textContent = formatLayerTime(lastLayerSolve);
-
-  if (byPointer) {
-    overlayHideOnPointerUp = true;
-    setTimeout(() => { if (overlayHideOnPointerUp) hideSolveOverlay(); }, 500);
-  } else {
-    hideSolveOverlay();
-  }
-
-  renderLayerPanel();
-  updateStatsTable();
-  generateNewLayerScramble();
-}
-
-function cancelLayerSolve() {
-  layerState = "idle";
-  cancelAnimationFrame(layerSolveRaf);
-  clearInterval(layerInspectionInterval);
-  clearTimeout(layerArmTimeout);
-  hideSolveOverlay();
-  renderLayerPanel();
-}
-
-function handleLayerKeydown(e) {
-  if (layerState === "running") {
-    e.preventDefault();
-    stopLayerSolve(false);
-    return;
-  }
-  if (e.key === "Escape") {
-    if (layerState === "inspecting" || layerState === "armed") {
-      e.preventDefault();
-      cancelLayerSolve();
-      return;
-    }
-  }
-  if (e.code === "Space") {
-    e.preventDefault();
-    if (e.repeat) return;
-    if (layerState === "idle") {
-      if (layerUseInspection) {
-        startLayerInspection();
-      } else {
-        armLayerSolve();
-      }
-      return;
-    }
-    if (layerState === "inspecting") {
-      clearTimeout(layerArmTimeout);
-      layerArmTimeout = setTimeout(() => {
-        if (layerState === "inspecting") {
-          armLayerSolve();
-        }
-      }, 200);
-    }
-  }
-}
-
-function handleLayerKeyup(e) {
-  if (e.code === "Space") {
-    e.preventDefault();
-    clearTimeout(layerArmTimeout);
-    if (layerState === "armed") {
-      startLayerSolve();
-    }
-  }
-}
-
-function handleLayerOverlayPointerDown(e) {
-  if (e.target.closest("#solveOverlayCancelBtn")) {
-    cancelLayerSolve();
-    return;
-  }
-  if (layerState === "running") {
-    stopLayerSolve(true);
-    return;
-  }
-  if (layerState === "inspecting") {
-    clearTimeout(layerArmTimeout);
-    layerArmTimeout = setTimeout(() => {
-      if (layerState === "inspecting") {
-        armLayerSolve();
-      }
-    }, 200);
-  }
-}
-
-function handleLayerPointerUp() {
-  clearTimeout(layerArmTimeout);
-  if (layerState === "armed") {
-    startLayerSolve();
-  } else if (overlayHideOnPointerUp) {
-    hideSolveOverlay();
-    swallowNextClick = true;
-    setTimeout(() => { swallowNextClick = false; }, 300);
-  }
-}
-
-// Keyboard: Space arms on keydown (ignoring auto-repeat), starts on keyup;
-// any key stops a running timer; Escape cancels an armed one.
+// Keyboard: Space arms on keydown (or starts inspection if enabled), starts on keyup;
+// any key stops a running timer; Escape cancels an armed/inspecting one.
 document.addEventListener("keydown", e => {
   if (!overview.hidden) return;
   const target = e.target;
@@ -2878,18 +2738,34 @@ document.addEventListener("keydown", e => {
       stopSolve(false);
       return;
     }
+    if (e.key === "Escape") {
+      if (solveState === "inspecting" || solveState === "armed") {
+        e.preventDefault();
+        cancelSolve();
+        return;
+      }
+    }
     if (e.code === "Space") {
       e.preventDefault();
-      if (!e.repeat && solveState === "idle") armSolve();
+      if (e.repeat) return;
+      if (solveState === "idle") {
+        if (solveInspection) {
+          startSolveInspection();
+        } else {
+          armSolve();
+        }
+        return;
+      }
+      if (solveState === "inspecting") {
+        clearTimeout(solveArmTimeout);
+        solveArmTimeout = setTimeout(() => {
+          if (solveState === "inspecting") {
+            armSolve();
+          }
+        }, 150);
+      }
       return;
     }
-    if (e.key === "Escape" && solveState === "armed") cancelSolve();
-    return;
-  }
-
-  if (mode === "layer") {
-    handleLayerKeydown(e);
-    return;
   }
 });
 
@@ -2898,46 +2774,52 @@ document.addEventListener("keyup", e => {
   if (mode === "solve") {
     if (e.code === "Space") {
       e.preventDefault();
-      if (solveState === "armed") startSolve();
+      clearTimeout(solveArmTimeout);
+      if (solveState === "armed") {
+        startSolve();
+      }
     }
-    return;
-  }
-  if (mode === "layer") {
-    handleLayerKeyup(e);
-    return;
   }
 });
 
 // Touch / mouse: hold on the timer area, release anywhere to start; tap the
 // full-screen overlay to stop.
 solveSurface.addEventListener("pointerdown", e => {
-  if (e.target.closest("button") || solveState !== "idle") return;
+  if (e.target.closest("button") || e.target.closest("input") || e.target.closest("label") || e.target.closest("select")) return;
+  if (mode !== "solve" || solveState !== "idle") return;
   e.preventDefault();
-  armSolve();
-});
-
-layerSurfaceEl.addEventListener("pointerdown", e => {
-  if (e.target.closest("button") || e.target.closest("input") || e.target.closest("label")) return;
-  if (mode !== "layer" || layerState !== "idle") return;
-  e.preventDefault();
-  if (layerUseInspection) {
-    startLayerInspection();
+  if (solveInspection) {
+    startSolveInspection();
   } else {
-    armLayerSolve();
+    armSolve();
   }
 });
 
 solveOverlay.addEventListener("pointerdown", e => {
+  if (e.target.closest("#solveOverlayCancelBtn")) {
+    cancelSolve();
+    return;
+  }
   e.preventDefault();
   if (mode === "solve") {
-    if (solveState === "running") stopSolve(true);
-  } else if (mode === "layer") {
-    handleLayerOverlayPointerDown(e);
+    if (solveState === "running") {
+      stopSolve(true);
+      return;
+    }
+    if (solveState === "inspecting") {
+      clearTimeout(solveArmTimeout);
+      solveArmTimeout = setTimeout(() => {
+        if (solveState === "inspecting") {
+          armSolve();
+        }
+      }, 150);
+    }
   }
 });
 
 document.addEventListener("pointerup", () => {
   if (mode === "solve") {
+    clearTimeout(solveArmTimeout);
     if (solveState === "armed") {
       startSolve();
     } else if (overlayHideOnPointerUp) {
@@ -2945,14 +2827,13 @@ document.addEventListener("pointerup", () => {
       swallowNextClick = true;
       setTimeout(() => { swallowNextClick = false; }, 300);
     }
-  } else if (mode === "layer") {
-    handleLayerPointerUp();
   }
 });
 
 document.addEventListener("pointercancel", () => {
-  if (mode === "solve" && solveState === "armed") cancelSolve();
-  if (mode === "layer" && (layerState === "armed" || layerState === "inspecting")) cancelLayerSolve();
+  if (mode === "solve" && (solveState === "armed" || solveState === "inspecting")) {
+    cancelSolve();
+  }
 });
 
 document.addEventListener("click", e => {
@@ -2964,11 +2845,14 @@ document.addEventListener("click", e => {
 }, true);
 
 clearSolvesBtn.addEventListener("click", () => {
-  if (confirm("Clear all recorded solve times?")) {
-    solves = [];
+  const currentSess = getActiveSession();
+  if (confirm(`Clear all recorded solves in "${currentSess.name}"?`)) {
+    currentSess.solves = [];
+    solves = currentSess.solves;
     lastSolve = null;
     resetCaseAppearances();
     saveSolves();
+    populateSessionSelect();
     renderSolvePanel();
     updateStatsTable();
   }
@@ -2984,12 +2868,13 @@ solveList.addEventListener("click", e => {
 
   const isDel = e.target.closest(".solve-chip-del");
   if (isDel) {
-    if (confirm(`Delete solve ${formatSolveTime(s.ms)}?`)) {
+    if (confirm(`Delete solve ${formatSolveDisplay(s)}?`)) {
       solves.splice(index, 1);
       if (lastSolve === s || (lastSolve && lastSolve.at === s.at && lastSolve.id === s.id && lastSolve.ms === s.ms)) {
         lastSolve = solves.length ? solves[solves.length - 1] : null;
       }
       saveSolves();
+      populateSessionSelect();
       renderSolvePanel();
       updateStatsTable();
     }
@@ -2999,41 +2884,40 @@ solveList.addEventListener("click", e => {
   openSolveDetailModal(s, index + 1);
 });
 
-layerNewScrambleBtn.addEventListener("click", () => generateNewLayerScramble());
-layerInspectionToggle.addEventListener("change", () => {
-  layerUseInspection = layerInspectionToggle.checked;
-  saveSettings();
-});
-
-if (layerCustomScrambleBtn) {
-  layerCustomScrambleBtn.addEventListener("click", () => {
-    toggleLayerCustomScramble();
+if (solveNewScrambleBtn) {
+  solveNewScrambleBtn.addEventListener("click", () => {
+    regenerateScramble();
   });
 }
-if (layerCustomCancelBtn) {
-  layerCustomCancelBtn.addEventListener("click", () => {
-    toggleLayerCustomScramble(false);
+if (solveCustomScrambleBtn) {
+  solveCustomScrambleBtn.addEventListener("click", () => {
+    toggleSolveCustomScramble();
   });
 }
-if (layerCustomClearBtn) {
-  layerCustomClearBtn.addEventListener("click", () => {
-    if (layerCustomInput) {
-      layerCustomInput.value = "";
-      layerCustomInput.focus();
+if (solveCustomCancelBtn) {
+  solveCustomCancelBtn.addEventListener("click", () => {
+    toggleSolveCustomScramble(false);
+  });
+}
+if (solveCustomClearBtn) {
+  solveCustomClearBtn.addEventListener("click", () => {
+    if (solveCustomInput) {
+      solveCustomInput.value = "";
+      solveCustomInput.focus();
     }
   });
 }
-if (layerCustomApplyBtn) {
-  layerCustomApplyBtn.addEventListener("click", applyCustomLayerScramble);
+if (solveCustomApplyBtn) {
+  solveCustomApplyBtn.addEventListener("click", applyCustomSolveScramble);
 }
-if (layerCustomInput) {
-  layerCustomInput.addEventListener("keydown", (e) => {
+if (solveCustomInput) {
+  solveCustomInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      applyCustomLayerScramble();
+      applyCustomSolveScramble();
     } else if (e.key === "Escape") {
       e.preventDefault();
-      toggleLayerCustomScramble(false);
+      toggleSolveCustomScramble(false);
     }
   });
 }
@@ -3056,45 +2940,9 @@ if (layerPresetAllBtn) {
   layerPresetAllBtn.addEventListener("click", () => setTargetFaces(ALL_LAYER_FACES));
 }
 
-clearLayerSolvesBtn.addEventListener("click", () => {
-  if (confirm("Clear all recorded 1st layer times?")) {
-    layerSolves = [];
-    lastLayerSolve = null;
-    saveLayerSolves();
-    renderLayerPanel();
-    updateStatsTable();
-  }
-});
-
-layerListEl.addEventListener("click", e => {
-  const chip = e.target.closest(".solve-chip");
-  if (!chip) return;
-  const id = chip.dataset.id;
-  const index = layerSolves.findIndex(s => String(s.id) === String(id));
-  if (index === -1) return;
-  const s = layerSolves[index];
-
-  // If clicking the delete cross on the chip:
-  if (e.target.closest(".solve-chip-del")) {
-    if (confirm(`Delete 1st layer solve ${formatLayerTime(s)}?`)) {
-      layerSolves.splice(index, 1);
-      if (lastLayerSolve && String(lastLayerSolve.id) === String(id)) {
-        lastLayerSolve = layerSolves.length ? layerSolves[layerSolves.length - 1] : null;
-      }
-      saveLayerSolves();
-      renderLayerPanel();
-      updateStatsTable();
-    }
-    return;
-  }
-
-  // Clicking chip opens solve details popup
-  openSolveDetailModal(s, index + 1);
-});
 if (solveOverlayCancelBtn) {
   solveOverlayCancelBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (mode === "layer") cancelLayerSolve();
     if (mode === "solve") cancelSolve();
   });
 }
@@ -3345,13 +3193,22 @@ function renderRecogStatsTable() {
 }
 
 function renderSolveStatsTable() {
+  const container = document.getElementById("stats-table-container");
+  if (!container) return;
+
+  const currentSess = getActiveSession();
+  const currentSolves = currentSess.solves || [];
+
   const caseSolves = new Map();
-  for (const s of solves) {
-    if (selectedCases.has(s.id)) {
+  for (const s of currentSolves) {
+    if (s.id && selectedCases.has(s.id)) {
       if (!caseSolves.has(s.id)) {
         caseSolves.set(s.id, []);
       }
-      caseSolves.get(s.id).push(s.ms);
+      const timeVal = s.penalty === "+2" ? s.ms + 2000 : (s.penalty === "DNF" ? Infinity : s.ms);
+      if (Number.isFinite(timeVal)) {
+        caseSolves.get(s.id).push(timeVal);
+      }
     }
   }
 
@@ -3374,10 +3231,8 @@ function renderSolveStatsTable() {
   });
   html += '</tr></thead><tbody>';
 
-  const container = document.getElementById("stats-table-container");
-
   if (casesWithTimes.length === 0) {
-    html += '<tr><td colspan="6" class="empty-stats">No solve times for selected cases</td></tr></tbody></table>';
+    html += `<tr><td colspan="6" class="empty-stats">No CLL solve times recorded in session "${escapeHtml(currentSess.name)}".</td></tr></tbody></table>`;
     container.innerHTML = html;
     attachSortListeners(container);
     return;
@@ -3388,10 +3243,10 @@ function renderSolveStatsTable() {
     const attempts = times.length;
     const best = Math.min(...times);
     const worst = Math.max(...times);
-    const mean = times.reduce((sum, t) => sum + t, 0) / attempts;
+    const mean = Math.round(times.reduce((sum, t) => sum + t, 0) / attempts);
     const sorted = [...times].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
-    const median = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    const median = sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
     return { id, attempts, best, worst, mean, median };
   });
 
@@ -3421,14 +3276,14 @@ function renderSolveStatsTable() {
   html += '</tbody>';
 
   if (caseStatsList.length > 1) {
-    const allTimes = solves.filter(s => selectedCases.has(s.id)).map(s => s.ms);
+    const allTimes = currentSolves.filter(s => s.id && selectedCases.has(s.id) && s.penalty !== "DNF").map(s => (s.penalty === "+2" ? s.ms + 2000 : s.ms));
     const totalAttempts = allTimes.length;
-    const overallBest = Math.min(...allTimes);
-    const overallWorst = Math.max(...allTimes);
-    const overallMean = allTimes.reduce((sum, t) => sum + t, 0) / totalAttempts;
+    const overallBest = allTimes.length ? Math.min(...allTimes) : 0;
+    const overallWorst = allTimes.length ? Math.max(...allTimes) : 0;
+    const overallMean = allTimes.length ? Math.round(allTimes.reduce((sum, t) => sum + t, 0) / totalAttempts) : 0;
     const sortedAll = [...allTimes].sort((a, b) => a - b);
     const midAll = Math.floor(sortedAll.length / 2);
-    const overallMedian = sortedAll.length % 2 !== 0 ? sortedAll[midAll] : (sortedAll[midAll - 1] + sortedAll[midAll]) / 2;
+    const overallMedian = sortedAll.length % 2 !== 0 ? sortedAll[midAll] : Math.round((sortedAll[midAll - 1] + sortedAll[midAll]) / 2);
 
     html += `<tfoot><tr>
       <th scope="row">Total</th>
@@ -3484,71 +3339,38 @@ function calculateMedian(arr) {
   if (!arr.length) return null;
   const sorted = [...arr].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
 }
 
-function computeTrimmedAverage(solvesSlice) {
-  const n = solvesSlice.length;
-  if (n < 3) return null;
-  let dnfCount = 0;
-  const values = [];
-  for (const s of solvesSlice) {
-    if (s.penalty === "DNF") {
-      dnfCount++;
-      values.push(Infinity);
-    } else {
-      values.push(s.ms);
-    }
-  }
-  if (dnfCount > 1) return "DNF";
-  values.sort((a, b) => a - b);
-  const trimmed = values.slice(1, n - 1);
-  const sum = trimmed.reduce((acc, v) => acc + v, 0);
-  return Math.round(sum / trimmed.length);
-}
-
-function computeCurrentAo(solvesList, size) {
-  if (solvesList.length < size) return null;
-  const slice = solvesList.slice(-size);
-  return computeTrimmedAverage(slice);
-}
-
-function computeBestAo(solvesList, size) {
-  if (solvesList.length < size) return null;
-  let best = Infinity;
-  for (let i = 0; i <= solvesList.length - size; i++) {
-    const avg = computeTrimmedAverage(solvesList.slice(i, i + size));
-    if (typeof avg === "number" && avg < best) {
-      best = avg;
-    }
-  }
-  return Number.isFinite(best) ? best : null;
-}
-
-function renderLayerStatsTable() {
+function renderSessionLogTable() {
   const container = document.getElementById("stats-table-container");
   if (!container) return;
 
-  if (layerSolves.length === 0) {
+  const sess = getActiveSession();
+  const sessSolves = sess.solves || [];
+
+  if (sessSolves.length === 0) {
     container.innerHTML = `
       <div class="empty-stats" style="text-align: center; padding: 24px;">
-        <p>No 1st layer times recorded yet.</p>
-        <p style="color: var(--muted); font-size: 0.9rem;">Switch to <strong>1st Layer</strong> mode to practice WCA 2x2 scrambles and time your 1st layer solves.</p>
+        <p>No solves recorded in <strong>${escapeHtml(sess.name)}</strong> yet.</p>
+        <p style="color: var(--muted); font-size: 0.9rem;">Time your solves in the <strong>Solve</strong> tab to build your session history and averages.</p>
       </div>
     `;
     return;
   }
 
-  const validTimes = layerSolves.filter(s => s.penalty !== "DNF").map(s => s.ms);
-  const count = layerSolves.length;
+  const validTimes = sessSolves.filter(s => s.penalty !== "DNF").map(s => (s.penalty === "+2" ? s.ms + 2000 : s.ms));
+  const count = sessSolves.length;
   const best = validTimes.length ? Math.min(...validTimes) : null;
-  const mean = validTimes.length ? validTimes.reduce((a, b) => a + b, 0) / validTimes.length : null;
+  const mean = validTimes.length ? Math.round(validTimes.reduce((a, b) => a + b, 0) / validTimes.length) : null;
   const median = validTimes.length ? calculateMedian(validTimes) : null;
   const worst = validTimes.length ? Math.max(...validTimes) : null;
-  const curAo5 = computeCurrentAo(layerSolves, 5);
-  const bestAo5 = computeBestAo(layerSolves, 5);
-  const curAo12 = computeCurrentAo(layerSolves, 12);
-  const bestAo12 = computeBestAo(layerSolves, 12);
+  const curAo5 = calculateAoN(sessSolves, 5);
+  const bestAo5 = getBestAoN(sessSolves, 5);
+  const curAo12 = calculateAoN(sessSolves, 12);
+  const bestAo12 = getBestAoN(sessSolves, 12);
+  const curAo100 = calculateAoN(sessSolves, 100);
+  const bestAo100 = getBestAoN(sessSolves, 100);
 
   const formatAo = (val) => val === "DNF" ? "DNF" : (val != null ? formatSolveTime(val) : "-");
 
@@ -3600,6 +3422,18 @@ function renderLayerStatsTable() {
       </div>
     `;
   }
+  if (count >= 100) {
+    html += `
+      <div class="layer-stat-card">
+        <span class="layer-stat-val">${formatAo(curAo100)}</span>
+        <span class="layer-stat-lbl">Ao100</span>
+      </div>
+      <div class="layer-stat-card">
+        <span class="layer-stat-val">${formatAo(bestAo100)}</span>
+        <span class="layer-stat-lbl">Best Ao100</span>
+      </div>
+    `;
+  }
 
   html += `</div>`;
 
@@ -3607,8 +3441,8 @@ function renderLayerStatsTable() {
   html += `
     <div class="layer-log-header">
       <div class="layer-log-title-wrap">
-        <h3 class="layer-log-title">Solve Log</h3>
-        <span class="layer-log-hint">Tap any row for scramble &amp; date</span>
+        <h3 class="layer-log-title">Solve Log &mdash; ${escapeHtml(sess.name)}</h3>
+        <span class="layer-log-hint">Tap any row for details</span>
       </div>
       <span class="layer-log-count">${count} solve${count === 1 ? '' : 's'} recorded</span>
     </div>
@@ -3617,6 +3451,8 @@ function renderLayerStatsTable() {
         <tr>
           <th scope="col" style="width: 44px;">#</th>
           <th scope="col">Time</th>
+          <th scope="col">Target</th>
+          <th scope="col">Date</th>
           <th scope="col" style="width: 76px;">Actions</th>
         </tr>
       </thead>
@@ -3624,16 +3460,30 @@ function renderLayerStatsTable() {
   `;
 
   // Reverse chronological (newest at top)
-  const rows = [...layerSolves].map((s, idx) => ({ s, num: idx + 1 })).reverse();
-  rows.forEach(({ s, num }) => {
+  const rows = [...sessSolves].map((s, idx) => ({ s, num: idx + 1, origIdx: idx })).reverse();
+  rows.forEach(({ s, num, origIdx }) => {
+    let targetLabel = "Full";
+    let targetClass = "badge";
+    if (s.id) {
+      targetLabel = s.id;
+      targetClass = "badge badge-case";
+    } else if (s.target === "layer") {
+      targetLabel = "1st Layer";
+    } else if (s.target === "face") {
+      targetLabel = "1st Face";
+    }
+    const dateStr = formatSolveDate(s.at);
+
     html += `
-      <tr class="layer-log-row" data-id="${s.id}" data-num="${num}" title="Click to view scramble &amp; date">
+      <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click to view details &amp; scramble">
         <td>${num}</td>
-        <td class="layer-time-cell">${formatLayerTime(s)}</td>
+        <td class="layer-time-cell">${formatSolveDisplay(s)}</td>
+        <td><span class="${targetClass}">${escapeHtml(targetLabel)}</span></td>
+        <td class="layer-date-cell">${dateStr}</td>
         <td>
           <div class="layer-log-actions">
-            <button type="button" class="btn-reattempt-solve" data-id="${s.id}" data-num="${num}" title="Reattempt solve #${num} scramble">&#x21bb;</button>
-            <button type="button" class="btn-del-solve" data-id="${s.id}" title="Delete solve #${num} (${formatLayerTime(s)})">&times;</button>
+            <button type="button" class="btn-reattempt-solve" data-index="${origIdx}" data-num="${num}" title="Reattempt solve #${num} scramble">&#x21bb;</button>
+            <button type="button" class="btn-del-solve" data-index="${origIdx}" data-num="${num}" title="Delete solve #${num} (${formatSolveDisplay(s)})">&times;</button>
           </div>
         </td>
       </tr>
@@ -3647,9 +3497,9 @@ function renderLayerStatsTable() {
   container.querySelectorAll(".layer-log-row").forEach(row => {
     row.addEventListener("click", (e) => {
       if (e.target.closest(".btn-del-solve") || e.target.closest(".btn-reattempt-solve")) return;
-      const id = row.dataset.id;
+      const index = Number(row.dataset.index);
       const num = row.dataset.num;
-      const solve = layerSolves.find(s => String(s.id) === String(id));
+      const solve = sessSolves[index];
       if (solve) {
         openSolveDetailModal(solve, num);
       }
@@ -3660,9 +3510,9 @@ function renderLayerStatsTable() {
   container.querySelectorAll(".btn-reattempt-solve").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const id = btn.dataset.id;
+      const index = Number(btn.dataset.index);
       const num = btn.dataset.num;
-      const solve = layerSolves.find(s => String(s.id) === String(id));
+      const solve = sessSolves[index];
       if (solve && solve.scramble) {
         reattemptScramble(solve.scramble, `solve #${num}`);
       }
@@ -3673,18 +3523,19 @@ function renderLayerStatsTable() {
   container.querySelectorAll(".btn-del-solve").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const id = btn.dataset.id;
-      const index = layerSolves.findIndex(s => String(s.id) === String(id));
-      if (index === -1) return;
-      const s = layerSolves[index];
-      if (confirm(`Delete 1st layer solve #${index + 1} (${formatLayerTime(s)})?`)) {
-        layerSolves.splice(index, 1);
-        if (lastLayerSolve && String(lastLayerSolve.id) === String(id)) {
-          lastLayerSolve = layerSolves.length ? layerSolves[layerSolves.length - 1] : null;
+      const index = Number(btn.dataset.index);
+      const num = btn.dataset.num;
+      const solve = sessSolves[index];
+      if (!solve) return;
+      if (confirm(`Delete solve #${num} (${formatSolveDisplay(solve)})?`)) {
+        sessSolves.splice(index, 1);
+        if (lastSolve === solve || (lastSolve && lastSolve.at === solve.at)) {
+          lastSolve = sessSolves.length ? sessSolves[sessSolves.length - 1] : null;
         }
-        saveLayerSolves();
-        renderLayerPanel();
-        renderLayerStatsTable();
+        saveSolves();
+        populateSessionSelect();
+        renderSolvePanel();
+        renderSessionLogTable();
       }
     });
   });
@@ -3713,8 +3564,9 @@ function formatFullSolveDate(timestamp) {
 function openSolveDetailModal(solve, solveNum) {
   if (!solve || !solveDetailModal) return;
   activeModalSolve = solve;
-  if (solveModalTitle) solveModalTitle.textContent = `Solve #${solveNum}`;
-  if (solveModalTime) solveModalTime.textContent = formatLayerTime(solve);
+  const sess = getActiveSession();
+  if (solveModalTitle) solveModalTitle.textContent = `Solve #${solveNum} (${sess.name})`;
+  if (solveModalTime) solveModalTime.textContent = formatSolveDisplay(solve);
   if (solveModalScramble) solveModalScramble.textContent = solve.scramble || "(no scramble recorded)";
   if (solveModalDate) solveModalDate.textContent = formatFullSolveDate(solve.at);
   if (solveModalCopyScrambleBtn) solveModalCopyScrambleBtn.textContent = "Copy";
@@ -3781,10 +3633,10 @@ window.addEventListener("keydown", (e) => {
 
 function updateStatsTable() {
   renderStatsToggle();
-  if (statsType === "solve") {
+  if (statsType === "solve" || statsType === "log") {
+    renderSessionLogTable();
+  } else if (statsType === "cll") {
     renderSolveStatsTable();
-  } else if (statsType === "layer") {
-    renderLayerStatsTable();
   } else {
     renderRecogStatsTable();
   }
@@ -3803,21 +3655,26 @@ statsToggle.addEventListener("click", () => {
 });
 
 document.getElementById("resetStatsBtn").addEventListener("click", () => {
-  if (statsType === "solve") {
-    if (confirm("Are you sure you want to clear all recorded solve times?")) {
-      solves = [];
+  if (statsType === "log" || statsType === "solve") {
+    const sess = getActiveSession();
+    if (confirm(`Are you sure you want to clear all solves in session "${sess.name}"?`)) {
+      sess.solves = [];
+      solves = sess.solves;
       lastSolve = null;
-      resetCaseAppearances();
       saveSolves();
+      populateSessionSelect();
       renderSolvePanel();
       updateStatsTable();
     }
-  } else if (statsType === "layer") {
-    if (confirm("Are you sure you want to clear all recorded 1st layer times?")) {
-      layerSolves = [];
-      lastLayerSolve = null;
-      saveLayerSolves();
-      renderLayerPanel();
+  } else if (statsType === "cll") {
+    const sess = getActiveSession();
+    if (confirm(`Are you sure you want to clear all CLL solve times in session "${sess.name}"?`)) {
+      sess.solves = sess.solves.filter(s => !s.id);
+      solves = sess.solves;
+      lastSolve = solves.length ? solves[solves.length - 1] : null;
+      saveSolves();
+      populateSessionSelect();
+      renderSolvePanel();
       updateStatsTable();
     }
   } else {
@@ -4691,6 +4548,7 @@ document.addEventListener("keydown", e => {
 // ---------------------------------------------------------------------------
 
 buildCasePicker();
+applyTheme();
 renderToggles();
 renderMinutes();
 syncSettingsPanel();
@@ -4702,6 +4560,4 @@ regenerateScramble();
 prefetchNextLayerScramble();
 if (mode === "simulate") {
   simInit();
-} else if (mode === "layer") {
-  generateNewLayerScramble();
 }

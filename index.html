@@ -18,6 +18,7 @@
 <header class="app-header">
   <h1 class="app-title">2x2 CLL Trainer</h1>
   <div class="header-actions">
+    <button type="button" id="themeToggleBtn" class="header-btn" title="Toggle Dark/Light Theme">🌙 Dark</button>
     <button type="button" id="guideBtn" class="header-btn">Tips &amp; Guide</button>
     <button type="button" id="pblOverviewBtn" class="header-btn">Ortega PBL</button>
     <button type="button" id="overviewBtn" class="header-btn">CLL Overview</button>
@@ -56,6 +57,10 @@
 
       <h2 class="section-title">Options</h2>
       <div class="toggle-list">
+        <button type="button" class="switch" data-toggle="darkMode" id="toggleDarkMode" aria-pressed="false">
+          <span class="switch-label">Dark theme</span>
+          <span class="switch-track" aria-hidden="true"></span>
+        </button>
         <button type="button" class="switch" data-toggle="alwaysWhiteBottom" id="toggleAlwaysWhiteBottom" aria-pressed="true">
           <span class="switch-label">Always white bottom</span>
           <span class="switch-track" aria-hidden="true"></span>
@@ -75,11 +80,10 @@
   <!-- Stage: mode, cube, guessing UI, timed session -->
   <section class="stage">
     <div class="seg mode-seg" role="group" aria-label="Mode">
-      <button type="button" class="mode-btn" data-mode="layer" aria-pressed="true">1st Layer</button>
+      <button type="button" class="mode-btn" data-mode="solve" aria-pressed="true">Solve</button>
       <button type="button" class="mode-btn" data-mode="study" aria-pressed="false">Study</button>
       <button type="button" class="mode-btn" data-mode="practice" aria-pressed="false">Practice</button>
       <button type="button" class="mode-btn" data-mode="timed" aria-pressed="false">Timed</button>
-      <button type="button" class="mode-btn" data-mode="solve" aria-pressed="false">Solve</button>
       <button type="button" class="mode-btn" data-mode="simulate" aria-pressed="false">Simulate</button>
     </div>
 
@@ -125,28 +129,21 @@
           <input type="checkbox" id="solveInspectionToggle" checked>
           <span>15s Inspection</span>
         </label>
+        <div class="solve-scramble-btns">
+          <button type="button" id="solveNewScrambleBtn" class="btn btn-xs">New Scramble</button>
+          <button type="button" id="solveCustomScrambleBtn" class="btn btn-xs" title="Enter a custom scramble">Custom</button>
+        </div>
+      </div>
+      <div id="solveCustomScrambleRow" class="layer-custom-row" hidden>
+        <div class="layer-custom-wrap">
+          <input type="text" id="solveCustomInput" class="sim-input" placeholder="Enter custom scramble (e.g. U2 F2 U L2...)" autocomplete="off" spellcheck="false">
+          <button type="button" id="solveCustomClearBtn" class="sim-btn-clear" title="Clear input">&times;</button>
+        </div>
+        <button type="button" id="solveCustomApplyBtn" class="btn btn-primary sim-btn-load">Apply</button>
+        <button type="button" id="solveCustomCancelBtn" class="btn btn-small">Cancel</button>
       </div>
       <p id="solveScrambleText" class="solve-scramble-text"></p>
-    </div>
-
-    <!-- 1st Layer mode: WCA 2x2 scramble -->
-    <div id="layerScramble" class="layer-scramble" hidden>
-      <div class="layer-scramble-head">
-        <p class="solve-label">WCA 2x2 Scramble</p>
-        <div class="layer-scramble-actions">
-          <button type="button" id="layerNewScrambleBtn" class="btn btn-small">New Scramble</button>
-          <button type="button" id="layerCustomScrambleBtn" class="btn btn-small" title="Enter a custom scramble">Custom</button>
-        </div>
-      </div>
-      <div id="layerCustomScrambleRow" class="layer-custom-row" hidden>
-        <div class="layer-custom-wrap">
-          <input type="text" id="layerCustomInput" class="sim-input" placeholder="Enter custom scramble (e.g. U2 F2 U L2...)" autocomplete="off" spellcheck="false">
-          <button type="button" id="layerCustomClearBtn" class="sim-btn-clear" title="Clear input">&times;</button>
-        </div>
-        <button type="button" id="layerCustomApplyBtn" class="btn btn-primary sim-btn-load">Apply</button>
-        <button type="button" id="layerCustomCancelBtn" class="btn btn-small">Cancel</button>
-      </div>
-      <p id="layerScrambleText" class="layer-scramble-text"></p>
+      <p id="solveScrambleSubtext" class="solve-scramble-subtext" hidden></p>
     </div>
 
     <div class="cube-card">
@@ -331,32 +328,7 @@
       <div id="solveList" class="solve-list"></div>
     </div>
 
-    <!-- 1st Layer mode: timer area and recorded times -->
-    <div id="layerSurface" class="layer-surface" hidden>
-      <div class="layer-controls-row">
-        <label class="layer-toggle-label">
-          <input type="checkbox" id="layerInspectionToggle" checked>
-          <span>WCA Inspection (15s)</span>
-        </label>
-        <span id="layerStatusBadge" class="layer-badge">Ready</span>
-      </div>
-      <div id="layerTime" class="layer-time">0.00</div>
-      <div id="layerSubtext" class="layer-subtext">Scramble cube, then inspect &amp; start timer</div>
-      <p class="layer-hint layer-hint-key">Space to inspect &bull; Hold Space to arm &bull; Release to start</p>
-      <p class="layer-hint layer-hint-touch">Tap to inspect &bull; Hold to arm &bull; Release to start</p>
-    </div>
-
-    <div id="layerTimes" class="panel layer-times" hidden>
-      <div class="section-head">
-        <h2>1st Layer Times</h2>
-        <button type="button" id="clearLayerSolvesBtn" class="btn btn-small btn-danger" hidden>Clear</button>
-      </div>
-      <div id="layerSummary" class="layer-summary"></div>
-      <div id="layerStatsBar" class="solve-stats-bar"></div>
-      <div id="layerList" class="layer-list"></div>
-    </div>
-
-    <!-- 1st Layer Solutions Widget (collapsed by default) -->
+    <!-- 1st Layer Solutions Widget (visible when Target is 1st Layer or 1st Face) -->
     <details id="layerSolutionsWidget" class="panel layer-solutions-widget" hidden>
       <summary class="layer-solutions-summary">
         <div class="layer-solutions-title-wrap">
@@ -412,13 +384,17 @@
         <span class="panel-title">Stats</span>
         <span class="chevron" aria-hidden="true"></span>
       </button>
+      <div class="stats-head-session">
+        <label for="statsSessionSelect" class="session-label">Session:</label>
+        <select id="statsSessionSelect" class="session-select" aria-label="Active stats session"></select>
+      </div>
       <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger">Reset</button>
     </div>
     <div id="statsBody" class="stats-body">
       <div class="seg stats-seg" role="group" aria-label="Stats type">
-        <button type="button" class="stats-tab-btn" id="statsTabLayer" data-stats="layer" aria-pressed="true">1st Layer</button>
+        <button type="button" class="stats-tab-btn" id="statsTabLog" data-stats="log" aria-pressed="true">Log</button>
+        <button type="button" class="stats-tab-btn" id="statsTabCll" data-stats="cll" aria-pressed="false">CLL Solves</button>
         <button type="button" class="stats-tab-btn" id="statsTabRecog" data-stats="recog" aria-pressed="false">Recognition</button>
-        <button type="button" class="stats-tab-btn" id="statsTabSolve" data-stats="solve" aria-pressed="false">Solve</button>
       </div>
       <div id="stats-table-container"></div>
     </div>
