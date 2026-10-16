@@ -17,7 +17,11 @@
 
 <header class="app-header">
   <h1 class="app-title">2x2 CLL Trainer</h1>
-  <button type="button" id="overviewBtn" class="header-btn">Case overview</button>
+  <div class="header-actions">
+    <button type="button" id="guideBtn" class="header-btn">Tips &amp; Guide</button>
+    <button type="button" id="pblOverviewBtn" class="header-btn">Ortega PBL</button>
+    <button type="button" id="overviewBtn" class="header-btn">CLL Overview</button>
+  </div>
 </header>
 
 <main class="app">
@@ -39,6 +43,13 @@
         </div>
       </div>
       <p class="hint">Tap a letter to add or remove a whole group, a number for a single case.</p>
+      <div class="case-tag-filter-bar" role="group" aria-label="Filter cases by tag">
+        <span class="tag-filter-label">Filter:</span>
+        <button type="button" class="tag-filter-btn active" data-tag-filter="all">All</button>
+        <button type="button" class="tag-filter-btn tag-filter-learning" data-tag-filter="learning">Learning</button>
+        <button type="button" class="tag-filter-btn tag-filter-review" data-tag-filter="review">Review</button>
+        <button type="button" class="tag-filter-btn tag-filter-mastered" data-tag-filter="mastered">Mastered</button>
+      </div>
       <div id="casePicker" class="case-picker" role="group" aria-label="Cases to practice">
         <!-- Rows are populated by JavaScript -->
       </div>
@@ -81,9 +92,40 @@
       <div class="timed-progress"><div id="timedProgress" class="timed-progress-fill"></div></div>
     </div>
 
-    <!-- Solve mode: scramble for a physical cube (the 3D cube is hidden) -->
+    <!-- Solve mode: scramble for a physical cube or virtual practice -->
     <div id="solveScramble" class="solve-scramble" hidden>
-      <p class="solve-label">Scramble <span class="solve-orient">(white on bottom)</span></p>
+      <div class="solve-header-row">
+        <div class="solve-title-group">
+          <p class="solve-label">Solve Scramble</p>
+          <span class="solve-orient" id="solveScrambleOrient">(white on bottom)</span>
+        </div>
+        <div class="solve-session-control">
+          <label for="solveSessionSelect" class="session-label">Session:</label>
+          <select id="solveSessionSelect" class="session-select" aria-label="Active Solve Session"></select>
+          <button type="button" id="newSessionBtn" class="btn btn-xs" title="Create new session">+ New</button>
+          <button type="button" id="renameSessionBtn" class="btn btn-xs" title="Rename current session">&#x270E;</button>
+          <button type="button" id="deleteSessionBtn" class="btn btn-xs btn-danger" title="Delete current session">&times;</button>
+        </div>
+      </div>
+      <div class="solve-options-row">
+        <div class="solve-target-wrap">
+          <label for="solveTargetSelect" class="solve-target-label">Target:</label>
+          <select id="solveTargetSelect" class="solve-target-select" aria-label="Solve target">
+            <option value="full">Full Solve (WCA 2x2)</option>
+            <option value="layer">1st Layer Only</option>
+            <option value="face">1st Face Only (Ortega)</option>
+            <option value="cll">CLL Case</option>
+          </select>
+        </div>
+        <label class="solve-toggle-label">
+          <input type="checkbox" id="solveShowCubeToggle">
+          <span>Show 3D Cube</span>
+        </label>
+        <label class="solve-toggle-label">
+          <input type="checkbox" id="solveInspectionToggle" checked>
+          <span>15s Inspection</span>
+        </label>
+      </div>
       <p id="solveScrambleText" class="solve-scramble-text"></p>
     </div>
 
@@ -109,9 +151,14 @@
 
     <div class="cube-card">
       <div id="display-container"></div>
-      <button type="button" id="resetOrientationBtn" class="reset-orientation-btn" title="Reset 3D camera orientation">
-        <span class="reset-orient-icon" aria-hidden="true">&#x21bb;</span> Reset orientation
-      </button>
+      <div class="cube-card-controls">
+        <button type="button" id="resetOrientationBtn" class="reset-orientation-btn" title="Reset 3D camera orientation">
+          <span class="reset-orient-icon" aria-hidden="true">&#x21bb;</span> Reset orientation
+        </button>
+        <span class="cube-rot-hint" title="Rotate cube in 3D world (Shift for inverse)">
+          Rotate 3D: <kbd>X</kbd> <kbd>Y</kbd> <kbd>Z</kbd> (Shift = inverse)
+        </span>
+      </div>
       <p id="empty-state" class="empty-state" hidden>
         No cases selected. Open <strong>Cases &amp; options</strong> and pick some.
       </p>
@@ -270,10 +317,16 @@
     </div>
 
     <div id="solveTimes" class="panel solve-times" hidden>
-      <div class="section-head">
-        <h2>Times</h2>
-        <span id="solveSummary" class="solve-summary"></span>
-        <button type="button" id="clearSolvesBtn" class="btn btn-small btn-danger" hidden>Clear</button>
+      <div class="section-head solve-times-head">
+        <div class="solve-times-title-wrap">
+          <h2>Solve Times</h2>
+          <span id="solveSessionBadge" class="session-badge"></span>
+        </div>
+        <button type="button" id="clearSolvesBtn" class="btn btn-small btn-danger" hidden>Clear Session</button>
+      </div>
+      <div id="solveSummary" class="solve-summary"></div>
+      <div id="solveStatsBar" class="solve-stats-bar">
+        <!-- Populated by JavaScript: Ao5, Ao12, Ao100, Single Best, Mean -->
       </div>
       <div id="solveList" class="solve-list"></div>
     </div>
@@ -296,9 +349,10 @@
     <div id="layerTimes" class="panel layer-times" hidden>
       <div class="section-head">
         <h2>1st Layer Times</h2>
-        <span id="layerSummary" class="layer-summary"></span>
         <button type="button" id="clearLayerSolvesBtn" class="btn btn-small btn-danger" hidden>Clear</button>
       </div>
+      <div id="layerSummary" class="layer-summary"></div>
+      <div id="layerStatsBar" class="solve-stats-bar"></div>
       <div id="layerList" class="layer-list"></div>
     </div>
 
@@ -421,6 +475,139 @@
         <span aria-hidden="true">&#x25B6;</span> Simulate in 3D
       </button>
       <button type="button" id="solveModalDismissBtn" class="btn btn-small">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- 1st Layer & Inspection Guide Modal -->
+<div id="guideModal" class="overview guide-modal" role="dialog" aria-modal="true" aria-labelledby="guideTitle" hidden>
+  <div class="overview-header">
+    <h2 id="guideTitle" class="overview-title">1st Layer Efficiency &amp; Inspection Guide</h2>
+    <button type="button" id="guideCloseBtn" class="header-btn">Close</button>
+  </div>
+  <div class="overview-body guide-body">
+    <div class="guide-grid">
+      <section class="guide-card">
+        <h3 class="guide-card-title">&#x1F3AF; 1. Move Count Benchmarks</h3>
+        <p>On a 2x2, corner permutations and orientations have far fewer states than 3x3:</p>
+        <ul class="guide-list">
+          <li><strong>1st Face (Ortega):</strong> 99.8% of all scrambles can be solved in <strong>&le; 4 moves</strong> (average optimal: 3.1 moves).</li>
+          <li><strong>1st Layer (CLL/LBL):</strong> 95.4% of all scrambles can be solved in <strong>&le; 5 moves</strong> (average optimal: 3.8 moves).</li>
+          <li><em>Rule of thumb:</em> If your planned layer takes 6 or more moves, there is almost certainly a 2- or 3-move solution on another face!</li>
+        </ul>
+      </section>
+
+      <section class="guide-card">
+        <h3 class="guide-card-title">&#x1F308; 2. Full Color Neutrality (CN)</h3>
+        <p>Unlike 3x3 where centers are fixed and cross planning across 6 colors takes months, 2x2 has <strong>no fixed centers</strong>:</p>
+        <ul class="guide-list">
+          <li>Every face can be built around whichever corner is already oriented or paired.</li>
+          <li>Being color neutral means you check 6 colors. On average, at least one color already has a pre-formed 2-piece bar!</li>
+          <li>Start by practicing Opposite Neutrality (White + Yellow), then expand to All 6 faces.</li>
+        </ul>
+      </section>
+
+      <section class="guide-card">
+        <h3 class="guide-card-title">&#x23F1;&#xFE0F; 3. 15-Second WCA Inspection Routine</h3>
+        <p>In 2x2, world-class cubers plan the <em>entire 1st layer</em> before making their first move:</p>
+        <ol class="guide-list guide-steps">
+          <li><strong>0 &ndash; 3s (Scan):</strong> Rotate the cube quickly. Look for already-made 2-corner bars or matching colors on any side.</li>
+          <li><strong>3 &ndash; 8s (Select &amp; Trace):</strong> Pick the face with the shortest move count. Locate the remaining 2 corners.</li>
+          <li><strong>8 &ndash; 12s (Rehearse Blind):</strong> Visualize every turn in your head. Know where the pieces will land.</li>
+          <li><strong>12 &ndash; 15s (Grip):</strong> Place the cube down, set your fingers on your starting grip, and start the timer ready to execute with zero pauses!</li>
+        </ol>
+      </section>
+
+      <section class="guide-card">
+        <h3 class="guide-card-title">&#x1F6E0;&#xFE0F; 4. Bar Preservation vs. Direct Insertion</h3>
+        <p>Never break an existing 2-piece bar unless it saves moves overall:</p>
+        <ul class="guide-list">
+          <li><strong>Direct Insertion:</strong> If an isolated corner has its sticker facing the side, use a 3-move trigger like <code>R U R'</code> or <code>F' U' F</code>.</li>
+          <li><strong>Sledgehammer (<code>R' F R F'</code>):</strong> When a corner has its target color facing up or needs reorientation, a sledgehammer can insert it while preserving bottom pieces and often orienting top corners!</li>
+          <li><strong>Keyhole Technique:</strong> Leave one corner unsolved while you quickly orient the other three, then insert the last corner with a quick trigger.</li>
+        </ul>
+      </section>
+
+      <section class="guide-card">
+        <h3 class="guide-card-title">&#x26A1; 5. Face vs. Layer (The Ortega Transition)</h3>
+        <p>When solving under time pressure:</p>
+        <ul class="guide-list">
+          <li>If building a complete layer requires awkward rotations or &ge; 5 moves, build a <strong>Face</strong> instead (takes 2&ndash;3 moves)!</li>
+          <li>Orient the top with OLL (or any CLL alg), then finish with one of the <strong>5 Ortega PBL algorithms</strong>.</li>
+          <li>Once comfortable with Ortega, use the 1st Layer Solver in this app to analyze optimal layer solutions and bridge to 1-look CLL.</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- Ortega PBL Modal -->
+<div id="pblModal" class="overview pbl-modal" role="dialog" aria-modal="true" aria-labelledby="pblTitle" hidden>
+  <div class="overview-header">
+    <h2 id="pblTitle" class="overview-title">Ortega PBL (Permute Both Layers)</h2>
+    <button type="button" id="pblCloseBtn" class="header-btn">Close</button>
+  </div>
+  <div class="overview-body pbl-body">
+    <p class="overview-hint">
+      The 5 PBL cases permute both layers in one algorithm after OLL. Select your favorite algorithm, customize trigger labels, or simulate in 3D.
+    </p>
+    <div id="pblCardsContainer" class="pbl-cards-grid">
+      <!-- Populated dynamically by JavaScript -->
+    </div>
+  </div>
+</div>
+
+<!-- Custom Algorithm / Trigger Label Editor Modal -->
+<div id="customLabelModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="customLabelTitle" hidden>
+  <div class="solve-modal-card">
+    <div class="solve-modal-header">
+      <h3 id="customLabelTitle" class="solve-modal-title">Customize Algorithm Label</h3>
+      <button type="button" id="customLabelCloseBtn" class="solve-modal-close" aria-label="Close dialog">&times;</button>
+    </div>
+    <div class="solve-modal-body">
+      <div class="solve-modal-field">
+        <span class="solve-modal-label">Execution Notation (actual moves)</span>
+        <p id="customLabelAlgNotation" class="solve-modal-scramble" style="font-family: monospace;"></p>
+      </div>
+      <div class="solve-modal-field">
+        <label for="customLabelInput" class="solve-modal-label">Friendly Display Label (with triggers, notes, etc.)</label>
+        <input type="text" id="customLabelInput" class="sim-input" placeholder="e.g. (Righty) (Sledge) or (R U R' U') F'" autocomplete="off" spellcheck="false">
+        <p class="hint" style="margin-top: 4px;">Use parentheses or words to highlight triggers. The execution notation remains unchanged.</p>
+      </div>
+    </div>
+    <div class="solve-modal-actions">
+      <button type="button" id="customLabelSaveBtn" class="btn btn-primary btn-small">Save Label</button>
+      <button type="button" id="customLabelResetBtn" class="btn btn-small">Reset to Default</button>
+      <button type="button" id="customLabelCancelBtn" class="btn btn-small">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Session Management Modal -->
+<div id="sessionModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="sessionModalTitle" hidden>
+  <div class="solve-modal-card">
+    <div class="solve-modal-header">
+      <h3 id="sessionModalTitle" class="solve-modal-title">New Session</h3>
+      <button type="button" id="sessionModalCloseBtn" class="solve-modal-close" aria-label="Close dialog">&times;</button>
+    </div>
+    <div class="solve-modal-body">
+      <div class="solve-modal-field">
+        <label for="sessionNameInput" class="solve-modal-label">Session Name</label>
+        <input type="text" id="sessionNameInput" class="sim-input" placeholder="e.g. Full Solves, 1st Layer, Ortega" autocomplete="off">
+      </div>
+      <div class="solve-modal-field" id="sessionTargetField">
+        <label for="sessionDefaultTarget" class="solve-modal-label">Default Target</label>
+        <select id="sessionDefaultTarget" class="sim-select">
+          <option value="full">Full Solve (WCA 2x2)</option>
+          <option value="layer">1st Layer Only</option>
+          <option value="face">1st Face Only (Ortega)</option>
+          <option value="cll">CLL Case</option>
+        </select>
+      </div>
+    </div>
+    <div class="solve-modal-actions">
+      <button type="button" id="sessionModalSaveBtn" class="btn btn-primary btn-small">Save</button>
+      <button type="button" id="sessionModalCancelBtn" class="btn btn-small">Cancel</button>
     </div>
   </div>
 </div>

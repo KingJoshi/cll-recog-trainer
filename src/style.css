@@ -2976,3 +2976,468 @@ html.overview-open body {
         display: none;
     }
 }
+
+/* --------------------------------------------------------------------------
+   Header Actions & Navigation
+   -------------------------------------------------------------------------- */
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   Case Tag Filtering & Tags (Learning, Review, Mastered)
+   -------------------------------------------------------------------------- */
+
+.case-tag-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.tag-filter-label {
+    font-size: 0.75rem;
+    color: var(--text-muted, #888);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.tag-filter-btn {
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    border-radius: 12px;
+    background: #222;
+    color: #ccc;
+    border: 1px solid #444;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tag-filter-btn:hover {
+    background: #333;
+    color: #fff;
+}
+
+.tag-filter-btn.active {
+    background: var(--primary, #007bff);
+    color: #fff;
+    border-color: var(--primary, #007bff);
+}
+
+.tag-filter-learning.active {
+    background: #2563eb !important;
+    border-color: #3b82f6 !important;
+}
+
+.tag-filter-review.active {
+    background: #d97706 !important;
+    border-color: #f59e0b !important;
+}
+
+.tag-filter-mastered.active {
+    background: #059669 !important;
+    border-color: #10b981 !important;
+}
+
+.case-chip {
+    position: relative;
+}
+
+.case-chip-dot {
+    position: absolute;
+    top: 2px;
+    right: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.tag-dot-learning { background: #3b82f6; }
+.tag-dot-review { background: #f59e0b; }
+.tag-dot-mastered { background: #10b981; }
+
+.ov-tag-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1px solid transparent;
+    user-select: none;
+    margin-bottom: 4px;
+}
+
+.ov-tag-badge.tag-learning { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border-color: rgba(59, 130, 246, 0.4); }
+.ov-tag-badge.tag-review { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border-color: rgba(245, 158, 11, 0.4); }
+.ov-tag-badge.tag-mastered { background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: rgba(16, 185, 129, 0.4); }
+
+.case-tag-select {
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    background: #222;
+    border: 1px solid #444;
+    color: #fff;
+    cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+   Cube Card Controls & Keyboard Rotation Hint
+   -------------------------------------------------------------------------- */
+
+.cube-card-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    max-width: 380px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+.cube-rot-hint {
+    font-size: 0.72rem;
+    color: #888;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    user-select: none;
+}
+
+.cube-rot-hint kbd {
+    background: #262626;
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-family: monospace;
+    font-size: 0.7rem;
+    color: #e5e5e5;
+}
+
+/* --------------------------------------------------------------------------
+   Solve Session Management & Options
+   -------------------------------------------------------------------------- */
+
+.solve-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.solve-title-group {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.solve-session-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.session-label {
+    font-size: 0.75rem;
+    color: #888;
+    text-transform: uppercase;
+}
+
+.session-select {
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #222;
+    color: #fff;
+    border: 1px solid #444;
+    font-size: 0.8rem;
+    max-width: 140px;
+}
+
+.solve-options-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 6px 10px;
+    background: #1a1a1a;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.solve-target-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.solve-target-label {
+    font-size: 0.75rem;
+    color: #aaa;
+}
+
+.solve-target-select {
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #262626;
+    color: #fff;
+    border: 1px solid #444;
+    font-size: 0.8rem;
+}
+
+.solve-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    color: #ccc;
+    user-select: none;
+}
+
+.solve-times-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.solve-times-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.session-badge {
+    font-size: 0.72rem;
+    background: #2a2a2a;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #aaa;
+}
+
+/* --------------------------------------------------------------------------
+   Rolling Stats Bar (Single Best, Ao5, Ao12, Ao100, Mean)
+   -------------------------------------------------------------------------- */
+
+.solve-stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
+    gap: 6px;
+    margin: 8px 0;
+    padding: 8px;
+    background: #141414;
+    border: 1px solid #282828;
+    border-radius: 6px;
+}
+
+.solve-stat-item {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    padding: 2px 4px;
+}
+
+.solve-stat-val {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #fff;
+    font-family: monospace;
+}
+
+.solve-stat-lbl {
+    font-size: 0.65rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-top: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Guide Modal Styling
+   -------------------------------------------------------------------------- */
+
+.guide-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+}
+
+.guide-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    padding: 16px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.guide-card {
+    background: #1c1c1c;
+    border: 1px solid #2e2e2e;
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.guide-card-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: #60a5fa;
+}
+
+.guide-card p {
+    font-size: 0.85rem;
+    color: #ccc;
+    margin-bottom: 8px;
+    line-height: 1.45;
+}
+
+.guide-list {
+    padding-left: 18px;
+    font-size: 0.82rem;
+    color: #bbb;
+    line-height: 1.5;
+}
+
+.guide-list li {
+    margin-bottom: 4px;
+}
+
+.guide-list code {
+    background: #2a2a2a;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+    color: #93c5fd;
+}
+
+/* --------------------------------------------------------------------------
+   Ortega PBL Modal Styling
+   -------------------------------------------------------------------------- */
+
+.pbl-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+}
+
+.pbl-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    padding: 16px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.pbl-card {
+    background: #1c1c1c;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pbl-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.pbl-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.pbl-card-badge {
+    font-size: 0.72rem;
+    background: #2563eb;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.pbl-card-desc {
+    font-size: 0.8rem;
+    color: #aaa;
+    line-height: 1.4;
+}
+
+.pbl-alg-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pbl-alg-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    background: #262626;
+    border: 1px solid #333;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.pbl-alg-option:hover {
+    background: #2e2e2e;
+}
+
+.pbl-alg-option.active {
+    background: #1e293b;
+    border-color: #3b82f6;
+}
+
+.pbl-alg-radio {
+    margin-top: 2px;
+}
+
+.pbl-alg-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pbl-alg-label {
+    font-family: monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #93c5fd;
+}
+
+.pbl-alg-note {
+    font-size: 0.7rem;
+    color: #888;
+}
+
+.pbl-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 6px;
+}

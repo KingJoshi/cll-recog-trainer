@@ -4,6 +4,7 @@ import { randomScrambleForEvent } from 'cubing/scramble';
 import { findLayerSolutions } from './layerSolver.js';
 import { Alg } from 'cubing/alg';
 import { cllCases } from './casesData.js';
+import { pblCases, pblCaseById } from './pblData.js';
 import './style.css';
 
 // Register service worker for offline support (production only; the dev
@@ -42,6 +43,10 @@ const SETTINGS_KEY = 'cllTrainerSettings';
 const SOLVES_KEY = 'cllTrainerSolves';
 const LAYER_SOLVES_KEY = 'cllTrainerLayerSolves';
 const APPEARANCES_KEY = 'cllTrainerAppearances';
+const CASE_TAGS_KEY = 'cllTrainerCaseTags';
+const CLL_CUSTOM_LABELS_KEY = 'cllTrainerCustomLabels';
+const PBL_SETTINGS_KEY = 'cllTrainerPblSettings';
+const SESSIONS_KEY = 'cllTrainerSessions';
 const MAX_SOLVES = 500;
 
 function readJSON(key) {
@@ -133,18 +138,136 @@ let solveRaf = 0;
 let overlayHideOnPointerUp = false;
 let swallowNextClick = false;
 let lastSolve = null;
-let solves = Array.isArray(readJSON(SOLVES_KEY)) ? readJSON(SOLVES_KEY).filter(x => x && caseById.has(x.id) && Number.isFinite(x.ms)) : [];
+
+// Multi-session management & storage
+const DEFAULT_SESSIONS = [
+  { id: "default", name: "Session 1 (Full Solve)", target: "full", inspection: true, showCube: false, solves: [] },
+  { id: "layer", name: "1st Layer Practice", target: "layer", inspection: true, showCube: true, solves: [] }
+];
+
+let sessions = readJSON(SESSIONS_KEY);
+if (!Array.isArray(sessions) || sessions.length === 0) {
+  sessions = DEFAULT_SESSIONS;
+  const legacySolves = Array.isArray(readJSON(SOLVES_KEY)) ? readJSON(SOLVES_KEY).filter(x => x && Number.isFinite(x.ms)) : [];
+  if (legacySolves.length) {
+    sessions[0].solves = [...legacySolves];
+  }
+  const legacyLayerSolves = Array.isArray(readJSON(LAYER_SOLVES_KEY)) ? readJSON(LAYER_SOLVES_KEY).filter(x => x && Number.isFinite(x.ms)) : [];
+  if (legacyLayerSolves.length) {
+    sessions[1].solves = [...legacyLayerSolves];
+  }
+  writeJSON(SESSIONS_KEY, sessions);
+}
+
+let activeSessionId = savedSettings.activeSessionId || sessions[0].id;
+if (!sessions.some(s => s.id === activeSessionId)) {
+  activeSessionId = sessions[0].id;
+}
+
+function saveSessions() {
+  writeJSON(SESSIONS_KEY, sessions);
+}
+
+function getActiveSession() {
+  return sessions.find(s => s.id === activeSessionId) || sessions[0];
+}
+
+let solveTarget = savedSettings.solveTarget || getActiveSession().target || "full";
+let solveShowCube = savedSettings.solveShowCube ?? getActiveSession().showCube ?? false;
+let solveInspection = savedSettings.solveInspection ?? getActiveSession().inspection ?? true;
+
+let solves = getActiveSession().solves;
 
 function saveSolves() {
-  writeJSON(SOLVES_KEY, solves);
+  const sess = getActiveSession();
+  sess.solves = solves;
+  saveSessions();
+  writeJSON(SOLVES_KEY, solves); // backup for compatibility
 }
 
 // 1st Layer practice state & storage
-let layerSolves = Array.isArray(readJSON(LAYER_SOLVES_KEY)) ? readJSON(LAYER_SOLVES_KEY).filter(x => x && Number.isFinite(x.ms)) : [];
+let layerSession = sessions.find(s => s.id === "layer") || sessions[0];
+let layerSolves = layerSession.solves || [];
 let lastLayerSolve = layerSolves.length ? layerSolves[layerSolves.length - 1] : null;
 
 function saveLayerSolves() {
+  const sess = sessions.find(s => s.id === "layer");
+  if (sess) {
+    sess.solves = layerSolves;
+    saveSessions();
+  }
   writeJSON(LAYER_SOLVES_KEY, layerSolves);
+}
+
+// Case tags: { [caseId]: 'learning' | 'review' | 'mastered' }
+let caseTags = readJSON(CASE_TAGS_KEY) || {};
+let currentTagFilter = "all";
+
+function saveCaseTags() {
+  writeJSON(CASE_TAGS_KEY, caseTags);
+}
+
+function getCaseTag(caseId) {
+  return caseTags[caseId] || "learning";
+}
+
+function setCaseTag(caseId, tag) {
+  if (!["learning", "review", "mastered"].includes(tag)) return;
+  caseTags[caseId] = tag;
+  saveCaseTags();
+  if (typeof updateCasePickerTags === "function") updateCasePickerTags();
+  if (mode === "study" && currentCaseId === caseId) {
+    updateCaseInfoDisplay();
+  }
+}
+
+function cycleCaseTag(caseId) {
+  const current = getCaseTag(caseId);
+  const next = current === "learning" ? "review" : current === "review" ? "mastered" : "learning";
+  setCaseTag(caseId, next);
+}
+
+// Custom Algorithm Labels (CLL & PBL)
+let customCllLabels = readJSON(CLL_CUSTOM_LABELS_KEY) || {};
+
+function saveCustomCllLabels() {
+  writeJSON(CLL_CUSTOM_LABELS_KEY, customCllLabels);
+}
+
+function getCllCaseSolutionDisplay(caseObj) {
+  if (!caseObj) return "";
+  return customCllLabels[caseObj.id] || caseObj.solution || caseObj.solutionAlg || "";
+}
+
+function setCllCaseSolutionDisplay(caseId, customLabel) {
+  if (!customLabel || customLabel.trim() === "") {
+    delete customCllLabels[caseId];
+  } else {
+    customCllLabels[caseId] = customLabel.trim();
+  }
+  saveCustomCllLabels();
+  if (mode === "study") updateCaseInfoDisplay();
+}
+
+// PBL settings: { [caseId]: { selectedAlgId: "...", customLabels: { [algId]: "..." } } }
+let pblSettings = readJSON(PBL_SETTINGS_KEY) || {};
+
+function savePblSettings() {
+  writeJSON(PBL_SETTINGS_KEY, pblSettings);
+}
+
+function getPblCaseSelectedAlg(caseObj) {
+  const caseSetting = pblSettings[caseObj.id];
+  if (caseSetting && caseSetting.selectedAlgId) {
+    const found = caseObj.algs.find(a => a.id === caseSetting.selectedAlgId);
+    if (found) return found;
+  }
+  return caseObj.algs[0];
+}
+
+function getPblAlgDisplayLabel(caseId, algObj) {
+  const custom = pblSettings[caseId]?.customLabels?.[algObj.id];
+  return custom || algObj.label;
 }
 
 function clampMinutes(value) {
@@ -156,6 +279,8 @@ let scramble = "";      // full alg for the 3D view (orientation + moves)
 let scrambleMoves = ""; // moves only, for scrambling a physical cube (white on bottom)
 let currentCaseId = null;
 let currentCaseScramble = null;
+let currentSolveTarget = "full";
+let currentSolveScramble = "";
 let guessedGroup = null;
 let guessedCase = null;
 let settingsCollapsed = true; // narrow screens only; the sidebar is always open
@@ -180,7 +305,11 @@ function saveSettings() {
     statsCollapsed,
     statsType,
     layerUseInspection,
-    layerTargetFaces
+    layerTargetFaces,
+    activeSessionId,
+    solveTarget,
+    solveShowCube,
+    solveInspection
   });
 }
 
@@ -278,6 +407,45 @@ const solveModalCopyScrambleBtn = document.getElementById("solveModalCopyScrambl
 const solveModalReattemptBtn = document.getElementById("solveModalReattemptBtn");
 const solveModalSimBtn = document.getElementById("solveModalSimBtn");
 
+// New Modals & Controls
+const guideBtn = document.getElementById("guideBtn");
+const guideModal = document.getElementById("guideModal");
+const guideCloseBtn = document.getElementById("guideCloseBtn");
+
+const pblOverviewBtn = document.getElementById("pblOverviewBtn");
+const pblModal = document.getElementById("pblModal");
+const pblCloseBtn = document.getElementById("pblCloseBtn");
+const pblCardsContainer = document.getElementById("pblCardsContainer");
+
+const customLabelModal = document.getElementById("customLabelModal");
+const customLabelTitle = document.getElementById("customLabelTitle");
+const customLabelCloseBtn = document.getElementById("customLabelCloseBtn");
+const customLabelInput = document.getElementById("customLabelInput");
+const customLabelAlgNotation = document.getElementById("customLabelAlgNotation");
+const customLabelSaveBtn = document.getElementById("customLabelSaveBtn");
+const customLabelResetBtn = document.getElementById("customLabelResetBtn");
+const customLabelCancelBtn = document.getElementById("customLabelCancelBtn");
+
+const sessionModal = document.getElementById("sessionModal");
+const sessionModalTitle = document.getElementById("sessionModalTitle");
+const sessionModalCloseBtn = document.getElementById("sessionModalCloseBtn");
+const sessionNameInput = document.getElementById("sessionNameInput");
+const sessionDefaultTarget = document.getElementById("sessionDefaultTarget");
+const sessionModalSaveBtn = document.getElementById("sessionModalSaveBtn");
+const sessionModalCancelBtn = document.getElementById("sessionModalCancelBtn");
+
+const solveSessionSelect = document.getElementById("solveSessionSelect");
+const newSessionBtn = document.getElementById("newSessionBtn");
+const renameSessionBtn = document.getElementById("renameSessionBtn");
+const deleteSessionBtn = document.getElementById("deleteSessionBtn");
+const solveTargetSelect = document.getElementById("solveTargetSelect");
+const solveShowCubeToggle = document.getElementById("solveShowCubeToggle");
+const solveInspectionToggle = document.getElementById("solveInspectionToggle");
+const solveStatsBar = document.getElementById("solveStatsBar");
+const solveSessionBadge = document.getElementById("solveSessionBadge");
+const solveScrambleOrient = document.getElementById("solveScrambleOrient");
+const layerStatsBar = document.getElementById("layerStatsBar");
+
 // Simulation elements
 const simulatePanel = document.getElementById("simulatePanel");
 const simScrambleInput = document.getElementById("simScrambleInput");
@@ -315,9 +483,41 @@ el.visualization = "3D";
 applyReflection();
 displayContainer.appendChild(el);
 
-function applyScrambleToDisplay(scrambleString) {
-  if (!el) return;
-  el.scramble = scrambleString || "";
+let currentBaseDisplayScramble = "";
+let userViewRotations = [];
+
+function addViewRotation(move) {
+  const axis = move[0];
+  const isPrime = move.includes("'");
+  const delta = isPrime ? 3 : 1;
+  if (userViewRotations.length > 0) {
+    const last = userViewRotations[userViewRotations.length - 1];
+    if (last[0] === axis) {
+      let cur = 1;
+      if (last.includes("2")) cur = 2;
+      else if (last.includes("'")) cur = 3;
+      const next = (cur + delta) % 4;
+      userViewRotations.pop();
+      if (next === 1) userViewRotations.push(axis);
+      else if (next === 2) userViewRotations.push(axis + "2");
+      else if (next === 3) userViewRotations.push(axis + "'");
+      refreshCurrentDisplayScramble();
+      return;
+    }
+  }
+  userViewRotations.push(move);
+  refreshCurrentDisplayScramble();
+}
+
+function clearViewRotations() {
+  userViewRotations = [];
+}
+
+function refreshCurrentDisplayScramble() {
+  if (!el || !currentBaseDisplayScramble) return;
+  const rotStr = userViewRotations.join(" ");
+  const fullScramble = rotStr ? `${currentBaseDisplayScramble} ${rotStr}`.trim() : currentBaseDisplayScramble;
+  el.scramble = fullScramble;
   if (el.player) {
     try {
       el.player.pause();
@@ -329,7 +529,13 @@ function applyScrambleToDisplay(scrambleString) {
   }
 }
 
+function applyScrambleToDisplay(scrambleString) {
+  currentBaseDisplayScramble = scrambleString || "";
+  refreshCurrentDisplayScramble();
+}
+
 function resetCubeOrientation() {
+  clearViewRotations();
   if (!el || !el.player) return;
   try {
     el.player.cameraLatitude = 35;
@@ -341,6 +547,7 @@ function resetCubeOrientation() {
       el.player.experimentalModel.twistySceneModel.orbitCoordinatesRequest.set("auto");
     }
   } catch (e) {}
+  refreshCurrentDisplayScramble();
 }
 
 if (resetOrientationBtn) {
@@ -372,16 +579,56 @@ function buildCasePicker() {
       chip.type = "button";
       chip.className = "case-chip";
       chip.dataset.case = caseObj.id;
-      chip.textContent = caseObj.id.slice(group.length);
+      const tag = getCaseTag(caseObj.id);
+      chip.innerHTML = `${caseObj.id.slice(group.length)}<span class="case-chip-dot tag-dot-${tag}"></span>`;
+      chip.title = `Case ${caseObj.id} (${tag}) · Click to toggle practice, Right-click to change tag`;
       chip.setAttribute("aria-label", `Case ${caseObj.id}`);
       chip.addEventListener("click", () => toggleCase(caseObj.id));
+      chip.addEventListener("contextmenu", e => {
+        e.preventDefault();
+        cycleCaseTag(caseObj.id);
+      });
       row.appendChild(chip);
     });
 
     casePicker.appendChild(row);
   });
   renderSelection();
+  updateCasePickerFilter();
 }
+
+function updateCasePickerTags() {
+  casePicker.querySelectorAll(".case-chip").forEach(chip => {
+    const id = chip.dataset.case;
+    const tag = getCaseTag(id);
+    let dot = chip.querySelector(".case-chip-dot");
+    if (!dot) {
+      dot = document.createElement("span");
+      dot.className = "case-chip-dot";
+      chip.appendChild(dot);
+    }
+    dot.className = `case-chip-dot tag-dot-${tag}`;
+    chip.title = `Case ${id} (${tag}) · Click to toggle practice, Right-click to change tag`;
+  });
+  updateCasePickerFilter();
+}
+
+function updateCasePickerFilter() {
+  casePicker.querySelectorAll(".case-chip").forEach(chip => {
+    const id = chip.dataset.case;
+    const tag = getCaseTag(id);
+    const matches = currentTagFilter === "all" || tag === currentTagFilter;
+    chip.style.opacity = matches ? "1" : "0.25";
+  });
+}
+
+document.querySelectorAll(".tag-filter-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    currentTagFilter = btn.dataset.tagFilter;
+    document.querySelectorAll(".tag-filter-btn").forEach(b => b.classList.toggle("active", b === btn));
+    updateCasePickerFilter();
+  });
+});
 
 function renderSelection() {
   casePicker.querySelectorAll(".case-chip").forEach(chip => {
@@ -431,11 +678,25 @@ function toggleCase(id) {
 }
 
 document.getElementById("addAllBtn").addEventListener("click", () => {
-  setSelection(new Set(CASE_IDS));
+  if (currentTagFilter === "all") {
+    setSelection(new Set(CASE_IDS));
+  } else {
+    const matching = CASE_IDS.filter(id => getCaseTag(id) === currentTagFilter);
+    const next = new Set(selectedCases);
+    matching.forEach(id => next.add(id));
+    setSelection(next);
+  }
 });
 
 document.getElementById("clearAllBtn").addEventListener("click", () => {
-  setSelection(new Set());
+  if (currentTagFilter === "all") {
+    setSelection(new Set());
+  } else {
+    const matching = CASE_IDS.filter(id => getCaseTag(id) === currentTagFilter);
+    const next = new Set(selectedCases);
+    matching.forEach(id => next.delete(id));
+    setSelection(next);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -726,8 +987,23 @@ function buildScramble() {
 }
 
 function regenerateScramble() {
+  clearViewRotations();
   const hasCases = selectedCases.size > 0;
   emptyState.hidden = hasCases;
+
+  if (mode === "solve" && solveTarget !== "cll") {
+    generateWca2x2Scramble().then(wcaScr => {
+      currentSolveScramble = wcaScr;
+      scrambleMoves = wcaScr;
+      scramble = wcaScr;
+      currentCaseId = null;
+      applyScrambleToDisplay(wcaScr);
+      if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+    });
+    resetGuessingUI();
+    updateStatsTable();
+    return;
+  }
 
   if (hasCases) {
     buildScramble();
@@ -839,14 +1115,14 @@ function renderStage() {
 
   regenerateBtn.hidden = mode === "timed" || simulating || isLayer;
 
-  // Solve mode: hide the cube (it would give the case away), show the
-  // scramble as text plus the timer and the list of times.
-  cubeCard.hidden = (solving && hasCases);
+  // Solve mode: show or hide cube based on solveShowCube
+  const hideCubeInSolve = solving && !solveShowCube;
+  cubeCard.hidden = hideCubeInSolve || (!hasCases && ["practice", "study", "timed"].includes(mode));
   if (resetOrientationBtn) {
-    resetOrientationBtn.hidden = cubeCard.hidden || (!hasCases && ["practice", "study", "timed"].includes(mode));
+    resetOrientationBtn.hidden = cubeCard.hidden;
   }
-  solveScramble.hidden = !(solving && hasCases);
-  solveSurface.hidden = !(solving && hasCases);
+  solveScramble.hidden = !solving;
+  solveSurface.hidden = !solving;
   solveTimes.hidden = !solving;
   if (solving) renderSolvePanel();
 
@@ -872,9 +1148,22 @@ function updateCaseInfoDisplay() {
       return `<button type="button" class="study-preset-chip ${i === activePresetIdx ? 'active' : ''}" data-idx="${i}" title="${sc}">Scramble ${i + 1}</button>`;
     }).join("");
 
+    const tag = getCaseTag(caseObj.id);
+    const solutionDisplay = getCllCaseSolutionDisplay(caseObj);
+
     caseInfoContainer.innerHTML = `
-      <div class="case-id">${caseObj.id}</div>
-      <div class="case-solution"><b>Solution:</b> ${caseObj.solution || ''}</div>
+      <div class="case-header-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
+        <div class="case-id" style="margin: 0;">${caseObj.id}</div>
+        <select class="case-tag-select" id="studyTagSelect" title="Learning status for this case">
+          <option value="learning" ${tag === 'learning' ? 'selected' : ''}>📘 Learning</option>
+          <option value="review" ${tag === 'review' ? 'selected' : ''}>📙 Review</option>
+          <option value="mastered" ${tag === 'mastered' ? 'selected' : ''}>📗 Mastered</option>
+        </select>
+      </div>
+      <div class="case-solution-row" style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+        <div class="case-solution"><b>Solution:</b> <span id="studySolutionText">${escapeHtml(solutionDisplay)}</span></div>
+        <button type="button" class="btn btn-xs" id="studyEditLabelBtn" title="Customize trigger label">&#x270E; Edit Label</button>
+      </div>
       <div class="case-opposite">Opposite (after the alg): <strong>${caseObj.opposite}</strong></div>
       <div class="study-presets-bar">
         <span class="study-presets-label">Preset Scrambles:</span>
@@ -886,6 +1175,36 @@ function updateCaseInfoDisplay() {
         <button type="button" class="btn btn-small btn-study-sim" id="studySimulateBtn">Simulate Solution in 3D &rarr;</button>
       </div>
     `;
+
+    const tagSelect = document.getElementById("studyTagSelect");
+    if (tagSelect) {
+      tagSelect.addEventListener("change", () => {
+        setCaseTag(caseObj.id, tagSelect.value);
+      });
+    }
+
+    const editLabelBtn = document.getElementById("studyEditLabelBtn");
+    if (editLabelBtn) {
+      editLabelBtn.addEventListener("click", () => {
+        openCustomLabelModal({
+          type: "cll",
+          id: caseObj.id,
+          rawAlg: caseObj.solutionAlg,
+          defaultLabel: caseObj.solution,
+          currentLabel: getCllCaseSolutionDisplay(caseObj),
+          onSave: (newLabel) => {
+            setCllCaseSolutionDisplay(caseObj.id, newLabel);
+            const textSpan = document.getElementById("studySolutionText");
+            if (textSpan) textSpan.textContent = getCllCaseSolutionDisplay(caseObj);
+          },
+          onReset: () => {
+            setCllCaseSolutionDisplay(caseObj.id, null);
+            const textSpan = document.getElementById("studySolutionText");
+            if (textSpan) textSpan.textContent = caseObj.solution;
+          }
+        });
+      });
+    }
 
     const studyChips = caseInfoContainer.querySelectorAll(".study-preset-chip");
     studyChips.forEach(chip => {
@@ -1029,12 +1348,27 @@ function resetGuessingUI() {
 }
 
 // Keyboard entry (laptops): letter = group, digit = case, Enter = verify /
-// next scramble.
+// next scramble. Also x, y, z for 3D world rotation.
 document.addEventListener("keydown", e => {
   if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
-  if (!overview.hidden) return;
+  const isAnyModalOpen = !overview.hidden ||
+    (guideModal && !guideModal.hidden) ||
+    (pblModal && !pblModal.hidden) ||
+    (customLabelModal && !customLabelModal.hidden) ||
+    (sessionModal && !sessionModal.hidden) ||
+    (solveDetailModal && !solveDetailModal.hidden);
+  if (isAnyModalOpen) return;
   const target = e.target;
   if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+
+  const keyLower = e.key.toLowerCase();
+  if (["x", "y", "z"].includes(keyLower) && !cubeCard.hidden && solveState === "idle" && layerState === "idle") {
+    const isShift = e.shiftKey;
+    const move = isShift ? `${keyLower}'` : keyLower;
+    addViewRotation(move);
+    e.preventDefault();
+    return;
+  }
 
   const key = e.key.toUpperCase();
   if (!guessingContainer.hidden && !practiceAnswered) {
@@ -1243,40 +1577,518 @@ function formatSolveTime(ms) {
   return `${minutes}:${seconds.toFixed(2).padStart(5, "0")}`;
 }
 
+// ---------------------------------------------------------------------------
+// Rolling Averages (Ao5, Ao12, Ao100) and Stats Bar Engine
+// ---------------------------------------------------------------------------
+
+function calculateAoN(solvesList, n) {
+  if (!solvesList || solvesList.length < n) return null;
+  const slice = solvesList.slice(-n);
+  const numeric = slice.map(t => {
+    if (t.penalty === 'DNF' || t.ms === Infinity) return Infinity;
+    const base = t.ms || 0;
+    return t.penalty === '+2' ? base + 2000 : base;
+  });
+  const dnfs = numeric.filter(x => !isFinite(x));
+  const trim = n < 40 ? 1 : Math.ceil(n * 0.05);
+  if (dnfs.length > trim) return 'DNF';
+  numeric.sort((a, b) => a - b);
+  const trimmed = numeric.slice(trim, numeric.length - trim);
+  if (trimmed.some(x => !isFinite(x))) return 'DNF';
+  const sum = trimmed.reduce((a, b) => a + b, 0);
+  return Math.round(sum / trimmed.length);
+}
+
+function getBestAoN(solvesList, n) {
+  if (!solvesList || solvesList.length < n) return null;
+  let best = null;
+  for (let i = n; i <= solvesList.length; i++) {
+    const windowSolves = solvesList.slice(0, i);
+    const ao = calculateAoN(windowSolves, n);
+    if (ao !== null && ao !== 'DNF') {
+      if (best === null || ao < best) {
+        best = ao;
+      }
+    }
+  }
+  return best;
+}
+
+function renderSolveStatsBar(container, solvesList) {
+  if (!container) return;
+  if (!solvesList || !solvesList.length) {
+    container.innerHTML = "";
+    return;
+  }
+  const valid = solvesList.filter(s => s.penalty !== "DNF").map(s => (s.penalty === "+2" ? s.ms + 2000 : s.ms));
+  const bestSingle = valid.length ? Math.min(...valid) : null;
+  const mean = valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : null;
+
+  const curAo5 = calculateAoN(solvesList, 5);
+  const bestAo5 = getBestAoN(solvesList, 5);
+
+  const curAo12 = calculateAoN(solvesList, 12);
+  const bestAo12 = getBestAoN(solvesList, 12);
+
+  const curAo100 = solvesList.length >= 100 ? calculateAoN(solvesList, 100) : null;
+  const bestAo100 = solvesList.length >= 100 ? getBestAoN(solvesList, 100) : null;
+
+  const fmt = (v) => {
+    if (v === null || v === undefined) return "-";
+    if (v === "DNF") return "DNF";
+    return formatSolveTime(v);
+  };
+
+  container.innerHTML = `
+    <div class="solve-stat-item">
+      <span class="solve-stat-val">${fmt(bestSingle)}</span>
+      <span class="solve-stat-lbl">Single Best</span>
+    </div>
+    <div class="solve-stat-item">
+      <span class="solve-stat-val">${fmt(curAo5)}</span>
+      <span class="solve-stat-lbl">Cur Ao5</span>
+    </div>
+    <div class="solve-stat-item">
+      <span class="solve-stat-val">${fmt(bestAo5)}</span>
+      <span class="solve-stat-lbl">Best Ao5</span>
+    </div>
+    <div class="solve-stat-item">
+      <span class="solve-stat-val">${fmt(curAo12)}</span>
+      <span class="solve-stat-lbl">Cur Ao12</span>
+    </div>
+    <div class="solve-stat-item">
+      <span class="solve-stat-val">${fmt(bestAo12)}</span>
+      <span class="solve-stat-lbl">Best Ao12</span>
+    </div>
+    ${solvesList.length >= 100 ? `
+    <div class="solve-stat-item">
+      <span class="solve-stat-val">${fmt(curAo100)}</span>
+      <span class="solve-stat-lbl">Cur Ao100</span>
+    </div>
+    <div class="solve-stat-item">
+      <span class="solve-stat-val">${fmt(bestAo100)}</span>
+      <span class="solve-stat-lbl">Best Ao100</span>
+    </div>
+    ` : ''}
+    <div class="solve-stat-item">
+      <span class="solve-stat-val">${fmt(mean)}</span>
+      <span class="solve-stat-lbl">Mean (${solvesList.length})</span>
+    </div>
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// Modals: Tips & Guide, Ortega PBL, Custom Label, Session Management
+// ---------------------------------------------------------------------------
+
+// Tips & Guide Modal
+function openGuideModal() {
+  if (!guideModal) return;
+  guideModal.hidden = false;
+  document.documentElement.classList.add("overview-open");
+  guideCloseBtn?.focus();
+}
+
+function closeGuideModal() {
+  if (!guideModal) return;
+  guideModal.hidden = true;
+  document.documentElement.classList.remove("overview-open");
+  guideBtn?.focus();
+}
+
+if (guideBtn) guideBtn.addEventListener("click", openGuideModal);
+if (guideCloseBtn) guideCloseBtn.addEventListener("click", closeGuideModal);
+
+// Ortega PBL Modal
+function openPblModal() {
+  if (!pblModal) return;
+  buildPblModal();
+  pblModal.hidden = false;
+  document.documentElement.classList.add("overview-open");
+  pblCloseBtn?.focus();
+}
+
+function closePblModal() {
+  if (!pblModal) return;
+  pblModal.hidden = true;
+  document.documentElement.classList.remove("overview-open");
+  pblOverviewBtn?.focus();
+}
+
+if (pblOverviewBtn) pblOverviewBtn.addEventListener("click", openPblModal);
+if (pblCloseBtn) pblCloseBtn.addEventListener("click", closePblModal);
+
+function buildPblModal() {
+  if (!pblCardsContainer) return;
+  pblCardsContainer.innerHTML = "";
+
+  pblCases.forEach(caseObj => {
+    const card = document.createElement("article");
+    card.className = "pbl-card";
+
+    const head = document.createElement("div");
+    head.className = "pbl-card-head";
+
+    const title = document.createElement("h3");
+    title.className = "pbl-card-title";
+    title.textContent = caseObj.name;
+
+    const badge = document.createElement("span");
+    badge.className = "pbl-card-badge";
+    badge.textContent = caseObj.shortName;
+
+    head.append(title, badge);
+
+    const desc = document.createElement("p");
+    desc.className = "pbl-card-desc";
+    desc.textContent = caseObj.description;
+
+    const algPicker = document.createElement("div");
+    algPicker.className = "pbl-alg-picker";
+
+    const selectedAlg = getPblCaseSelectedAlg(caseObj);
+
+    caseObj.algs.forEach(algItem => {
+      const isSelected = algItem.id === selectedAlg.id;
+      const opt = document.createElement("label");
+      opt.className = `pbl-alg-option ${isSelected ? "active" : ""}`;
+
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = `pbl-alg-${caseObj.id}`;
+      radio.value = algItem.id;
+      radio.checked = isSelected;
+      radio.className = "pbl-alg-radio";
+
+      radio.addEventListener("change", () => {
+        if (!pblSettings[caseObj.id]) pblSettings[caseObj.id] = {};
+        pblSettings[caseObj.id].selectedAlgId = algItem.id;
+        savePblSettings();
+        buildPblModal();
+      });
+
+      const content = document.createElement("div");
+      content.className = "pbl-alg-content";
+
+      const displayLabel = getPblAlgDisplayLabel(caseObj.id, algItem);
+
+      const labelSpan = document.createElement("span");
+      labelSpan.className = "pbl-alg-label";
+      labelSpan.textContent = displayLabel;
+
+      const noteSpan = document.createElement("span");
+      noteSpan.className = "pbl-alg-note";
+      noteSpan.textContent = algItem.note || algItem.alg;
+
+      content.append(labelSpan, noteSpan);
+      opt.append(radio, content);
+      algPicker.appendChild(opt);
+    });
+
+    const actions = document.createElement("div");
+    actions.className = "pbl-card-actions";
+
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "btn btn-small";
+    editBtn.innerHTML = "&#x270E; Customize Label";
+    editBtn.addEventListener("click", () => {
+      const activeAlg = getPblCaseSelectedAlg(caseObj);
+      openCustomLabelModal({
+        type: "pbl",
+        id: `${caseObj.id} (${activeAlg.id})`,
+        rawAlg: activeAlg.alg,
+        defaultLabel: activeAlg.label,
+        currentLabel: getPblAlgDisplayLabel(caseObj.id, activeAlg),
+        onSave: (newLabel) => {
+          if (!pblSettings[caseObj.id]) pblSettings[caseObj.id] = {};
+          if (!pblSettings[caseObj.id].customLabels) pblSettings[caseObj.id].customLabels = {};
+          pblSettings[caseObj.id].customLabels[activeAlg.id] = newLabel;
+          savePblSettings();
+          buildPblModal();
+        },
+        onReset: () => {
+          if (pblSettings[caseObj.id]?.customLabels?.[activeAlg.id]) {
+            delete pblSettings[caseObj.id].customLabels[activeAlg.id];
+            savePblSettings();
+            buildPblModal();
+          }
+        }
+      });
+    });
+
+    const simBtn = document.createElement("button");
+    simBtn.type = "button";
+    simBtn.className = "btn btn-primary btn-small";
+    simBtn.innerHTML = "&#x25B6; Sim in 3D";
+    simBtn.addEventListener("click", () => {
+      closePblModal();
+      setMode("simulate");
+      const activeAlg = getPblCaseSelectedAlg(caseObj);
+      const fullSeq = `${caseObj.scramble} ${activeAlg.alg}`.trim();
+      simScrambleInput.value = fullSeq;
+      simLoadScramble(fullSeq);
+    });
+
+    actions.append(editBtn, simBtn);
+    card.append(head, desc, algPicker, actions);
+    pblCardsContainer.appendChild(card);
+  });
+}
+
+// Custom Label Modal
+let activeCustomLabelCallback = null;
+let activeCustomLabelReset = null;
+
+function openCustomLabelModal({ type, id, defaultLabel, rawAlg, currentLabel, onSave, onReset }) {
+  if (!customLabelModal) return;
+  customLabelTitle.textContent = `Customize Label (${id})`;
+  customLabelAlgNotation.textContent = rawAlg || "";
+  customLabelInput.value = currentLabel || defaultLabel || "";
+  activeCustomLabelCallback = onSave;
+  activeCustomLabelReset = onReset;
+  customLabelModal.hidden = false;
+  customLabelInput.focus();
+}
+
+function closeCustomLabelModal() {
+  if (!customLabelModal) return;
+  customLabelModal.hidden = true;
+  activeCustomLabelCallback = null;
+  activeCustomLabelReset = null;
+}
+
+if (customLabelCloseBtn) customLabelCloseBtn.addEventListener("click", closeCustomLabelModal);
+if (customLabelCancelBtn) customLabelCancelBtn.addEventListener("click", closeCustomLabelModal);
+
+if (customLabelSaveBtn) {
+  customLabelSaveBtn.addEventListener("click", () => {
+    const val = customLabelInput.value.trim();
+    if (activeCustomLabelCallback) activeCustomLabelCallback(val);
+    closeCustomLabelModal();
+  });
+}
+
+if (customLabelResetBtn) {
+  customLabelResetBtn.addEventListener("click", () => {
+    if (activeCustomLabelReset) activeCustomLabelReset();
+    closeCustomLabelModal();
+  });
+}
+
+// Session Modal
+let sessionModalMode = "create"; // "create" | "rename"
+
+function openSessionModal(mode = "create") {
+  if (!sessionModal) return;
+  sessionModalMode = mode;
+  const current = getActiveSession();
+  if (mode === "rename") {
+    sessionModalTitle.textContent = "Rename Session";
+    sessionNameInput.value = current.name;
+    const targetField = document.getElementById("sessionTargetField");
+    if (targetField) targetField.hidden = true;
+  } else {
+    sessionModalTitle.textContent = "New Session";
+    sessionNameInput.value = `Session ${sessions.length + 1}`;
+    const targetField = document.getElementById("sessionTargetField");
+    if (targetField) targetField.hidden = false;
+    sessionDefaultTarget.value = "full";
+  }
+  sessionModal.hidden = false;
+  sessionNameInput.focus();
+  sessionNameInput.select();
+}
+
+function closeSessionModal() {
+  if (!sessionModal) return;
+  sessionModal.hidden = true;
+}
+
+if (sessionModalCloseBtn) sessionModalCloseBtn.addEventListener("click", closeSessionModal);
+if (sessionModalCancelBtn) sessionModalCancelBtn.addEventListener("click", closeSessionModal);
+
+if (sessionModalSaveBtn) {
+  sessionModalSaveBtn.addEventListener("click", () => {
+    const name = sessionNameInput.value.trim();
+    if (!name) {
+      alert("Please enter a session name.");
+      return;
+    }
+    if (sessionModalMode === "rename") {
+      const sess = getActiveSession();
+      sess.name = name;
+      saveSessions();
+    } else {
+      const target = sessionDefaultTarget.value || "full";
+      const newId = `session-${Date.now()}`;
+      const newSession = {
+        id: newId,
+        name,
+        target,
+        inspection: true,
+        showCube: target === "layer",
+        solves: []
+      };
+      sessions.push(newSession);
+      activeSessionId = newId;
+      solveTarget = target;
+      saveSessions();
+      saveSettings();
+    }
+    closeSessionModal();
+    populateSessionSelect();
+    renderSolvePanel();
+    regenerateScramble();
+  });
+}
+
+function populateSessionSelect() {
+  if (!solveSessionSelect) return;
+  solveSessionSelect.innerHTML = sessions.map(s => {
+    return `<option value="${s.id}" ${s.id === activeSessionId ? "selected" : ""}>${escapeHtml(s.name)} (${s.solves.length})</option>`;
+  }).join("");
+  if (solveSessionBadge) {
+    solveSessionBadge.textContent = `${getActiveSession().name} (${getActiveSession().solves.length})`;
+  }
+}
+
+function switchSession(sessId) {
+  if (!sessions.some(s => s.id === sessId)) return;
+  activeSessionId = sessId;
+  const sess = getActiveSession();
+  solveTarget = sess.target || "full";
+  solveShowCube = sess.showCube ?? false;
+  solveInspection = sess.inspection ?? true;
+  solves = sess.solves || [];
+  lastSolve = solves.length ? solves[solves.length - 1] : null;
+
+  if (solveTargetSelect) solveTargetSelect.value = solveTarget;
+  if (solveShowCubeToggle) solveShowCubeToggle.checked = solveShowCube;
+  if (solveInspectionToggle) solveInspectionToggle.checked = solveInspection;
+
+  saveSettings();
+  populateSessionSelect();
+  renderSolvePanel();
+  regenerateScramble();
+}
+
+function deleteCurrentSession() {
+  if (sessions.length <= 1) {
+    alert("You must have at least one session.");
+    return;
+  }
+  const current = getActiveSession();
+  if (!confirm(`Are you sure you want to delete session "${current.name}" and all its ${current.solves.length} solves?`)) {
+    return;
+  }
+  sessions = sessions.filter(s => s.id !== current.id);
+  activeSessionId = sessions[0].id;
+  saveSessions();
+  switchSession(activeSessionId);
+}
+
+if (solveSessionSelect) {
+  solveSessionSelect.addEventListener("change", () => {
+    switchSession(solveSessionSelect.value);
+  });
+}
+if (newSessionBtn) {
+  newSessionBtn.addEventListener("click", () => openSessionModal("create"));
+}
+if (renameSessionBtn) {
+  renameSessionBtn.addEventListener("click", () => openSessionModal("rename"));
+}
+if (deleteSessionBtn) {
+  deleteSessionBtn.addEventListener("click", deleteCurrentSession);
+}
+if (solveTargetSelect) {
+  solveTargetSelect.addEventListener("change", () => {
+    solveTarget = solveTargetSelect.value;
+    getActiveSession().target = solveTarget;
+    saveSessions();
+    saveSettings();
+    renderSolvePanel();
+    regenerateScramble();
+  });
+}
+if (solveShowCubeToggle) {
+  solveShowCubeToggle.addEventListener("change", () => {
+    solveShowCube = solveShowCubeToggle.checked;
+    getActiveSession().showCube = solveShowCube;
+    saveSessions();
+    saveSettings();
+    renderStage();
+  });
+}
+if (solveInspectionToggle) {
+  solveInspectionToggle.addEventListener("change", () => {
+    solveInspection = solveInspectionToggle.checked;
+    getActiveSession().inspection = solveInspection;
+    saveSessions();
+    saveSettings();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Solve Mode: Scramble, Timer, Sessions, and Stats
+// ---------------------------------------------------------------------------
+
 function renderSolvePanel() {
-  solveScrambleText.textContent = scrambleMoves;
+  populateSessionSelect();
+  const currentSess = getActiveSession();
+  solves = currentSess.solves || [];
+
+  if (solveTargetSelect) solveTargetSelect.value = solveTarget;
+  if (solveShowCubeToggle) solveShowCubeToggle.checked = solveShowCube;
+  if (solveInspectionToggle) solveInspectionToggle.checked = solveInspection;
+
+  solveScrambleText.textContent = scrambleMoves || currentSolveScramble || scramble;
+  if (solveScrambleOrient) {
+    solveScrambleOrient.textContent = solveTarget === "cll" ? "(white on bottom)" : "(WCA orientation)";
+  }
 
   if (lastSolve) {
-    const caseObj = caseById.get(lastSolve.id);
     solveTimeEl.textContent = formatSolveTime(lastSolve.ms);
-    solveCaseEl.innerHTML = `<strong>${lastSolve.id}</strong> · ${caseObj.solution} · opposite ${caseObj.opposite}`;
+    if (lastSolve.id && caseById.has(lastSolve.id)) {
+      const caseObj = caseById.get(lastSolve.id);
+      solveCaseEl.innerHTML = `<strong>${lastSolve.id}</strong> · ${getCllCaseSolutionDisplay(caseObj)} · opposite ${caseObj.opposite}`;
+    } else {
+      const targetLabel = lastSolve.target === "layer" ? "1st Layer" : (lastSolve.target === "face" ? "1st Face" : "Full Solve");
+      solveCaseEl.innerHTML = `<strong>${targetLabel}</strong> · ${formatSolveTime(lastSolve.ms)}`;
+    }
   } else {
     solveTimeEl.textContent = "0.00";
-    solveCaseEl.textContent = "Scramble your cube, then time the solve. The case is revealed afterwards.";
+    solveCaseEl.textContent = "Scramble your cube, then time the solve.";
   }
 
   if (solves.length) {
-    const best = Math.min(...solves.map(x => x.ms));
-    const mean = solves.reduce((sum, x) => sum + x.ms, 0) / solves.length;
-    solveSummaryEl.textContent = `${solves.length} solve${solves.length === 1 ? "" : "s"} · best ${formatSolveTime(best)} · mean ${formatSolveTime(mean)}`;
+    const valid = solves.filter(s => s.penalty !== "DNF").map(s => (s.penalty === "+2" ? s.ms + 2000 : s.ms));
+    const best = valid.length ? Math.min(...valid) : null;
+    const mean = valid.length ? Math.round(valid.reduce((sum, x) => sum + x, 0) / valid.length) : null;
+    solveSummaryEl.textContent = `${solves.length} solve${solves.length === 1 ? "" : "s"} · best ${best != null ? formatSolveTime(best) : "-"} · mean ${mean != null ? formatSolveTime(mean) : "-"}`;
   } else {
-    solveSummaryEl.textContent = "No times yet";
+    solveSummaryEl.textContent = "No times in this session yet";
   }
   clearSolvesBtn.hidden = solves.length === 0;
-  const recent = solves.map((solve, index) => ({ solve, index })).slice(-12).reverse();
+
+  renderSolveStatsBar(solveStatsBar, solves);
+
+  const recent = solves.map((solve, index) => ({ solve, index })).slice(-15).reverse();
   solveList.innerHTML = recent
     .map(({ solve, index }) => `
-      <button type="button" class="solve-chip" data-index="${index}" title="Click to delete solve ${formatSolveTime(solve.ms)} (${solve.id})">
+      <button type="button" class="solve-chip" data-index="${index}" title="Solve #${index + 1}: ${formatSolveTime(solve.ms)} ${solve.id ? `(${solve.id})` : ''} (Click to view details, × to delete)">
         <span class="solve-chip-time">${formatSolveTime(solve.ms)}</span>
-        <span class="solve-chip-id">${solve.id}</span>
-        <span class="solve-chip-del" aria-hidden="true">&times;</span>
+        ${solve.id ? `<span class="solve-chip-id">${solve.id}</span>` : ''}
+        <span class="solve-chip-del" aria-label="Delete solve">&times;</span>
       </button>
     `.trim())
     .join("");
 }
 
 function armSolve() {
-  if (mode !== "solve" || solveState !== "idle" || !currentCaseId) return;
+  if (mode !== "solve" || solveState !== "idle") return;
+  if (solveTarget === "cll" && !currentCaseId) return;
   solveState = "armed";
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   solveOverlayTime.textContent = "0.00";
@@ -1305,22 +2117,27 @@ function stopSolve(byPointer) {
   solveState = "idle";
   cancelAnimationFrame(solveRaf);
 
-  lastSolve = { id: currentCaseId, ms: Math.round(ms), at: Date.now() };
+  const scr = scrambleMoves || currentSolveScramble || scramble;
+  lastSolve = {
+    id: solveTarget === "cll" ? currentCaseId : null,
+    target: solveTarget,
+    ms: Math.round(ms),
+    at: Date.now(),
+    scramble: scr
+  };
   solves.push(lastSolve);
   if (solves.length > MAX_SOLVES) solves.splice(0, solves.length - MAX_SOLVES);
   saveSolves();
 
   solveOverlayTime.textContent = formatSolveTime(ms);
   if (byPointer) {
-    // keep covering the page until the finger lifts, so the tap that stopped
-    // the timer cannot also press whatever is underneath
     overlayHideOnPointerUp = true;
     setTimeout(() => { if (overlayHideOnPointerUp) hideSolveOverlay(); }, 700);
   } else {
     hideSolveOverlay();
   }
 
-  regenerateScramble(); // next scramble is ready while the case is revealed
+  regenerateScramble();
 }
 
 function hideSolveOverlay() {
@@ -1595,6 +2412,7 @@ function renderLayerPanel() {
     layerSummaryEl.textContent = "No times yet";
   }
   clearLayerSolvesBtn.hidden = layerSolves.length === 0;
+  renderSolveStatsBar(layerStatsBar, layerSolves);
 
   const recent = layerSolves.slice(-12).reverse();
   layerListEl.innerHTML = recent.map((solve) => {
@@ -2122,15 +2940,21 @@ solveList.addEventListener("click", e => {
   const s = solves[index];
   if (!s) return;
 
-  if (confirm(`Delete solve ${formatSolveTime(s.ms)} (${s.id})?`)) {
-    solves.splice(index, 1);
-    if (lastSolve === s || (lastSolve && lastSolve.at === s.at && lastSolve.id === s.id && lastSolve.ms === s.ms)) {
-      lastSolve = solves.length ? solves[solves.length - 1] : null;
+  const isDel = e.target.closest(".solve-chip-del");
+  if (isDel) {
+    if (confirm(`Delete solve ${formatSolveTime(s.ms)}?`)) {
+      solves.splice(index, 1);
+      if (lastSolve === s || (lastSolve && lastSolve.at === s.at && lastSolve.id === s.id && lastSolve.ms === s.ms)) {
+        lastSolve = solves.length ? solves[solves.length - 1] : null;
+      }
+      saveSolves();
+      renderSolvePanel();
+      updateStatsTable();
     }
-    saveSolves();
-    renderSolvePanel();
-    updateStatsTable();
+    return;
   }
+
+  openSolveDetailModal(s, index + 1);
 });
 
 layerNewScrambleBtn.addEventListener("click", () => generateNewLayerScramble());
@@ -2315,6 +3139,20 @@ async function buildOverview() {
       const card = document.createElement("article");
       card.className = "ov-card";
 
+      const tagBadge = document.createElement("button");
+      tagBadge.type = "button";
+      const currentTag = getCaseTag(caseObj.id);
+      tagBadge.className = `ov-tag-badge tag-${currentTag}`;
+      tagBadge.textContent = currentTag;
+      tagBadge.title = `Status: ${currentTag} · Click to cycle`;
+      tagBadge.addEventListener("click", () => {
+        cycleCaseTag(caseObj.id);
+        const newTag = getCaseTag(caseObj.id);
+        tagBadge.className = `ov-tag-badge tag-${newTag}`;
+        tagBadge.textContent = newTag;
+        tagBadge.title = `Status: ${newTag} · Click to cycle`;
+      });
+
       const diagram = document.createElement("div");
       diagram.className = "ov-diagram";
       diagram.innerHTML = caseDiagramSVG(solved.applyAlg(`z2 ${caseObj.scramble}`), caseObj.id);
@@ -2329,7 +3167,32 @@ async function buildOverview() {
 
       const alg = document.createElement("div");
       alg.className = "ov-alg";
-      alg.textContent = caseObj.solution;
+      alg.textContent = getCllCaseSolutionDisplay(caseObj);
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "btn btn-xs ov-edit-btn";
+      editBtn.style.marginTop = "4px";
+      editBtn.style.width = "100%";
+      editBtn.innerHTML = "&#x270E; Edit Label";
+      editBtn.title = `Customize display triggers for ${caseObj.id}`;
+      editBtn.addEventListener("click", () => {
+        openCustomLabelModal({
+          type: "cll",
+          id: caseObj.id,
+          rawAlg: caseObj.solutionAlg,
+          defaultLabel: caseObj.solution,
+          currentLabel: getCllCaseSolutionDisplay(caseObj),
+          onSave: (newLabel) => {
+            setCllCaseSolutionDisplay(caseObj.id, newLabel);
+            alg.textContent = getCllCaseSolutionDisplay(caseObj);
+          },
+          onReset: () => {
+            setCllCaseSolutionDisplay(caseObj.id, null);
+            alg.textContent = caseObj.solution;
+          }
+        });
+      });
 
       const simBtn = document.createElement("button");
       simBtn.type = "button";
@@ -2342,7 +3205,7 @@ async function buildOverview() {
         simLoadCaseWithSolution(caseObj, 0);
       });
 
-      card.append(diagram, id, opp, alg, simBtn);
+      card.append(tagBadge, diagram, id, opp, alg, editBtn, simBtn);
       cards.appendChild(card);
     });
 
@@ -2369,7 +3232,13 @@ function closeOverview() {
 overviewBtn.addEventListener("click", openOverview);
 overviewClose.addEventListener("click", closeOverview);
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape" && !overview.hidden) closeOverview();
+  if (e.key === "Escape") {
+    if (!overview.hidden) closeOverview();
+    if (guideModal && !guideModal.hidden) closeGuideModal();
+    if (pblModal && !pblModal.hidden) closePblModal();
+    if (customLabelModal && !customLabelModal.hidden) closeCustomLabelModal();
+    if (sessionModal && !sessionModal.hidden) closeSessionModal();
+  }
 });
 
 // ---------------------------------------------------------------------------
