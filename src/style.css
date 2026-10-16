@@ -2080,6 +2080,16 @@ button.solve-chip:hover .solve-chip-del {
     border-bottom-right-radius: var(--radius);
 }
 
+.session-modal-toggles {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
 /* --------------------------------------------------------------------------
    Simulate Mode
    -------------------------------------------------------------------------- */

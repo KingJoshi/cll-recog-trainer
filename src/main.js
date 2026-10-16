@@ -145,7 +145,7 @@ let lastSolve = null;
 
 // Multi-session management & storage
 const DEFAULT_SESSIONS = [
-  { id: "default", name: "Session 1 (Full Solve)", target: "full", inspection: true, showCube: false, solves: [] },
+  { id: "default", name: "Session 1 (Full Solve)", target: "full", inspection: true, showCube: true, solves: [] },
   { id: "layer", name: "1st Layer Practice", target: "layer", inspection: true, showCube: true, solves: [] }
 ];
 
@@ -171,6 +171,11 @@ if (!Array.isArray(sessions) || sessions.length === 0) {
       writeJSON(SESSIONS_KEY, sessions);
     }
   }
+  // Ensure all existing sessions have showCube and inspection defined
+  sessions.forEach(s => {
+    if (s.showCube === undefined) s.showCube = true;
+    if (s.inspection === undefined) s.inspection = true;
+  });
 }
 
 let activeSessionId = savedSettings.activeSessionId || sessions[0].id;
@@ -186,9 +191,9 @@ function getActiveSession() {
   return sessions.find(s => s.id === activeSessionId) || sessions[0];
 }
 
-let solveTarget = savedSettings.solveTarget || getActiveSession().target || "full";
-let solveShowCube = savedSettings.solveShowCube ?? getActiveSession().showCube ?? false;
-let solveInspection = savedSettings.solveInspection ?? getActiveSession().inspection ?? true;
+let solveTarget = getActiveSession().target || savedSettings.solveTarget || "full";
+let solveShowCube = getActiveSession().showCube ?? true;
+let solveInspection = getActiveSession().inspection ?? true;
 
 let solves = getActiveSession().solves;
 
@@ -434,6 +439,8 @@ const sessionModalTitle = document.getElementById("sessionModalTitle");
 const sessionModalCloseBtn = document.getElementById("sessionModalCloseBtn");
 const sessionNameInput = document.getElementById("sessionNameInput");
 const sessionDefaultTarget = document.getElementById("sessionDefaultTarget");
+const sessionShowCubeCheckbox = document.getElementById("sessionShowCubeCheckbox");
+const sessionInspectionCheckbox = document.getElementById("sessionInspectionCheckbox");
 const sessionModalSaveBtn = document.getElementById("sessionModalSaveBtn");
 const sessionModalCancelBtn = document.getElementById("sessionModalCancelBtn");
 
@@ -1948,23 +1955,27 @@ if (customLabelResetBtn) {
 }
 
 // Session Modal
-let sessionModalMode = "create"; // "create" | "rename"
+let sessionModalMode = "create"; // "create" | "edit" | "rename"
 
 function openSessionModal(mode = "create") {
   if (!sessionModal) return;
   sessionModalMode = mode;
   const current = getActiveSession();
-  if (mode === "rename") {
-    sessionModalTitle.textContent = "Rename Session";
+  const targetField = document.getElementById("sessionTargetField");
+  if (targetField) targetField.hidden = false;
+
+  if (mode === "edit" || mode === "rename") {
+    sessionModalTitle.textContent = "Edit Session Settings";
     sessionNameInput.value = current.name;
-    const targetField = document.getElementById("sessionTargetField");
-    if (targetField) targetField.hidden = true;
+    sessionDefaultTarget.value = current.target || "full";
+    if (sessionShowCubeCheckbox) sessionShowCubeCheckbox.checked = current.showCube ?? true;
+    if (sessionInspectionCheckbox) sessionInspectionCheckbox.checked = current.inspection ?? true;
   } else {
     sessionModalTitle.textContent = "New Session";
     sessionNameInput.value = `Session ${sessions.length + 1}`;
-    const targetField = document.getElementById("sessionTargetField");
-    if (targetField) targetField.hidden = false;
-    sessionDefaultTarget.value = "full";
+    sessionDefaultTarget.value = current.target || "full";
+    if (sessionShowCubeCheckbox) sessionShowCubeCheckbox.checked = solveShowCube ?? true;
+    if (sessionInspectionCheckbox) sessionInspectionCheckbox.checked = solveInspection ?? true;
   }
   sessionModal.hidden = false;
   sessionNameInput.focus();
@@ -1986,29 +1997,45 @@ if (sessionModalSaveBtn) {
       alert("Please enter a session name.");
       return;
     }
-    if (sessionModalMode === "rename") {
+    const target = sessionDefaultTarget.value || "full";
+    const showCube = sessionShowCubeCheckbox ? sessionShowCubeCheckbox.checked : true;
+    const inspection = sessionInspectionCheckbox ? sessionInspectionCheckbox.checked : true;
+
+    if (sessionModalMode === "edit" || sessionModalMode === "rename") {
       const sess = getActiveSession();
       sess.name = name;
+      sess.target = target;
+      sess.showCube = showCube;
+      sess.inspection = inspection;
+      solveTarget = target;
+      solveShowCube = showCube;
+      solveInspection = inspection;
       saveSessions();
+      saveSettings();
     } else {
-      const target = sessionDefaultTarget.value || "full";
       const newId = `session-${Date.now()}`;
       const newSession = {
         id: newId,
         name,
         target,
-        inspection: true,
-        showCube: target === "layer",
+        inspection,
+        showCube,
         solves: []
       };
       sessions.push(newSession);
       activeSessionId = newId;
       solveTarget = target;
+      solveShowCube = showCube;
+      solveInspection = inspection;
       saveSessions();
       saveSettings();
     }
     closeSessionModal();
+    if (solveTargetSelect) solveTargetSelect.value = solveTarget;
+    if (solveShowCubeToggle) solveShowCubeToggle.checked = solveShowCube;
+    if (solveInspectionToggle) solveInspectionToggle.checked = solveInspection;
     populateSessionSelect();
+    renderStage();
     renderSolvePanel();
     regenerateScramble();
   });
@@ -2032,7 +2059,7 @@ function switchSession(sessId) {
   activeSessionId = sessId;
   const sess = getActiveSession();
   solveTarget = sess.target || "full";
-  solveShowCube = sess.showCube ?? false;
+  solveShowCube = sess.showCube ?? true;
   solveInspection = sess.inspection ?? true;
   solves = sess.solves || [];
   lastSolve = solves.length ? solves[solves.length - 1] : null;
@@ -2074,7 +2101,7 @@ if (newSessionBtn) {
   newSessionBtn.addEventListener("click", () => openSessionModal("create"));
 }
 if (renameSessionBtn) {
-  renameSessionBtn.addEventListener("click", () => openSessionModal("rename"));
+  renameSessionBtn.addEventListener("click", () => openSessionModal("edit"));
 }
 if (deleteSessionBtn) {
   deleteSessionBtn.addEventListener("click", deleteCurrentSession);

@@ -107,7 +107,7 @@
           <label for="solveSessionSelect" class="session-label">Session:</label>
           <select id="solveSessionSelect" class="session-select" aria-label="Active Solve Session"></select>
           <button type="button" id="newSessionBtn" class="btn btn-xs" title="Create new session">+ New</button>
-          <button type="button" id="renameSessionBtn" class="btn btn-xs" title="Rename current session">&#x270E;</button>
+          <button type="button" id="renameSessionBtn" class="btn btn-xs" title="Edit current session settings (name, target, 3D cube, inspection)">&#x270E; Edit</button>
           <button type="button" id="deleteSessionBtn" class="btn btn-xs btn-danger" title="Delete current session">&times;</button>
         </div>
       </div>
@@ -568,13 +568,26 @@
         <input type="text" id="sessionNameInput" class="sim-input" placeholder="e.g. Full Solves, 1st Layer, Ortega" autocomplete="off">
       </div>
       <div class="solve-modal-field" id="sessionTargetField">
-        <label for="sessionDefaultTarget" class="solve-modal-label">Default Target</label>
+        <label for="sessionDefaultTarget" class="solve-modal-label">Solve Target</label>
         <select id="sessionDefaultTarget" class="sim-select">
           <option value="full">Full Solve (WCA 2x2)</option>
           <option value="layer">1st Layer Only</option>
           <option value="face">1st Face Only (Ortega)</option>
           <option value="cll">CLL Case</option>
         </select>
+      </div>
+      <div class="solve-modal-field">
+        <span class="solve-modal-label">Session Options</span>
+        <div class="session-modal-toggles">
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="sessionShowCubeCheckbox" checked>
+            <span>Show 3D Virtual Cube</span>
+          </label>
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="sessionInspectionCheckbox" checked>
+            <span>15s WCA Inspection</span>
+          </label>
+        </div>
       </div>
     </div>
     <div class="solve-modal-actions">
