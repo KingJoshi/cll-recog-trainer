@@ -3207,17 +3207,20 @@ async function buildOverview() {
       opp.className = "ov-opp";
       opp.textContent = `Opposite: ${caseObj.opposite}`;
 
-      const alg = document.createElement("div");
-      alg.className = "ov-alg";
-      alg.textContent = getCllCaseSolutionDisplay(caseObj);
+      const algRow = document.createElement("div");
+      algRow.className = "ov-alg-row";
 
       const editBtn = document.createElement("button");
       editBtn.type = "button";
-      editBtn.className = "btn btn-xs ov-edit-btn";
-      editBtn.style.marginTop = "4px";
-      editBtn.style.width = "100%";
-      editBtn.innerHTML = "&#x270E; Edit Label";
-      editBtn.title = `Customize display triggers for ${caseObj.id}`;
+      editBtn.className = "ov-inline-btn ov-edit-btn";
+      editBtn.innerHTML = "&#x270E;";
+      editBtn.title = "Edit label";
+      editBtn.setAttribute("aria-label", `Edit label for ${caseObj.id}`);
+
+      const algText = document.createElement("span");
+      algText.className = "ov-alg-text";
+      algText.textContent = getCllCaseSolutionDisplay(caseObj);
+
       editBtn.addEventListener("click", () => {
         openCustomLabelModal({
           type: "cll",
@@ -3227,27 +3230,29 @@ async function buildOverview() {
           currentLabel: getCllCaseSolutionDisplay(caseObj),
           onSave: (newLabel) => {
             setCllCaseSolutionDisplay(caseObj.id, newLabel);
-            alg.textContent = getCllCaseSolutionDisplay(caseObj);
+            algText.textContent = getCllCaseSolutionDisplay(caseObj);
           },
           onReset: () => {
             setCllCaseSolutionDisplay(caseObj.id, null);
-            alg.textContent = caseObj.solution;
+            algText.textContent = caseObj.solution;
           }
         });
       });
 
       const simBtn = document.createElement("button");
       simBtn.type = "button";
-      simBtn.className = "btn btn-small ov-sim-btn";
-      simBtn.textContent = "Simulate Solution in 3D";
+      simBtn.className = "ov-inline-btn ov-sim-btn";
+      simBtn.innerHTML = "&#x25B6;";
       simBtn.title = `Simulate ${caseObj.id} solution in 3D`;
+      simBtn.setAttribute("aria-label", `Simulate ${caseObj.id} solution in 3D`);
       simBtn.addEventListener("click", () => {
         closeOverview();
         setMode("simulate");
         simLoadCaseWithSolution(caseObj, 0);
       });
 
-      card.append(tagBadge, diagram, id, opp, alg, editBtn, simBtn);
+      algRow.append(editBtn, algText, simBtn);
+      card.append(tagBadge, diagram, id, opp, algRow);
       cards.appendChild(card);
     });
 
