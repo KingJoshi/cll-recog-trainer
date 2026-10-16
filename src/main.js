@@ -1125,7 +1125,7 @@ regenerateBtn.addEventListener("click", regenerateScramble);
 // Modes and the stage
 // ---------------------------------------------------------------------------
 
-function setMode(next) {
+function setMode(next, { skipSimInit = false } = {}) {
   if (!MODES.includes(next) || next === mode) return;
   if (session) finishSession(); // leaving Timed ends a running session
   if (solveState !== "idle") cancelSolve(); // leaving Solve drops an unfinished attempt
@@ -1150,7 +1150,12 @@ function setMode(next) {
   updateStatsTable();
 
   if (mode === "simulate") {
-    simInit();
+    if (!skipSimInit) {
+      simInit();
+    } else {
+      populateSimCaseSelect();
+      attachSimPlayerListeners();
+    }
   } else if (mode === "solve") {
     if (!currentSolveScramble) {
       regenerateScramble();
@@ -1902,22 +1907,7 @@ function buildPblModal() {
     simBtn.innerHTML = "&#x25B6; Sim in 3D";
     simBtn.addEventListener("click", () => {
       closePblModal();
-      setMode("simulate");
-      const activeAlg = getPblCaseSelectedAlg(caseObj);
-      const baseScramble = caseObj.scramble;
-      const sol = activeAlg.alg;
-      const combined = `${baseScramble} ${sol}`.trim();
-      simScrambleInput.value = combined;
-      simOriginalScramble = baseScramble;
-      simHasSolutionAppended = true;
-      simAppendSolutionBtn.textContent = "Remove Solution";
-      simAppendSolutionBtn.classList.add("active");
-      simLoadScramble(combined, {
-        expectedCase: { id: `PBL: ${caseObj.shortName || caseObj.name}`, solution: activeAlg.label || activeAlg.alg, solutionAlg: activeAlg.alg },
-        isAppended: true,
-        startAtSolution: true,
-        originalScramble: baseScramble
-      });
+      simLoadPblCase(caseObj);
     });
 
     actions.append(editBtn, simBtn);
@@ -2706,14 +2696,14 @@ function renderLayerSolutions(sols, showAll = false) {
       const base = currentSolveScramble || scrambleMoves || scramble;
       const solMoves = (sol.inspection && sol.inspection !== 'none' ? sol.inspection + ' ' : '') + (sol.moves || '');
       const fullSeq = `${base} ${solMoves}`.trim();
-      setMode("simulate");
+      setMode("simulate", { skipSimInit: true });
       simScrambleInput.value = fullSeq;
       simOriginalScramble = base;
       simHasSolutionAppended = true;
       simAppendSolutionBtn.textContent = "Remove Solution";
       simAppendSolutionBtn.classList.add("active");
       simLoadScramble(fullSeq, {
-        expectedCase: { id: `Layer: ${capitalize(sol.face)} (${sol.moveCount}m)`, solution: solMoves, solutionAlg: solMoves },
+        expectedCase: { id: `Layer: ${capitalize(sol.face)} (${sol.moveCount}m)`, solution: solMoves, solutionAlg: solMoves, isLayer: true },
         isAppended: true,
         startAtSolution: true,
         originalScramble: base
@@ -3787,6 +3777,75 @@ function simLoadCaseWithSolution(caseObj, presetIndex = 0) {
   }
 }
 
+function simLoadPblCase(caseObj, algIndex = null) {
+  if (typeof caseObj === "string") {
+    const rawId = caseObj.replace(/^PBL:\s*/i, "").trim();
+    caseObj = pblCaseById.get(rawId);
+  }
+  if (!caseObj) return;
+
+  let activeAlg;
+  if (algIndex !== null && caseObj.algs && caseObj.algs[algIndex]) {
+    activeAlg = caseObj.algs[algIndex];
+  } else {
+    activeAlg = getPblCaseSelectedAlg(caseObj);
+  }
+  const resolvedAlgIndex = caseObj.algs ? caseObj.algs.findIndex(a => a.id === activeAlg.id) : 0;
+  const activeLabel = getPblAlgDisplayLabel(caseObj.id, activeAlg) || activeAlg.label || activeAlg.alg;
+
+  // Invert the selected algorithm to get the setup scramble:
+  let invScramble = "";
+  try {
+    invScramble = new Alg(cleanAlg(activeAlg.alg)).invert().toString();
+  } catch (err) {
+    console.warn("Could not invert PBL alg, falling back:", err);
+    invScramble = activeAlg.alg;
+  }
+
+  const sol = cleanAlg(activeAlg.alg);
+  const combined = `${invScramble} ${sol}`.trim();
+
+  if (mode !== "simulate") {
+    setMode("simulate", { skipSimInit: true });
+  }
+
+  simScrambleInput.value = combined;
+  simOriginalScramble = invScramble;
+  simHasSolutionAppended = true;
+  simAppendSolutionBtn.textContent = "Remove Solution";
+  simAppendSolutionBtn.classList.add("active");
+
+  const expectedCase = {
+    id: `PBL: ${caseObj.id}`,
+    displayName: `PBL: ${caseObj.shortName || caseObj.name}`,
+    name: caseObj.name,
+    shortName: caseObj.shortName,
+    isPbl: true,
+    pblCaseId: caseObj.id,
+    caseObj: caseObj,
+    activeAlgIndex: resolvedAlgIndex >= 0 ? resolvedAlgIndex : 0,
+    solution: activeLabel,
+    solutionAlg: sol,
+    scramble: invScramble,
+    scrambles: (caseObj.algs || []).map(a => {
+      try {
+        return new Alg(cleanAlg(a.alg)).invert().toString();
+      } catch {
+        return a.alg;
+      }
+    }),
+    algs: caseObj.algs || []
+  };
+
+  simLoadScramble(combined, {
+    expectedCase,
+    isAppended: true,
+    activePresetIndex: resolvedAlgIndex >= 0 ? resolvedAlgIndex : 0,
+    startAtSolution: true,
+    originalScramble: invScramble
+  });
+}
+
 function simInit() {
   populateSimCaseSelect();
   attachSimPlayerListeners();
@@ -3835,7 +3894,7 @@ function simTeardown() {
 
 function populateSimCaseSelect() {
   if (simCaseSelect.options.length > 1) return;
-  simCaseSelect.innerHTML = `<option value="">Load a CLL case...</option>`;
+  simCaseSelect.innerHTML = `<option value="">Load a CLL or Ortega case...</option>`;
   GROUP_DISPLAY_ORDER.forEach(group => {
     const optgroup = document.createElement("optgroup");
     optgroup.label = `Group ${group}`;
@@ -3847,6 +3906,16 @@ function populateSimCaseSelect() {
     });
     simCaseSelect.appendChild(optgroup);
   });
+
+  const pblGroup = document.createElement("optgroup");
+  pblGroup.label = "Ortega PBL";
+  pblCases.forEach(pCase => {
+    const opt = document.createElement("option");
+    opt.value = `PBL: ${pCase.id}`;
+    opt.textContent = `PBL: ${pCase.shortName || pCase.name}`;
+    pblGroup.appendChild(opt);
+  });
+  simCaseSelect.appendChild(pblGroup);
 }
 
 function parseScrambleInput(raw) {
@@ -3907,6 +3976,35 @@ function findCaseByScrambleMoves(moves) {
       }
     }
   }
+
+  for (const pCase of pblCases) {
+    for (let i = 0; i < pCase.algs.length; i++) {
+      const a = pCase.algs[i];
+      let inv = "";
+      try {
+        inv = new Alg(cleanAlg(a.alg)).invert().toString();
+      } catch {}
+      const normInv = normalizeAlgForCompare(inv);
+      if (normInv && (normInv === normCaseMoves || normInv === normAllMoves)) {
+        const activeLabel = getPblAlgDisplayLabel(pCase.id, a) || a.label || a.alg;
+        return {
+          id: `PBL: ${pCase.id}`,
+          displayName: `PBL: ${pCase.shortName || pCase.name}`,
+          name: pCase.name,
+          shortName: pCase.shortName,
+          isPbl: true,
+          pblCaseId: pCase.id,
+          caseObj: pCase,
+          activeAlgIndex: i,
+          solution: activeLabel,
+          solutionAlg: a.alg,
+          scramble: inv,
+          algs: pCase.algs
+        };
+      }
+    }
+  }
+
   return null;
 }
 
@@ -3914,14 +4012,58 @@ function renderSimPresetButtons(caseObj, activeIndex = null) {
   if (!simPresetButtons) return;
   simPresetButtons.innerHTML = "";
 
-  const scrambles = caseObj.scrambles && caseObj.scrambles.length ? caseObj.scrambles : [caseObj.scramble];
+  if (!caseObj) {
+    if (simScrambleSelectWrap) simScrambleSelectWrap.hidden = true;
+    return;
+  }
+
+  if (caseObj.isPbl) {
+    const algs = caseObj.algs || [];
+    let matchedIdx = activeIndex !== null ? activeIndex : (caseObj.activeAlgIndex ?? 0);
+
+    algs.forEach((algOption, idx) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `btn btn-small sim-preset-btn ${idx === matchedIdx ? "active" : ""}`;
+      btn.textContent = `Alg ${idx + 1}`;
+      const algLabel = getPblAlgDisplayLabel(caseObj.pblCaseId || caseObj.id, algOption) || algOption.label || algOption.alg;
+      btn.title = `Simulate Alg ${idx + 1}: ${algLabel}`;
+      btn.addEventListener("click", () => {
+        simLoadPblCase(caseObj.caseObj || caseObj, idx);
+      });
+      simPresetButtons.appendChild(btn);
+    });
+
+    if (simScrambleSelect) {
+      simScrambleSelect.innerHTML = "";
+      algs.forEach((algOption, idx) => {
+        const opt = document.createElement("option");
+        opt.value = idx;
+        const algLabel = getPblAlgDisplayLabel(caseObj.pblCaseId || caseObj.id, algOption) || algOption.label || algOption.alg;
+        opt.textContent = `Alg ${idx + 1}: ${algLabel}`;
+        simScrambleSelect.appendChild(opt);
+      });
+      simScrambleSelect.value = String(matchedIdx);
+      if (simScrambleSelectWrap) simScrambleSelectWrap.hidden = false;
+    }
+    return;
+  }
+
+  const scrambles = Array.isArray(caseObj.scrambles) && caseObj.scrambles.length > 0
+    ? caseObj.scrambles
+    : (caseObj.scramble ? [caseObj.scramble] : []);
+
+  if (scrambles.length === 0) {
+    if (simScrambleSelectWrap) simScrambleSelectWrap.hidden = true;
+    return;
+  }
 
   let matchedIdx = activeIndex;
   if (matchedIdx === null) {
     const origCount = getSimOriginalCount();
     const strippedMoves = simMoves.slice(0, origCount).filter(m => !/^[xyz]/i.test(m)).join(" ");
     const normStripped = normalizeAlgForCompare(strippedMoves);
-    matchedIdx = scrambles.findIndex(s => normalizeAlgForCompare(s) === normStripped || s.trim() === strippedMoves);
+    matchedIdx = scrambles.findIndex(s => s && (normalizeAlgForCompare(s) === normStripped || s.trim() === strippedMoves));
     if (matchedIdx === -1) matchedIdx = 0;
   }
 
@@ -3981,7 +4123,7 @@ function simLoadScramble(raw, { expectedCase = null, isAppended = false, activeP
   simExpectedCaseObj = expectedCase || findCaseByScrambleMoves(simMoves);
 
   if (simExpectedCaseObj) {
-    simCaseTag.textContent = `Case: ${simExpectedCaseObj.id}`;
+    simCaseTag.textContent = `Case: ${simExpectedCaseObj.displayName || simExpectedCaseObj.id}`;
     simSolutionTag.innerHTML = `<strong>Solution:</strong> ${simExpectedCaseObj.solution || 'None'}`;
     simOrientTag.textContent = simOrientation ? `Orientation: ${simOrientation}` : "Standard Orientation";
     simCaseDetails.hidden = false;
@@ -4441,6 +4583,7 @@ function simAppendMove(moveStr) {
 window.cllSimulator = {
   loadScramble: (str, opts) => simLoadScramble(str, opts),
   loadCaseWithSolution: (caseObj, idx) => simLoadCaseWithSolution(caseObj, idx),
+  loadPblCase: (caseObj, idx) => simLoadPblCase(caseObj, idx),
   jumpToCaseState: () => simJumpToCaseState(),
   stepForward: () => simStepForward(),
   stepBackward: () => simStepBackward(),
@@ -4484,6 +4627,14 @@ simCaseSelect.addEventListener("change", () => {
     if (simScrambleSelectWrap) simScrambleSelectWrap.hidden = true;
     return;
   }
+  if (caseId.startsWith("PBL: ")) {
+    const pblId = caseId.replace(/^PBL:\s*/i, "").trim();
+    const pblObj = pblCaseById.get(pblId);
+    if (pblObj) {
+      simLoadPblCase(pblObj);
+      return;
+    }
+  }
   const caseObj = caseById.get(caseId);
   if (!caseObj) return;
   simLoadCaseWithSolution(caseObj, 0);
@@ -4493,6 +4644,11 @@ if (simScrambleSelect) {
   simScrambleSelect.addEventListener("change", () => {
     if (!simExpectedCaseObj) return;
     const idx = parseInt(simScrambleSelect.value, 10);
+    if (isNaN(idx)) return;
+    if (simExpectedCaseObj.isPbl) {
+      simLoadPblCase(simExpectedCaseObj.caseObj || simExpectedCaseObj, idx);
+      return;
+    }
     simLoadCaseWithSolution(simExpectedCaseObj, idx);
   });
 }
@@ -4500,7 +4656,7 @@ if (simScrambleSelect) {
 simAppendSolutionBtn.addEventListener("click", () => {
   const sol = simExpectedCaseObj ? (simExpectedCaseObj.solutionAlg || simExpectedCaseObj.solution) : null;
   if (!simExpectedCaseObj || !sol) {
-    alert("Please select or load a CLL case first to append its solution.");
+    alert("Please select or load a CLL or Ortega case first to append its solution.");
     return;
   }
   if (simHasSolutionAppended) {

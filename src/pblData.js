@@ -7,7 +7,7 @@ export const pblCases = [
     name: "Both Adjacent (Bar Top & Bar Bottom)",
     shortName: "Adj / Adj",
     description: "Hold both bars in the BACK (or match them in back). Solves both layers at once.",
-    scramble: "R2 U' B2 U2 R2' U' R2",
+    scramble: "R2' U R2 U2' B2' U R2'",
     algs: [
       {
         id: "adj-adj-1",
@@ -34,7 +34,7 @@ export const pblCases = [
     name: "Both Opposite (Diag Top & Diag Bottom)",
     shortName: "Opp / Opp",
     description: "No bars on top or bottom layer (both need diagonal corner swap). Fast 3-move solve!",
-    scramble: "R2 F2 R2",
+    scramble: "R2' F2' R2'",
     algs: [
       {
         id: "opp-opp-1",
@@ -61,7 +61,7 @@ export const pblCases = [
     name: "Top Adjacent / Bottom Opposite",
     shortName: "Adj / Opp",
     description: "Bar on top layer (hold in FRONT), bottom layer has diagonal swap (no bar).",
-    scramble: "R U' R F2 R' U R'",
+    scramble: "R U' R F2' R' U R'",
     algs: [
       {
         id: "adj-opp-1",
@@ -88,7 +88,7 @@ export const pblCases = [
     name: "Top Adjacent / Bottom Solved",
     shortName: "Adj / Solved (T-Perm / J-Perm)",
     description: "Bar on top layer, bottom layer is already fully solved. Standard 2x2 PLL.",
-    scramble: "R U R' F' R U R' U' R' F R2 U' R'",
+    scramble: "F R U' R' U R U R2' F' R U R U' R'",
     algs: [
       {
         id: "adj-solved-1",
@@ -115,7 +115,7 @@ export const pblCases = [
     name: "Top Opposite / Bottom Solved",
     shortName: "Opp / Solved (Y-Perm)",
     description: "Diagonal corner swap on top layer, bottom layer is already solved. Standard 2x2 Y-Perm.",
-    scramble: "F R U' R' U' R U R' F' R U R' U' R' F R F'",
+    scramble: "F R' F' R U R U' R' F R U' R' U R U R' F'",
     algs: [
       {
         id: "opp-solved-1",
