@@ -495,8 +495,57 @@ displayContainer.appendChild(el);
 
 let currentBaseDisplayScramble = "";
 let userViewRotations = [];
+let simCameraLatitude = 35;
+let simCameraLongitude = 30;
+
+async function simRotateCamera(move) {
+  if (!el || !el.player) return;
+  let lat = simCameraLatitude;
+  let lon = simCameraLongitude;
+
+  try {
+    const coords = await el.player.experimentalModel?.twistySceneModel?.orbitCoordinates?.get();
+    if (coords && typeof coords.longitude === "number") {
+      lon = coords.longitude;
+      lat = coords.latitude;
+    }
+  } catch {}
+
+  const axis = move[0].toLowerCase();
+  const isPrime = move.includes("'");
+  const sign = isPrime ? -1 : 1;
+
+  if (axis === "y") {
+    lon -= sign * 90;
+  } else if (axis === "x") {
+    lat = Math.max(-85, Math.min(85, lat + sign * 35));
+  } else if (axis === "z") {
+    lon -= sign * 90;
+  }
+
+  simCameraLongitude = lon;
+  simCameraLatitude = lat;
+
+  try {
+    if (el.player.experimentalModel?.twistySceneModel?.orbitCoordinatesRequest) {
+      el.player.experimentalModel.twistySceneModel.orbitCoordinatesRequest.set({
+        latitude: lat,
+        longitude: lon
+      });
+    } else {
+      el.player.cameraLongitude = lon;
+      el.player.cameraLatitude = lat;
+    }
+  } catch (err) {
+    console.warn("Could not rotate simulator camera:", err);
+  }
+}
 
 function addViewRotation(move) {
+  if (mode === "simulate") {
+    simRotateCamera(move);
+    return;
+  }
   const axis = move[0];
   const isPrime = move.includes("'");
   const delta = isPrime ? 3 : 1;
@@ -524,6 +573,7 @@ function clearViewRotations() {
 }
 
 function refreshCurrentDisplayScramble() {
+  if (mode === "simulate") return;
   if (!el || !currentBaseDisplayScramble) return;
   const rotStr = userViewRotations.join(" ");
   const fullScramble = rotStr ? `${currentBaseDisplayScramble} ${rotStr}`.trim() : currentBaseDisplayScramble;
@@ -546,6 +596,8 @@ function applyScrambleToDisplay(scrambleString) {
 
 function resetCubeOrientation() {
   clearViewRotations();
+  simCameraLatitude = 35;
+  simCameraLongitude = 30;
   if (!el || !el.player) return;
   try {
     el.player.cameraLatitude = 35;
@@ -557,7 +609,9 @@ function resetCubeOrientation() {
       el.player.experimentalModel.twistySceneModel.orbitCoordinatesRequest.set("auto");
     }
   } catch (e) {}
-  refreshCurrentDisplayScramble();
+  if (mode !== "simulate") {
+    refreshCurrentDisplayScramble();
+  }
 }
 
 if (resetOrientationBtn) {
