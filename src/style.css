@@ -1205,6 +1205,41 @@ button.solve-chip:hover .solve-chip-del {
     margin: 0;
 }
 
+.layer-scramble-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.layer-custom-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.layer-custom-wrap {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.layer-custom-wrap .sim-input {
+    width: 100%;
+    padding: 6px 30px 6px 10px;
+    font-size: 0.9rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 .layer-scramble-text {
     margin: 0;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -1405,6 +1440,149 @@ button.solve-chip:hover .solve-chip-del {
 .layer-solutions-body {
     padding: 0 14px 14px;
     border-top: 1px solid var(--border);
+}
+
+.layer-faces-picker {
+    padding: 12px 0 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.layer-faces-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.layer-faces-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.layer-faces-presets {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.btn-xs {
+    padding: 2px 7px;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    border-radius: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .15s ease;
+}
+
+.btn-xs:hover {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--muted);
+}
+
+.layer-faces-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.face-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+    transition: all .15s ease;
+}
+
+.face-chip:hover {
+    border-color: var(--muted);
+    color: var(--text);
+}
+
+.face-chip.active {
+    background: var(--surface);
+    border-color: var(--primary);
+    color: var(--text);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.face-chip-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.25);
+    flex: none;
+}
+
+.face-dot-white { background: #ffffff; }
+.face-dot-yellow { background: #ffd000; }
+.face-dot-green { background: #28a745; }
+.face-dot-blue { background: #007bff; }
+.face-dot-red { background: #dc3545; }
+.face-dot-orange { background: #fd7e14; }
+
+/* Face Badges on Solution Cards */
+.face-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: capitalize;
+}
+
+.face-badge-white {
+    background: #f0f0f0;
+    color: #333333;
+    border: 1px solid #ccc;
+}
+
+.face-badge-yellow {
+    background: #fff8d6;
+    color: #8c6b00;
+    border: 1px solid #f0d060;
+}
+
+.face-badge-green {
+    background: #e6f9ed;
+    color: #155724;
+    border: 1px solid #b7ebc6;
+}
+
+.face-badge-blue {
+    background: #e7f3ff;
+    color: #004085;
+    border: 1px solid #b8daff;
+}
+
+.face-badge-red {
+    background: #fde8e8;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.face-badge-orange {
+    background: #fff0e6;
+    color: #8a3b00;
+    border: 1px solid #fed1b2;
 }
 
 .layer-solutions-list {
@@ -1669,6 +1847,37 @@ button.solve-chip:hover .solve-chip-del {
     font-size: 0.78rem;
     color: var(--muted);
     white-space: nowrap;
+}
+
+.layer-log-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.btn-reattempt-solve {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--primary);
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-reattempt-solve:hover {
+    background: var(--primary-soft);
+    border-color: #bfdbfe;
+    color: var(--primary-dark);
+    transform: scale(1.1);
 }
 
 .btn-del-solve {

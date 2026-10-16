@@ -1,7 +1,8 @@
 import { ScrambleDisplay } from 'scramble-display';
 import { puzzles } from 'cubing/puzzles';
 import { randomScrambleForEvent } from 'cubing/scramble';
-import { findWhiteLayerSolutions } from './layerSolver.js';
+import { findLayerSolutions } from './layerSolver.js';
+import { Alg } from 'cubing/alg';
 import { cllCases } from './casesData.js';
 import './style.css';
 
@@ -103,18 +104,21 @@ let allowAUF = savedSettings.allowAUF ?? true;
 let showReflection = savedSettings.showReflection ?? true;
 let statsCollapsed = savedSettings.statsCollapsed ?? false;
 let layerUseInspection = savedSettings.layerUseInspection ?? true;
-let statsType = (savedSettings.mode === "solve" || savedSettings.statsType === "solve")
-  ? "solve"
-  : ((savedSettings.mode === "layer" || savedSettings.statsType === "layer")
-    ? "layer"
-    : (savedSettings.statsType || "recog"));
+let layerTargetFaces = Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
+  ? savedSettings.layerTargetFaces
+  : ["white"];
+let statsType = (savedSettings.mode === "layer" || savedSettings.statsType === "layer")
+  ? "layer"
+  : ((savedSettings.mode === "solve" || savedSettings.statsType === "solve")
+    ? "solve"
+    : (savedSettings.statsType || "layer"));
 let solveStatsSort = { col: "case", dir: "asc" };
 
-// Modes: study, practice, timed, solve, simulate, layer
-const MODES = ["study", "practice", "timed", "solve", "simulate", "layer"];
+// Modes: layer, practice, study, timed, solve, simulate
+const MODES = ["layer", "practice", "study", "timed", "solve", "simulate"];
 let mode = MODES.includes(savedSettings.mode)
   ? savedSettings.mode
-  : (savedSettings.showCaseInfo ? "study" : "practice");
+  : "layer";
 let timedMinutes = clampMinutes(savedSettings.timedMinutes ?? 3);
 
 let session = null;        // running timed session
@@ -175,7 +179,8 @@ function saveSettings() {
     timedMinutes,
     statsCollapsed,
     statsType,
-    layerUseInspection
+    layerUseInspection,
+    layerTargetFaces
   });
 }
 
@@ -237,6 +242,12 @@ const solveOverlayCancelBtn = document.getElementById("solveOverlayCancelBtn");
 const layerScrambleEl = document.getElementById("layerScramble");
 const layerScrambleTextEl = document.getElementById("layerScrambleText");
 const layerNewScrambleBtn = document.getElementById("layerNewScrambleBtn");
+const layerCustomScrambleBtn = document.getElementById("layerCustomScrambleBtn");
+const layerCustomScrambleRow = document.getElementById("layerCustomScrambleRow");
+const layerCustomInput = document.getElementById("layerCustomInput");
+const layerCustomClearBtn = document.getElementById("layerCustomClearBtn");
+const layerCustomApplyBtn = document.getElementById("layerCustomApplyBtn");
+const layerCustomCancelBtn = document.getElementById("layerCustomCancelBtn");
 const layerSurfaceEl = document.getElementById("layerSurface");
 const layerInspectionToggle = document.getElementById("layerInspectionToggle");
 const layerStatusBadge = document.getElementById("layerStatusBadge");
@@ -248,8 +259,13 @@ const layerListEl = document.getElementById("layerList");
 const clearLayerSolvesBtn = document.getElementById("clearLayerSolvesBtn");
 const statsTabLayer = document.getElementById("statsTabLayer");
 const layerSolutionsWidget = document.getElementById("layerSolutionsWidget");
+const layerSolutionsTitle = document.getElementById("layerSolutionsTitle");
 const layerSolutionsBadge = document.getElementById("layerSolutionsBadge");
 const layerSolutionsList = document.getElementById("layerSolutionsList");
+const layerFacesChips = document.getElementById("layerFacesChips");
+const layerPresetWhiteBtn = document.getElementById("layerPresetWhiteBtn");
+const layerPresetOppositeBtn = document.getElementById("layerPresetOppositeBtn");
+const layerPresetAllBtn = document.getElementById("layerPresetAllBtn");
 const resetOrientationBtn = document.getElementById("resetOrientationBtn");
 const solveDetailModal = document.getElementById("solveDetailModal");
 const solveModalTitle = document.getElementById("solveModalTitle");
@@ -259,6 +275,7 @@ const solveModalDate = document.getElementById("solveModalDate");
 const solveModalCloseBtn = document.getElementById("solveModalCloseBtn");
 const solveModalDismissBtn = document.getElementById("solveModalDismissBtn");
 const solveModalCopyScrambleBtn = document.getElementById("solveModalCopyScrambleBtn");
+const solveModalReattemptBtn = document.getElementById("solveModalReattemptBtn");
 const solveModalSimBtn = document.getElementById("solveModalSimBtn");
 
 // Simulation elements
@@ -1375,8 +1392,14 @@ async function getNextLayerScramble() {
   return s;
 }
 
-async function generateNewLayerScramble() {
-  const scr = await getNextLayerScramble();
+const ALL_LAYER_FACES = ["white", "yellow", "green", "blue", "red", "orange"];
+
+function capitalize(str) {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function setLayerScramble(scr) {
   layerScramble = scr;
   if (layerScrambleTextEl) {
     layerScrambleTextEl.textContent = scr;
@@ -1386,6 +1409,127 @@ async function generateNewLayerScramble() {
     applyReflection();
   }
   updateLayerSolutions(scr);
+}
+
+async function generateNewLayerScramble() {
+  const scr = await getNextLayerScramble();
+  setLayerScramble(scr);
+}
+
+function reattemptScramble(scrambleStr, label = "") {
+  if (!scrambleStr) return;
+  setMode("layer");
+  setLayerScramble(scrambleStr);
+  resetCubeOrientation();
+  if (layerState !== "idle") {
+    cancelLayerSolve();
+  }
+  if (layerTimeEl) layerTimeEl.textContent = "0.00";
+  if (layerSubtextEl) {
+    layerSubtextEl.innerHTML = `Loaded scramble from <strong>${escapeHtml(label || 'previous solve')}</strong> · Ready to inspect &amp; start`;
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleLayerCustomScramble(show) {
+  if (!layerCustomScrambleRow) return;
+  const willShow = show !== undefined ? show : layerCustomScrambleRow.hidden;
+  layerCustomScrambleRow.hidden = !willShow;
+  if (willShow) {
+    layerCustomScrambleBtn?.classList.add("active");
+    if (layerCustomInput) {
+      layerCustomInput.value = layerScramble || "";
+      layerCustomInput.focus();
+      layerCustomInput.select();
+    }
+  } else {
+    layerCustomScrambleBtn?.classList.remove("active");
+  }
+}
+
+function applyCustomLayerScramble() {
+  if (!layerCustomInput) return;
+  const raw = layerCustomInput.value.trim();
+  if (!raw) {
+    alert("Please enter a scramble sequence.");
+    layerCustomInput.focus();
+    return;
+  }
+  try {
+    const parsed = new Alg(raw);
+    const normalized = parsed.toString().trim();
+    if (!normalized) {
+      alert("Please enter a valid scramble.");
+      return;
+    }
+    setLayerScramble(normalized);
+    resetCubeOrientation();
+    if (layerState !== "idle") {
+      cancelLayerSolve();
+    }
+    toggleLayerCustomScramble(false);
+  } catch (err) {
+    alert(`Invalid scramble syntax: ${err.message || 'Check for invalid moves'}`);
+    layerCustomInput.focus();
+  }
+}
+
+function updateFaceChipsUI() {
+  if (!layerFacesChips) return;
+  const chipButtons = layerFacesChips.querySelectorAll(".face-chip");
+  chipButtons.forEach(chip => {
+    const face = chip.dataset.face;
+    const isActive = layerTargetFaces.includes(face);
+    chip.classList.toggle("active", isActive);
+    chip.setAttribute("aria-pressed", String(isActive));
+  });
+
+  if (layerSolutionsTitle) {
+    if (layerTargetFaces.length === 6) {
+      layerSolutionsTitle.textContent = "1st layer solutions (All 6 / CN)";
+    } else if (layerTargetFaces.length === 1) {
+      layerSolutionsTitle.textContent = `1st layer solutions (${capitalize(layerTargetFaces[0])})`;
+    } else if (layerTargetFaces.length === 2 && layerTargetFaces.includes('white') && layerTargetFaces.includes('yellow')) {
+      layerSolutionsTitle.textContent = "1st layer solutions (W / Y)";
+    } else {
+      layerSolutionsTitle.textContent = `1st layer solutions (${layerTargetFaces.map(f => capitalize(f)).join(', ')})`;
+    }
+  }
+
+  if (layerPresetWhiteBtn) {
+    layerPresetWhiteBtn.classList.toggle("active", layerTargetFaces.length === 1 && layerTargetFaces[0] === 'white');
+  }
+  if (layerPresetOppositeBtn) {
+    layerPresetOppositeBtn.classList.toggle("active", layerTargetFaces.length === 2 && layerTargetFaces.includes('white') && layerTargetFaces.includes('yellow'));
+  }
+  if (layerPresetAllBtn) {
+    layerPresetAllBtn.classList.toggle("active", layerTargetFaces.length === 6);
+  }
+}
+
+function setTargetFaces(faces) {
+  const filtered = faces.filter(f => ALL_LAYER_FACES.includes(f));
+  if (!filtered.length) return;
+  layerTargetFaces = filtered;
+  saveSettings();
+  updateFaceChipsUI();
+  if (layerScramble) {
+    updateLayerSolutions(layerScramble);
+  }
+}
+
+function toggleTargetFace(face) {
+  if (!ALL_LAYER_FACES.includes(face)) return;
+  let next;
+  if (layerTargetFaces.includes(face)) {
+    if (layerTargetFaces.length <= 1) {
+      return; // Keep at least one face selected
+    }
+    next = layerTargetFaces.filter(f => f !== face);
+  } else {
+    next = [...layerTargetFaces, face];
+  }
+  setTargetFaces(next);
 }
 
 function formatLayerTime(s) {
@@ -1422,16 +1566,22 @@ function renderLayerPanel() {
   clearLayerSolvesBtn.hidden = layerSolves.length === 0;
 
   const recent = layerSolves.slice(-12).reverse();
-  layerListEl.innerHTML = recent.map(solve => `
-    <button type="button" class="solve-chip" data-id="${solve.id}" title="Click to delete solve ${formatLayerTime(solve)}">
-      <span class="solve-chip-time">${formatLayerTime(solve)}</span>
-      <span class="solve-chip-del" aria-hidden="true">&times;</span>
-    </button>
-  `).join("");
+  layerListEl.innerHTML = recent.map((solve) => {
+    const origIdx = layerSolves.findIndex(s => String(s.id) === String(solve.id));
+    const num = origIdx !== -1 ? origIdx + 1 : "";
+    return `
+      <button type="button" class="solve-chip" data-id="${solve.id}" data-num="${num}" title="Solve #${num}: ${formatLayerTime(solve)} (click to view details, × to delete)">
+        <span class="solve-chip-time">${formatLayerTime(solve)}</span>
+        <span class="solve-chip-del" aria-label="Delete solve">&times;</span>
+      </button>
+    `;
+  }).join("");
 
   if (layerInspectionToggle) {
     layerInspectionToggle.checked = layerUseInspection;
   }
+
+  updateFaceChipsUI();
 
   if (layerStatusBadge) {
     layerStatusBadge.className = "layer-badge";
@@ -1451,6 +1601,7 @@ function renderLayerPanel() {
 
 let currentLayerSolutions = [];
 let currentLayerSolutionsScramble = "";
+let currentLayerSolutionsFacesKey = "";
 
 function updateLayerSolutions(scrambleStr) {
   if (!scrambleStr) {
@@ -1460,22 +1611,25 @@ function updateLayerSolutions(scrambleStr) {
     if (layerSolutionsBadge) layerSolutionsBadge.textContent = "";
     return;
   }
+  const facesKey = [...layerTargetFaces].sort().join(",");
   currentLayerSolutionsScramble = scrambleStr;
+  currentLayerSolutionsFacesKey = facesKey;
   if (layerSolutionsBadge) layerSolutionsBadge.textContent = "searching...";
   if (layerSolutionsList) {
-    layerSolutionsList.innerHTML = '<p class="layer-solutions-empty">Searching for white 1st layer solutions...</p>';
+    const facesDesc = layerTargetFaces.length === 6 ? 'all 6 faces' : layerTargetFaces.map(f => capitalize(f)).join('/');
+    layerSolutionsList.innerHTML = `<p class="layer-solutions-empty">Searching for ${escapeHtml(facesDesc)} 1st layer solutions...</p>`;
   }
 
   setTimeout(async () => {
-    if (currentLayerSolutionsScramble !== scrambleStr) return;
+    if (currentLayerSolutionsScramble !== scrambleStr || currentLayerSolutionsFacesKey !== facesKey) return;
     try {
-      const sols = await findWhiteLayerSolutions(scrambleStr, 5);
-      if (currentLayerSolutionsScramble !== scrambleStr) return;
+      const sols = await findLayerSolutions(scrambleStr, layerTargetFaces, 5);
+      if (currentLayerSolutionsScramble !== scrambleStr || currentLayerSolutionsFacesKey !== facesKey) return;
       currentLayerSolutions = sols;
       renderLayerSolutions(sols, false);
     } catch (err) {
-      console.error('Error finding white layer solutions:', err);
-      if (currentLayerSolutionsScramble === scrambleStr) {
+      console.error('Error finding layer solutions:', err);
+      if (currentLayerSolutionsScramble === scrambleStr && currentLayerSolutionsFacesKey === facesKey) {
         renderLayerSolutions([], false);
       }
     }
@@ -1485,7 +1639,8 @@ function updateLayerSolutions(scrambleStr) {
 function renderLayerSolutions(sols, showAll = false) {
   if (!layerSolutionsList) return;
   if (!sols || sols.length === 0) {
-    layerSolutionsList.innerHTML = '<p class="layer-solutions-empty">No white 1st layer solutions found within 6 moves.</p>';
+    const facesDesc = layerTargetFaces.length === 6 ? 'selected faces' : layerTargetFaces.map(f => capitalize(f)).join(', ');
+    layerSolutionsList.innerHTML = `<p class="layer-solutions-empty">No 1st layer solutions found for ${escapeHtml(facesDesc)} within 6 moves.</p>`;
     if (layerSolutionsBadge) layerSolutionsBadge.textContent = "0";
     return;
   }
@@ -1507,11 +1662,13 @@ function renderLayerSolutions(sols, showAll = false) {
     const cObj = caseById.get(sol.caseId);
     const alg = cObj?.alg || cObj?.solutionAlg || '';
     const caseTitle = alg ? `CLL solution for ${sol.caseId}: ${alg}` : '';
+    const faceName = sol.face || 'white';
 
     return `
       <div class="layer-sol-row">
         <div class="layer-sol-info">
           <div class="layer-sol-badges">
+            <span class="face-badge face-badge-${faceName}">${capitalize(faceName)}</span>
             <span class="badge layer-sol-moves-badge">${sol.moveCount} move${sol.moveCount === 1 ? '' : 's'}</span>
             <span class="layer-sol-insp-chip">Inspection: <strong>${escapeHtml(inspText)}</strong></span>
             <span class="badge ${caseBadgeClass}" ${caseTitle ? `title="${escapeHtml(caseTitle)}"` : ''}>${escapeHtml(caseLabel)}</span>
@@ -1568,6 +1725,7 @@ function renderLayerSolutions(sols, showAll = false) {
       const alg = cObj?.alg || cObj?.solutionAlg || '';
       const text = [
         `Scramble: ${layerScramble}`,
+        `Face: ${capitalize(sol.face || 'white')}`,
         sol.inspection && sol.inspection !== 'none' ? `Inspection: ${sol.inspection}` : '',
         `1st Layer: ${sol.moves || '(already solved)'}`,
         `Leaves: ${sol.caseId}${alg ? ' (CLL: ' + alg + ')' : ''}`
@@ -1949,6 +2107,58 @@ layerInspectionToggle.addEventListener("change", () => {
   layerUseInspection = layerInspectionToggle.checked;
   saveSettings();
 });
+
+if (layerCustomScrambleBtn) {
+  layerCustomScrambleBtn.addEventListener("click", () => {
+    toggleLayerCustomScramble();
+  });
+}
+if (layerCustomCancelBtn) {
+  layerCustomCancelBtn.addEventListener("click", () => {
+    toggleLayerCustomScramble(false);
+  });
+}
+if (layerCustomClearBtn) {
+  layerCustomClearBtn.addEventListener("click", () => {
+    if (layerCustomInput) {
+      layerCustomInput.value = "";
+      layerCustomInput.focus();
+    }
+  });
+}
+if (layerCustomApplyBtn) {
+  layerCustomApplyBtn.addEventListener("click", applyCustomLayerScramble);
+}
+if (layerCustomInput) {
+  layerCustomInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      applyCustomLayerScramble();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      toggleLayerCustomScramble(false);
+    }
+  });
+}
+
+if (layerFacesChips) {
+  layerFacesChips.addEventListener("click", (e) => {
+    const chip = e.target.closest(".face-chip");
+    if (!chip) return;
+    const face = chip.dataset.face;
+    if (face) toggleTargetFace(face);
+  });
+}
+if (layerPresetWhiteBtn) {
+  layerPresetWhiteBtn.addEventListener("click", () => setTargetFaces(["white"]));
+}
+if (layerPresetOppositeBtn) {
+  layerPresetOppositeBtn.addEventListener("click", () => setTargetFaces(["white", "yellow"]));
+}
+if (layerPresetAllBtn) {
+  layerPresetAllBtn.addEventListener("click", () => setTargetFaces(ALL_LAYER_FACES));
+}
+
 clearLayerSolvesBtn.addEventListener("click", () => {
   if (confirm("Clear all recorded 1st layer times?")) {
     layerSolves = [];
@@ -1958,6 +2168,7 @@ clearLayerSolvesBtn.addEventListener("click", () => {
     updateStatsTable();
   }
 });
+
 layerListEl.addEventListener("click", e => {
   const chip = e.target.closest(".solve-chip");
   if (!chip) return;
@@ -1965,15 +2176,23 @@ layerListEl.addEventListener("click", e => {
   const index = layerSolves.findIndex(s => String(s.id) === String(id));
   if (index === -1) return;
   const s = layerSolves[index];
-  if (confirm(`Delete 1st layer solve ${formatLayerTime(s)}?`)) {
-    layerSolves.splice(index, 1);
-    if (lastLayerSolve && String(lastLayerSolve.id) === String(id)) {
-      lastLayerSolve = layerSolves.length ? layerSolves[layerSolves.length - 1] : null;
+
+  // If clicking the delete cross on the chip:
+  if (e.target.closest(".solve-chip-del")) {
+    if (confirm(`Delete 1st layer solve ${formatLayerTime(s)}?`)) {
+      layerSolves.splice(index, 1);
+      if (lastLayerSolve && String(lastLayerSolve.id) === String(id)) {
+        lastLayerSolve = layerSolves.length ? layerSolves[layerSolves.length - 1] : null;
+      }
+      saveLayerSolves();
+      renderLayerPanel();
+      updateStatsTable();
     }
-    saveLayerSolves();
-    renderLayerPanel();
-    updateStatsTable();
+    return;
   }
+
+  // Clicking chip opens solve details popup
+  openSolveDetailModal(s, index + 1);
 });
 if (solveOverlayCancelBtn) {
   solveOverlayCancelBtn.addEventListener("click", (e) => {
@@ -2449,9 +2668,9 @@ function renderLayerStatsTable() {
     <table class="layer-log-table">
       <thead>
         <tr>
-          <th scope="col" style="width: 48px;">#</th>
+          <th scope="col" style="width: 44px;">#</th>
           <th scope="col">Time</th>
-          <th scope="col" style="width: 60px;">Action</th>
+          <th scope="col" style="width: 76px;">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -2465,7 +2684,10 @@ function renderLayerStatsTable() {
         <td>${num}</td>
         <td class="layer-time-cell">${formatLayerTime(s)}</td>
         <td>
-          <button type="button" class="btn-del-solve" data-id="${s.id}" title="Delete solve #${num} (${formatLayerTime(s)})">&times;</button>
+          <div class="layer-log-actions">
+            <button type="button" class="btn-reattempt-solve" data-id="${s.id}" data-num="${num}" title="Reattempt solve #${num} scramble">&#x21bb;</button>
+            <button type="button" class="btn-del-solve" data-id="${s.id}" title="Delete solve #${num} (${formatLayerTime(s)})">&times;</button>
+          </div>
         </td>
       </tr>
     `;
@@ -2477,12 +2699,25 @@ function renderLayerStatsTable() {
   // Attach row click listeners to show details popup
   container.querySelectorAll(".layer-log-row").forEach(row => {
     row.addEventListener("click", (e) => {
-      if (e.target.closest(".btn-del-solve")) return;
+      if (e.target.closest(".btn-del-solve") || e.target.closest(".btn-reattempt-solve")) return;
       const id = row.dataset.id;
       const num = row.dataset.num;
       const solve = layerSolves.find(s => String(s.id) === String(id));
       if (solve) {
         openSolveDetailModal(solve, num);
+      }
+    });
+  });
+
+  // Attach reattempt button listeners
+  container.querySelectorAll(".btn-reattempt-solve").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const num = btn.dataset.num;
+      const solve = layerSolves.find(s => String(s.id) === String(id));
+      if (solve && solve.scramble) {
+        reattemptScramble(solve.scramble, `solve #${num}`);
       }
     });
   });
@@ -2570,6 +2805,15 @@ if (solveModalCopyScrambleBtn) {
       solveModalCopyScrambleBtn.textContent = "Copied";
       setTimeout(() => { if (solveModalCopyScrambleBtn) solveModalCopyScrambleBtn.textContent = "Copy"; }, 1500);
     }
+  });
+}
+if (solveModalReattemptBtn) {
+  solveModalReattemptBtn.addEventListener("click", () => {
+    if (!activeModalSolve || !activeModalSolve.scramble) return;
+    const scr = activeModalSolve.scramble;
+    const title = solveModalTitle ? solveModalTitle.textContent : "solve";
+    closeSolveDetailModal();
+    reattemptScramble(scr, title);
   });
 }
 if (solveModalSimBtn) {
@@ -3495,6 +3739,7 @@ syncSettingsPanel();
 syncStatsPanel();
 renderStatsToggle();
 populateSimCaseSelect();
+updateFaceChipsUI();
 regenerateScramble();
 prefetchNextLayerScramble();
 if (mode === "simulate") {

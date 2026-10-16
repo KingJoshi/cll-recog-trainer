@@ -64,12 +64,12 @@
   <!-- Stage: mode, cube, guessing UI, timed session -->
   <section class="stage">
     <div class="seg mode-seg" role="group" aria-label="Mode">
+      <button type="button" class="mode-btn" data-mode="layer" aria-pressed="true">1st Layer</button>
+      <button type="button" class="mode-btn" data-mode="practice" aria-pressed="false">Practice</button>
       <button type="button" class="mode-btn" data-mode="study" aria-pressed="false">Study</button>
-      <button type="button" class="mode-btn" data-mode="practice" aria-pressed="true">Practice</button>
       <button type="button" class="mode-btn" data-mode="timed" aria-pressed="false">Timed</button>
       <button type="button" class="mode-btn" data-mode="solve" aria-pressed="false">Solve</button>
       <button type="button" class="mode-btn" data-mode="simulate" aria-pressed="false">Simulate</button>
-      <button type="button" class="mode-btn" data-mode="layer" aria-pressed="false">1st Layer</button>
     </div>
 
     <div id="timedBar" class="timed-bar" hidden>
@@ -91,7 +91,18 @@
     <div id="layerScramble" class="layer-scramble" hidden>
       <div class="layer-scramble-head">
         <p class="solve-label">WCA 2x2 Scramble</p>
-        <button type="button" id="layerNewScrambleBtn" class="btn btn-small">New Scramble</button>
+        <div class="layer-scramble-actions">
+          <button type="button" id="layerNewScrambleBtn" class="btn btn-small">New Scramble</button>
+          <button type="button" id="layerCustomScrambleBtn" class="btn btn-small" title="Enter a custom scramble">Custom</button>
+        </div>
+      </div>
+      <div id="layerCustomScrambleRow" class="layer-custom-row" hidden>
+        <div class="layer-custom-wrap">
+          <input type="text" id="layerCustomInput" class="sim-input" placeholder="Enter custom scramble (e.g. U2 F2 U L2...)" autocomplete="off" spellcheck="false">
+          <button type="button" id="layerCustomClearBtn" class="sim-btn-clear" title="Clear input">&times;</button>
+        </div>
+        <button type="button" id="layerCustomApplyBtn" class="btn btn-primary sim-btn-load">Apply</button>
+        <button type="button" id="layerCustomCancelBtn" class="btn btn-small">Cancel</button>
       </div>
       <p id="layerScrambleText" class="layer-scramble-text"></p>
     </div>
@@ -291,16 +302,46 @@
       <div id="layerList" class="layer-list"></div>
     </div>
 
-    <!-- White 1st Layer Solutions Widget (collapsed by default) -->
+    <!-- 1st Layer Solutions Widget (collapsed by default) -->
     <details id="layerSolutionsWidget" class="panel layer-solutions-widget" hidden>
       <summary class="layer-solutions-summary">
         <div class="layer-solutions-title-wrap">
-          <span class="panel-title">White 1st layer solutions</span>
+          <span class="panel-title" id="layerSolutionsTitle">1st layer solutions</span>
           <span id="layerSolutionsBadge" class="badge"></span>
         </div>
         <span class="chevron" aria-hidden="true"></span>
       </summary>
       <div class="layer-solutions-body">
+        <div class="layer-faces-picker" role="group" aria-label="Select faces to solve">
+          <div class="layer-faces-header">
+            <span class="layer-faces-label">Target Faces (multi-select):</span>
+            <div class="layer-faces-presets">
+              <button type="button" id="layerPresetWhiteBtn" class="btn btn-xs">White</button>
+              <button type="button" id="layerPresetOppositeBtn" class="btn btn-xs">W / Y</button>
+              <button type="button" id="layerPresetAllBtn" class="btn btn-xs">All 6 (CN)</button>
+            </div>
+          </div>
+          <div class="layer-faces-chips" id="layerFacesChips">
+            <button type="button" class="face-chip face-chip-white active" data-face="white" aria-pressed="true">
+              <span class="face-chip-dot face-dot-white"></span> White
+            </button>
+            <button type="button" class="face-chip face-chip-yellow" data-face="yellow" aria-pressed="false">
+              <span class="face-chip-dot face-dot-yellow"></span> Yellow
+            </button>
+            <button type="button" class="face-chip face-chip-green" data-face="green" aria-pressed="false">
+              <span class="face-chip-dot face-dot-green"></span> Green
+            </button>
+            <button type="button" class="face-chip face-chip-blue" data-face="blue" aria-pressed="false">
+              <span class="face-chip-dot face-dot-blue"></span> Blue
+            </button>
+            <button type="button" class="face-chip face-chip-red" data-face="red" aria-pressed="false">
+              <span class="face-chip-dot face-dot-red"></span> Red
+            </button>
+            <button type="button" class="face-chip face-chip-orange" data-face="orange" aria-pressed="false">
+              <span class="face-chip-dot face-dot-orange"></span> Orange
+            </button>
+          </div>
+        </div>
         <div id="layerSolutionsList" class="layer-solutions-list">
           <p class="layer-solutions-empty">Generating solutions...</p>
         </div>
@@ -321,9 +362,9 @@
     </div>
     <div id="statsBody" class="stats-body">
       <div class="seg stats-seg" role="group" aria-label="Stats type">
-        <button type="button" class="stats-tab-btn" id="statsTabRecog" data-stats="recog" aria-pressed="true">Recognition</button>
+        <button type="button" class="stats-tab-btn" id="statsTabLayer" data-stats="layer" aria-pressed="true">1st Layer</button>
+        <button type="button" class="stats-tab-btn" id="statsTabRecog" data-stats="recog" aria-pressed="false">Recognition</button>
         <button type="button" class="stats-tab-btn" id="statsTabSolve" data-stats="solve" aria-pressed="false">Solve</button>
-        <button type="button" class="stats-tab-btn" id="statsTabLayer" data-stats="layer" aria-pressed="false">1st Layer</button>
       </div>
       <div id="stats-table-container"></div>
     </div>
@@ -373,7 +414,10 @@
       </div>
     </div>
     <div class="solve-modal-actions">
-      <button type="button" id="solveModalSimBtn" class="btn btn-primary btn-small">
+      <button type="button" id="solveModalReattemptBtn" class="btn btn-primary btn-small">
+        <span aria-hidden="true">&#x21ba;</span> Reattempt solve
+      </button>
+      <button type="button" id="solveModalSimBtn" class="btn btn-small">
         <span aria-hidden="true">&#x25B6;</span> Simulate in 3D
       </button>
       <button type="button" id="solveModalDismissBtn" class="btn btn-small">Close</button>
