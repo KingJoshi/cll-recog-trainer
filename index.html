@@ -152,9 +152,23 @@
         <button type="button" id="resetOrientationBtn" class="reset-orientation-btn" title="Reset 3D camera orientation">
           <span class="reset-orient-icon" aria-hidden="true">&#x21bb;</span> Reset orientation
         </button>
-        <span class="cube-rot-hint" title="Rotate cube in 3D world (Shift for inverse)">
-          Rotate 3D: <kbd>X</kbd> <kbd>Y</kbd> <kbd>Z</kbd> (Shift = inverse)
-        </span>
+        <div class="cube-rot-bar" role="group" aria-label="3D Cube Rotations">
+          <span class="cube-rot-label">Rotate:</span>
+          <div class="cube-rot-buttons">
+            <div class="cube-rot-pair">
+              <button type="button" class="btn-rot" data-rot="x" title="Rotate X (pitch forward) · Keyboard: X" aria-label="Rotate X">X</button>
+              <button type="button" class="btn-rot" data-rot="x'" title="Rotate X' (pitch backward) · Keyboard: Shift+X" aria-label="Rotate X prime">X'</button>
+            </div>
+            <div class="cube-rot-pair">
+              <button type="button" class="btn-rot" data-rot="y" title="Rotate Y (turn right) · Keyboard: Y" aria-label="Rotate Y">Y</button>
+              <button type="button" class="btn-rot" data-rot="y'" title="Rotate Y' (turn left) · Keyboard: Shift+Y" aria-label="Rotate Y prime">Y'</button>
+            </div>
+            <div class="cube-rot-pair">
+              <button type="button" class="btn-rot" data-rot="z" title="Rotate Z (roll clockwise) · Keyboard: Z" aria-label="Rotate Z">Z</button>
+              <button type="button" class="btn-rot" data-rot="z'" title="Rotate Z' (roll counter-clockwise) · Keyboard: Shift+Z" aria-label="Rotate Z prime">Z'</button>
+            </div>
+          </div>
+        </div>
       </div>
       <p id="empty-state" class="empty-state" hidden>
         No cases selected. Open <strong>Cases &amp; options</strong> and pick some.

@@ -564,6 +564,18 @@ if (resetOrientationBtn) {
   resetOrientationBtn.addEventListener("click", resetCubeOrientation);
 }
 
+document.querySelectorAll(".btn-rot").forEach(btn => {
+  btn.addEventListener("click", e => {
+    let move = btn.dataset.rot;
+    if (e.shiftKey) {
+      move = move.includes("'") ? move.replace("'", "") : move + "'";
+    }
+    addViewRotation(move);
+    btn.blur();
+  });
+});
+
+
 // ---------------------------------------------------------------------------
 // Case picker: one row per group, a group button plus one chip per case
 // ---------------------------------------------------------------------------
@@ -1227,7 +1239,7 @@ function updateCaseInfoDisplay() {
           <option value="mastered" ${tag === 'mastered' ? 'selected' : ''}>📗 Mastered</option>
         </select>
       </div>
-      <div class="case-solution-row" style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+      <div class="case-solution-row">
         <div class="case-solution"><b>Solution:</b> <span id="studySolutionText">${escapeHtml(solutionDisplay)}</span></div>
         <button type="button" class="btn btn-xs" id="studyEditLabelBtn" title="Customize trigger label">&#x270E; Edit Label</button>
       </div>
