@@ -114,8 +114,8 @@ let statsType = (savedSettings.mode === "layer" || savedSettings.statsType === "
     : (savedSettings.statsType || "layer"));
 let solveStatsSort = { col: "case", dir: "asc" };
 
-// Modes: layer, practice, study, timed, solve, simulate
-const MODES = ["layer", "practice", "study", "timed", "solve", "simulate"];
+// Modes: layer, study, practice, timed, solve, simulate
+const MODES = ["layer", "study", "practice", "timed", "solve", "simulate"];
 let mode = MODES.includes(savedSettings.mode)
   ? savedSettings.mode
   : "layer";
@@ -314,6 +314,20 @@ el.event = "222";
 el.visualization = "3D";
 applyReflection();
 displayContainer.appendChild(el);
+
+function applyScrambleToDisplay(scrambleString) {
+  if (!el) return;
+  el.scramble = scrambleString || "";
+  if (el.player) {
+    try {
+      el.player.pause();
+      if (el.player.experimentalModel?.catchUpMove) {
+        el.player.experimentalModel.catchUpMove.set({ move: null, amount: 0 });
+      }
+      el.player.jumpToEnd();
+    } catch (e) {}
+  }
+}
 
 function resetCubeOrientation() {
   if (!el || !el.player) return;
@@ -666,7 +680,7 @@ function cleanAlg(algStr) {
 
 function buildScramble() {
   let orientation = "";
-  if (alwaysWhiteBottom) {
+  if (alwaysWhiteBottom || mode === "study") {
     orientation = "z2";
   } else {
     const rot = (axis, turns) => {
@@ -681,7 +695,8 @@ function buildScramble() {
   let moves = "";
 
   // Optional U turn before the case (changes which side the case "faces")
-  if (allowAUF) {
+  // In Study mode, omit AUF so the case always appears in its standard canonical orientation matching the solution alg and diagram
+  if (allowAUF && mode !== "study") {
     moves += randomU();
   }
 
@@ -701,7 +716,7 @@ function buildScramble() {
   }
 
   // Optional AUF after the case
-  if (allowAUF) {
+  if (allowAUF && mode !== "study") {
     moves += randomU();
   }
 
@@ -716,13 +731,17 @@ function regenerateScramble() {
 
   if (hasCases) {
     buildScramble();
-    el.scramble = scramble;
+    applyScrambleToDisplay(scramble);
   } else {
     currentCaseId = null;
     currentCaseScramble = null;
     scramble = "";
     scrambleMoves = "";
-    el.scramble = "";
+    applyScrambleToDisplay("");
+  }
+
+  if (mode === "study") {
+    resetCubeOrientation();
   }
 
   resetGuessingUI(); // also re-renders the stage for the current mode
@@ -749,7 +768,7 @@ function setMode(next) {
   const leavingLayer = mode === "layer" && next !== "layer";
   if (leavingLayer) {
     if (scramble) {
-      el.scramble = scramble;
+      applyScrambleToDisplay(scramble);
       applyReflection();
     }
   }
@@ -774,12 +793,15 @@ function setMode(next) {
     if (!layerScramble) {
       generateNewLayerScramble();
     } else {
-      el.scramble = layerScramble;
+      applyScrambleToDisplay(layerScramble);
       applyReflection();
       if (!currentLayerSolutionsScramble || currentLayerSolutionsScramble !== layerScramble) {
         updateLayerSolutions(layerScramble);
       }
     }
+  } else if (mode === "study") {
+    resetCubeOrientation();
+    regenerateScramble();
   }
 }
 
@@ -871,10 +893,12 @@ function updateCaseInfoDisplay() {
         const idx = parseInt(chip.dataset.idx, 10);
         if (scrambles[idx]) {
           currentCaseScramble = scrambles[idx];
-          const orientation = alwaysWhiteBottom ? "z2" : "";
+          const orientation = "z2";
           scrambleMoves = cleanAlg(currentCaseScramble);
           scramble = `${orientation ? orientation + " " : ""}${scrambleMoves}`.trim();
-          el.scramble = scramble;
+          applyScrambleToDisplay(scramble);
+          applyReflection();
+          resetCubeOrientation();
           updateCaseInfoDisplay();
         }
       });
@@ -1405,7 +1429,7 @@ function setLayerScramble(scr) {
     layerScrambleTextEl.textContent = scr;
   }
   if (mode === "layer") {
-    el.scramble = scr;
+    applyScrambleToDisplay(scr);
     applyReflection();
   }
   updateLayerSolutions(scr);
@@ -2990,11 +3014,16 @@ function simTeardown() {
   if (el && el.player) {
     try {
       el.player.pause();
+      el.player.tempoScale = 1;
       el.player.experimentalSetupAlg = "";
+      if (el.player.experimentalModel?.catchUpMove) {
+        el.player.experimentalModel.catchUpMove.set({ move: null, amount: 0 });
+      }
+      el.player.jumpToEnd();
     } catch {}
   }
   if (scramble) {
-    el.scramble = scramble;
+    applyScrambleToDisplay(scramble);
     applyReflection();
   }
 }
