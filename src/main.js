@@ -345,7 +345,6 @@ const settingsPanel = document.getElementById("settingsPanel");
 const settingsToggle = document.getElementById("settingsToggle");
 const statsPanel = document.getElementById("statsPanel");
 const statsToggle = document.getElementById("statsToggle");
-const statsSessionSelect = document.getElementById("statsSessionSelect");
 const statsTabLog = document.getElementById("statsTabLog");
 const statsTabCll = document.getElementById("statsTabCll");
 const statsTabRecog = document.getElementById("statsTabRecog");
@@ -2021,7 +2020,6 @@ function populateSessionSelect() {
   }).join("");
 
   if (solveSessionSelect) solveSessionSelect.innerHTML = options;
-  if (statsSessionSelect) statsSessionSelect.innerHTML = options;
 
   const current = getActiveSession();
   if (solveSessionBadge) {
@@ -2043,7 +2041,6 @@ function switchSession(sessId) {
   if (solveShowCubeToggle) solveShowCubeToggle.checked = solveShowCube;
   if (solveInspectionToggle) solveInspectionToggle.checked = solveInspection;
   if (solveSessionSelect) solveSessionSelect.value = sessId;
-  if (statsSessionSelect) statsSessionSelect.value = sessId;
 
   saveSettings();
   populateSessionSelect();
@@ -2071,11 +2068,6 @@ function deleteCurrentSession() {
 if (solveSessionSelect) {
   solveSessionSelect.addEventListener("change", () => {
     switchSession(solveSessionSelect.value);
-  });
-}
-if (statsSessionSelect) {
-  statsSessionSelect.addEventListener("change", () => {
-    switchSession(statsSessionSelect.value);
   });
 }
 if (newSessionBtn) {

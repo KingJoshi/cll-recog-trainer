@@ -676,25 +676,6 @@ scramble-display {
     margin-left: auto;
 }
 
-.stats-head-session {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.8rem;
-}
-
-.stats-head-session select {
-    padding: 3px 8px;
-    font-size: 0.78rem;
-    font-weight: 500;
-    border-radius: var(--radius);
-    background: var(--surface);
-    color: var(--text);
-    border: 1px solid var(--border);
-    cursor: pointer;
-}
-
-.stats.collapsed .stats-head-session,
 .stats.collapsed .stats-body,
 .stats.collapsed #resetStatsBtn {
     display: none;
