@@ -1411,23 +1411,25 @@ function setLayerScramble(scr) {
   updateLayerSolutions(scr);
 }
 
+let layerScrambleSource = null;
+
 async function generateNewLayerScramble() {
+  layerScrambleSource = null;
   const scr = await getNextLayerScramble();
   setLayerScramble(scr);
+  renderLayerPanel();
 }
 
 function reattemptScramble(scrambleStr, label = "") {
   if (!scrambleStr) return;
   setMode("layer");
+  layerScrambleSource = `Loaded scramble from <strong>${escapeHtml(label || 'previous solve')}</strong> · Ready to inspect &amp; start`;
   setLayerScramble(scrambleStr);
   resetCubeOrientation();
   if (layerState !== "idle") {
     cancelLayerSolve();
   }
-  if (layerTimeEl) layerTimeEl.textContent = "0.00";
-  if (layerSubtextEl) {
-    layerSubtextEl.innerHTML = `Loaded scramble from <strong>${escapeHtml(label || 'previous solve')}</strong> · Ready to inspect &amp; start`;
-  }
+  renderLayerPanel();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1462,12 +1464,14 @@ function applyCustomLayerScramble() {
       alert("Please enter a valid scramble.");
       return;
     }
+    layerScrambleSource = `Custom scramble loaded · Ready to inspect &amp; start`;
     setLayerScramble(normalized);
     resetCubeOrientation();
     if (layerState !== "idle") {
       cancelLayerSolve();
     }
     toggleLayerCustomScramble(false);
+    renderLayerPanel();
   } catch (err) {
     alert(`Invalid scramble syntax: ${err.message || 'Check for invalid moves'}`);
     layerCustomInput.focus();
@@ -1547,7 +1551,10 @@ function renderLayerPanel() {
       updateLayerSolutions(layerScramble);
     }
   }
-  if (lastLayerSolve) {
+  if (layerScrambleSource) {
+    layerTimeEl.textContent = "0.00";
+    layerSubtextEl.innerHTML = layerScrambleSource;
+  } else if (lastLayerSolve) {
     layerTimeEl.textContent = formatLayerTime(lastLayerSolve);
     layerSubtextEl.innerHTML = `Last: <strong>${formatLayerTime(lastLayerSolve)}</strong> · Scramble: <span style="font-family: monospace;">${escapeHtml(lastLayerSolve.scramble || '')}</span>`;
   } else {
