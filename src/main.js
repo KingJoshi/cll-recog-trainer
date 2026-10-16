@@ -295,6 +295,7 @@ let currentCaseId = null;
 let currentCaseScramble = null;
 let currentSolveTarget = "full";
 let currentSolveScramble = "";
+let solveScrambleSource = null;
 let guessedGroup = null;
 let guessedCase = null;
 let settingsCollapsed = true; // narrow screens only; the sidebar is always open
@@ -1422,7 +1423,7 @@ document.addEventListener("keydown", e => {
   if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
 
   const keyLower = e.key.toLowerCase();
-  if (["x", "y", "z"].includes(keyLower) && !cubeCard.hidden && solveState === "idle" && layerState === "idle") {
+  if (["x", "y", "z"].includes(keyLower) && !cubeCard.hidden && solveState === "idle") {
     const isShift = e.shiftKey;
     const move = isShift ? `${keyLower}'` : keyLower;
     addViewRotation(move);
@@ -4557,7 +4558,6 @@ renderStatsToggle();
 populateSimCaseSelect();
 updateFaceChipsUI();
 regenerateScramble();
-prefetchNextLayerScramble();
 if (mode === "simulate") {
   simInit();
 }
