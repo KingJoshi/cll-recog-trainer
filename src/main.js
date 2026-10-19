@@ -1090,9 +1090,7 @@ function regenerateScramble() {
       currentCaseId = null;
       applyScrambleToDisplay(wcaScr);
       if (solveScrambleText) solveScrambleText.textContent = wcaScr;
-      if (solveTarget === "layer" || solveTarget === "face") {
-        updateLayerSolutions(wcaScr);
-      }
+      updateLayerSolutions(wcaScr);
     });
     resetGuessingUI();
     updateStatsTable();
@@ -1105,6 +1103,7 @@ function regenerateScramble() {
     if (mode === "solve") {
       currentSolveScramble = scrambleMoves;
       if (solveScrambleText) solveScrambleText.textContent = scrambleMoves;
+      updateLayerSolutions(scrambleMoves);
     }
   } else {
     currentCaseId = null;
@@ -1167,7 +1166,7 @@ function setMode(next, { skipSimInit = false } = {}) {
     } else {
       applyScrambleToDisplay(currentSolveScramble);
       applyReflection();
-      if ((solveTarget === "layer" || solveTarget === "face") && (!currentLayerSolutionsScramble || currentLayerSolutionsScramble !== currentSolveScramble)) {
+      if (!currentLayerSolutionsScramble || currentLayerSolutionsScramble !== currentSolveScramble) {
         updateLayerSolutions(currentSolveScramble);
       }
     }
@@ -1220,7 +1219,7 @@ function renderStage() {
   solveSurface.hidden = !solving;
   solveTimes.hidden = !solving;
   if (layerSolutionsWidget) {
-    layerSolutionsWidget.hidden = !solving || (solveTarget !== "layer" && solveTarget !== "face");
+    layerSolutionsWidget.hidden = !solving;
   }
   if (solving) renderSolvePanel();
 }
@@ -2119,6 +2118,9 @@ if (solveTargetSelect) {
     getActiveSession().target = solveTarget;
     saveSessions();
     saveSettings();
+    if (layerSolutionsWidget && (solveTarget === "layer" || solveTarget === "face")) {
+      layerSolutionsWidget.open = true;
+    }
     renderStage();
     renderSolvePanel();
     regenerateScramble();
@@ -2278,7 +2280,7 @@ function renderSolvePanel() {
     .join("");
 
   if (layerSolutionsWidget) {
-    layerSolutionsWidget.hidden = solveTarget !== "layer" && solveTarget !== "face";
+    layerSolutionsWidget.hidden = mode !== "solve";
     if (!layerSolutionsWidget.hidden) {
       updateFaceChipsUI();
     }
@@ -2455,9 +2457,7 @@ function reattemptScramble(scrambleStr, label = "") {
   applyScrambleToDisplay(scrambleStr);
   applyReflection();
   resetCubeOrientation();
-  if (solveTarget === "layer" || solveTarget === "face") {
-    updateLayerSolutions(scrambleStr);
-  }
+  updateLayerSolutions(scrambleStr);
   if (solveState !== "idle") {
     cancelSolve();
   }
@@ -2504,9 +2504,7 @@ function applyCustomSolveScramble() {
     applyScrambleToDisplay(normalized);
     applyReflection();
     resetCubeOrientation();
-    if (solveTarget === "layer" || solveTarget === "face") {
-      updateLayerSolutions(normalized);
-    }
+    updateLayerSolutions(normalized);
     if (solveState !== "idle") {
       cancelSolve();
     }
