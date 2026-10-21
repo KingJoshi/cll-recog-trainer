@@ -452,13 +452,13 @@ button {
    -------------------------------------------------------------------------- */
 
 .stage {
-    /* --cube-w is the shared width of the cube card, the guessing UI and the
-       "New scramble" button, so they stay aligned. --vh is the viewport
-       height used to keep the cube inside the screen on short viewports. */
+    /* --cube-w is the shared width of the guessing UI and mode segments so they stay aligned.
+       --cube-card-max-w bounds the 3D cube widget to a squarish aspect ratio. */
     --vh: 100vh;
     --cube-w: 640px;
+    --cube-card-max-w: 360px;
     --solve-cube-max-w: 300px;
-    --solve-timer-min-h: 180px;
+    --solve-timer-min-h: 280px;
     --solve-timer-font: 3.4rem;
     display: grid;
     gap: var(--gap);
@@ -470,23 +470,27 @@ button {
 
 .stage[data-solve-size="small"] {
     --solve-cube-max-w: 240px;
-    --solve-timer-min-h: 140px;
+    --solve-timer-min-h: 220px;
     --solve-timer-font: 2.6rem;
 }
 
 .stage[data-solve-size="medium"] {
     --solve-cube-max-w: 300px;
-    --solve-timer-min-h: 180px;
+    --solve-timer-min-h: 280px;
     --solve-timer-font: 3.4rem;
 }
 
 .stage[data-solve-size="large"] {
     --solve-cube-max-w: 380px;
-    --solve-timer-min-h: 240px;
+    --solve-timer-min-h: 360px;
     --solve-timer-font: 4.2rem;
 }
 
 /* Solve mode specific widget sizing */
+.stage.mode-solve {
+    --cube-card-max-w: calc(var(--solve-cube-max-w) + 24px);
+}
+
 .stage.mode-solve .cube-card #display-container {
     width: min(100%, var(--solve-cube-max-w));
 }
@@ -512,14 +516,19 @@ button {
 }
 
 .cube-card {
-    display: grid;
-    place-items: center;
-    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     position: relative;
+    width: min(100%, var(--cube-card-max-w, 360px));
+    box-sizing: border-box;
+    margin: 0 auto;
 }
 
 .reset-orientation-btn {
@@ -558,15 +567,17 @@ button {
 
 #display-container {
     width: 100%;
+    max-width: var(--solve-cube-max-w, 340px);
     display: flex;
     justify-content: center;
+    align-items: center;
 }
 
 scramble-display {
     display: block;
     width: 100%;
     height: auto;
-    aspect-ratio: 3 / 2;
+    aspect-ratio: 1 / 1;
 }
 
 .empty-state {
@@ -3019,10 +3030,17 @@ html.overview-open body {
     .cube-card {
         grid-column: 1;
         grid-row: span 8;
+        width: 100%;
+        max-width: min(240px, calc(var(--vh) - 80px));
+        padding: 6px;
+    }
+
+    .cube-card #display-container {
+        width: min(200px, calc(var(--vh) - 120px));
     }
 
     .stage {
-        --cube-w: calc((var(--vh) - 6rem) * 1.5);
+        --cube-w: calc((var(--vh) - 4rem) * 1.5);
     }
 
     .guess {
@@ -3077,8 +3095,9 @@ html.overview-open body {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         align-items: stretch;
         --cube-w: 100%;
-        max-width: 960px;
-        gap: 12px;
+        max-width: calc((var(--solve-cube-max-w) + 36px) * 2 + 16px);
+        gap: 14px;
+        margin: 0 auto;
     }
 
     .stage.mode-solve > * {
@@ -3096,11 +3115,13 @@ html.overview-open body {
     .stage.mode-solve .cube-card {
         grid-column: 1;
         height: 100%;
+        width: 100%;
+        max-width: 100%;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        padding: 8px 12px;
+        padding: 10px 14px;
         box-sizing: border-box;
     }
 
@@ -3111,13 +3132,15 @@ html.overview-open body {
     .stage.mode-solve .cube-card scramble-display {
         width: 100%;
         height: auto;
+        aspect-ratio: 1 / 1;
     }
 
     .stage.mode-solve .cube-card-controls {
         justify-content: center;
         gap: 6px;
-        margin-top: 4px;
-        max-width: 100%;
+        margin-top: 6px;
+        width: 100%;
+        max-width: var(--solve-cube-max-w);
     }
 
     .stage.mode-solve .solve-surface {
@@ -3128,13 +3151,16 @@ html.overview-open body {
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        padding: 12px;
+        padding: 14px;
         box-sizing: border-box;
     }
 
     /* When 3D Cube is hidden in solve mode, timer spans both columns */
     .stage.mode-solve.solve-cube-hidden .solve-surface {
         grid-column: 1 / -1;
+        max-width: calc(var(--solve-cube-max-w) + 120px);
+        margin: 0 auto;
+        width: 100%;
     }
 }
 
@@ -3153,11 +3179,6 @@ html.overview-open body {
 
     .stage {
         --cube-w: min(900px, max(280px, calc((var(--vh) - 24rem) * 1.5)));
-    }
-
-    .stage.mode-solve {
-        max-width: 1080px;
-        gap: 16px;
     }
 }
 
