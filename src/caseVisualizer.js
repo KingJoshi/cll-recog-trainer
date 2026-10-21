@@ -324,7 +324,7 @@ export async function renderCllSvg(caseObj) {
   const W = T * 2 + 2 * S;
 
   const rect = (x, y, w, h, fill) =>
-    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="#111827" stroke-width="1.8"/>`;
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="${fill}" stroke="#1e293b" stroke-width="1.15"/>`;
 
   return `<svg viewBox="0 0 ${W} ${W}" class="case-svg case-svg-222" xmlns="http://www.w3.org/2000/svg">
     <!-- Top face (UBL, UBR, UFL, UFR) -->
@@ -380,7 +380,7 @@ export async function renderOrtegaSvg(caseObj) {
   const W = T * 2 + 2 * S;
 
   const rect = (x, y, w, h, fill) =>
-    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="#111827" stroke-width="1.8"/>`;
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="${fill}" stroke="#1e293b" stroke-width="1.15"/>`;
 
   const topColor = (loc) => isYellow(loc, 0) ? CUBE_COLORS.yellow : CUBE_COLORS.slate;
 
@@ -416,7 +416,7 @@ function renderPblSvg(caseObj) {
     <rect x="8" y="8" width="84" height="84" rx="8" fill="#1e2430" stroke="#333d4d" stroke-width="2"/>
     
     <!-- Top Layer (Layer 1) -->
-    <rect x="18" y="18" width="64" height="26" rx="4" fill="${CUBE_COLORS.yellow}" stroke="#111827" stroke-width="1.8"/>
+    <rect x="18" y="18" width="64" height="26" rx="3" fill="${CUBE_COLORS.yellow}" stroke="#1e293b" stroke-width="1.2"/>
     <text x="50" y="35" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">
       ${isOppOpp || isOppSolved ? 'OPP SWAP' : 'ADJ BAR'}
     </text>
@@ -425,7 +425,7 @@ function renderPblSvg(caseObj) {
     <line x1="14" y1="50" x2="86" y2="50" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,3"/>
 
     <!-- Bottom Layer (Layer 2) -->
-    <rect x="18" y="56" width="64" height="26" rx="4" fill="${CUBE_COLORS.white}" stroke="#111827" stroke-width="1.8"/>
+    <rect x="18" y="56" width="64" height="26" rx="3" fill="${CUBE_COLORS.white}" stroke="#1e293b" stroke-width="1.2"/>
     <text x="50" y="73" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">
       ${isAdjSolved || isOppSolved ? 'SOLVED' : (isOppOpp || isAdjOpp ? 'OPP SWAP' : 'ADJ BAR')}
     </text>
@@ -464,7 +464,7 @@ export async function renderOllSvg(caseObj) {
   const W = T * 2 + 3 * S;
 
   const rect = (x, y, w, h, fill) =>
-    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="#111827" stroke-width="1.6"/>`;
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="${fill}" stroke="#1e293b" stroke-width="1.1"/>`;
 
   const topColor = (isY) => isY ? CUBE_COLORS.yellow : CUBE_COLORS.slate;
 
@@ -534,7 +534,7 @@ export async function renderPllSvg(caseObj) {
   const W = T * 2 + 3 * S;
 
   const rect = (x, y, w, h, fill) =>
-    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="#111827" stroke-width="1.6"/>`;
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="${fill}" stroke="#1e293b" stroke-width="1.1"/>`;
 
   // Arrows overlay
   const arrows = PLL_ARROWS[caseObj.id] || [];
@@ -609,8 +609,8 @@ export async function renderF2lSvg(caseObj) {
   const T = 14;
   const W = 100;
 
-  const rect = (x, y, w, h, fill, stroke = "#111827", strokeW = 1.6) =>
-    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}"/>`;
+  const rect = (x, y, w, h, fill, stroke = "#1e293b", strokeW = 1.1) =>
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}"/>`;
 
   return `<svg viewBox="0 0 ${W} ${W}" class="case-svg case-svg-f2l" xmlns="http://www.w3.org/2000/svg">
     <!-- Base 3x3 Top Layer in neutral slate grey -->
@@ -639,11 +639,11 @@ export function renderCrossSvg(caseObj) {
   return `<svg viewBox="0 0 100 100" class="case-svg case-svg-cross" xmlns="http://www.w3.org/2000/svg">
     <rect x="6" y="6" width="88" height="88" rx="8" fill="#18181b" stroke="#333" stroke-width="2"/>
     <!-- Cross pieces in White -->
-    <rect x="36" y="12" width="28" height="24" rx="2" fill="${CUBE_COLORS.white}" stroke="#111" stroke-width="1.5"/>
-    <rect x="36" y="64" width="28" height="24" rx="2" fill="${CUBE_COLORS.white}" stroke="#111" stroke-width="1.5"/>
-    <rect x="12" y="36" width="24" height="28" rx="2" fill="${CUBE_COLORS.white}" stroke="#111" stroke-width="1.5"/>
-    <rect x="64" y="36" width="24" height="28" rx="2" fill="${CUBE_COLORS.white}" stroke="#111" stroke-width="1.5"/>
-    <rect x="36" y="36" width="28" height="28" rx="2" fill="${CUBE_COLORS.white}" stroke="#111" stroke-width="1.5"/>
+    <rect x="36" y="12" width="28" height="24" rx="2" fill="${CUBE_COLORS.white}" stroke="#1e293b" stroke-width="1.1"/>
+    <rect x="36" y="64" width="28" height="24" rx="2" fill="${CUBE_COLORS.white}" stroke="#1e293b" stroke-width="1.1"/>
+    <rect x="12" y="36" width="24" height="28" rx="2" fill="${CUBE_COLORS.white}" stroke="#1e293b" stroke-width="1.1"/>
+    <rect x="64" y="36" width="24" height="28" rx="2" fill="${CUBE_COLORS.white}" stroke="#1e293b" stroke-width="1.1"/>
+    <rect x="36" y="36" width="28" height="28" rx="2" fill="${CUBE_COLORS.white}" stroke="#1e293b" stroke-width="1.1"/>
     <text x="50" y="55" text-anchor="middle" font-size="16" font-weight="900" fill="${CUBE_COLORS.green}">&#x271A;</text>
   </svg>`;
 }
