@@ -194,6 +194,7 @@ function getActiveSession() {
 let solveTarget = getActiveSession().target || savedSettings.solveTarget || "full";
 let solveShowCube = getActiveSession().showCube ?? true;
 let solveInspection = getActiveSession().inspection ?? true;
+let solveWidgetSize = ["small", "medium", "large"].includes(savedSettings.solveWidgetSize) ? savedSettings.solveWidgetSize : "medium";
 
 let solves = getActiveSession().solves;
 
@@ -329,7 +330,8 @@ function saveSettings() {
     activeSessionId,
     solveTarget,
     solveShowCube,
-    solveInspection
+    solveInspection,
+    solveWidgetSize
   });
 }
 
@@ -359,6 +361,7 @@ const overviewClose = document.getElementById("overviewClose");
 const overviewBody = document.getElementById("overviewBody");
 const groupButtons = Array.from(document.querySelectorAll(".group-btn"));
 const caseButtons = Array.from(document.querySelectorAll(".case-btn"));
+const stage = document.querySelector(".stage");
 const cubeCard = document.querySelector(".cube-card");
 const guessLabel = document.querySelector(".guess-label");
 const modeButtons = Array.from(document.querySelectorAll(".mode-btn"));
@@ -449,6 +452,7 @@ const newSessionBtn = document.getElementById("newSessionBtn");
 const renameSessionBtn = document.getElementById("renameSessionBtn");
 const deleteSessionBtn = document.getElementById("deleteSessionBtn");
 const solveTargetSelect = document.getElementById("solveTargetSelect");
+const solveSizeSelect = document.getElementById("solveSizeSelect");
 const solveShowCubeToggle = document.getElementById("solveShowCubeToggle");
 const solveInspectionToggle = document.getElementById("solveInspectionToggle");
 const solveStatsBar = document.getElementById("solveStatsBar");
@@ -1214,6 +1218,11 @@ function renderStage() {
   cubeCard.hidden = hideCubeInSolve || (!hasCases && ["practice", "study", "timed"].includes(mode));
   if (resetOrientationBtn) {
     resetOrientationBtn.hidden = cubeCard.hidden;
+  }
+  if (stage) {
+    stage.classList.toggle("mode-solve", solving);
+    stage.classList.toggle("solve-cube-hidden", hideCubeInSolve);
+    stage.dataset.solveSize = solveWidgetSize;
   }
   solveScramble.hidden = !solving;
   solveSurface.hidden = !solving;
@@ -2073,6 +2082,7 @@ function switchSession(sessId) {
   if (solveTargetSelect) solveTargetSelect.value = solveTarget;
   if (solveShowCubeToggle) solveShowCubeToggle.checked = solveShowCube;
   if (solveInspectionToggle) solveInspectionToggle.checked = solveInspection;
+  if (solveSizeSelect) solveSizeSelect.value = solveWidgetSize;
   if (solveSessionSelect) solveSessionSelect.value = sessId;
 
   saveSettings();
@@ -2144,6 +2154,13 @@ if (solveInspectionToggle) {
     renderSolvePanel();
   });
 }
+if (solveSizeSelect) {
+  solveSizeSelect.addEventListener("change", () => {
+    solveWidgetSize = solveSizeSelect.value;
+    saveSettings();
+    renderStage();
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Solve Mode: Scramble, Timer, Sessions, and Stats
@@ -2212,6 +2229,7 @@ function renderSolvePanel() {
   if (solveTargetSelect) solveTargetSelect.value = solveTarget;
   if (solveShowCubeToggle) solveShowCubeToggle.checked = solveShowCube;
   if (solveInspectionToggle) solveInspectionToggle.checked = solveInspection;
+  if (solveSizeSelect) solveSizeSelect.value = solveWidgetSize;
 
   const currentScr = scrambleMoves || currentSolveScramble || scramble;
   solveScrambleText.textContent = currentScr;

@@ -121,6 +121,14 @@
             <option value="cll">CLL Case</option>
           </select>
         </div>
+        <div class="solve-target-wrap">
+          <label for="solveSizeSelect" class="solve-target-label">Size:</label>
+          <select id="solveSizeSelect" class="solve-target-select" aria-label="Cube and timer size">
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+          </select>
+        </div>
         <label class="solve-toggle-label">
           <input type="checkbox" id="solveShowCubeToggle">
           <span>Show 3D Cube</span>
@@ -327,21 +335,6 @@
       <p class="solve-hint solve-hint-touch">Touch and hold here, release to start. Tap anywhere to stop.</p>
     </div>
 
-    <div id="solveTimes" class="panel solve-times" hidden>
-      <div class="section-head solve-times-head">
-        <div class="solve-times-title-wrap">
-          <h2>Solve Times</h2>
-          <span id="solveSessionBadge" class="session-badge"></span>
-        </div>
-        <button type="button" id="clearSolvesBtn" class="btn btn-small btn-danger" hidden>Clear Session</button>
-      </div>
-      <div id="solveSummary" class="solve-summary"></div>
-      <div id="solveStatsBar" class="solve-stats-bar">
-        <!-- Populated by JavaScript: Ao5, Ao12, Ao100, Single Best, Mean -->
-      </div>
-      <div id="solveList" class="solve-list"></div>
-    </div>
-
     <!-- 1st Layer Solutions Widget (visible in Solve mode) -->
     <details id="layerSolutionsWidget" class="panel layer-solutions-widget" hidden>
       <summary class="layer-solutions-summary">
@@ -387,6 +380,21 @@
         </div>
       </div>
     </details>
+
+    <div id="solveTimes" class="panel solve-times" hidden>
+      <div class="section-head solve-times-head">
+        <div class="solve-times-title-wrap">
+          <h2>Solve Times</h2>
+          <span id="solveSessionBadge" class="session-badge"></span>
+        </div>
+        <button type="button" id="clearSolvesBtn" class="btn btn-small btn-danger" hidden>Clear Session</button>
+      </div>
+      <div id="solveSummary" class="solve-summary"></div>
+      <div id="solveStatsBar" class="solve-stats-bar">
+        <!-- Populated by JavaScript: Ao5, Ao12, Ao100, Single Best, Mean -->
+      </div>
+      <div id="solveList" class="solve-list"></div>
+    </div>
 
     <button type="button" id="regenerateBtn" class="btn btn-outline btn-block">New scramble</button>
   </section>

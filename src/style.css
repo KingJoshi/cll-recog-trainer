@@ -457,12 +457,46 @@ button {
        height used to keep the cube inside the screen on short viewports. */
     --vh: 100vh;
     --cube-w: 640px;
+    --solve-cube-max-w: 300px;
+    --solve-timer-min-h: 180px;
+    --solve-timer-font: 3.4rem;
     display: grid;
     gap: var(--gap);
     align-content: start;
     justify-items: center;
     min-width: 0;
     max-width: 100%;
+}
+
+.stage[data-solve-size="small"] {
+    --solve-cube-max-w: 240px;
+    --solve-timer-min-h: 140px;
+    --solve-timer-font: 2.6rem;
+}
+
+.stage[data-solve-size="medium"] {
+    --solve-cube-max-w: 300px;
+    --solve-timer-min-h: 180px;
+    --solve-timer-font: 3.4rem;
+}
+
+.stage[data-solve-size="large"] {
+    --solve-cube-max-w: 380px;
+    --solve-timer-min-h: 240px;
+    --solve-timer-font: 4.2rem;
+}
+
+/* Solve mode specific widget sizing */
+.stage.mode-solve .cube-card #display-container {
+    width: min(100%, var(--solve-cube-max-w));
+}
+
+.stage.mode-solve .solve-surface {
+    min-height: var(--solve-timer-min-h);
+}
+
+.stage.mode-solve .solve-time {
+    font-size: var(--solve-timer-font);
 }
 
 @supports (height: 1dvh) {
@@ -3037,6 +3071,71 @@ html.overview-open body {
     .stage {
         --cube-w: min(720px, max(280px, calc((var(--vh) - 24rem) * 1.5)));
     }
+
+    /* Desktop Solve mode: side-by-side 3D cube & timer layout */
+    .stage.mode-solve {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: stretch;
+        --cube-w: 100%;
+        max-width: 960px;
+        gap: 12px;
+    }
+
+    .stage.mode-solve > * {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .stage.mode-solve .mode-seg,
+    .stage.mode-solve .solve-scramble,
+    .stage.mode-solve .layer-solutions-widget,
+    .stage.mode-solve .solve-times {
+        grid-column: 1 / -1;
+    }
+
+    .stage.mode-solve .cube-card {
+        grid-column: 1;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 8px 12px;
+        box-sizing: border-box;
+    }
+
+    .stage.mode-solve .cube-card #display-container {
+        width: min(100%, var(--solve-cube-max-w));
+    }
+
+    .stage.mode-solve .cube-card scramble-display {
+        width: 100%;
+        height: auto;
+    }
+
+    .stage.mode-solve .cube-card-controls {
+        justify-content: center;
+        gap: 6px;
+        margin-top: 4px;
+        max-width: 100%;
+    }
+
+    .stage.mode-solve .solve-surface {
+        grid-column: 2;
+        height: 100%;
+        min-height: var(--solve-timer-min-h);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 12px;
+        box-sizing: border-box;
+    }
+
+    /* When 3D Cube is hidden in solve mode, timer spans both columns */
+    .stage.mode-solve.solve-cube-hidden .solve-surface {
+        grid-column: 1 / -1;
+    }
 }
 
 /* Large screens */
@@ -3054,6 +3153,11 @@ html.overview-open body {
 
     .stage {
         --cube-w: min(900px, max(280px, calc((var(--vh) - 24rem) * 1.5)));
+    }
+
+    .stage.mode-solve {
+        max-width: 1080px;
+        gap: 16px;
     }
 }
 
