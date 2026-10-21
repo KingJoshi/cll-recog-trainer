@@ -1633,6 +1633,11 @@ function renderStage() {
   }
   if (stage) {
     stage.classList.toggle("mode-solve", solving);
+    stage.classList.toggle("mode-study", studying);
+    stage.classList.toggle("mode-practice", practicing);
+    stage.classList.toggle("mode-simulate", simulating);
+    stage.classList.toggle("mode-timed", mode === "timed");
+    stage.dataset.mode = mode;
     stage.classList.toggle("solve-cube-hidden", hideCubeInSolve);
     stage.dataset.solveSize = solveWidgetSize;
   }
