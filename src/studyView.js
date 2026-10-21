@@ -1,7 +1,7 @@
 // Study View: Handles Case Grid, 3D Flashcard, and Reference Guide for any active track
 
 import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg } from './data/algRegistry.js';
-import { renderCaseSvg } from './caseVisualizer.js';
+import { renderCaseSvg, applyColorsTo3DCube } from './caseVisualizer.js';
 import { ScrambleDisplay } from 'scramble-display';
 
 export class StudyView {
@@ -434,6 +434,7 @@ export class StudyView {
         el.scramble = (is333Case ? `z2 ${setupAlg}` : setupAlg).trim();
         wrapEl.appendChild(el);
         this.activeDisplay3d = el;
+        applyColorsTo3DCube(el);
 
         const resetBtn = this.container.querySelector('#studyReset3dBtn');
         if (resetBtn) {

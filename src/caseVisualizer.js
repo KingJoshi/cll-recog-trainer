@@ -8,7 +8,7 @@ import { Alg } from 'cubing/alg';
 // Defaults matched to the bright, vibrant 3D cube
 export const DEFAULT_CUBE_COLORS = {
   white:  "#ffffff", // pure crisp white
-  yellow: "#ffd500", // bright golden yellow
+  yellow: "#ffff00", // pure vibrant yellow (matching 3D cube)
   green:  "#32cd32", // bright lime green (matching 3D cube)
   blue:   "#2266ff", // vibrant royal blue (matching 3D cube)
   red:    "#ff0000", // vivid red (matching 3D cube)
@@ -53,6 +53,84 @@ export function applyCubeColorsToCss(colors = CUBE_COLORS) {
   root.style.setProperty('--cube-red', colors.red);
   root.style.setProperty('--cube-orange', colors.orange);
   root.style.setProperty('--cube-slate', colors.slate);
+}
+
+export function hexToRgb(hex) {
+  if (!hex) return [255, 255, 255];
+  const clean = hex.replace('#', '');
+  const num = parseInt(clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean, 16);
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+function classifyBaseVertex(r, g, b) {
+  if (r < 50 && g < 50 && b < 50) return 'black';
+  if (r > 200 && g > 200 && b > 200) return 'white';
+  if (r > 180 && g > 180 && b < 60) return 'yellow';
+  if (r < 100 && g > 160 && b < 80) return 'green';
+  if (r < 80 && g < 150 && b > 180) return 'blue';
+  if (r > 180 && g < 60 && b < 60) return 'red';
+  if (r > 180 && g >= 60 && g <= 180 && b < 60) return 'orange';
+  return null;
+}
+
+export function applyColorsToThreeJSPuzzle(p, colors = CUBE_COLORS) {
+  if (!p || typeof p.traverse !== 'function') return false;
+
+  const targetRgb = {
+    white: hexToRgb(colors.white || '#ffffff'),
+    yellow: hexToRgb(colors.yellow || '#ffff00'),
+    green: hexToRgb(colors.green || '#32cd32'),
+    blue: hexToRgb(colors.blue || '#2266ff'),
+    red: hexToRgb(colors.red || '#ff0000'),
+    orange: hexToRgb(colors.orange || '#ff8000')
+  };
+
+  let needsRender = false;
+  p.traverse(node => {
+    if (node.geometry && node.geometry.attributes && node.geometry.attributes.color) {
+      const attr = node.geometry.attributes.color;
+      if (!node.geometry.userData.origColors) {
+        node.geometry.userData.origColors = new Float32Array(attr.array);
+      }
+      const orig = node.geometry.userData.origColors;
+      const cur = attr.array;
+      let modified = false;
+      for (let i = 0; i < orig.length; i += 3) {
+        const type = classifyBaseVertex(orig[i], orig[i + 1], orig[i + 2]);
+        if (type && targetRgb[type]) {
+          cur[i] = targetRgb[type][0];
+          cur[i + 1] = targetRgb[type][1];
+          cur[i + 2] = targetRgb[type][2];
+          modified = true;
+        }
+      }
+      if (modified) {
+        attr.needsUpdate = true;
+        needsRender = true;
+      }
+    }
+  });
+
+  if (needsRender) {
+    p.scheduleRenderCallback?.();
+  }
+  return needsRender;
+}
+
+export async function applyColorsTo3DCube(scrambleDisplayEl, colors = CUBE_COLORS) {
+  if (typeof window === 'undefined' || !scrambleDisplayEl) return;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    try {
+      if (scrambleDisplayEl.player) {
+        const p = await scrambleDisplayEl.player.experimentalCurrentThreeJSPuzzleObject?.();
+        if (p) {
+          applyColorsToThreeJSPuzzle(p, colors);
+          return;
+        }
+      }
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 60));
+  }
 }
 
 const CORNER_FACES_222 = [

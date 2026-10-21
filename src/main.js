@@ -19,7 +19,8 @@ import {
   setCustomCubeColors,
   applyCubeColorsToCss,
   clearSvgCache,
-  renderCaseSvg
+  renderCaseSvg,
+  applyColorsTo3DCube
 } from './caseVisualizer.js';
 import './style.css';
 
@@ -608,6 +609,7 @@ el.event = currentPuzzle;
 el.visualization = "3D";
 applyReflection();
 displayContainer.appendChild(el);
+applyColorsTo3DCube(el);
 
 let currentBaseDisplayScramble = "";
 
@@ -655,6 +657,7 @@ function applyScrambleToDisplay(scrambleString) {
       el.player.jumpToEnd();
     } catch (e) {}
   }
+  applyColorsTo3DCube(el);
 }
 
 async function resetCubeOrientation() {
@@ -802,6 +805,7 @@ function setPuzzle(puzzleId) {
   if (puzzleId !== "222" && puzzleId !== "333") return;
   currentPuzzle = puzzleId;
   el.event = currentPuzzle;
+  applyColorsTo3DCube(el);
 
   puzzleButtons.forEach(btn => {
     const active = btn.dataset.puzzle === currentPuzzle;
@@ -1145,6 +1149,7 @@ function applyReflection() {
         p.updateMaterialArrays();
         p.scheduleRenderCallback?.();
       }
+      applyColorsTo3DCube(el);
     }).catch(() => {});
   } catch (err) {
     console.warn("Could not update reflection facelets:", err);
@@ -3932,6 +3937,10 @@ function renderColorPickers() {
 
 function refreshActiveViews() {
   clearSvgCache();
+  applyColorsTo3DCube(el);
+  if (studyView?.activeDisplay3d) {
+    applyColorsTo3DCube(studyView.activeDisplay3d);
+  }
   if (mode === "study" && studyView) {
     studyView.render();
   } else if (mode === "practice" && practiceView) {

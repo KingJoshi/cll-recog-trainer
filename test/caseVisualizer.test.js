@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { renderCaseSvg } from '../src/caseVisualizer.js';
+import { renderCaseSvg, CUBE_COLORS } from '../src/caseVisualizer.js';
 import { pllCases } from '../src/data/pllData.js';
 import { ollCases } from '../src/data/ollData.js';
 import { f2lCases } from '../src/data/f2lData.js';
@@ -14,7 +14,7 @@ test('renderCaseSvg generates valid SVG for 3x3 PLL cases', async () => {
     assert.ok(svg.endsWith('</svg>'), `PLL ${c.id} should end with SVG root`);
     assert.ok(svg.includes('class="case-svg case-svg-pll"'), `PLL ${c.id} should have correct class`);
     // Yellow facelets
-    assert.ok(svg.includes('#ffd500'), `PLL ${c.id} should have yellow facelets`);
+    assert.ok(svg.includes(CUBE_COLORS.yellow), `PLL ${c.id} should have yellow facelets`);
   }
 });
 
