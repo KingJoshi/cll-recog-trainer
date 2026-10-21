@@ -76,7 +76,7 @@ export const ollCases = [
       },
       {
         "id": "oll-05-2",
-        "alg": "l' U2 L U L' U l",
+        "alg": "y2 l' U2 L U L' U l",
         "note": "Left variant"
       }
     ],
@@ -255,17 +255,17 @@ export const ollCases = [
     "algs": [
       {
         "id": "oll-17-1",
-        "alg": "F R' F' R2 r' U R U' r' R",
+        "alg": "R U R' U R' F R F' U2 R' F R F'",
         "note": "Standard",
         "isDefault": true
       },
       {
         "id": "oll-17-2",
-        "alg": "R U R' U R' F R F' U2 R' F R F'",
-        "note": "Alternative"
+        "alg": "(R U R' U) (R' F R F') U2 (R' F R F')",
+        "note": "Alternative grouping"
       }
     ],
-    "setup": "R' r U R' U' r R2' F R F'"
+    "setup": "F R' F' R U2' F R' F' R U' R U' R'"
   },
   {
     "id": "oll-18",
@@ -331,7 +331,7 @@ export const ollCases = [
       },
       {
         "id": "oll-21-2",
-        "alg": "y F (R U R' U')3 F'",
+        "alg": "F (R U R' U')3 F'",
         "note": "Triple Sexy variant"
       }
     ],
@@ -391,8 +391,8 @@ export const ollCases = [
       },
       {
         "id": "oll-24-2",
-        "alg": "y (R' U' R) y (R U R' U') (R' U' R)",
-        "note": "RU-only variant"
+        "alg": "y2 l' U' L U l F' L' F",
+        "note": "Left-handed variant"
       }
     ],
     "setup": "F R' F' r U R U' r'"
@@ -471,7 +471,7 @@ export const ollCases = [
       },
       {
         "id": "oll-28-2",
-        "alg": "M' U M U2 M' U M",
+        "alg": "M U M' U2 M U M'",
         "note": "MU-gen variant"
       }
     ],
@@ -536,7 +536,7 @@ export const ollCases = [
       },
       {
         "id": "oll-32-2",
-        "alg": "R U B' U' R' U R B R'",
+        "alg": "y2 R U B' U' R' U R B R'",
         "note": "Back variant"
       }
     ],
@@ -601,7 +601,7 @@ export const ollCases = [
       },
       {
         "id": "oll-36-2",
-        "alg": "L' U' L U' L' U L U L F' L' F",
+        "alg": "y2 L' U' L U' L' U L U L F' L' F",
         "note": "Left mirror"
       }
     ],
@@ -846,8 +846,8 @@ export const ollCases = [
       },
       {
         "id": "oll-52-2",
-        "alg": "F R U R' U' R U R' U' F'",
-        "note": "Double sexy variant"
+        "alg": "R U R' U R U' B U' B' R'",
+        "note": "Alternative variant"
       }
     ],
     "setup": "B' R' U' R d' R U R' U R"
@@ -926,8 +926,8 @@ export const ollCases = [
       },
       {
         "id": "oll-57-2",
-        "alg": "M' U' M U2 M' U' M",
-        "note": "MU-gen variant"
+        "alg": "y2 (R U R' U') M' (U R U' r')",
+        "note": "Opposite angle variant"
       }
     ],
     "setup": "r U R' U' M U R U' R'"

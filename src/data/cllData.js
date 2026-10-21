@@ -29,7 +29,7 @@ export const cllCases = [
     "name": "CLL A2 (A-Group)",
     "group": "A-Group",
     "opposite": "S2",
-    "setup": "F2 U' F R' U' R2 F R' U R",
+    "setup": "R U R' U' R' F R F' R U' R' F R' F' R",
     "scrambles": [
       "F2 U' F R' U' R2 F R' U R",
       "R U2 F R' U2 R2 U' F U2 R",
@@ -95,7 +95,7 @@ export const cllCases = [
     "name": "CLL A5 (A-Group)",
     "group": "A-Group",
     "opposite": "S5",
-    "setup": "R2 F' U' R2 U' F U R2 F R'",
+    "setup": "R U R' U' R' F R F' R U R' U R U2' R'",
     "scrambles": [
       "R2 F' U' R2 U' F U R2 F R'",
       "R' F U2 R U R' U2 R' F' R2",

@@ -160,3 +160,87 @@ test('2-Sided recognition guide integrity', () => {
   }
   assert.strictEqual(pllRulesCount, 21, 'Must cover all 21 PLL cases in 2-sided guide');
 });
+
+test('Full mathematical simulation verification of all algorithms', async () => {
+  const { puzzles } = await import('cubing/puzzles');
+  const kp2 = await puzzles['2x2x2'].kpuzzle();
+  const kp3 = await puzzles['3x3x3'].kpuzzle();
+  const def2 = kp2.defaultPattern();
+  const def3 = kp3.defaultPattern();
+
+  // 1. Ortega OLL & PBL
+  for (const c of ortegaCases) {
+    const isOLL = c.group.includes('OLL');
+    for (const a of c.algs) {
+      const algStr = `${c.setup} ${a.alg}`;
+      const pat = def2.applyAlg(new Alg(algStr));
+      if (isOLL) {
+        const ori = pat.patternData.CORNERS.orientation.slice(0, 4);
+        assert.ok(ori.every(o => o === 0), `Ortega OLL ${c.id} ${a.id} must orient top corners`);
+      } else {
+        let solved = false;
+        for (const auf of ['', 'U', 'U2', "U'"]) {
+          const checkPat = def2.applyAlg(new Alg(`${algStr} ${auf}`));
+          const pieces = checkPat.patternData.CORNERS.pieces;
+          const ori = checkPat.patternData.CORNERS.orientation;
+          if (pieces.every((p, idx) => p === idx) && ori.every(o => o === 0)) {
+            solved = true;
+            break;
+          }
+        }
+        assert.ok(solved, `Ortega PBL ${c.id} ${a.id} must solve the cube`);
+      }
+    }
+  }
+
+  // 2. 2x2 CLL
+  for (const c of cllCases) {
+    for (const a of c.algs) {
+      const algStr = `${c.setup} ${a.alg}`;
+      let solved = false;
+      for (const auf of ['', 'U', 'U2', "U'"]) {
+        const pat = def2.applyAlg(new Alg(`${algStr} ${auf}`));
+        const pieces = pat.patternData.CORNERS.pieces;
+        const ori = pat.patternData.CORNERS.orientation;
+        if (pieces.every((p, idx) => p === idx) && ori.every(o => o === 0)) {
+          solved = true;
+          break;
+        }
+      }
+      assert.ok(solved, `CLL ${c.id} ${a.id} must solve the cube`);
+    }
+  }
+
+  // 3. 3x3 PLL
+  for (const c of pllCases) {
+    for (const a of c.algs) {
+      const algStr = `${c.setup} ${a.alg}`;
+      let solved = false;
+      for (const auf of ['', 'U', 'U2', "U'"]) {
+        const pat = def3.applyAlg(new Alg(`${algStr} ${auf}`));
+        const cPieces = pat.patternData.CORNERS.pieces;
+        const cOri = pat.patternData.CORNERS.orientation;
+        const ePieces = pat.patternData.EDGES.pieces;
+        const eOri = pat.patternData.EDGES.orientation;
+        if (cPieces.every((p, i) => p === i) && cOri.every(o => o === 0) &&
+            ePieces.every((p, i) => p === i) && eOri.every(o => o === 0)) {
+          solved = true;
+          break;
+        }
+      }
+      assert.ok(solved, `PLL ${c.id} ${a.id} must solve the cube`);
+    }
+  }
+
+  // 4. 3x3 OLL
+  for (const c of ollCases) {
+    for (const a of c.algs) {
+      const algStr = `${c.setup} ${a.alg}`;
+      const pat = def3.applyAlg(new Alg(algStr));
+      const cOri = pat.patternData.CORNERS.orientation.slice(0, 4);
+      const eOri = pat.patternData.EDGES.orientation.slice(0, 4);
+      assert.ok(cOri.every(o => o === 0), `OLL ${c.number} ${a.id} must orient corners`);
+      assert.ok(eOri.every(o => o === 0), `OLL ${c.number} ${a.id} must orient edges`);
+    }
+  }
+});

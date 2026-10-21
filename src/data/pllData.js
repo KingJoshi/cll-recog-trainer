@@ -21,7 +21,7 @@ export const pllCases = [
       },
       {
         "id": "ua-3",
-        "alg": "y2 R2 U' R' U' R U R U R U' R",
+        "alg": "y2 R2 U' R' U' R U R U R U' R y2",
         "note": "Back-bar variant"
       }
     ],
@@ -46,7 +46,7 @@ export const pllCases = [
       },
       {
         "id": "ub-3",
-        "alg": "y2 R' U R' U' R' U' R' U R U R2",
+        "alg": "y2 R' U R' U' R' U' R' U R U R2 y2",
         "note": "Left-flick variant"
       }
     ],
@@ -86,13 +86,13 @@ export const pllCases = [
       },
       {
         "id": "z-2",
-        "alg": "y' M' U' M2' U' M2' U' M' U2 M2'",
-        "note": "Alternative finger-trick"
+        "alg": "y M2' U' M2' U' M' U2 M2' U2 M' y'",
+        "note": "Alternative finger-trick with rotation"
       },
       {
         "id": "z-3",
-        "alg": "M2' U' M2' U' M' U2 M2' U2 M'",
-        "note": "U' variant"
+        "alg": "M2' U M2' U M' U2 M2' U2 M'",
+        "note": "Standard variant"
       }
     ],
     "setup": "M U2' M2 U2' M U' M2 U' M2"
@@ -111,7 +111,7 @@ export const pllCases = [
       },
       {
         "id": "aa-2",
-        "alg": "y x' R2 D2 R' U' R D2 R' U R' x",
+        "alg": "y x' R2 D2 R' U' R D2 R' U R' x y'",
         "note": "Alternative grip"
       }
     ],
@@ -131,7 +131,7 @@ export const pllCases = [
       },
       {
         "id": "ab-2",
-        "alg": "y2 x' R U' R D2 R' U R D2 R2 x",
+        "alg": "y x' R U' R D2 R' U R D2 R2 x y'",
         "note": "Headlights in front"
       }
     ],
@@ -151,13 +151,13 @@ export const pllCases = [
       },
       {
         "id": "ja-2",
-        "alg": "y' L' U' L F L' U' L U L F' L2' U L",
-        "note": "Left-handed Jb mirror"
+        "alg": "U' R' U L' U2 R U' R' U2 R L",
+        "note": "Niklas-style 2-gen (AUF aligned)"
       },
       {
         "id": "ja-3",
-        "alg": "R' U L' U2 R U' R' U2 R L",
-        "note": "Niklas-style 2-gen"
+        "alg": "y2 L' U' L F L' U' L U L F' L2' U L y2 U",
+        "note": "Left-handed Jb mirror with rotation"
       }
     ],
     "setup": "x U2' r' U' r U2' R' F R' F' R2' x'"
@@ -256,8 +256,8 @@ export const pllCases = [
       },
       {
         "id": "f-2",
-        "alg": "R' U2 R' d' R' F' R2 U' R' U R' F R U' F",
-        "note": "Alternative finger-trick"
+        "alg": "y R' U2 R' d' R' F' R2 U' R' U R' F R U' F y2",
+        "note": "Alternative finger-trick with rotation"
       }
     ],
     "setup": "R' U' R U' R' U R U R2' F' R U R U' R' F U R"
@@ -276,7 +276,7 @@ export const pllCases = [
       },
       {
         "id": "v-2",
-        "alg": "R' U R' U' B' R' B2 U' B' U B' R B R",
+        "alg": "R' U R' U' B' R' B2 U' B' U B' R B R y",
         "note": "Rotationless B variant"
       }
     ],
@@ -296,8 +296,8 @@ export const pllCases = [
       },
       {
         "id": "y-2",
-        "alg": "R2 U' R' U R U' x' z' R U' R' U' R U R' x z",
-        "note": "Speed variant"
+        "alg": "F R' F R2 U' R' U' R U R' F' R U R' U' F'",
+        "note": "Fast alternative"
       }
     ],
     "setup": "F R' F' R U R U' R' F R U' R' U R U R' F'"
@@ -316,8 +316,8 @@ export const pllCases = [
       },
       {
         "id": "e-2",
-        "alg": "y x' R U' R' D R U R' u2 R' U R D R' U' R x",
-        "note": "u2 variant"
+        "alg": "x' L' U L D' L' U' L D L' U' L D' L' U L D x",
+        "note": "Left-handed mirror"
       }
     ],
     "setup": "x' D R U R' D' R U' R' D R U' R' D' R U R' x"
@@ -376,7 +376,7 @@ export const pllCases = [
       },
       {
         "id": "ga-2",
-        "alg": "R2 u R' U R' U' R u' R2 y' R' U R",
+        "alg": "R2 u R' U R' U' R u' R2' F' U F U'",
         "note": "Wide u turn variant"
       }
     ],
@@ -390,17 +390,17 @@ export const pllCases = [
     "algs": [
       {
         "id": "gb-1",
-        "alg": "R' U' R y R2 u R' U R U' R u' R2",
-        "note": "Standard with rotation",
+        "alg": "R' U' R U D' R2 U R' U R U' R U' R2 D",
+        "note": "Standard RUD-gen",
         "isDefault": true
       },
       {
         "id": "gb-2",
-        "alg": "F' U' F R2 u R' U R U' R u' R2",
-        "note": "F-start variant"
+        "alg": "y F' U' F R2 u R' U R U' R u' R2 y' U",
+        "note": "F-start wide-u variant"
       }
     ],
-    "setup": "R2' u R' U R' U' R u' R2' y' R' U R"
+    "setup": "R2' U R' U R' U' R U' R2' D U' R' U R D'"
   },
   {
     "id": "Gc",
@@ -416,7 +416,7 @@ export const pllCases = [
       },
       {
         "id": "gc-2",
-        "alg": "R2 u' R U' R U R' u R2 y R U' R'",
+        "alg": "R2 u' R U' R U R' u R2' f R' f' U",
         "note": "Wide u' turn variant"
       }
     ],
@@ -430,17 +430,17 @@ export const pllCases = [
     "algs": [
       {
         "id": "gd-1",
-        "alg": "R U R' y' R2 u' R U' R' U R' u R2",
-        "note": "Standard with rotation",
+        "alg": "R U R' U' D R2 U' R U' R' U R' U R2 D'",
+        "note": "Standard RUD-gen",
         "isDefault": true
       },
       {
         "id": "gd-2",
-        "alg": "R U R' U' D R2 U' R U' R' U R' U R2 D'",
-        "note": "Rotationless RUD variant"
+        "alg": "R U R' y' R2 u' R U' R' U R' u R2 y U'",
+        "note": "Standard with rotation"
       }
     ],
-    "setup": "R2' u' R U' R U R' u R2' y R U' R'"
+    "setup": "R2' U' R U' R U R' U R2' D' U R U' R' D"
   }
 ];
 

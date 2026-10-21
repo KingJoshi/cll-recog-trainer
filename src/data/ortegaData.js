@@ -16,8 +16,8 @@ export const ortegaCases = [
       },
       {
         "id": "o-h-2",
-        "alg": "F (R U R' U')2 F'",
-        "note": "Double sexy variant"
+        "alg": "F (R U R' U')3 F'",
+        "note": "Triple sexy variant"
       }
     ],
     "setup": "R2' U2' R' U2' R2'"
@@ -86,8 +86,8 @@ export const ortegaCases = [
       },
       {
         "id": "o-l-2",
-        "alg": "R U2 R' U' (R U R' U') R U' R'",
-        "note": "RU-only variant"
+        "alg": "F R U' R' U' R U R' F'",
+        "note": "Alternative trigger variant"
       }
     ],
     "setup": "R U R' U' R' F R F'"
@@ -137,14 +137,14 @@ export const ortegaCases = [
       },
       {
         "id": "adj-adj-2",
-        "alg": "R2 U' R2' U2 y R2 U' R2'",
+        "alg": "y2 R2 U' R2' U2 y R2 U' R2'",
         "note": "RU-only variant with rotation",
         "isDefault": false
       },
       {
         "id": "adj-adj-3",
-        "alg": "R U' R' U' F2 U' R U R' U F2",
-        "note": "Trigger-based (Sexy + F2 triggers)",
+        "alg": "R2' U R2 U2' B2' U R2'",
+        "note": "Inverse trigger variant",
         "isDefault": false
       }
     ]
@@ -164,14 +164,14 @@ export const ortegaCases = [
       },
       {
         "id": "opp-opp-2",
-        "alg": "R2 B2 R2",
-        "note": "Back-face variant",
+        "alg": "y2 R2 B2 R2",
+        "note": "Back-face variant with rotation",
         "isDefault": false
       },
       {
         "id": "opp-opp-3",
-        "alg": "R' F R F' R U2 R' U' F R' F' R",
-        "note": "Ergonomic trigger sequence",
+        "alg": "R2' F2 R2",
+        "note": "Alternative execution",
         "isDefault": false
       }
     ]
@@ -191,14 +191,14 @@ export const ortegaCases = [
       },
       {
         "id": "adj-opp-2",
-        "alg": "R' U L' U2 R U' L",
-        "note": "Niklas-style 2-gen variant",
+        "alg": "U2 R' U L' U2 R U' L",
+        "note": "Niklas-style variant (from back)",
         "isDefault": false
       },
       {
         "id": "adj-opp-3",
-        "alg": "R' U R' F2 R F' R",
-        "note": "Alternative grip",
+        "alg": "U2 R' U R' F2 R F' R",
+        "note": "Alternative grip (from back)",
         "isDefault": false
       }
     ]
@@ -245,14 +245,14 @@ export const ortegaCases = [
       },
       {
         "id": "opp-solved-2",
-        "alg": "R U' R' U' F2 U' R U R' D R2",
-        "note": "Short D-move variant",
+        "alg": "y R U' R' U' F2 U' R U R' D R2 U2",
+        "note": "Short D-move variant with rotation & AUF",
         "isDefault": false
       },
       {
         "id": "opp-solved-3",
-        "alg": "R' U R' U' y R' F' R2 U' R' U R' F R F",
-        "note": "V-Perm variant",
+        "alg": "y' R' U R' U' y R' F' R2 U' R' U R' F R F U2",
+        "note": "V-Perm variant with AUF",
         "isDefault": false
       }
     ]

@@ -17,15 +17,15 @@ export const pblCases = [
       },
       {
         id: "adj-adj-2",
-        label: "R2 U' R2' U2 y R2 U' R2'",
-        alg: "R2 U' R2' U2 y R2 U' R2'",
+        label: "y2 R2 U' R2' U2 y R2 U' R2'",
+        alg: "y2 R2 U' R2' U2 y R2 U' R2'",
         note: "RU-only variant with rotation"
       },
       {
         id: "adj-adj-3",
-        label: "(R U' R' U') F2 U' (R U R') U F2",
-        alg: "R U' R' U' F2 U' R U R' U F2",
-        note: "Trigger-based (Sexy + F2 triggers)"
+        label: "R2' U R2 U2' B2' U R2'",
+        alg: "R2' U R2 U2' B2' U R2'",
+        note: "Inverse trigger variant"
       }
     ]
   },
@@ -44,15 +44,15 @@ export const pblCases = [
       },
       {
         id: "opp-opp-2",
-        label: "R2 B2 R2",
-        alg: "R2 B2 R2",
-        note: "Back-face variant"
+        label: "y2 R2 B2 R2",
+        alg: "y2 R2 B2 R2",
+        note: "Back-face variant with rotation"
       },
       {
         id: "opp-opp-3",
-        label: "(R' F R F') (R U2 R' U') (F R' F' R)",
-        alg: "R' F R F' R U2 R' U' F R' F' R",
-        note: "Ergonomic trigger sequence"
+        label: "R2' F2 R2",
+        alg: "R2' F2 R2",
+        note: "Alternative execution"
       }
     ]
   },
@@ -71,15 +71,15 @@ export const pblCases = [
       },
       {
         id: "adj-opp-2",
-        label: "(R' U L') U2 (R U' L)",
-        alg: "R' U L' U2 R U' L",
-        note: "Niklas-style 2-gen variant"
+        label: "U2 (R' U L') U2 (R U' L)",
+        alg: "U2 R' U L' U2 R U' L",
+        note: "Niklas-style variant (from back)"
       },
       {
         id: "adj-opp-3",
-        label: "R' U R' F2 R F' R",
-        alg: "R' U R' F2 R F' R",
-        note: "Alternative grip"
+        label: "U2 R' U R' F2 R F' R",
+        alg: "U2 R' U R' F2 R F' R",
+        note: "Alternative grip (from back)"
       }
     ]
   },
@@ -125,15 +125,15 @@ export const pblCases = [
       },
       {
         id: "opp-solved-2",
-        label: "(R U' R' U') F2 U' (R U R') D R2",
-        alg: "R U' R' U' F2 U' R U R' D R2",
-        note: "Short D-move variant"
+        label: "y (R U' R' U') F2 U' (R U R') D R2 U2",
+        alg: "y R U' R' U' F2 U' R U R' D R2 U2",
+        note: "Short D-move variant with rotation & AUF"
       },
       {
         id: "opp-solved-3",
-        label: "(R' U R' U') y (R' F' R2 U') (R' U R' F) R F",
-        alg: "R' U R' U' y R' F' R2 U' R' U R' F R F",
-        note: "V-Perm variant"
+        label: "y' (R' U R' U') y (R' F' R2 U') (R' U R' F) R F U2",
+        alg: "y' R' U R' U' y R' F' R2 U' R' U R' F R F U2",
+        note: "V-Perm variant with AUF"
       }
     ]
   }
