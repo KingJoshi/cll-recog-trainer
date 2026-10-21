@@ -3017,6 +3017,7 @@ html.overview-open body {
         align-items: start;
     }
 
+    .track-bar,
     .mode-seg,
     .timed-bar,
     .solve-scramble {
@@ -3105,6 +3106,7 @@ html.overview-open body {
         max-width: 100%;
     }
 
+    .stage.mode-solve .track-bar,
     .stage.mode-solve .mode-seg,
     .stage.mode-solve .solve-scramble,
     .stage.mode-solve .layer-solutions-widget,
@@ -3826,11 +3828,18 @@ html.overview-open body {
         align-items: center;
     }
 
-    .app-title {
+    .header-brand {
         grid-column: 1 / 3;
         grid-row: 1;
-        font-size: 1.05rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .app-title {
+        font-size: 1rem;
         margin: 0;
+        white-space: nowrap;
     }
 
     .header-actions {
@@ -4016,3 +4025,406 @@ html.overview-open body {
 }
 
 
+
+/* --------------------------------------------------------------------------
+   Multi-Puzzle & Multi-Track Navigation (2x2 / 3x3)
+   -------------------------------------------------------------------------- */
+
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.puzzle-seg {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--surface);
+}
+
+.puzzle-btn {
+    padding: 4px 10px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.puzzle-btn.active {
+    background: var(--primary);
+    color: #ffffff;
+}
+
+.track-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 100%;
+    box-sizing: border-box;
+    flex-wrap: wrap;
+    margin: 0 auto;
+}
+
+.track-btn {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.track-btn:hover {
+    color: var(--text);
+    background: var(--surface-2);
+}
+
+.track-btn.active {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+}
+
+/* --------------------------------------------------------------------------
+   Study View & Case Grid
+   -------------------------------------------------------------------------- */
+
+.study-container {
+    width: min(100%, 960px);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.study-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.study-track-title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.study-track-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.study-subnav {
+    display: inline-flex;
+    gap: 6px;
+}
+
+.study-subnav-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.study-subnav-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.study-group-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 6px 0 12px;
+}
+
+.study-filter-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.study-group-pill {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.study-group-pill.active {
+    background: var(--text);
+    color: var(--surface);
+    border-color: var(--text);
+}
+
+.study-case-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.study-card {
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.study-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--primary);
+}
+
+.study-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.study-card-id {
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: var(--primary);
+}
+
+.study-card-group {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--surface-2);
+    color: var(--muted);
+}
+
+.study-card-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.study-card-alg-box {
+    padding: 8px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 0.85rem;
+    word-break: break-word;
+}
+
+.study-card-alg-note {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: inherit;
+    margin-top: 4px;
+}
+
+.study-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: auto;
+}
+
+.study-star-btn {
+    border: none;
+    background: transparent;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: var(--muted);
+    transition: color 0.15s ease;
+}
+
+.study-star-btn.starred {
+    color: #f59e0b;
+}
+
+.study-alg-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+}
+
+.study-alg-row.preferred {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.study-alg-info {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.study-alg-text {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+/* --------------------------------------------------------------------------
+   Practice Recognition & Inspection Planning
+   -------------------------------------------------------------------------- */
+
+.pll-keypad-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+    gap: 6px;
+}
+
+.pll-key {
+    padding: 8px 4px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pll-key.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.inspection-drill-card {
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+
+.inspection-clock {
+    font-size: 3.5rem;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    transition: color 0.2s ease;
+}
+
+.inspection-clock.warning {
+    color: #f59e0b;
+}
+
+.inspection-clock.danger {
+    color: #ef4444;
+}
+
+.inspection-solutions-reveal {
+    width: 100%;
+    max-width: 600px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.inspection-sol-item {
+    padding: 10px 12px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.inspection-sol-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.inspection-sol-moves {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--primary);
+}
+
+.chip-cross1 {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.chip-eo {
+    background: rgba(59, 130, 246, 0.12);
+    color: #3b82f6;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.cross-eo-summary {
+    margin-bottom: 12px;
+}
+
+.cross-eo-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    font-size: 0.85rem;
+}
+
+.cross-eo-label {
+    font-weight: 700;
+    color: var(--text);
+}

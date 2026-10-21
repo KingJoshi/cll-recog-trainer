@@ -2,9 +2,17 @@ import { ScrambleDisplay } from 'scramble-display';
 import { puzzles } from 'cubing/puzzles';
 import { randomScrambleForEvent } from 'cubing/scramble';
 import { findLayerSolutions } from './layerSolver.js';
+import { findCrossSolutions } from './crossSolver.js';
 import { Alg } from 'cubing/alg';
 import { cllCases } from './casesData.js';
 import { pblCases, pblCaseById } from './pblData.js';
+import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg } from './data/algRegistry.js';
+import { StudyView } from './studyView.js';
+import { PracticeView } from './practiceView.js';
+import { pllCases } from './data/pllData.js';
+import { ollCases } from './data/ollData.js';
+import { f2lCases } from './data/f2lData.js';
+import { ortegaCases } from './data/ortegaData.js';
 import './style.css';
 
 // Register service worker for offline support (production only; the dev
@@ -99,6 +107,9 @@ function resetCaseAppearances() {
 
 const savedSettings = readJSON(SETTINGS_KEY) || {};
 
+let currentPuzzle = savedSettings.currentPuzzle === "333" ? "333" : "222";
+let currentTrackId = savedSettings.currentTrackId || (currentPuzzle === "333" ? "pll" : "cll");
+
 let selectedCases = new Set(
   Array.isArray(savedSettings.selected)
     ? savedSettings.selected.filter(id => caseById.has(id))
@@ -122,6 +133,19 @@ const MODES = ["solve", "study", "practice", "timed", "simulate"];
 let mode = MODES.includes(savedSettings.mode)
   ? savedSettings.mode
   : "solve";
+
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.has("puzzle")) {
+  const p = urlParams.get("puzzle");
+  if (p === "222" || p === "333") currentPuzzle = p;
+}
+if (urlParams.has("track")) {
+  currentTrackId = urlParams.get("track");
+}
+if (urlParams.has("mode")) {
+  const m = urlParams.get("mode");
+  if (MODES.includes(m)) mode = m;
+}
 let timedMinutes = clampMinutes(savedSettings.timedMinutes ?? 3);
 
 let session = null;        // running timed session
@@ -317,6 +341,8 @@ function saveStats() {
 
 function saveSettings() {
   writeJSON(SETTINGS_KEY, {
+    currentPuzzle,
+    currentTrackId,
     selected: [...selectedCases],
     alwaysWhiteBottom,
     allowAUF,
@@ -460,6 +486,21 @@ const solveSessionBadge = document.getElementById("solveSessionBadge");
 const solveScrambleOrient = document.getElementById("solveScrambleOrient");
 const layerStatsBar = document.getElementById("layerStatsBar");
 
+// Multi-Puzzle & Multi-Track Elements
+const puzzleSwitcher = document.getElementById("puzzleSwitcher");
+const puzzleButtons = puzzleSwitcher ? Array.from(puzzleSwitcher.querySelectorAll(".puzzle-btn")) : [];
+const trackBar = document.getElementById("trackBar");
+const studyViewContainer = document.getElementById("studyViewContainer");
+const practiceViewContainer = document.getElementById("practiceViewContainer");
+const crossSolutionsWidget = document.getElementById("crossSolutionsWidget");
+const crossSolutionsTitle = document.getElementById("crossSolutionsTitle");
+const crossSolutionsBadge = document.getElementById("crossSolutionsBadge");
+const crossSolutionsList = document.getElementById("crossSolutionsList");
+const crossEoSummary = document.getElementById("crossEoSummary");
+
+let studyView = null;
+let practiceView = null;
+
 // Simulation elements
 const simulatePanel = document.getElementById("simulatePanel");
 const simScrambleInput = document.getElementById("simScrambleInput");
@@ -492,7 +533,7 @@ const simSpeedButtons = Array.from(document.querySelectorAll(".sim-speed-btn"));
 // Create scramble display element
 const el = new ScrambleDisplay();
 el.player.hintFacelets = showReflection ? "floating" : "none";
-el.event = "222";
+el.event = currentPuzzle;
 el.visualization = "3D";
 applyReflection();
 displayContainer.appendChild(el);
@@ -586,11 +627,223 @@ document.querySelectorAll(".btn-rot").forEach(btn => {
 
 
 // ---------------------------------------------------------------------------
+// Multi-Puzzle & Multi-Track Navigation (2x2 / 3x3)
+// ---------------------------------------------------------------------------
+
+function ensureTrackSelection() {
+  const track = getTrack(currentPuzzle, currentTrackId);
+  if (!track || !track.cases || track.cases.length === 0) return;
+  const trackIds = new Set(track.cases.map(c => c.id));
+  const hasAny = [...selectedCases].some(id => trackIds.has(id));
+  if (!hasAny) {
+    selectedCases = new Set(trackIds);
+  }
+}
+
+function renderTrackBar() {
+  if (!trackBar) return;
+  const pData = PUZZLES[currentPuzzle];
+  if (!pData || !pData.tracks) {
+    trackBar.innerHTML = "";
+    return;
+  }
+  trackBar.innerHTML = pData.tracks.map(t => {
+    const active = t.id === currentTrackId;
+    return `<button type="button" class="track-btn ${active ? 'active' : ''}" data-track="${t.id}" aria-pressed="${active}">${t.name}</button>`;
+  }).join("");
+
+  trackBar.querySelectorAll(".track-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      setTrack(btn.dataset.track);
+    });
+  });
+}
+
+function setTrack(trackId) {
+  const pData = PUZZLES[currentPuzzle];
+  if (!pData || !pData.tracks.some(t => t.id === trackId)) return;
+  currentTrackId = trackId;
+
+  if (trackBar) {
+    trackBar.querySelectorAll(".track-btn").forEach(btn => {
+      const active = btn.dataset.track === currentTrackId;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-pressed", String(active));
+    });
+  }
+
+  ensureTrackSelection();
+  buildCasePicker();
+  renderSelection();
+
+  if (studyView) studyView.setTrack(currentPuzzle, currentTrackId);
+  if (practiceView) practiceView.setTrack(currentPuzzle, currentTrackId);
+
+  saveSettings();
+  if (mode === "solve") {
+    if (trackId === "cross") solveTarget = "cross";
+    else if (trackId === "layer") solveTarget = "layer";
+    else if (trackId === "pll") solveTarget = "pll";
+    else if (trackId === "oll") solveTarget = "oll";
+    else if (trackId === "f2l") solveTarget = "f2l";
+    else if (trackId === "cll") solveTarget = "cll";
+    if (solveTargetSelect) solveTargetSelect.value = solveTarget;
+    regenerateScramble();
+  }
+}
+
+function populateSolveTargetSelect() {
+  if (!solveTargetSelect) return;
+  const is3x3 = currentPuzzle === "333";
+  if (is3x3) {
+    solveTargetSelect.innerHTML = `
+      <option value="full">Full Solve (WCA 3x3)</option>
+      <option value="cross">White Cross Only</option>
+      <option value="f2l">F2L Case</option>
+      <option value="oll">OLL Case</option>
+      <option value="pll">PLL Case</option>
+    `;
+    if (!["full", "cross", "f2l", "oll", "pll"].includes(solveTarget)) {
+      solveTarget = "full";
+    }
+  } else {
+    solveTargetSelect.innerHTML = `
+      <option value="full">Full Solve (WCA 2x2)</option>
+      <option value="layer">1st Layer Only</option>
+      <option value="face">1st Face Only (Ortega)</option>
+      <option value="cll">CLL Case</option>
+    `;
+    if (!["full", "layer", "face", "cll"].includes(solveTarget)) {
+      solveTarget = "full";
+    }
+  }
+  solveTargetSelect.value = solveTarget;
+  if (solveScrambleOrient) {
+    solveScrambleOrient.textContent = is3x3 ? "(white on bottom, green on front)" : "(white on bottom)";
+  }
+}
+
+function setPuzzle(puzzleId) {
+  if (puzzleId !== "222" && puzzleId !== "333") return;
+  currentPuzzle = puzzleId;
+  el.event = currentPuzzle;
+
+  puzzleButtons.forEach(btn => {
+    const active = btn.dataset.puzzle === currentPuzzle;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  });
+
+  if (pblOverviewBtn) pblOverviewBtn.hidden = currentPuzzle === "333";
+  if (overviewBtn) overviewBtn.hidden = currentPuzzle === "333";
+
+  currentTrackId = currentPuzzle === "333" ? "pll" : "cll";
+
+  renderTrackBar();
+  populateSolveTargetSelect();
+
+  let matchingSessions = sessions.filter(s => (s.puzzle || "222") === currentPuzzle);
+  if (matchingSessions.length === 0) {
+    const newSess = {
+      id: `session-${currentPuzzle}-${Date.now()}`,
+      puzzle: currentPuzzle,
+      name: currentPuzzle === "333" ? "3x3 Main" : "2x2 Main",
+      target: "full",
+      inspection: true,
+      showCube: true,
+      solves: []
+    };
+    sessions.push(newSess);
+    matchingSessions = [newSess];
+    saveSessions();
+  }
+  activeSessionId = matchingSessions[0].id;
+  solves = getActiveSession().solves || [];
+  solveTarget = getActiveSession().target || "full";
+  solveShowCube = getActiveSession().showCube ?? true;
+  solveInspection = getActiveSession().inspection ?? true;
+
+  populateSessionSelect();
+  ensureTrackSelection();
+  buildCasePicker();
+  renderSelection();
+  populateSimCaseSelect();
+
+  if (studyView) studyView.setTrack(currentPuzzle, currentTrackId);
+  if (practiceView) practiceView.setTrack(currentPuzzle, currentTrackId);
+
+  saveSettings();
+  renderStage();
+  renderSolvePanel();
+  regenerateScramble();
+}
+
+puzzleButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    const puzzle = btn.dataset.puzzle;
+    if (puzzle && puzzle !== currentPuzzle) {
+      setPuzzle(puzzle);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Case picker: one row per group, a group button plus one chip per case
 // ---------------------------------------------------------------------------
 
 function buildCasePicker() {
   casePicker.innerHTML = "";
+  ensureTrackSelection();
+
+  if (currentPuzzle === "333") {
+    const track = getTrack(currentPuzzle, currentTrackId);
+    if (!track || !track.cases || track.cases.length === 0) {
+      casePicker.innerHTML = `<p class="hint" style="padding: 10px 0;">This track (${track ? track.name : ''}) focuses on cross planning &amp; EO rather than discrete case recognition.</p>`;
+      renderSelection();
+      return;
+    }
+    const groups = track.groups || ["All"];
+    groups.forEach(group => {
+      const casesInGroup = track.cases.filter(c => c.group === group);
+      if (casesInGroup.length === 0) return;
+
+      const row = document.createElement("div");
+      row.className = "case-row";
+
+      const groupBtn = document.createElement("button");
+      groupBtn.type = "button";
+      groupBtn.className = "group-toggle";
+      groupBtn.dataset.group = group;
+      groupBtn.textContent = group.length > 8 ? group.slice(0, 7) + "…" : group;
+      groupBtn.title = `Add or remove all ${group} cases`;
+      groupBtn.setAttribute("aria-label", `Group ${group}: add or remove all cases`);
+      groupBtn.addEventListener("click", () => toggleGroup(group));
+      row.appendChild(groupBtn);
+
+      casesInGroup.forEach(caseObj => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "case-chip";
+        chip.dataset.case = caseObj.id;
+        const tag = getCaseTag(caseObj.id);
+        chip.innerHTML = `${caseObj.id}<span class="case-chip-dot tag-dot-${tag}"></span>`;
+        chip.title = `Case ${caseObj.name || caseObj.id} (${tag}) · Click to toggle practice, Right-click to change tag`;
+        chip.setAttribute("aria-label", `Case ${caseObj.id}`);
+        chip.addEventListener("click", () => toggleCase(caseObj.id));
+        chip.addEventListener("contextmenu", e => {
+          e.preventDefault();
+          cycleCaseTag(caseObj.id);
+        });
+        row.appendChild(chip);
+      });
+
+      casePicker.appendChild(row);
+    });
+    renderSelection();
+    updateCasePickerFilter();
+    return;
+  }
+
   GROUP_DISPLAY_ORDER.forEach(group => {
     const row = document.createElement("div");
     row.className = "case-row";
@@ -662,19 +915,25 @@ document.querySelectorAll(".tag-filter-btn").forEach(btn => {
 });
 
 function renderSelection() {
+  const track = getTrack(currentPuzzle, currentTrackId);
+  const totalCases = track && track.cases.length > 0 ? track.cases.length : CASE_IDS.length;
+  selectionCount.textContent = `${selectedCases.size} / ${totalCases} cases`;
+
   casePicker.querySelectorAll(".case-chip").forEach(chip => {
     chip.setAttribute("aria-pressed", String(selectedCases.has(chip.dataset.case)));
   });
 
   casePicker.querySelectorAll(".group-toggle").forEach(btn => {
-    const ids = casesByGroup[btn.dataset.group].map(c => c.id);
+    const group = btn.dataset.group;
+    const casesInGroup = track && track.cases.length > 0
+      ? track.cases.filter(c => c.group === group)
+      : (casesByGroup[group] || []);
+    const ids = casesInGroup.map(c => c.id);
     const selected = ids.filter(id => selectedCases.has(id)).length;
     const state = selected === 0 ? "none" : selected === ids.length ? "all" : "some";
     btn.dataset.state = state;
     btn.setAttribute("aria-pressed", state === "all" ? "true" : state === "none" ? "false" : "mixed");
   });
-
-  selectionCount.textContent = `${selectedCases.size} / ${CASE_IDS.length} cases`;
 }
 
 function setSelection(next) {
@@ -691,7 +950,11 @@ function setSelection(next) {
 }
 
 function toggleGroup(group) {
-  const ids = casesByGroup[group].map(c => c.id);
+  const track = getTrack(currentPuzzle, currentTrackId);
+  const casesInGroup = track && track.cases.length > 0
+    ? track.cases.filter(c => c.group === group)
+    : (casesByGroup[group] || []);
+  const ids = casesInGroup.map(c => c.id);
   const allSelected = ids.every(id => selectedCases.has(id));
   const next = new Set(selectedCases);
   ids.forEach(id => (allSelected ? next.delete(id) : next.add(id)));
@@ -709,10 +972,12 @@ function toggleCase(id) {
 }
 
 document.getElementById("addAllBtn").addEventListener("click", () => {
+  const track = getTrack(currentPuzzle, currentTrackId);
+  const allIds = track && track.cases.length > 0 ? track.cases.map(c => c.id) : CASE_IDS;
   if (currentTagFilter === "all") {
-    setSelection(new Set(CASE_IDS));
+    setSelection(new Set(allIds));
   } else {
-    const matching = CASE_IDS.filter(id => getCaseTag(id) === currentTagFilter);
+    const matching = allIds.filter(id => getCaseTag(id) === currentTagFilter);
     const next = new Set(selectedCases);
     matching.forEach(id => next.add(id));
     setSelection(next);
@@ -720,10 +985,12 @@ document.getElementById("addAllBtn").addEventListener("click", () => {
 });
 
 document.getElementById("clearAllBtn").addEventListener("click", () => {
+  const track = getTrack(currentPuzzle, currentTrackId);
+  const allIds = track && track.cases.length > 0 ? track.cases.map(c => c.id) : CASE_IDS;
   if (currentTagFilter === "all") {
     setSelection(new Set());
   } else {
-    const matching = CASE_IDS.filter(id => getCaseTag(id) === currentTagFilter);
+    const matching = allIds.filter(id => getCaseTag(id) === currentTagFilter);
     const next = new Set(selectedCases);
     matching.forEach(id => next.delete(id));
     setSelection(next);
@@ -980,12 +1247,12 @@ function cleanAlg(algStr) {
   const result = [];
 
   for (const token of tokens) {
-    const match = token.match(/^([RUFBLDxyz])(2'|'2|3'|'3|''|2"|[23'])?$/i);
+    const match = token.match(/^([RUFBLDxyzMES]|(?:[RUFBLD]w)|[rufbld])(2'|'2|3'|'3|''|2"|[23'])?$/i);
     if (!match) {
       result.push(token);
       continue;
     }
-    const face = ['x', 'y', 'z'].includes(match[1].toLowerCase()) ? match[1].toLowerCase() : match[1].toUpperCase();
+    const face = ['x', 'y', 'z'].includes(match[1].toLowerCase()) ? match[1].toLowerCase() : match[1];
     let mod = match[2] || "";
     if (mod === "'2" || mod === '2"' || mod === "''") mod = "2'";
 
@@ -996,9 +1263,9 @@ function cleanAlg(algStr) {
 
     if (result.length > 0) {
       const prev = result[result.length - 1];
-      const prevMatch = prev.match(/^([RUFBLDxyz])(2'|'2|3'|'3|''|2"|[23'])?$/i);
+      const prevMatch = prev.match(/^([RUFBLDxyzMES]|(?:[RUFBLD]w)|[rufbld])(2'|'2|3'|'3|''|2"|[23'])?$/i);
       if (prevMatch && prevMatch[1].toUpperCase() === face.toUpperCase()) {
-        const prevFace = ['x', 'y', 'z'].includes(prevMatch[1].toLowerCase()) ? prevMatch[1].toLowerCase() : prevMatch[1].toUpperCase();
+        const prevFace = ['x', 'y', 'z'].includes(prevMatch[1].toLowerCase()) ? prevMatch[1].toLowerCase() : prevMatch[1];
         let prevMod = prevMatch[2] || "";
         if (prevMod === "'2" || prevMod === '2"' || prevMod === "''") prevMod = "2'";
         let prevAmount = 1;
@@ -1051,10 +1318,11 @@ function buildScramble() {
   }
 
   const randomCase = getRandomCase();
-  const caseObj = randomCase ? caseById.get(randomCase) : null;
+  const track = getTrack(currentPuzzle, currentTrackId);
+  const caseObj = randomCase ? (track?.caseById.get(randomCase) || caseById.get(randomCase)) : null;
   if (caseObj) {
     currentCaseId = caseObj.id;
-    const caseScrambles = caseObj.scrambles && caseObj.scrambles.length ? caseObj.scrambles : [caseObj.scramble];
+    const caseScrambles = caseObj.scrambles && caseObj.scrambles.length ? caseObj.scrambles : [caseObj.setup || caseObj.scramble];
     currentCaseScramble = caseScrambles[Math.floor(Math.random() * caseScrambles.length)];
     moves += " " + currentCaseScramble;
 
@@ -1084,6 +1352,115 @@ function regenerateScramble() {
   if (solveScrambleSubtext) {
     solveScrambleSubtext.hidden = true;
     solveScrambleSubtext.textContent = "";
+  }
+
+  if (currentPuzzle === "333") {
+    if (mode === "solve") {
+      if (solveTarget === "full" || solveTarget === "cross") {
+        generateWca3x3Scramble().then(wcaScr => {
+          currentSolveScramble = wcaScr;
+          scrambleMoves = wcaScr;
+          scramble = wcaScr;
+          currentCaseId = null;
+          applyScrambleToDisplay(wcaScr);
+          if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+          updateCrossSolutions(wcaScr);
+        });
+        resetGuessingUI();
+        updateStatsTable();
+        return;
+      } else if (solveTarget === "pll") {
+        const track = getTrack("333", "pll");
+        const active = track.cases.filter(c => selectedCases.has(c.id));
+        const pool = active.length > 0 ? active : track.cases;
+        const c = pool[Math.floor(Math.random() * pool.length)];
+        const scr = c.setup;
+        currentSolveScramble = scr;
+        scrambleMoves = scr;
+        scramble = scr;
+        currentCaseId = c.id;
+        applyScrambleToDisplay(scr);
+        if (solveScrambleText) solveScrambleText.textContent = scr;
+        if (solveScrambleSubtext) {
+          solveScrambleSubtext.hidden = false;
+          solveScrambleSubtext.textContent = `PLL Case: ${c.name} (${c.group})`;
+        }
+        updateCrossSolutions(scr);
+        resetGuessingUI();
+        updateStatsTable();
+        return;
+      } else if (solveTarget === "oll") {
+        const track = getTrack("333", "oll");
+        const active = track.cases.filter(c => selectedCases.has(c.id));
+        const pool = active.length > 0 ? active : track.cases;
+        const c = pool[Math.floor(Math.random() * pool.length)];
+        const scr = c.setup;
+        currentSolveScramble = scr;
+        scrambleMoves = scr;
+        scramble = scr;
+        currentCaseId = c.id;
+        applyScrambleToDisplay(scr);
+        if (solveScrambleText) solveScrambleText.textContent = scr;
+        if (solveScrambleSubtext) {
+          solveScrambleSubtext.hidden = false;
+          solveScrambleSubtext.textContent = `OLL Case: ${c.id} (${c.group})`;
+        }
+        updateCrossSolutions(scr);
+        resetGuessingUI();
+        updateStatsTable();
+        return;
+      } else if (solveTarget === "f2l") {
+        const track = getTrack("333", "f2l");
+        const active = track.cases.filter(c => selectedCases.has(c.id));
+        const pool = active.length > 0 ? active : track.cases;
+        const c = pool[Math.floor(Math.random() * pool.length)];
+        const scr = c.setup;
+        currentSolveScramble = scr;
+        scrambleMoves = scr;
+        scramble = scr;
+        currentCaseId = c.id;
+        applyScrambleToDisplay(scr);
+        if (solveScrambleText) solveScrambleText.textContent = scr;
+        if (solveScrambleSubtext) {
+          solveScrambleSubtext.hidden = false;
+          solveScrambleSubtext.textContent = `F2L Case: ${c.id} (${c.group})`;
+        }
+        updateCrossSolutions(scr);
+        resetGuessingUI();
+        updateStatsTable();
+        return;
+      }
+    }
+
+    const track = getTrack(currentPuzzle, currentTrackId);
+    if (track && track.cases.length > 0) {
+      const active = track.cases.filter(c => selectedCases.has(c.id));
+      const pool = active.length > 0 ? active : track.cases;
+      const c = pool[Math.floor(Math.random() * pool.length)];
+      const scr = c.setup || c.scramble;
+      currentCaseId = c.id;
+      currentCaseScramble = scr;
+      scrambleMoves = scr;
+      scramble = scr;
+      applyScrambleToDisplay(scr);
+      if (mode === "solve") {
+        currentSolveScramble = scr;
+        if (solveScrambleText) solveScrambleText.textContent = scr;
+        updateCrossSolutions(scr);
+      }
+    } else {
+      generateWca3x3Scramble().then(wcaScr => {
+        scramble = wcaScr;
+        scrambleMoves = wcaScr;
+        currentSolveScramble = wcaScr;
+        applyScrambleToDisplay(wcaScr);
+        if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+        if (mode === "solve") updateCrossSolutions(wcaScr);
+      });
+    }
+    resetGuessingUI();
+    updateStatsTable();
+    return;
   }
 
   if (mode === "solve" && solveTarget !== "cll") {
@@ -1170,13 +1547,19 @@ function setMode(next, { skipSimInit = false } = {}) {
     } else {
       applyScrambleToDisplay(currentSolveScramble);
       applyReflection();
-      if (!currentLayerSolutionsScramble || currentLayerSolutionsScramble !== currentSolveScramble) {
-        updateLayerSolutions(currentSolveScramble);
+      if (currentPuzzle === "333") {
+        updateCrossSolutions(currentSolveScramble);
+      } else {
+        if (!currentLayerSolutionsScramble || currentLayerSolutionsScramble !== currentSolveScramble) {
+          updateLayerSolutions(currentSolveScramble);
+        }
       }
     }
   } else if (mode === "study") {
     resetCubeOrientation();
-    regenerateScramble();
+    if (studyView) studyView.render();
+  } else if (mode === "practice") {
+    if (practiceView) practiceView.render();
   }
 }
 
@@ -1193,6 +1576,11 @@ function renderStage() {
 
   const simulating = mode === "simulate";
   const solving = mode === "solve";
+  const studying = mode === "study";
+  const practicing = mode === "practice";
+
+  if (studyViewContainer) studyViewContainer.hidden = !studying;
+  if (practiceViewContainer) practiceViewContainer.hidden = !practicing;
 
   simulatePanel.hidden = !simulating;
   if (simulating) {
@@ -1200,7 +1588,18 @@ function renderStage() {
     displayContainer.hidden = false;
   }
 
+  if (studying && studyView) {
+    studyView.render();
+  }
+  if (practicing && practiceView) {
+    practiceView.render();
+  }
+
   guessingContainer.hidden = !hasCases || !(mode === "practice" || (mode === "timed" && running));
+  if (practicing && practiceViewContainer && !practiceViewContainer.hidden) {
+    guessingContainer.hidden = true;
+  }
+
   guessLabel.hidden = mode !== "practice";
   verifyBtn.hidden = mode !== "practice" || practiceAnswered;
   verifyMessage.hidden = !(mode === "practice" && practiceAnswered);
@@ -1211,11 +1610,11 @@ function renderStage() {
   startSessionBtn.disabled = !hasCases;
   timedSummary.hidden = !(mode === "timed" && !running && sessionSummary);
 
-  regenerateBtn.hidden = mode === "timed" || simulating || solving;
+  regenerateBtn.hidden = mode === "timed" || simulating || solving || studying;
 
   // Solve mode: show or hide cube based on solveShowCube
   const hideCubeInSolve = solving && !solveShowCube;
-  cubeCard.hidden = hideCubeInSolve || (!hasCases && ["practice", "study", "timed"].includes(mode));
+  cubeCard.hidden = studying || hideCubeInSolve || (!hasCases && ["practice", "study", "timed"].includes(mode));
   if (resetOrientationBtn) {
     resetOrientationBtn.hidden = cubeCard.hidden;
   }
@@ -1228,7 +1627,10 @@ function renderStage() {
   solveSurface.hidden = !solving;
   solveTimes.hidden = !solving;
   if (layerSolutionsWidget) {
-    layerSolutionsWidget.hidden = !solving;
+    layerSolutionsWidget.hidden = !solving || currentPuzzle !== "222";
+  }
+  if (crossSolutionsWidget) {
+    crossSolutionsWidget.hidden = !solving || currentPuzzle !== "333";
   }
   if (solving) renderSolvePanel();
 }
@@ -1986,8 +2388,9 @@ function openSessionModal(mode = "create") {
     if (sessionShowCubeCheckbox) sessionShowCubeCheckbox.checked = current.showCube ?? true;
     if (sessionInspectionCheckbox) sessionInspectionCheckbox.checked = current.inspection ?? true;
   } else {
-    sessionModalTitle.textContent = "New Session";
-    sessionNameInput.value = `Session ${sessions.length + 1}`;
+    sessionModalTitle.textContent = `New ${currentPuzzle === "333" ? "3x3" : "2x2"} Session`;
+    const matching = sessions.filter(s => (s.puzzle || "222") === currentPuzzle);
+    sessionNameInput.value = `${currentPuzzle === "333" ? "3x3 Session" : "Session"} ${matching.length + 1}`;
     sessionDefaultTarget.value = current.target || "full";
     if (sessionShowCubeCheckbox) sessionShowCubeCheckbox.checked = solveShowCube ?? true;
     if (sessionInspectionCheckbox) sessionInspectionCheckbox.checked = solveInspection ?? true;
@@ -2031,6 +2434,7 @@ if (sessionModalSaveBtn) {
       const newId = `session-${Date.now()}`;
       const newSession = {
         id: newId,
+        puzzle: currentPuzzle,
         name,
         target,
         inspection,
@@ -2057,7 +2461,8 @@ if (sessionModalSaveBtn) {
 }
 
 function populateSessionSelect() {
-  const options = sessions.map(s => {
+  const matching = sessions.filter(s => (s.puzzle || "222") === currentPuzzle);
+  const options = matching.map(s => {
     return `<option value="${s.id}" ${s.id === activeSessionId ? "selected" : ""}>${escapeHtml(s.name)} (${s.solves ? s.solves.length : 0})</option>`;
   }).join("");
 
@@ -2094,8 +2499,9 @@ function switchSession(sessId) {
 }
 
 function deleteCurrentSession() {
-  if (sessions.length <= 1) {
-    alert("You must have at least one session.");
+  const matching = sessions.filter(s => (s.puzzle || "222") === currentPuzzle);
+  if (matching.length <= 1) {
+    alert("You must have at least one session for this puzzle.");
     return;
   }
   const current = getActiveSession();
@@ -2103,7 +2509,8 @@ function deleteCurrentSession() {
     return;
   }
   sessions = sessions.filter(s => s.id !== current.id);
-  activeSessionId = sessions[0].id;
+  const remaining = sessions.filter(s => (s.puzzle || "222") === currentPuzzle);
+  activeSessionId = remaining[0].id;
   saveSessions();
   switchSession(activeSessionId);
 }
@@ -2213,6 +2620,35 @@ async function generateWca2x2Scramble() {
   return moves.join(" ");
 }
 
+async function generateWca3x3Scramble() {
+  try {
+    const scrPromise = randomScrambleForEvent('333');
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800));
+    const scr = await Promise.race([scrPromise, timeoutPromise]);
+    if (scr && typeof scr.toString === 'function') {
+      const s = scr.toString().trim();
+      if (s) return s;
+    }
+  } catch (err) {
+    // Fast WCA 3x3 scramble fallback
+  }
+  const faces = ["R", "L", "U", "D", "F", "B"];
+  const modifiers = ["", "'", "2"];
+  const moves = [];
+  let lastAxis = -1;
+  for (let i = 0; i < 21; i++) {
+    let axis;
+    do {
+      axis = Math.floor(Math.random() * 3);
+    } while (axis === lastAxis);
+    lastAxis = axis;
+    const face = faces[axis * 2 + (Math.random() < 0.5 ? 0 : 1)];
+    const mod = modifiers[Math.floor(Math.random() * modifiers.length)];
+    moves.push(face + mod);
+  }
+  return moves.join(" ");
+}
+
 function formatSolveDisplay(s) {
   if (!s) return "-";
   if (s.penalty === "DNF") return "DNF";
@@ -2298,10 +2734,13 @@ function renderSolvePanel() {
     .join("");
 
   if (layerSolutionsWidget) {
-    layerSolutionsWidget.hidden = mode !== "solve";
+    layerSolutionsWidget.hidden = mode !== "solve" || currentPuzzle !== "222";
     if (!layerSolutionsWidget.hidden) {
       updateFaceChipsUI();
     }
+  }
+  if (crossSolutionsWidget) {
+    crossSolutionsWidget.hidden = mode !== "solve" || currentPuzzle !== "333";
   }
 }
 
@@ -2769,6 +3208,142 @@ function renderLayerSolutions(sols, showAll = false) {
   if (showLessBtn) {
     showLessBtn.addEventListener("click", () => renderLayerSolutions(sols, false));
   }
+}
+
+let currentCrossSolutionsScramble = "";
+
+function updateCrossSolutions(scrambleStr) {
+  if (!crossSolutionsList) return;
+  if (!scrambleStr) {
+    crossSolutionsList.innerHTML = '<p class="layer-solutions-empty">No scramble loaded.</p>';
+    if (crossSolutionsBadge) crossSolutionsBadge.textContent = "";
+    if (crossEoSummary) crossEoSummary.innerHTML = "";
+    return;
+  }
+  currentCrossSolutionsScramble = scrambleStr;
+  if (crossSolutionsBadge) crossSolutionsBadge.textContent = "analyzing...";
+  crossSolutionsList.innerHTML = '<p class="layer-solutions-empty">Searching for optimal White cross &amp; Cross+1 / EO solutions...</p>';
+
+  setTimeout(async () => {
+    if (currentCrossSolutionsScramble !== scrambleStr) return;
+    try {
+      const result = await findCrossSolutions(scrambleStr, 8);
+      if (currentCrossSolutionsScramble !== scrambleStr) return;
+      renderCrossSolutions(result);
+    } catch (err) {
+      console.error("Error solving white cross:", err);
+      crossSolutionsList.innerHTML = '<p class="layer-solutions-empty">Error calculating cross solutions.</p>';
+      if (crossSolutionsBadge) crossSolutionsBadge.textContent = "error";
+    }
+  }, 10);
+}
+
+function renderCrossSolutions(result) {
+  if (!crossSolutionsList) return;
+  const sols = Array.isArray(result) ? result : (result?.solutions || []);
+  if (!sols || sols.length === 0) {
+    crossSolutionsList.innerHTML = '<p class="layer-solutions-empty">No White cross solutions found within depth.</p>';
+    if (crossSolutionsBadge) crossSolutionsBadge.textContent = "0";
+    return;
+  }
+
+  const bestDepth = sols[0].moveCount;
+  if (crossSolutionsBadge) {
+    crossSolutionsBadge.textContent = `${sols.length} found · optimal ${bestDepth}m`;
+  }
+
+  if (crossEoSummary && sols[0]?.eoSummary) {
+    const eo = sols[0].eoSummary;
+    const isClean = eo.crossOriented === 4;
+    const eoCrossBadge = isClean
+      ? `<span class="badge chip-eo" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">✓ All 4 Cross Edges Oriented</span>`
+      : `<span class="badge chip-eo">${eo.crossOriented}/4 Cross Edges Oriented (${4 - eo.crossOriented} bad)</span>`;
+    const totalEoBadge = `<span class="badge chip-eo">Overall: ${eo.goodEdges}/12 Good Edges (${eo.badEdges} bad)</span>`;
+    crossEoSummary.innerHTML = `
+      <div class="cross-eo-bar">
+        <span class="cross-eo-label">Edge Orientation (EO):</span>
+        ${eoCrossBadge}
+        ${totalEoBadge}
+      </div>
+    `;
+  }
+
+  const html = sols.map((sol, idx) => {
+    const inspText = sol.insp && sol.insp !== "none" ? sol.insp : "none";
+    const cross1Badges = sol.crossPlus1 && sol.crossPlus1.hasPair
+      ? `<span class="badge ${sol.crossPlus1.type === 'solved' ? 'badge-solved' : 'chip-cross1'}" title="${escapeHtml(sol.crossPlus1.description)}">Cross+1: ${sol.crossPlus1.slot} (${sol.crossPlus1.type})</span>`
+      : "";
+
+    return `
+      <div class="layer-sol-row">
+        <div class="layer-sol-info">
+          <div class="layer-sol-badges">
+            <span class="face-badge face-badge-white">White Cross</span>
+            <span class="badge layer-sol-moves-badge">${sol.moveCount} moves</span>
+            <span class="layer-sol-insp-chip">Inspection: <strong>${escapeHtml(inspText)}</strong></span>
+            ${cross1Badges}
+          </div>
+          <div class="layer-sol-moves">${escapeHtml(sol.moves)}</div>
+        </div>
+        <div class="layer-sol-actions">
+          <button type="button" class="btn btn-small cross-sol-sim-btn" data-idx="${idx}" title="Simulate this cross solution in 3D simulator">
+            <span aria-hidden="true">&#x25B6;</span> Sim
+          </button>
+          <button type="button" class="btn btn-small cross-sol-copy-btn" data-idx="${idx}" title="Copy cross reconstruction">
+            Copy
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  crossSolutionsList.innerHTML = html;
+
+  crossSolutionsList.querySelectorAll(".cross-sol-sim-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.idx);
+      const sol = sols[idx];
+      if (!sol) return;
+      const base = currentSolveScramble || scrambleMoves || scramble;
+      const solMoves = (sol.insp && sol.insp !== "none" ? sol.insp + " " : "") + sol.moves;
+      const fullSeq = `${base} ${solMoves}`.trim();
+      setMode("simulate", { skipSimInit: true });
+      simScrambleInput.value = fullSeq;
+      simOriginalScramble = base;
+      simHasSolutionAppended = true;
+      simAppendSolutionBtn.textContent = "Remove Solution";
+      simAppendSolutionBtn.classList.add("active");
+      simLoadScramble(fullSeq, {
+        expectedCase: { id: `White Cross (${sol.moveCount}m)`, solution: solMoves, solutionAlg: solMoves, isLayer: true },
+        isAppended: true,
+        startAtSolution: true,
+        originalScramble: base
+      });
+    });
+  });
+
+  crossSolutionsList.querySelectorAll(".cross-sol-copy-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const idx = Number(btn.dataset.idx);
+      const sol = sols[idx];
+      if (!sol) return;
+      const base = currentSolveScramble || scrambleMoves || scramble;
+      const lines = [
+        `Scramble: ${base}`,
+        `White Cross: ${sol.moves} (${sol.moveCount} moves)`,
+        sol.insp && sol.insp !== "none" ? `Inspection: ${sol.insp}` : "",
+        sol.crossPlus1?.hasPair ? `Cross+1: ${sol.crossPlus1.slot} (${sol.crossPlus1.description})` : ""
+      ].filter(Boolean).join("\n");
+      try {
+        await navigator.clipboard.writeText(lines);
+        btn.textContent = "✓ Copied";
+        setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+      } catch (err) {
+        btn.textContent = "Copied";
+        setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+      }
+    });
+  });
 }
 
 // Keyboard: Space arms on keydown (or starts inspection if enabled), starts on keyup;
@@ -3917,8 +4492,50 @@ function simTeardown() {
 }
 
 function populateSimCaseSelect() {
-  if (simCaseSelect.options.length > 1) return;
-  simCaseSelect.innerHTML = `<option value="">Load a CLL or Ortega case...</option>`;
+  simCaseSelect.innerHTML = `<option value="">Load a case to simulate...</option>`;
+
+  if (currentPuzzle === "333") {
+    const pllTrack = getTrack("333", "pll");
+    if (pllTrack) {
+      const g = document.createElement("optgroup");
+      g.label = "PLL (21 cases)";
+      pllTrack.cases.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = `333:pll:${c.id}`;
+        opt.textContent = `${c.id} (${c.name}): ${c.algs[0]?.alg || ''}`;
+        g.appendChild(opt);
+      });
+      simCaseSelect.appendChild(g);
+    }
+
+    const ollTrack = getTrack("333", "oll");
+    if (ollTrack) {
+      const g = document.createElement("optgroup");
+      g.label = "OLL (57 cases)";
+      ollTrack.cases.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = `333:oll:${c.id}`;
+        opt.textContent = `${c.id} (${c.group}): ${c.algs[0]?.alg || ''}`;
+        g.appendChild(opt);
+      });
+      simCaseSelect.appendChild(g);
+    }
+
+    const f2lTrack = getTrack("333", "f2l");
+    if (f2lTrack) {
+      const g = document.createElement("optgroup");
+      g.label = "F2L (41 cases)";
+      f2lTrack.cases.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = `333:f2l:${c.id}`;
+        opt.textContent = `${c.id} (${c.group}): ${c.algs[0]?.alg || ''}`;
+        g.appendChild(opt);
+      });
+      simCaseSelect.appendChild(g);
+    }
+    return;
+  }
+
   GROUP_DISPLAY_ORDER.forEach(group => {
     const optgroup = document.createElement("optgroup");
     optgroup.label = `Group ${group}`;
@@ -3961,11 +4578,11 @@ function parseScrambleInput(raw) {
   const tokens = cleaned.split(/\s+/).filter(Boolean);
   const moves = [];
   for (const token of tokens) {
-    const match = token.match(/^([RUFBLDxyz])(2'|'2|3'|'3|''|2"|[23'])?$/i);
+    const match = token.match(/^([RUFBLDxyzMES]|(?:[RUFBLD]w)|[rufbld])(2'|'2|3'|'3|''|2"|[23'])?$/i);
     if (!match) {
-      return { ok: false, error: `Invalid move token "${token}". Allowed moves: R, U, F, B, L, D, x, y, z with optional 2, ', or 2'.` };
+      return { ok: false, error: `Invalid move token "${token}". Allowed moves: R, U, F, B, L, D, M, E, S, x, y, z, wide moves with optional 2, ', or 2'.` };
     }
-    const face = ['x', 'y', 'z'].includes(match[1].toLowerCase()) ? match[1].toLowerCase() : match[1].toUpperCase();
+    const face = ['x', 'y', 'z'].includes(match[1].toLowerCase()) ? match[1].toLowerCase() : match[1];
     let mod = match[2] || "";
     if (mod === "3") mod = "'";
     else if (mod === "3'" || mod === "'3") mod = "";
@@ -4651,6 +5268,25 @@ simCaseSelect.addEventListener("change", () => {
     if (simScrambleSelectWrap) simScrambleSelectWrap.hidden = true;
     return;
   }
+  if (caseId.startsWith("333:")) {
+    const parts = caseId.split(":");
+    const trackId = parts[1];
+    const cId = parts[2];
+    const track = getTrack("333", trackId);
+    const c = track?.caseById.get(cId);
+    if (c) {
+      const caseObj = {
+        id: c.id,
+        name: c.name,
+        scrambles: [c.setup || c.scramble],
+        scramble: c.setup || c.scramble,
+        solution: c.algs[0]?.label || c.algs[0]?.alg,
+        solutionAlg: c.algs[0]?.alg
+      };
+      simLoadCaseWithSolution(caseObj, 0);
+    }
+    return;
+  }
   if (caseId.startsWith("PBL: ")) {
     const pblId = caseId.replace(/^PBL:\s*/i, "").trim();
     const pblObj = pblCaseById.get(pblId);
@@ -4758,6 +5394,50 @@ document.addEventListener("keydown", e => {
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
+
+studyView = new StudyView({
+  container: studyViewContainer,
+  onSelectCase: (caseObj) => {},
+  onSimulateCase: (caseObj, algObj) => {
+    setMode("simulate", { skipSimInit: true });
+    const moves = algObj ? algObj.alg : (caseObj.algs?.[0]?.alg || caseObj.solutionAlg || caseObj.solution);
+    simScrambleInput.value = moves;
+    simLoadScramble(moves, {
+      expectedCase: caseObj,
+      startAtSolution: false
+    });
+  },
+  onPracticeCase: (caseObj) => {
+    setMode("practice");
+  }
+});
+
+practiceView = new PracticeView({
+  container: practiceViewContainer,
+  onGenerateScramble: async () => {
+    if (currentPuzzle === "333") {
+      return await generateWca3x3Scramble();
+    } else {
+      return await generateWca2x2Scramble();
+    }
+  },
+  onApplyScrambleToDisplay: (scramble) => {
+    applyScrambleToDisplay(scramble);
+  }
+});
+
+studyView.setTrack(currentPuzzle, currentTrackId);
+practiceView.setTrack(currentPuzzle, currentTrackId);
+renderTrackBar();
+populateSolveTargetSelect();
+
+puzzleButtons.forEach(btn => {
+  const active = btn.dataset.puzzle === currentPuzzle;
+  btn.classList.toggle("active", active);
+  btn.setAttribute("aria-pressed", String(active));
+});
+if (pblOverviewBtn) pblOverviewBtn.hidden = currentPuzzle === "333";
+if (overviewBtn) overviewBtn.hidden = currentPuzzle === "333";
 
 buildCasePicker();
 applyTheme();

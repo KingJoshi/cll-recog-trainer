@@ -1,0 +1,78 @@
+import test from 'node:test';
+import assert from 'node:assert';
+import { PUZZLES, getTrack } from '../src/data/algRegistry.js';
+import { pllCases } from '../src/data/pllData.js';
+import { ollCases } from '../src/data/ollData.js';
+import { f2lCases } from '../src/data/f2lData.js';
+import { ortegaCases } from '../src/data/ortegaData.js';
+import { cllCases } from '../src/data/cllData.js';
+import { Alg } from 'cubing/alg';
+
+test('PUZZLES registry structure', () => {
+  assert.ok(PUZZLES['222'], 'Must have 222');
+  assert.ok(PUZZLES['333'], 'Must have 333');
+  assert.strictEqual(PUZZLES['222'].tracks.length, 3);
+  assert.strictEqual(PUZZLES['333'].tracks.length, 4);
+
+  const pllTrack = getTrack('333', 'pll');
+  assert.ok(pllTrack);
+  assert.strictEqual(pllTrack.cases.length, 21);
+});
+
+test('PLL 21 cases integrity', () => {
+  assert.strictEqual(pllCases.length, 21, 'Must have exactly 21 PLL cases');
+  for (const c of pllCases) {
+    assert.ok(c.id, 'Case must have id');
+    assert.ok(c.name, 'Case must have name');
+    assert.ok(c.setup, 'Case must have setup');
+    assert.ok(c.algs.length > 0, 'Case must have algorithms');
+    // Ensure all algs parse with cubing.js
+    for (const a of c.algs) {
+      assert.doesNotThrow(() => new Alg(a.alg), `Alg ${a.alg} must parse`);
+    }
+    assert.doesNotThrow(() => new Alg(c.setup), `Setup ${c.setup} must parse`);
+  }
+});
+
+test('OLL 57 cases integrity', () => {
+  assert.strictEqual(ollCases.length, 57, 'Must have exactly 57 OLL cases');
+  const numbers = ollCases.map(c => c.number).sort((a,b)=>a-b);
+  for (let i = 1; i <= 57; i++) {
+    assert.strictEqual(numbers[i - 1], i, `OLL ${i} must exist`);
+  }
+  for (const c of ollCases) {
+    for (const a of c.algs) {
+      assert.doesNotThrow(() => new Alg(a.alg), `Alg ${a.alg} in OLL ${c.number} must parse`);
+    }
+  }
+});
+
+test('F2L 41 cases integrity', () => {
+  assert.strictEqual(f2lCases.length, 41, 'Must have exactly 41 F2L cases');
+  const numbers = f2lCases.map(c => c.number).sort((a,b)=>a-b);
+  for (let i = 1; i <= 41; i++) {
+    assert.strictEqual(numbers[i - 1], i, `F2L ${i} must exist`);
+  }
+  for (const c of f2lCases) {
+    for (const a of c.algs) {
+      assert.doesNotThrow(() => new Alg(a.alg), `Alg ${a.alg} in F2L ${c.number} must parse`);
+    }
+  }
+});
+
+test('Ortega and CLL 2x2 cases integrity', () => {
+  assert.strictEqual(ortegaCases.length, 12, 'Ortega must have 7 OLL + 5 PBL = 12 cases');
+  assert.strictEqual(cllCases.length, 40, 'CLL must have 40 cases');
+
+  for (const c of ortegaCases) {
+    for (const a of c.algs) {
+      assert.doesNotThrow(() => new Alg(a.alg), `Alg ${a.alg} in ${c.id} must parse`);
+    }
+  }
+
+  for (const c of cllCases) {
+    for (const a of c.algs) {
+      assert.doesNotThrow(() => new Alg(a.alg), `Alg ${a.alg} in ${c.id} must parse`);
+    }
+  }
+});

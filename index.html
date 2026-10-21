@@ -16,7 +16,13 @@
 <body>
 
 <header class="app-header">
-  <h1 class="app-title">2x2 CLL Trainer</h1>
+  <div class="header-brand">
+    <h1 class="app-title" id="appTitle">2x2 &amp; 3x3 Speedcube Trainer</h1>
+    <div class="seg puzzle-seg" id="puzzleSwitcher" role="group" aria-label="Select Puzzle">
+      <button type="button" class="puzzle-btn active" data-puzzle="222" aria-pressed="true">2x2</button>
+      <button type="button" class="puzzle-btn" data-puzzle="333" aria-pressed="false">3x3</button>
+    </div>
+  </div>
   <div class="header-actions">
     <button type="button" id="themeToggleBtn" class="header-btn" title="Toggle Dark/Light Theme">🌙 Dark</button>
     <button type="button" id="guideBtn" class="header-btn">Tips &amp; Guide</button>
@@ -79,6 +85,8 @@
 
   <!-- Stage: mode, cube, guessing UI, timed session -->
   <section class="stage">
+    <div id="trackBar" class="track-bar" role="group" aria-label="Algorithm Track"></div>
+
     <div class="seg mode-seg" role="group" aria-label="Mode">
       <button type="button" class="mode-btn" data-mode="solve" aria-pressed="true">Solve</button>
       <button type="button" class="mode-btn" data-mode="study" aria-pressed="false">Study</button>
@@ -86,6 +94,12 @@
       <button type="button" class="mode-btn" data-mode="timed" aria-pressed="false">Timed</button>
       <button type="button" class="mode-btn" data-mode="simulate" aria-pressed="false">Simulate</button>
     </div>
+
+    <!-- Study View Container (Case Grid, 3D Flashcard, Guides) -->
+    <div id="studyViewContainer" class="study-container" hidden></div>
+
+    <!-- Practice View Container (Recognition & Inspection planning drills) -->
+    <div id="practiceViewContainer" class="practice-container" hidden></div>
 
     <div id="timedBar" class="timed-bar" hidden>
       <div class="timed-bar-row">
@@ -381,6 +395,23 @@
       </div>
     </details>
 
+    <!-- White Cross Solutions Widget (visible in Solve mode for 3x3) -->
+    <details id="crossSolutionsWidget" class="panel layer-solutions-widget" hidden open>
+      <summary class="layer-solutions-summary">
+        <div class="layer-solutions-title-wrap">
+          <span class="panel-title" id="crossSolutionsTitle">White Cross &amp; Cross+1 / EO solutions</span>
+          <span id="crossSolutionsBadge" class="badge"></span>
+        </div>
+        <span class="chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="layer-solutions-body">
+        <div id="crossEoSummary" class="cross-eo-summary"></div>
+        <div id="crossSolutionsList" class="layer-solutions-list">
+          <p class="layer-solutions-empty">Generating White cross solutions...</p>
+        </div>
+      </div>
+    </details>
+
     <div id="solveTimes" class="panel solve-times" hidden>
       <div class="section-head solve-times-head">
         <div class="solve-times-title-wrap">
@@ -592,10 +623,14 @@
       <div class="solve-modal-field" id="sessionTargetField">
         <label for="sessionDefaultTarget" class="solve-modal-label">Solve Target</label>
         <select id="sessionDefaultTarget" class="sim-select">
-          <option value="full">Full Solve (WCA 2x2)</option>
-          <option value="layer">1st Layer Only</option>
-          <option value="face">1st Face Only (Ortega)</option>
-          <option value="cll">CLL Case</option>
+          <option value="full">Full Solve</option>
+          <option value="layer">1st Layer Only (2x2)</option>
+          <option value="face">1st Face Only (Ortega 2x2)</option>
+          <option value="cll">CLL Case (2x2)</option>
+          <option value="cross">White Cross (3x3)</option>
+          <option value="f2l">F2L Case (3x3)</option>
+          <option value="oll">OLL Case (3x3)</option>
+          <option value="pll">PLL Case (3x3)</option>
         </select>
       </div>
       <div class="solve-modal-field">
