@@ -1,4 +1,5 @@
 // Practice View: Multi-Mode Recognition & Inspection Planning Drills
+// Supports both Casual Practice and Timed Sprints (consolidated)
 
 import { getTrack } from './data/algRegistry.js';
 import { findLayerSolutions } from './layerSolver.js';
@@ -7,9 +8,10 @@ import { findCrossSolutions } from './crossSolver.js';
 export class PracticeView {
   constructor(options) {
     this.container = options.container;
-    this.onGenerateScramble = options.onGenerateScramble; // () => Promise<string>
+    this.onGenerateScramble = options.onGenerateScramble; // () => Promise<{ scramble, caseObj }>
     this.onApplyScrambleToDisplay = options.onApplyScrambleToDisplay; // (scramble) => void
     this.onRecordRecognition = options.onRecordRecognition; // (caseId, isCorrect) => void
+    this.onFlashCube = options.onFlashCube; // (result) => void
 
     this.currentPuzzle = "222";
     this.currentTrackId = "cll";
@@ -23,23 +25,36 @@ export class PracticeView {
     this.inspectionSolutions = [];
     this.solutionRevealed = false;
 
-    // Recognition quiz state
+    // Casual Recognition quiz state
     this.currentCase = null;
     this.guessGroup = null;
     this.guessCase = null;
     this.score = 0;
     this.streak = 0;
     this.answered = false;
+    this.lastResult = null;
+
+    // Timed sprint state
+    this.sprintMinutes = 3;
+    this.sprintRunning = false;
+    this.sprintSession = null;
+    this.sprintSummary = null;
+    this.sprintTimerId = null;
   }
 
   async setTrack(puzzleId, trackId) {
     this.currentPuzzle = puzzleId;
     this.currentTrackId = trackId;
     this.stopInspectionTimer();
+    if (this.sprintRunning) {
+      this.finishSprint();
+    }
     this.solutionRevealed = false;
     this.answered = false;
     this.guessGroup = null;
     this.guessCase = null;
+    this.lastResult = null;
+
     if (this.onGenerateScramble) {
       const res = await this.onGenerateScramble(this.currentTrackId);
       if (typeof res === 'object' && res?.caseObj) {
@@ -52,7 +67,16 @@ export class PracticeView {
   }
 
   setPracticeMode(mode) {
+    if (this.practiceMode === mode) return;
     this.practiceMode = mode;
+    this.stopInspectionTimer();
+    if (this.sprintRunning) {
+      this.finishSprint();
+    }
+    this.answered = false;
+    this.guessGroup = null;
+    this.guessCase = null;
+    this.lastResult = null;
     this.render();
   }
 
@@ -74,18 +98,23 @@ export class PracticeView {
 
         <div class="practice-subnav" role="group" aria-label="Practice Mode">
           <button type="button" class="practice-subnav-btn ${this.practiceMode === 'casual' ? 'active' : ''}" data-mode="casual">Casual Practice</button>
-          <button type="button" class="practice-subnav-btn ${this.practiceMode === 'timed' ? 'active' : ''}" data-mode="timed">Timed Streak</button>
+          <button type="button" class="practice-subnav-btn ${this.practiceMode === 'timed' ? 'active' : ''}" data-mode="timed">Timed Sprint</button>
         </div>
       </div>
 
       <div class="practice-body">
-        ${isInspectionDrill ? this.renderInspectionDrill() : this.renderRecognitionDrill()}
+        ${isInspectionDrill
+          ? (this.practiceMode === 'timed' ? this.renderTimedInspectionDrill() : this.renderInspectionDrill())
+          : (this.practiceMode === 'timed' ? this.renderTimedRecognitionDrill() : this.renderCasualRecognitionDrill())}
       </div>
     `;
 
     this.bindEvents(isInspectionDrill);
   }
 
+  // ---------------------------------------------------------------------------
+  // Casual Inspection Drill (White Cross / 1st Layer)
+  // ---------------------------------------------------------------------------
   renderInspectionDrill() {
     const is3x3 = this.currentPuzzle === "333";
     return `
@@ -107,31 +136,66 @@ export class PracticeView {
           </button>
         </div>
 
-        ${this.solutionRevealed ? `
-          <div class="inspection-solutions-reveal">
-            <h4 class="inspection-reveal-title">
-              Optimal ${is3x3 ? 'White Cross' : '1st Layer'} Solutions:
-            </h4>
-            <div class="inspection-solutions-list">
-              ${this.inspectionSolutions.map((sol, idx) => `
-                <div class="inspection-sol-item">
-                  <div class="inspection-sol-head">
-                    <span class="sol-badge">#${idx + 1} (${sol.moveCount} moves)</span>
-                    <span class="sol-insp">Inspection: <strong>${sol.insp || 'none'}</strong></span>
-                    ${sol.crossPlus1?.hasPair ? `<span class="sol-chip chip-cross1">${sol.crossPlus1.description}</span>` : ''}
-                    ${sol.eoSummary ? `<span class="sol-chip chip-eo">${sol.eoSummary.note}</span>` : ''}
-                  </div>
-                  <div class="inspection-sol-moves">${sol.moves}</div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        ` : ''}
+        ${this.solutionRevealed ? this.renderInspectionSolutionsList(is3x3) : ''}
       </div>
     `;
   }
 
-  renderRecognitionDrill() {
+  // ---------------------------------------------------------------------------
+  // Timed Inspection Drill (Sprint through scrambles with automatic 15s timer)
+  // ---------------------------------------------------------------------------
+  renderTimedInspectionDrill() {
+    const is3x3 = this.currentPuzzle === "333";
+    return `
+      <div class="inspection-drill-card">
+        <div class="inspection-timer-box">
+          <div class="inspection-clock ${this.inspectionSeconds <= 3 ? 'danger' : this.inspectionSeconds <= 7 ? 'warning' : ''}">
+            ${this.inspectionSeconds}s
+          </div>
+          <span class="inspection-clock-label">${this.inspectionRunning ? 'WCA Inspection in progress' : 'Ready for next inspection'}</span>
+        </div>
+
+        <div class="inspection-actions-row">
+          <button type="button" id="startInspectionBtn" class="btn btn-primary" ${this.inspectionRunning ? 'disabled' : ''}>
+            ${this.inspectionRunning ? 'Inspecting...' : 'Start 15s Timer'}
+          </button>
+          <button type="button" id="revealSolutionsBtn" class="btn btn-small">
+            ${this.solutionRevealed ? 'Next Scramble' : 'Done & Reveal Solutions'}
+          </button>
+        </div>
+
+        ${this.solutionRevealed ? this.renderInspectionSolutionsList(is3x3) : ''}
+      </div>
+    `;
+  }
+
+  renderInspectionSolutionsList(is3x3) {
+    return `
+      <div class="inspection-solutions-reveal">
+        <h4 class="inspection-reveal-title">
+          Optimal ${is3x3 ? 'White Cross' : '1st Layer'} Solutions:
+        </h4>
+        <div class="inspection-solutions-list">
+          ${this.inspectionSolutions.map((sol, idx) => `
+            <div class="inspection-sol-item">
+              <div class="inspection-sol-head">
+                <span class="sol-badge">#${idx + 1} (${sol.moveCount} moves)</span>
+                <span class="sol-insp">Inspection: <strong>${sol.insp || 'none'}</strong></span>
+                ${sol.crossPlus1?.hasPair ? `<span class="sol-chip chip-cross1">${sol.crossPlus1.description}</span>` : ''}
+                ${sol.eoSummary ? `<span class="sol-chip chip-eo">${sol.eoSummary.note}</span>` : ''}
+              </div>
+              <div class="inspection-sol-moves">${sol.moves}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Casual Recognition Drill
+  // ---------------------------------------------------------------------------
+  renderCasualRecognitionDrill() {
     const track = getTrack(this.currentPuzzle, this.currentTrackId);
     return `
       <div class="recognition-drill-card">
@@ -150,7 +214,11 @@ export class PracticeView {
           ${this.renderKeypadForTrack(track)}
         </div>
 
-        <div id="recognitionFeedback" class="recognition-feedback" hidden></div>
+        <div id="recognitionFeedback" class="recognition-feedback ${this.lastResult ? (this.lastResult.isCorrect ? 'correct' : 'incorrect') : ''}" ${this.lastResult ? '' : 'hidden'}>
+          ${this.lastResult ? (this.lastResult.isCorrect
+            ? `🎉 <strong>Correct!</strong> That is ${this.lastResult.name}.`
+            : `❌ <strong>Incorrect.</strong> The case was <strong>${this.lastResult.name}</strong>.`) : ''}
+        </div>
 
         <div class="recognition-actions">
           <button type="button" id="verifyRecognitionBtn" class="btn btn-primary" ${this.answered ? 'disabled' : ''}>Verify</button>
@@ -160,7 +228,107 @@ export class PracticeView {
     `;
   }
 
+  // ---------------------------------------------------------------------------
+  // Timed Recognition Sprint (Merged from former Timed tab)
+  // ---------------------------------------------------------------------------
+  renderTimedRecognitionDrill() {
+    if (!this.sprintRunning && !this.sprintSummary) {
+      return this.renderSprintSetup();
+    }
+    if (this.sprintRunning) {
+      return this.renderActiveSprint();
+    }
+    return this.renderSprintSummary();
+  }
+
+  renderSprintSetup() {
+    return `
+      <div class="timed-setup">
+        <p class="timed-title">Timed Recognition Sprint</p>
+        <p class="hint">Answers are checked instantly as you select them, and the next case appears right away.</p>
+        <div class="minutes-row">
+          <button type="button" id="sprintDecBtn" class="btn" aria-label="One minute less">&minus;</button>
+          <label class="minutes-field">
+            <input type="number" id="sprintMinInput" min="1" max="60" step="1" inputmode="numeric" value="${this.sprintMinutes}" aria-label="Minutes">
+            <span>min</span>
+          </label>
+          <button type="button" id="sprintIncBtn" class="btn" aria-label="One minute more">+</button>
+        </div>
+        <button type="button" id="startSprintBtn" class="btn btn-primary btn-block">Start Sprint</button>
+      </div>
+    `;
+  }
+
+  renderActiveSprint() {
+    const track = getTrack(this.currentPuzzle, this.currentTrackId);
+    const remaining = Math.max(0, this.sprintSession.endTime - Date.now());
+    const pct = Math.max(0, Math.min(100, (remaining / this.sprintSession.durationMs) * 100));
+
+    return `
+      <div class="recognition-drill-card">
+        <div class="timed-bar">
+          <div class="timed-bar-row">
+            <span id="sprintCountdown" class="countdown ${remaining <= 10000 ? 'urgent' : ''}" role="timer">${this.formatTime(remaining)}</span>
+            <span id="sprintLiveTally" class="live-tally">
+              ${this.sprintSession.attempts
+                ? `${this.sprintSession.correct} / ${this.sprintSession.attempts} correct`
+                : 'Select an answer to begin'}
+            </span>
+            <button type="button" id="endSprintBtn" class="btn btn-small">End</button>
+          </div>
+          <div class="timed-progress">
+            <div id="sprintProgress" class="timed-progress-fill" style="width: ${pct}%"></div>
+          </div>
+        </div>
+
+        ${this.sprintSession.lastResult ? `
+          <div class="recognition-feedback ${this.sprintSession.lastResult.isCorrect ? 'correct' : 'incorrect'}">
+            ${this.sprintSession.lastResult.isCorrect
+              ? `✓ <strong>Correct!</strong> ${this.sprintSession.lastResult.correctId}`
+              : `✗ <strong>Wrong:</strong> It was <strong>${this.sprintSession.lastResult.correctId}</strong> (you said ${this.sprintSession.lastResult.guessedId})`}
+          </div>
+        ` : ''}
+
+        <div class="recognition-keypad-box" id="recognitionKeypad">
+          ${this.renderKeypadForTrack(track)}
+        </div>
+      </div>
+    `;
+  }
+
+  renderSprintSummary() {
+    const s = this.sprintSummary;
+    const accuracy = s.attempts ? Math.round((100 * s.correct) / s.attempts) : 0;
+    const pace = s.attempts ? (s.elapsedMs / s.attempts / 1000).toFixed(1) + "s" : "–";
+    const timedOut = s.elapsedMs >= s.durationMs;
+
+    const groupKeys = Object.keys(s.perGroup);
+    const groupsHtml = groupKeys.length > 0 ? groupKeys.map(g =>
+      `<span class="summary-group"><b>${g}</b> ${s.perGroup[g].correct}/${s.perGroup[g].attempts}</span>`
+    ).join(' ') : '';
+
+    return `
+      <div class="timed-summary" role="status">
+        <p class="summary-title">${timedOut ? "Time's up!" : "Sprint ended"} <span class="summary-time">${this.formatTime(s.elapsedMs)}</span></p>
+        <div class="summary-stats">
+          <div class="stat"><b>${s.attempts}</b><span>answered</span></div>
+          <div class="stat stat-correct"><b>${s.correct}</b><span>correct</span></div>
+          <div class="stat stat-incorrect"><b>${s.wrong}</b><span>wrong</span></div>
+          <div class="stat"><b>${accuracy}%</b><span>accuracy</span></div>
+          <div class="stat"><b>${pace}</b><span>per case</span></div>
+        </div>
+        ${groupsHtml ? `<div class="summary-groups" style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;">${groupsHtml}</div>` : ''}
+        <div style="margin-top: 14px; display: flex; gap: 8px;">
+          <button type="button" id="sprintAgainBtn" class="btn btn-primary" style="flex: 1;">Start Another Sprint</button>
+          <button type="button" id="sprintDoneBtn" class="btn" style="flex: 1;">Done</button>
+        </div>
+      </div>
+    `;
+  }
+
   renderKeypadForTrack(track) {
+    if (!track) return '';
+
     if (track.id === "pll") {
       const pllNames = ["Ua", "Ub", "H", "Z", "Aa", "Ab", "Ja", "Jb", "Ra", "Rb", "T", "F", "V", "Y", "E", "Na", "Nb", "Ga", "Gb", "Gc", "Gd"];
       return `
@@ -187,7 +355,7 @@ export class PracticeView {
               `).join('')}
             </div>
           </div>
-          <div class="ortega-keypad-group">
+          <div class="ortega-keypad-group" style="margin-top: 8px;">
             <span class="ortega-group-label">PBL:</span>
             <div class="ortega-pill-row">
               ${ortegaPbl.map(c => `
@@ -195,6 +363,19 @@ export class PracticeView {
               `).join('')}
             </div>
           </div>
+        </div>
+      `;
+    }
+
+    if (track.id === "oll") {
+      // Common OLL cases / Cross OLL
+      const ollCross = ["H (21)", "Pi (22)", "Antisune (26)", "Sune (27)", "L (24)", "T (25)", "U (23)"];
+      return `
+        <p class="guess-label">Select OLL Cross case:</p>
+        <div class="ortega-pill-row">
+          ${ollCross.map(c => `
+            <button type="button" class="btn-recog-key ${this.guessCase === c ? 'active' : ''}" data-case="${c}">${c}</button>
+          `).join('')}
         </div>
       `;
     }
@@ -215,6 +396,9 @@ export class PracticeView {
     `;
   }
 
+  // ---------------------------------------------------------------------------
+  // Event Binding
+  // ---------------------------------------------------------------------------
   bindEvents(isInspectionDrill) {
     this.container.querySelectorAll('.practice-subnav-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -230,93 +414,299 @@ export class PracticeView {
 
       const revealBtn = this.container.querySelector('#revealSolutionsBtn');
       if (revealBtn) {
-        revealBtn.addEventListener('click', () => this.revealInspectionSolutions());
+        revealBtn.addEventListener('click', () => {
+          if (!this.solutionRevealed) {
+            this.revealInspectionSolutions();
+          } else {
+            // Next scramble
+            this.advanceInspectionScramble();
+          }
+        });
       }
 
       const newBtn = this.container.querySelector('#newDrillScrambleBtn');
       if (newBtn) {
-        newBtn.addEventListener('click', async () => {
-          this.stopInspectionTimer();
-          this.solutionRevealed = false;
-          this.inspectionSeconds = 15;
-          if (this.onGenerateScramble) {
-            const res = await this.onGenerateScramble(this.currentTrackId);
-            const scramble = typeof res === 'string' ? res : (res?.scramble || '');
-            this.inspectionScramble = scramble;
-          }
-          this.render();
-        });
+        newBtn.addEventListener('click', () => this.advanceInspectionScramble());
       }
-    } else {
-      // Recognition keypad buttons
-      this.container.querySelectorAll('.btn-recog-key').forEach(btn => {
-        btn.addEventListener('click', () => {
-          this.guessCase = btn.dataset.case;
-          this.render();
-        });
-      });
+      return;
+    }
 
-      this.container.querySelectorAll('.group-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          this.guessGroup = btn.dataset.group;
-          this.render();
-        });
-      });
+    // Timed sprint event bindings
+    if (this.practiceMode === "timed") {
+      if (!this.sprintRunning && !this.sprintSummary) {
+        const decBtn = this.container.querySelector('#sprintDecBtn');
+        const incBtn = this.container.querySelector('#sprintIncBtn');
+        const minInput = this.container.querySelector('#sprintMinInput');
+        const startBtn = this.container.querySelector('#startSprintBtn');
 
-      this.container.querySelectorAll('.case-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          this.guessCase = btn.dataset.case;
-          this.render();
+        if (decBtn) decBtn.addEventListener('click', () => {
+          this.sprintMinutes = Math.max(1, this.sprintMinutes - 1);
+          if (minInput) minInput.value = this.sprintMinutes;
         });
-      });
-
-      const verifyBtn = this.container.querySelector('#verifyRecognitionBtn');
-      if (verifyBtn) {
-        verifyBtn.addEventListener('click', () => {
-          if (this.answered || !this.guessCase) return;
-          this.answered = true;
-          const isCorrect = this.currentCase && (
-            this.guessCase === this.currentCase.id ||
-            this.guessCase === this.currentCase.name ||
-            this.guessCase === this.currentCase.group
-          );
-          if (isCorrect) {
-            this.score++;
-            this.streak++;
-          } else {
-            this.streak = 0;
-          }
-          if (this.onRecordRecognition && this.currentCase) {
-            this.onRecordRecognition(this.currentCase.id, isCorrect);
-          }
-          this.render();
-          const feedback = this.container.querySelector('#recognitionFeedback');
-          if (feedback) {
-            feedback.hidden = false;
-            feedback.className = `recognition-feedback ${isCorrect ? 'correct' : 'incorrect'}`;
-            feedback.innerHTML = isCorrect
-              ? `🎉 <strong>Correct!</strong> That is ${this.currentCase?.name || this.guessCase}.`
-              : `❌ <strong>Incorrect.</strong> The case was <strong>${this.currentCase?.name || this.currentCase?.id || 'Unknown'}</strong>.`;
-          }
+        if (incBtn) incBtn.addEventListener('click', () => {
+          this.sprintMinutes = Math.min(60, this.sprintMinutes + 1);
+          if (minInput) minInput.value = this.sprintMinutes;
         });
+        if (minInput) minInput.addEventListener('change', () => {
+          const val = parseInt(minInput.value, 10);
+          this.sprintMinutes = isNaN(val) ? 3 : Math.max(1, Math.min(60, val));
+          minInput.value = this.sprintMinutes;
+        });
+        if (startBtn) startBtn.addEventListener('click', () => this.startSprint());
+        return;
       }
 
-      const nextBtn = this.container.querySelector('#nextRecognitionScrambleBtn');
-      if (nextBtn) {
-        nextBtn.addEventListener('click', async () => {
-          this.answered = false;
-          this.guessGroup = null;
-          this.guessCase = null;
-          if (this.onGenerateScramble) {
-            const res = await this.onGenerateScramble(this.currentTrackId);
-            this.currentCase = typeof res === 'object' ? res?.caseObj : null;
-          }
+      if (this.sprintRunning) {
+        const endBtn = this.container.querySelector('#endSprintBtn');
+        if (endBtn) endBtn.addEventListener('click', () => this.finishSprint());
+
+        // Instant answer submission buttons
+        this.container.querySelectorAll('.btn-recog-key').forEach(btn => {
+          btn.addEventListener('click', () => {
+            this.submitSprintAnswer(btn.dataset.case);
+          });
+        });
+
+        this.container.querySelectorAll('.group-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            this.guessGroup = btn.dataset.group;
+            if (this.guessCase) {
+              this.submitSprintAnswer(`${this.guessGroup}${this.guessCase}`);
+            } else {
+              this.render();
+            }
+          });
+        });
+
+        this.container.querySelectorAll('.case-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            this.guessCase = btn.dataset.case;
+            if (this.guessGroup) {
+              this.submitSprintAnswer(`${this.guessGroup}${this.guessCase}`);
+            } else {
+              this.render();
+            }
+          });
+        });
+        return;
+      }
+
+      if (this.sprintSummary) {
+        const againBtn = this.container.querySelector('#sprintAgainBtn');
+        const doneBtn = this.container.querySelector('#sprintDoneBtn');
+        if (againBtn) againBtn.addEventListener('click', () => this.startSprint());
+        if (doneBtn) doneBtn.addEventListener('click', () => {
+          this.sprintSummary = null;
           this.render();
         });
+        return;
       }
+    }
+
+    // Casual recognition drill event bindings
+    this.container.querySelectorAll('.btn-recog-key').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.guessCase = btn.dataset.case;
+        this.render();
+      });
+    });
+
+    this.container.querySelectorAll('.group-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.guessGroup = btn.dataset.group;
+        this.render();
+      });
+    });
+
+    this.container.querySelectorAll('.case-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.guessCase = btn.dataset.case;
+        this.render();
+      });
+    });
+
+    const verifyBtn = this.container.querySelector('#verifyRecognitionBtn');
+    if (verifyBtn) {
+      verifyBtn.addEventListener('click', () => this.verifyCasualGuess());
+    }
+
+    const nextBtn = this.container.querySelector('#nextRecognitionScrambleBtn');
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => this.advanceCasualScramble());
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Sprint Management
+  // ---------------------------------------------------------------------------
+  startSprint() {
+    this.sprintRunning = true;
+    this.sprintSummary = null;
+    const durationMs = this.sprintMinutes * 60 * 1000;
+    const now = Date.now();
+    this.sprintSession = {
+      durationMs,
+      startedAt: now,
+      endTime: now + durationMs,
+      attempts: 0,
+      correct: 0,
+      wrong: 0,
+      perGroup: {},
+      lastResult: null
+    };
+    if (this.sprintTimerId) clearInterval(this.sprintTimerId);
+    this.sprintTimerId = setInterval(() => this.tickSprint(), 200);
+    this.advanceSprintScramble();
+  }
+
+  tickSprint() {
+    if (!this.sprintRunning || !this.sprintSession) return;
+    const remaining = Math.max(0, this.sprintSession.endTime - Date.now());
+    const clock = this.container?.querySelector('#sprintCountdown');
+    const prog = this.container?.querySelector('#sprintProgress');
+    if (clock) {
+      clock.textContent = this.formatTime(remaining);
+      clock.classList.toggle('urgent', remaining <= 10000);
+    }
+    if (prog) {
+      prog.style.width = `${(remaining / this.sprintSession.durationMs) * 100}%`;
+    }
+    if (remaining === 0) {
+      this.finishSprint();
+    }
+  }
+
+  async advanceSprintScramble() {
+    this.guessGroup = null;
+    this.guessCase = null;
+    if (this.onGenerateScramble) {
+      const res = await this.onGenerateScramble(this.currentTrackId);
+      this.currentCase = typeof res === 'object' ? res?.caseObj : null;
+    }
+    this.render();
+  }
+
+  submitSprintAnswer(guess) {
+    if (!this.sprintRunning || !this.sprintSession || !this.currentCase) return;
+
+    const isCorrect = this.checkAnswerMatch(guess);
+    this.sprintSession.attempts++;
+    if (isCorrect) {
+      this.sprintSession.correct++;
+    } else {
+      this.sprintSession.wrong++;
+    }
+
+    const grp = this.currentCase.group || this.currentCase.id;
+    if (grp) {
+      const gTally = this.sprintSession.perGroup[grp] || (this.sprintSession.perGroup[grp] = { attempts: 0, correct: 0 });
+      gTally.attempts++;
+      if (isCorrect) gTally.correct++;
+    }
+
+    this.sprintSession.lastResult = {
+      isCorrect,
+      correctId: this.currentCase.name || this.currentCase.id,
+      guessedId: guess
+    };
+
+    if (this.onRecordRecognition) {
+      this.onRecordRecognition(this.currentCase.id, isCorrect);
+    }
+    if (this.onFlashCube) {
+      this.onFlashCube(isCorrect ? "correct" : "incorrect");
+    }
+
+    this.advanceSprintScramble();
+  }
+
+  finishSprint() {
+    if (this.sprintTimerId) {
+      clearInterval(this.sprintTimerId);
+      this.sprintTimerId = null;
+    }
+    this.sprintRunning = false;
+    if (!this.sprintSession) return;
+
+    const finished = this.sprintSession;
+    this.sprintSession = null;
+    this.sprintSummary = {
+      ...finished,
+      elapsedMs: Math.min(finished.durationMs, Date.now() - finished.startedAt)
+    };
+    this.render();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Casual Practice Management
+  // ---------------------------------------------------------------------------
+  verifyCasualGuess() {
+    if (this.answered) return;
+    let guess = this.guessCase;
+    if (this.currentTrackId === "cll") {
+      if (!this.guessGroup || !this.guessCase) return;
+      guess = `${this.guessGroup}${this.guessCase}`;
+    }
+    if (!guess) return;
+
+    this.answered = true;
+    const isCorrect = this.checkAnswerMatch(guess);
+    if (isCorrect) {
+      this.score++;
+      this.streak++;
+    } else {
+      this.streak = 0;
+    }
+
+    this.lastResult = {
+      isCorrect,
+      name: this.currentCase?.name || this.currentCase?.id || guess
+    };
+
+    if (this.onRecordRecognition && this.currentCase) {
+      this.onRecordRecognition(this.currentCase.id, isCorrect);
+    }
+    if (this.onFlashCube) {
+      this.onFlashCube(isCorrect ? "correct" : "incorrect");
+    }
+
+    this.render();
+  }
+
+  async advanceCasualScramble() {
+    this.answered = false;
+    this.guessGroup = null;
+    this.guessCase = null;
+    this.lastResult = null;
+    if (this.onGenerateScramble) {
+      const res = await this.onGenerateScramble(this.currentTrackId);
+      this.currentCase = typeof res === 'object' ? res?.caseObj : null;
+    }
+    this.render();
+  }
+
+  checkAnswerMatch(guess) {
+    if (!this.currentCase || !guess) return false;
+    const c = this.currentCase;
+    return (
+      guess === c.id ||
+      guess === c.name ||
+      guess === c.group ||
+      (c.group && c.id && guess === `${c.group}${c.id.replace(c.group, '')}`) ||
+      (c.name && guess.toLowerCase() === c.name.toLowerCase())
+    );
+  }
+
+  formatTime(ms) {
+    const totalSeconds = Math.ceil(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Inspection Management
+  // ---------------------------------------------------------------------------
   startInspectionTimer() {
     this.inspectionRunning = true;
     this.inspectionSeconds = 15;
@@ -344,6 +734,17 @@ export class PracticeView {
       clearInterval(this.inspectionTimerId);
       this.inspectionTimerId = null;
     }
+  }
+
+  async advanceInspectionScramble() {
+    this.stopInspectionTimer();
+    this.solutionRevealed = false;
+    this.inspectionSeconds = 15;
+    if (this.onGenerateScramble) {
+      const res = await this.onGenerateScramble(this.currentTrackId);
+      this.inspectionScramble = typeof res === 'string' ? res : (res?.scramble || '');
+    }
+    this.render();
   }
 
   async revealInspectionSolutions() {

@@ -28,6 +28,15 @@
     --radius-sm: 6px;
     --tap: 44px;            /* minimum touch target */
     --gap: 12px;
+
+    /* Canonical High-Contrast Speedcube Colors */
+    --cube-white: #ffffff;
+    --cube-yellow: #ffd500;
+    --cube-green: #00c853;
+    --cube-blue: #2563eb;
+    --cube-red: #dc2626;
+    --cube-orange: #ff7700;
+    --cube-slate: #374151;
 }
 
 [data-theme="dark"] {
@@ -1659,12 +1668,12 @@ button.solve-chip:hover .solve-chip-del {
     flex: none;
 }
 
-.face-dot-white { background: #ffffff; }
-.face-dot-yellow { background: #ffd000; }
-.face-dot-green { background: #28a745; }
-.face-dot-blue { background: #007bff; }
-.face-dot-red { background: #dc3545; }
-.face-dot-orange { background: #fd7e14; }
+.face-dot-white { background: var(--cube-white); }
+.face-dot-yellow { background: var(--cube-yellow); }
+.face-dot-green { background: var(--cube-green); }
+.face-dot-blue { background: var(--cube-blue); }
+.face-dot-red { background: var(--cube-red); }
+.face-dot-orange { background: var(--cube-orange); }
 
 /* Face Badges on Solution Cards */
 .face-badge {
@@ -1676,39 +1685,70 @@ button.solve-chip:hover .solve-chip-del {
 }
 
 .face-badge-white {
-    background: #f0f0f0;
-    color: #333333;
-    border: 1px solid #ccc;
+    background: #f3f4f6;
+    color: #1f2937;
+    border: 1px solid #d1d5db;
 }
 
 .face-badge-yellow {
-    background: #fff8d6;
-    color: #8c6b00;
-    border: 1px solid #f0d060;
+    background: #fefce8;
+    color: #854d0e;
+    border: 1px solid var(--cube-yellow);
 }
 
 .face-badge-green {
-    background: #e6f9ed;
-    color: #155724;
-    border: 1px solid #b7ebc6;
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid var(--cube-green);
 }
 
 .face-badge-blue {
-    background: #e7f3ff;
-    color: #004085;
-    border: 1px solid #b8daff;
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid var(--cube-blue);
 }
 
 .face-badge-red {
-    background: #fde8e8;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid var(--cube-red);
 }
 
 .face-badge-orange {
-    background: #fff0e6;
-    color: #8a3b00;
-    border: 1px solid #fed1b2;
+    background: #fff7ed;
+    color: #9a3412;
+    border: 1px solid var(--cube-orange);
+}
+
+[data-theme="dark"] .face-badge-white {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+}
+[data-theme="dark"] .face-badge-yellow {
+    background: rgba(255, 213, 0, 0.15);
+    color: #ffd500;
+    border: 1px solid rgba(255, 213, 0, 0.4);
+}
+[data-theme="dark"] .face-badge-green {
+    background: rgba(0, 200, 83, 0.15);
+    color: #00c853;
+    border: 1px solid rgba(0, 200, 83, 0.4);
+}
+[data-theme="dark"] .face-badge-blue {
+    background: rgba(37, 99, 235, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(37, 99, 235, 0.4);
+}
+[data-theme="dark"] .face-badge-red {
+    background: rgba(220, 38, 38, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(220, 38, 38, 0.4);
+}
+[data-theme="dark"] .face-badge-orange {
+    background: rgba(255, 119, 0, 0.15);
+    color: #fb923c;
+    border: 1px solid rgba(255, 119, 0, 0.4);
 }
 
 .layer-solutions-list {

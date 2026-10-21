@@ -429,7 +429,9 @@ export class StudyView {
         const el = new ScrambleDisplay();
         el.event = puzzle;
         el.visualization = "3D";
-        el.scramble = c.setup || "";
+        const is333Case = puzzle === "333" && ["f2l", "oll", "pll"].includes(trackId);
+        const setupAlg = c.setup || c.scramble || "";
+        el.scramble = (is333Case ? `z2 ${setupAlg}` : setupAlg).trim();
         wrapEl.appendChild(el);
         this.activeDisplay3d = el;
 

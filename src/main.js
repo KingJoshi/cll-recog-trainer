@@ -13,6 +13,7 @@ import { pllCases } from './data/pllData.js';
 import { ollCases } from './data/ollData.js';
 import { f2lCases } from './data/f2lData.js';
 import { ortegaCases } from './data/ortegaData.js';
+import { CUBE_COLORS, renderCaseSvg } from './caseVisualizer.js';
 import './style.css';
 
 // Register service worker for offline support (production only; the dev
@@ -128,11 +129,11 @@ let statsType = (savedSettings.statsType === "recog" || savedSettings.statsType 
   : "log";
 let solveStatsSort = { col: "case", dir: "asc" };
 
-// Modes: solve, study, practice, timed, simulate
-const MODES = ["solve", "study", "practice", "timed", "simulate"];
+// Modes: solve, study, practice, simulate (Timed Sprint is inside Practice)
+const MODES = ["solve", "study", "practice", "simulate"];
 let mode = MODES.includes(savedSettings.mode)
   ? savedSettings.mode
-  : "solve";
+  : (savedSettings.mode === "timed" ? "practice" : "solve");
 
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.has("puzzle")) {
@@ -145,6 +146,7 @@ if (urlParams.has("track")) {
 if (urlParams.has("mode")) {
   const m = urlParams.get("mode");
   if (MODES.includes(m)) mode = m;
+  else if (m === "timed") mode = "practice";
 }
 let timedMinutes = clampMinutes(savedSettings.timedMinutes ?? 3);
 
@@ -1568,6 +1570,10 @@ regenerateBtn.addEventListener("click", regenerateScramble);
 // ---------------------------------------------------------------------------
 
 function setMode(next, { skipSimInit = false } = {}) {
+  if (next === "timed") {
+    next = "practice";
+    if (practiceView) practiceView.setPracticeMode("timed");
+  }
   if (!MODES.includes(next) || next === mode) return;
   if (session) finishSession(); // leaving Timed ends a running session
   if (solveState !== "idle") cancelSolve(); // leaving Solve drops an unfinished attempt
@@ -1664,16 +1670,16 @@ function renderStage() {
   verifyMessage.hidden = !(mode === "practice" && practiceAnswered);
   timedFeedback.hidden = !(running && session.lastResult);
 
-  timedBar.hidden = !running;
-  timedSetup.hidden = !(mode === "timed" && !running && !sessionSummary);
+  timedBar.hidden = true;
+  timedSetup.hidden = true;
   startSessionBtn.disabled = !hasCases;
-  timedSummary.hidden = !(mode === "timed" && !running && sessionSummary);
+  timedSummary.hidden = true;
 
-  regenerateBtn.hidden = mode === "timed" || simulating || solving || studying;
+  regenerateBtn.hidden = simulating || solving || studying;
 
   // Solve mode: show or hide cube based on solveShowCube
   const hideCubeInSolve = solving && !solveShowCube;
-  cubeCard.hidden = studying || hideCubeInSolve || (!hasCases && ["practice", "study", "timed"].includes(mode));
+  cubeCard.hidden = studying || hideCubeInSolve || (!hasCases && ["practice", "study"].includes(mode));
   if (resetOrientationBtn) {
     resetOrientationBtn.hidden = cubeCard.hidden;
   }
@@ -1682,7 +1688,7 @@ function renderStage() {
     stage.classList.toggle("mode-study", studying);
     stage.classList.toggle("mode-practice", practicing);
     stage.classList.toggle("mode-simulate", simulating);
-    stage.classList.toggle("mode-timed", mode === "timed");
+    stage.classList.toggle("mode-timed", false);
     stage.dataset.mode = mode;
     stage.classList.toggle("solve-cube-hidden", hideCubeInSolve);
     stage.dataset.solveSize = solveWidgetSize;
@@ -3724,7 +3730,9 @@ async function buildOverview() {
 
       const diagram = document.createElement("div");
       diagram.className = "ov-diagram";
-      diagram.innerHTML = caseDiagramSVG(solved.applyAlg(`z2 ${caseObj.scramble}`), caseObj.id);
+      renderCaseSvg("222", "cll", caseObj).then(svg => {
+        diagram.innerHTML = svg;
+      });
 
       const id = document.createElement("div");
       id.className = "ov-id";
@@ -5724,6 +5732,9 @@ practiceView = new PracticeView({
   onRecordRecognition: (caseId, isCorrect) => {
     recordCaseStat(currentPuzzle, currentTrackId, caseId, isCorrect);
     updateStatsTable();
+  },
+  onFlashCube: (result) => {
+    flashCube(result);
   },
   onGenerateScramble: async (trackId) => {
     const tid = trackId || currentTrackId;

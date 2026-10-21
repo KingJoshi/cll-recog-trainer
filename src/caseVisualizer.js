@@ -4,13 +4,25 @@
 import { puzzles } from 'cubing/puzzles';
 import { Alg } from 'cubing/alg';
 
+// Canonical High-Contrast Speedcube Color Palette
+// Unified across 2D visualizers, 3D cube matching, badges, and UI
+export const CUBE_COLORS = {
+  white:  "#ffffff", // pure crisp white
+  yellow: "#ffd500", // bright golden yellow (high contrast against white)
+  green:  "#00c853", // vivid emerald speedcube green (distinct from blue/dark)
+  blue:   "#2563eb", // vibrant royal/cobalt blue (distinct from green)
+  red:    "#dc2626", // vivid speedcube red (distinct from orange)
+  orange: "#ff7700", // warm safety orange (distinct from red/yellow)
+  slate:  "#374151"  // neutral slate grey for unoriented/base facelets
+};
+
 export const FACE_COLORS = {
-  U: "#ffd500", // yellow
-  D: "#ffffff", // white
-  F: "#009b48", // green
-  B: "#0046ad", // blue
-  L: "#ff5800", // orange
-  R: "#b71234"  // red
+  U: CUBE_COLORS.yellow,
+  D: CUBE_COLORS.white,
+  F: CUBE_COLORS.green,
+  B: CUBE_COLORS.blue,
+  L: CUBE_COLORS.orange,
+  R: CUBE_COLORS.red
 };
 
 const CORNER_FACES_222 = [
@@ -49,99 +61,102 @@ function getKp3() {
 // Row 1 (Mid):  col 0 (UL)=26,50;  col 1 (U)=50,50;   col 2 (UR)=74,50
 // Row 2 (Front):col 0 (UFL)=26,82; col 1 (UF)=50,82;  col 2 (UFR)=74,82
 
+const ARROW_CORNER = CUBE_COLORS.red;
+const ARROW_EDGE = CUBE_COLORS.blue;
+
 const PLL_ARROWS = {
   "T": [
     // Corner swap UBR <-> UFR (right vertical)
-    { type: "double", x1: 76, y1: 22, x2: 76, y2: 78, color: "#e11d48" },
+    { type: "double", x1: 76, y1: 22, x2: 76, y2: 78, color: ARROW_CORNER },
     // Edge swap UR <-> UF
-    { type: "double", x1: 72, y1: 52, x2: 54, y2: 78, color: "#2563eb" }
+    { type: "double", x1: 72, y1: 52, x2: 54, y2: 78, color: ARROW_EDGE }
   ],
   "H": [
     // Opposite edges UF <-> UB
-    { type: "double", x1: 50, y1: 24, x2: 50, y2: 76, color: "#2563eb" },
+    { type: "double", x1: 50, y1: 24, x2: 50, y2: 76, color: ARROW_EDGE },
     // Opposite edges UL <-> UR
-    { type: "double", x1: 24, y1: 50, x2: 76, y2: 50, color: "#2563eb" }
+    { type: "double", x1: 24, y1: 50, x2: 76, y2: 50, color: ARROW_EDGE }
   ],
   "Z": [
     // Adjacent edges UF <-> UR
-    { type: "double", x1: 54, y1: 78, x2: 74, y2: 54, color: "#2563eb" },
+    { type: "double", x1: 54, y1: 78, x2: 74, y2: 54, color: ARROW_EDGE },
     // Adjacent edges UB <-> UL
-    { type: "double", x1: 46, y1: 22, x2: 26, y2: 46, color: "#2563eb" }
+    { type: "double", x1: 46, y1: 22, x2: 26, y2: 46, color: ARROW_EDGE }
   ],
   "Ua": [
     // 3-edge cycle UB -> UL -> UF
-    { type: "cycle3", p1: [50, 22], p2: [24, 50], p3: [50, 78], color: "#2563eb" }
+    { type: "cycle3", p1: [50, 22], p2: [24, 50], p3: [50, 78], color: ARROW_EDGE }
   ],
   "Ub": [
     // 3-edge cycle UB -> UF -> UL
-    { type: "cycle3", p1: [50, 22], p2: [50, 78], p3: [24, 50], color: "#2563eb" }
+    { type: "cycle3", p1: [50, 22], p2: [50, 78], p3: [24, 50], color: ARROW_EDGE }
   ],
   "Aa": [
     // 3-corner cycle UBL -> UBR -> UFR
-    { type: "cycle3", p1: [24, 22], p2: [76, 22], p3: [76, 78], color: "#e11d48" }
+    { type: "cycle3", p1: [24, 22], p2: [76, 22], p3: [76, 78], color: ARROW_CORNER }
   ],
   "Ab": [
     // 3-corner cycle UFR -> UBR -> UBL
-    { type: "cycle3", p1: [76, 78], p2: [76, 22], p3: [24, 22], color: "#e11d48" }
+    { type: "cycle3", p1: [76, 78], p2: [76, 22], p3: [24, 22], color: ARROW_CORNER }
   ],
   "E": [
     // Diagonal corner swaps
-    { type: "double", x1: 26, y1: 24, x2: 74, y2: 76, color: "#e11d48" },
-    { type: "double", x1: 74, y1: 24, x2: 26, y2: 76, color: "#e11d48" }
+    { type: "double", x1: 26, y1: 24, x2: 74, y2: 76, color: ARROW_CORNER },
+    { type: "double", x1: 74, y1: 24, x2: 26, y2: 76, color: ARROW_CORNER }
   ],
   "F": [
     // Adjacent corner swap UFR <-> UBR
-    { type: "double", x1: 76, y1: 22, x2: 76, y2: 78, color: "#e11d48" },
+    { type: "double", x1: 76, y1: 22, x2: 76, y2: 78, color: ARROW_CORNER },
     // Opposite edge swap UL <-> UR
-    { type: "double", x1: 24, y1: 50, x2: 76, y2: 50, color: "#2563eb" }
+    { type: "double", x1: 24, y1: 50, x2: 76, y2: 50, color: ARROW_EDGE }
   ],
   "Ja": [
-    { type: "double", x1: 24, y1: 24, x2: 24, y2: 76, color: "#e11d48" },
-    { type: "double", x1: 24, y1: 50, x2: 48, y2: 78, color: "#2563eb" }
+    { type: "double", x1: 24, y1: 24, x2: 24, y2: 76, color: ARROW_CORNER },
+    { type: "double", x1: 24, y1: 50, x2: 48, y2: 78, color: ARROW_EDGE }
   ],
   "Jb": [
-    { type: "double", x1: 76, y1: 24, x2: 76, y2: 76, color: "#e11d48" },
-    { type: "double", x1: 76, y1: 50, x2: 52, y2: 78, color: "#2563eb" }
+    { type: "double", x1: 76, y1: 24, x2: 76, y2: 76, color: ARROW_CORNER },
+    { type: "double", x1: 76, y1: 50, x2: 52, y2: 78, color: ARROW_EDGE }
   ],
   "Ra": [
-    { type: "double", x1: 76, y1: 24, x2: 76, y2: 76, color: "#e11d48" },
-    { type: "double", x1: 26, y1: 50, x2: 50, y2: 78, color: "#2563eb" }
+    { type: "double", x1: 76, y1: 24, x2: 76, y2: 76, color: ARROW_CORNER },
+    { type: "double", x1: 26, y1: 50, x2: 50, y2: 78, color: ARROW_EDGE }
   ],
   "Rb": [
-    { type: "double", x1: 76, y1: 24, x2: 76, y2: 76, color: "#e11d48" },
-    { type: "double", x1: 74, y1: 50, x2: 50, y2: 78, color: "#2563eb" }
+    { type: "double", x1: 76, y1: 24, x2: 76, y2: 76, color: ARROW_CORNER },
+    { type: "double", x1: 74, y1: 50, x2: 50, y2: 78, color: ARROW_EDGE }
   ],
   "V": [
-    { type: "double", x1: 24, y1: 76, x2: 76, y2: 24, color: "#e11d48" },
-    { type: "double", x1: 50, y1: 78, x2: 74, y2: 50, color: "#2563eb" }
+    { type: "double", x1: 24, y1: 76, x2: 76, y2: 24, color: ARROW_CORNER },
+    { type: "double", x1: 50, y1: 78, x2: 74, y2: 50, color: ARROW_EDGE }
   ],
   "Y": [
-    { type: "double", x1: 24, y1: 24, x2: 76, y2: 76, color: "#e11d48" },
-    { type: "double", x1: 50, y1: 78, x2: 74, y2: 50, color: "#2563eb" }
+    { type: "double", x1: 24, y1: 24, x2: 76, y2: 76, color: ARROW_CORNER },
+    { type: "double", x1: 50, y1: 78, x2: 74, y2: 50, color: ARROW_EDGE }
   ],
   "Na": [
-    { type: "double", x1: 76, y1: 24, x2: 24, y2: 76, color: "#e11d48" },
-    { type: "double", x1: 50, y1: 24, x2: 50, y2: 76, color: "#2563eb" }
+    { type: "double", x1: 76, y1: 24, x2: 24, y2: 76, color: ARROW_CORNER },
+    { type: "double", x1: 50, y1: 24, x2: 50, y2: 76, color: ARROW_EDGE }
   ],
   "Nb": [
-    { type: "double", x1: 24, y1: 24, x2: 76, y2: 76, color: "#e11d48" },
-    { type: "double", x1: 50, y1: 24, x2: 50, y2: 76, color: "#2563eb" }
+    { type: "double", x1: 24, y1: 24, x2: 76, y2: 76, color: ARROW_CORNER },
+    { type: "double", x1: 50, y1: 24, x2: 50, y2: 76, color: ARROW_EDGE }
   ],
   "Ga": [
-    { type: "cycle3", p1: [24, 76], p2: [76, 76], p3: [76, 24], color: "#e11d48" },
-    { type: "cycle3", p1: [50, 78], p2: [76, 50], p3: [50, 22], color: "#2563eb" }
+    { type: "cycle3", p1: [24, 76], p2: [76, 76], p3: [76, 24], color: ARROW_CORNER },
+    { type: "cycle3", p1: [50, 78], p2: [76, 50], p3: [50, 22], color: ARROW_EDGE }
   ],
   "Gb": [
-    { type: "cycle3", p1: [76, 76], p2: [24, 76], p3: [24, 24], color: "#e11d48" },
-    { type: "cycle3", p1: [50, 78], p2: [50, 22], p3: [76, 50], color: "#2563eb" }
+    { type: "cycle3", p1: [76, 76], p2: [24, 76], p3: [24, 24], color: ARROW_CORNER },
+    { type: "cycle3", p1: [50, 78], p2: [50, 22], p3: [76, 50], color: ARROW_EDGE }
   ],
   "Gc": [
-    { type: "cycle3", p1: [76, 24], p2: [24, 24], p3: [24, 76], color: "#e11d48" },
-    { type: "cycle3", p1: [50, 22], p2: [24, 50], p3: [50, 78], color: "#2563eb" }
+    { type: "cycle3", p1: [76, 24], p2: [24, 24], p3: [24, 76], color: ARROW_CORNER },
+    { type: "cycle3", p1: [50, 22], p2: [24, 50], p3: [50, 78], color: ARROW_EDGE }
   ],
   "Gd": [
-    { type: "cycle3", p1: [24, 24], p2: [76, 24], p3: [76, 76], color: "#e11d48" },
-    { type: "cycle3", p1: [50, 22], p2: [50, 78], p3: [24, 50], color: "#2563eb" }
+    { type: "cycle3", p1: [24, 24], p2: [76, 24], p3: [76, 76], color: ARROW_CORNER },
+    { type: "cycle3", p1: [50, 22], p2: [50, 78], p3: [24, 50], color: ARROW_EDGE }
   ]
 };
 
@@ -191,7 +206,7 @@ export async function renderCllSvg(caseObj) {
 
   const { pieces, orientation } = pat.patternData.CORNERS;
   const color = (loc, o) =>
-    FACE_COLORS[CORNER_FACES_222[pieces[loc]][(o - orientation[loc] + 3) % 3]] || "#ffd500";
+    FACE_COLORS[CORNER_FACES_222[pieces[loc]][(o - orientation[loc] + 3) % 3]] || CUBE_COLORS.yellow;
 
   const S = 32;   // top sticker size
   const D = 9;    // side sticker depth
@@ -201,7 +216,7 @@ export async function renderCllSvg(caseObj) {
   const W = T * 2 + 2 * S;
 
   const rect = (x, y, w, h, fill) =>
-    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="#18181b" stroke-width="1.8"/>`;
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="#111827" stroke-width="1.8"/>`;
 
   return `<svg viewBox="0 0 ${W} ${W}" class="case-svg case-svg-222" xmlns="http://www.w3.org/2000/svg">
     <!-- Top face (UBL, UBR, UFL, UFR) -->
@@ -237,7 +252,7 @@ export async function renderOrtegaSvg(caseObj) {
     return renderPblSvg(caseObj);
   }
 
-  // Ortega OLL: Top yellow/grey face + yellow perimeter indicator bars
+  // Ortega OLL: Top yellow/slate face + yellow perimeter indicator bars
   const kp = await getKp2();
   const def = kp.defaultPattern();
   const scr = caseObj.setup || caseObj.scramble || "";
@@ -257,10 +272,9 @@ export async function renderOrtegaSvg(caseObj) {
   const W = T * 2 + 2 * S;
 
   const rect = (x, y, w, h, fill) =>
-    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="#18181b" stroke-width="1.8"/>`;
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="#111827" stroke-width="1.8"/>`;
 
-  const topColor = (loc) => isYellow(loc, 0) ? "#ffd500" : "#2f3542";
-  const barColor = (hasYellow) => hasYellow ? "#ffd500" : "transparent";
+  const topColor = (loc) => isYellow(loc, 0) ? CUBE_COLORS.yellow : CUBE_COLORS.slate;
 
   return `<svg viewBox="0 0 ${W} ${W}" class="case-svg case-svg-ortega-oll" xmlns="http://www.w3.org/2000/svg">
     <!-- Top Face (UBL, UBR, UFL, UFR) -->
@@ -270,14 +284,14 @@ export async function renderOrtegaSvg(caseObj) {
     ${rect(T + S, T + S, S, S, topColor(0))}
 
     <!-- Perimeter Yellow Indicators -->
-    ${isYellow(2, 2) ? rect(T, M, S, D, "#ffd500") : ''}
-    ${isYellow(1, 1) ? rect(T + S, M, S, D, "#ffd500") : ''}
-    ${isYellow(3, 1) ? rect(T, T + 2 * S + G, S, D, "#ffd500") : ''}
-    ${isYellow(0, 2) ? rect(T + S, T + 2 * S + G, S, D, "#ffd500") : ''}
-    ${isYellow(2, 1) ? rect(M, T, D, S, "#ffd500") : ''}
-    ${isYellow(3, 2) ? rect(M, T + S, D, S, "#ffd500") : ''}
-    ${isYellow(1, 2) ? rect(T + 2 * S + G, T, D, S, "#ffd500") : ''}
-    ${isYellow(0, 1) ? rect(T + 2 * S + G, T + S, D, S, "#ffd500") : ''}
+    ${isYellow(2, 2) ? rect(T, M, S, D, CUBE_COLORS.yellow) : ''}
+    ${isYellow(1, 1) ? rect(T + S, M, S, D, CUBE_COLORS.yellow) : ''}
+    ${isYellow(3, 1) ? rect(T, T + 2 * S + G, S, D, CUBE_COLORS.yellow) : ''}
+    ${isYellow(0, 2) ? rect(T + S, T + 2 * S + G, S, D, CUBE_COLORS.yellow) : ''}
+    ${isYellow(2, 1) ? rect(M, T, D, S, CUBE_COLORS.yellow) : ''}
+    ${isYellow(3, 2) ? rect(M, T + S, D, S, CUBE_COLORS.yellow) : ''}
+    ${isYellow(1, 2) ? rect(T + 2 * S + G, T, D, S, CUBE_COLORS.yellow) : ''}
+    ${isYellow(0, 1) ? rect(T + 2 * S + G, T + S, D, S, CUBE_COLORS.yellow) : ''}
   </svg>`;
 }
 
@@ -294,8 +308,8 @@ function renderPblSvg(caseObj) {
     <rect x="8" y="8" width="84" height="84" rx="8" fill="#1e2430" stroke="#333d4d" stroke-width="2"/>
     
     <!-- Top Layer (Layer 1) -->
-    <rect x="18" y="18" width="64" height="26" rx="4" fill="#ffd500" stroke="#111" stroke-width="1.8"/>
-    <text x="50" y="35" text-anchor="middle" font-size="11" font-weight="700" fill="#111">
+    <rect x="18" y="18" width="64" height="26" rx="4" fill="${CUBE_COLORS.yellow}" stroke="#111827" stroke-width="1.8"/>
+    <text x="50" y="35" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">
       ${isOppOpp || isOppSolved ? 'OPP SWAP' : 'ADJ BAR'}
     </text>
 
@@ -303,8 +317,8 @@ function renderPblSvg(caseObj) {
     <line x1="14" y1="50" x2="86" y2="50" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,3"/>
 
     <!-- Bottom Layer (Layer 2) -->
-    <rect x="18" y="56" width="64" height="26" rx="4" fill="#ffffff" stroke="#111" stroke-width="1.8"/>
-    <text x="50" y="73" text-anchor="middle" font-size="11" font-weight="700" fill="#111">
+    <rect x="18" y="56" width="64" height="26" rx="4" fill="${CUBE_COLORS.white}" stroke="#111827" stroke-width="1.8"/>
+    <text x="50" y="73" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">
       ${isAdjSolved || isOppSolved ? 'SOLVED' : (isOppOpp || isAdjOpp ? 'OPP SWAP' : 'ADJ BAR')}
     </text>
   </svg>`;
@@ -312,7 +326,7 @@ function renderPblSvg(caseObj) {
 
 // ---------------------------------------------------------------------------
 // 3x3 OLL SVG (Orientation of the Last Layer - 57 Cases)
-// Top face 3x3 (Yellow/Grey) + Yellow side indicator bars around perimeter
+// Top face 3x3 (Yellow/Slate) + Yellow side indicator bars around perimeter
 // ---------------------------------------------------------------------------
 export async function renderOllSvg(caseObj) {
   const kp = await getKp3();
@@ -342,9 +356,9 @@ export async function renderOllSvg(caseObj) {
   const W = T * 2 + 3 * S;
 
   const rect = (x, y, w, h, fill) =>
-    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="#18181b" stroke-width="1.6"/>`;
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="#111827" stroke-width="1.6"/>`;
 
-  const topColor = (isY) => isY ? "#ffd500" : "#2f3542";
+  const topColor = (isY) => isY ? CUBE_COLORS.yellow : CUBE_COLORS.slate;
 
   return `<svg viewBox="0 0 ${W} ${W}" class="case-svg case-svg-oll" xmlns="http://www.w3.org/2000/svg">
     <!-- Top Face (3x3 grid) -->
@@ -355,7 +369,7 @@ export async function renderOllSvg(caseObj) {
 
     <!-- Row 1 (Mid): UL (edge 3), Center (always yellow), UR (edge 1) -->
     ${rect(T, T + S, S, S, topColor(isEdgeYellow(3, 0)))}
-    ${rect(T + S, T + S, S, S, "#ffd500")}
+    ${rect(T + S, T + S, S, S, CUBE_COLORS.yellow)}
     ${rect(T + 2 * S, T + S, S, S, topColor(isEdgeYellow(1, 0)))}
 
     <!-- Row 2 (Front): UFL (corner 3), UF (edge 0), UFR (corner 0) -->
@@ -364,24 +378,24 @@ export async function renderOllSvg(caseObj) {
     ${rect(T + 2 * S, T + 2 * S, S, S, topColor(isCornerYellow(0, 0)))}
 
     <!-- Back side (top) yellow indicators -->
-    ${isCornerYellow(2, 2) ? rect(T, M, S, D, "#ffd500") : ''}
-    ${isEdgeYellow(2, 1) ? rect(T + S, M, S, D, "#ffd500") : ''}
-    ${isCornerYellow(1, 1) ? rect(T + 2 * S, M, S, D, "#ffd500") : ''}
+    ${isCornerYellow(2, 2) ? rect(T, M, S, D, CUBE_COLORS.yellow) : ''}
+    ${isEdgeYellow(2, 1) ? rect(T + S, M, S, D, CUBE_COLORS.yellow) : ''}
+    ${isCornerYellow(1, 1) ? rect(T + 2 * S, M, S, D, CUBE_COLORS.yellow) : ''}
 
     <!-- Front side (bottom) yellow indicators -->
-    ${isCornerYellow(3, 1) ? rect(T, T + 3 * S + G, S, D, "#ffd500") : ''}
-    ${isEdgeYellow(0, 1) ? rect(T + S, T + 3 * S + G, S, D, "#ffd500") : ''}
-    ${isCornerYellow(0, 2) ? rect(T + 2 * S, T + 3 * S + G, S, D, "#ffd500") : ''}
+    ${isCornerYellow(3, 1) ? rect(T, T + 3 * S + G, S, D, CUBE_COLORS.yellow) : ''}
+    ${isEdgeYellow(0, 1) ? rect(T + S, T + 3 * S + G, S, D, CUBE_COLORS.yellow) : ''}
+    ${isCornerYellow(0, 2) ? rect(T + 2 * S, T + 3 * S + G, S, D, CUBE_COLORS.yellow) : ''}
 
     <!-- Left side (left) yellow indicators -->
-    ${isCornerYellow(2, 1) ? rect(M, T, D, S, "#ffd500") : ''}
-    ${isEdgeYellow(3, 1) ? rect(M, T + S, D, S, "#ffd500") : ''}
-    ${isCornerYellow(3, 2) ? rect(M, T + 2 * S, D, S, "#ffd500") : ''}
+    ${isCornerYellow(2, 1) ? rect(M, T, D, S, CUBE_COLORS.yellow) : ''}
+    ${isEdgeYellow(3, 1) ? rect(M, T + S, D, S, CUBE_COLORS.yellow) : ''}
+    ${isCornerYellow(3, 2) ? rect(M, T + 2 * S, D, S, CUBE_COLORS.yellow) : ''}
 
     <!-- Right side (right) yellow indicators -->
-    ${isCornerYellow(1, 2) ? rect(T + 3 * S + G, T, D, S, "#ffd500") : ''}
-    ${isEdgeYellow(1, 1) ? rect(T + 3 * S + G, T + S, D, S, "#ffd500") : ''}
-    ${isCornerYellow(0, 1) ? rect(T + 3 * S + G, T + 2 * S, D, S, "#ffd500") : ''}
+    ${isCornerYellow(1, 2) ? rect(T + 3 * S + G, T, D, S, CUBE_COLORS.yellow) : ''}
+    ${isEdgeYellow(1, 1) ? rect(T + 3 * S + G, T + S, D, S, CUBE_COLORS.yellow) : ''}
+    ${isCornerYellow(0, 1) ? rect(T + 3 * S + G, T + 2 * S, D, S, CUBE_COLORS.yellow) : ''}
   </svg>`;
 }
 
@@ -399,10 +413,10 @@ export async function renderPllSvg(caseObj) {
   const { pieces: ePieces, orientation: eOrient } = pat.patternData.EDGES;
 
   const cornerColor = (loc, o) =>
-    FACE_COLORS[CORNER_FACES_333[cPieces[loc]][(o - cOrient[loc] + 3) % 3]] || "#ffd500";
+    FACE_COLORS[CORNER_FACES_333[cPieces[loc]][(o - cOrient[loc] + 3) % 3]] || CUBE_COLORS.yellow;
 
   const edgeColor = (loc, o) =>
-    FACE_COLORS[EDGE_FACES_333[ePieces[loc]][(o - eOrient[loc] + 2) % 2]] || "#ffd500";
+    FACE_COLORS[EDGE_FACES_333[ePieces[loc]][(o - eOrient[loc] + 2) % 2]] || CUBE_COLORS.yellow;
 
   const S = 22; // top sticker size
   const D = 8;  // side sticker depth
@@ -412,7 +426,7 @@ export async function renderPllSvg(caseObj) {
   const W = T * 2 + 3 * S;
 
   const rect = (x, y, w, h, fill) =>
-    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="#18181b" stroke-width="1.6"/>`;
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="#111827" stroke-width="1.6"/>`;
 
   // Arrows overlay
   const arrows = PLL_ARROWS[caseObj.id] || [];
@@ -436,15 +450,15 @@ export async function renderPllSvg(caseObj) {
 
   return `<svg viewBox="0 0 ${W} ${W}" class="case-svg case-svg-pll" xmlns="http://www.w3.org/2000/svg">
     <!-- Top Face (All 9 yellow) -->
-    ${rect(T, T, S, S, "#ffd500")}
-    ${rect(T + S, T, S, S, "#ffd500")}
-    ${rect(T + 2 * S, T, S, S, "#ffd500")}
-    ${rect(T, T + S, S, S, "#ffd500")}
-    ${rect(T + S, T + S, S, S, "#ffd500")}
-    ${rect(T + 2 * S, T + S, S, S, "#ffd500")}
-    ${rect(T, T + 2 * S, S, S, "#ffd500")}
-    ${rect(T + S, T + 2 * S, S, S, "#ffd500")}
-    ${rect(T + 2 * S, T + 2 * S, S, S, "#ffd500")}
+    ${rect(T, T, S, S, CUBE_COLORS.yellow)}
+    ${rect(T + S, T, S, S, CUBE_COLORS.yellow)}
+    ${rect(T + 2 * S, T, S, S, CUBE_COLORS.yellow)}
+    ${rect(T, T + S, S, S, CUBE_COLORS.yellow)}
+    ${rect(T + S, T + S, S, S, CUBE_COLORS.yellow)}
+    ${rect(T + 2 * S, T + S, S, S, CUBE_COLORS.yellow)}
+    ${rect(T, T + 2 * S, S, S, CUBE_COLORS.yellow)}
+    ${rect(T + S, T + 2 * S, S, S, CUBE_COLORS.yellow)}
+    ${rect(T + 2 * S, T + 2 * S, S, S, CUBE_COLORS.yellow)}
 
     <!-- Back Side (top bar): UBL (2), UB (2), UBR (1) -->
     ${rect(T, M, S, D, cornerColor(2, 2))}
@@ -486,27 +500,26 @@ export async function renderF2lSvg(caseObj) {
   const T = 14;
   const W = 100;
 
-  const rect = (x, y, w, h, fill, stroke = "#18181b", strokeW = 1.6) =>
+  const rect = (x, y, w, h, fill, stroke = "#111827", strokeW = 1.6) =>
     `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}"/>`;
 
   return `<svg viewBox="0 0 ${W} ${W}" class="case-svg case-svg-f2l" xmlns="http://www.w3.org/2000/svg">
-    <!-- Base 3x3 Top Layer (White on bottom, so U face is yellow/grey) -->
-    <!-- Solved back/left pieces in dark neutral tone -->
-    ${rect(T, T, S, S, "#2d3748")}
-    ${rect(T + S, T, S, S, "#2d3748")}
-    ${rect(T + 2 * S, T, S, S, "#2d3748")}
-    ${rect(T, T + S, S, S, "#2d3748")}
-    ${rect(T + S, T + S, S, S, "#ffd500")}
-    ${rect(T + 2 * S, T + S, S, S, "#3182ce")}
-    ${rect(T, T + 2 * S, S, S, "#2d3748")}
-    ${rect(T + S, T + 2 * S, S, S, "#38a169")}
+    <!-- Base 3x3 Top Layer in neutral slate grey -->
+    ${rect(T, T, S, S, CUBE_COLORS.slate)}
+    ${rect(T + S, T, S, S, CUBE_COLORS.slate)}
+    ${rect(T + 2 * S, T, S, S, CUBE_COLORS.slate)}
+    ${rect(T, T + S, S, S, CUBE_COLORS.slate)}
+    ${rect(T + S, T + S, S, S, CUBE_COLORS.yellow)}
+    ${rect(T + 2 * S, T + S, S, S, CUBE_COLORS.blue)}
+    ${rect(T, T + 2 * S, S, S, CUBE_COLORS.slate)}
+    ${rect(T + S, T + 2 * S, S, S, CUBE_COLORS.green)}
 
-    <!-- Front-Right Active Target Slot (UFR / FR slot highlighted in vibrant colors) -->
-    ${rect(T + 2 * S, T + 2 * S, S, S, "#e53e3e", "#e53e3e", 2.2)}
+    <!-- Front-Right Active Target Slot (UFR / FR slot highlighted in vibrant speedcube red) -->
+    ${rect(T + 2 * S, T + 2 * S, S, S, CUBE_COLORS.red, CUBE_COLORS.red, 2.2)}
 
-    <!-- Target Slot Outline indicator (Green & Red target arrows) -->
-    <circle cx="${T + 2 * S + S / 2}" cy="${T + 2 * S + S / 2}" r="7" fill="#ffffff" stroke="#111" stroke-width="1.5"/>
-    <text x="${T + 2 * S + S / 2}" y="${T + 2 * S + S / 2 + 3.5}" text-anchor="middle" font-size="9" font-weight="900" fill="#e53e3e">FR</text>
+    <!-- Target Slot Outline indicator (White badge with Red text) -->
+    <circle cx="${T + 2 * S + S / 2}" cy="${T + 2 * S + S / 2}" r="7" fill="${CUBE_COLORS.white}" stroke="#111827" stroke-width="1.5"/>
+    <text x="${T + 2 * S + S / 2}" y="${T + 2 * S + S / 2 + 3.5}" text-anchor="middle" font-size="9" font-weight="900" fill="${CUBE_COLORS.red}">FR</text>
   </svg>`;
 }
 
@@ -517,18 +530,18 @@ export function renderCrossSvg(caseObj) {
   return `<svg viewBox="0 0 100 100" class="case-svg case-svg-cross" xmlns="http://www.w3.org/2000/svg">
     <rect x="6" y="6" width="88" height="88" rx="8" fill="#18181b" stroke="#333" stroke-width="2"/>
     <!-- Cross pieces in White -->
-    <rect x="36" y="12" width="28" height="24" rx="2" fill="#ffffff" stroke="#111" stroke-width="1.5"/>
-    <rect x="36" y="64" width="28" height="24" rx="2" fill="#ffffff" stroke="#111" stroke-width="1.5"/>
-    <rect x="12" y="36" width="24" height="28" rx="2" fill="#ffffff" stroke="#111" stroke-width="1.5"/>
-    <rect x="64" y="36" width="24" height="28" rx="2" fill="#ffffff" stroke="#111" stroke-width="1.5"/>
-    <rect x="36" y="36" width="28" height="28" rx="2" fill="#ffffff" stroke="#111" stroke-width="1.5"/>
-    <text x="50" y="55" text-anchor="middle" font-size="16" font-weight="900" fill="#009b48">&#x271A;</text>
+    <rect x="36" y="12" width="28" height="24" rx="2" fill="${CUBE_COLORS.white}" stroke="#111" stroke-width="1.5"/>
+    <rect x="36" y="64" width="28" height="24" rx="2" fill="${CUBE_COLORS.white}" stroke="#111" stroke-width="1.5"/>
+    <rect x="12" y="36" width="24" height="28" rx="2" fill="${CUBE_COLORS.white}" stroke="#111" stroke-width="1.5"/>
+    <rect x="64" y="36" width="24" height="28" rx="2" fill="${CUBE_COLORS.white}" stroke="#111" stroke-width="1.5"/>
+    <rect x="36" y="36" width="28" height="28" rx="2" fill="${CUBE_COLORS.white}" stroke="#111" stroke-width="1.5"/>
+    <text x="50" y="55" text-anchor="middle" font-size="16" font-weight="900" fill="${CUBE_COLORS.green}">&#x271A;</text>
   </svg>`;
 }
 
 function renderFallbackSvg(label) {
   return `<svg viewBox="0 0 100 100" class="case-svg" xmlns="http://www.w3.org/2000/svg">
-    <rect x="10" y="10" width="80" height="80" rx="6" fill="#2d3748" stroke="#4a5568" stroke-width="2"/>
-    <text x="50" y="56" text-anchor="middle" font-size="20" font-weight="700" fill="#ffd500">${label}</text>
+    <rect x="10" y="10" width="80" height="80" rx="6" fill="${CUBE_COLORS.slate}" stroke="#4a5568" stroke-width="2"/>
+    <text x="50" y="56" text-anchor="middle" font-size="20" font-weight="700" fill="${CUBE_COLORS.yellow}">${label}</text>
   </svg>`;
 }
