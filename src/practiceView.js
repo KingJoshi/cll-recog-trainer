@@ -9,6 +9,7 @@ export class PracticeView {
     this.container = options.container;
     this.onGenerateScramble = options.onGenerateScramble; // () => Promise<string>
     this.onApplyScrambleToDisplay = options.onApplyScrambleToDisplay; // (scramble) => void
+    this.onRecordRecognition = options.onRecordRecognition; // (caseId, isCorrect) => void
 
     this.currentPuzzle = "222";
     this.currentTrackId = "cll";
@@ -284,6 +285,9 @@ export class PracticeView {
             this.streak++;
           } else {
             this.streak = 0;
+          }
+          if (this.onRecordRecognition && this.currentCase) {
+            this.onRecordRecognition(this.currentCase.id, isCorrect);
           }
           this.render();
           const feedback = this.container.querySelector('#recognitionFeedback');

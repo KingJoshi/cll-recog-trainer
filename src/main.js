@@ -330,13 +330,58 @@ let guessedGroup = null;
 let guessedCase = null;
 let settingsCollapsed = true; // narrow screens only; the sidebar is always open
 
-// stats[caseId] = { shown, correct }: attempts at a case and how often it was
-// identified correctly (group and number). Group rows are summed from these.
+// stats supporting Puzzle -> Track -> Case hierarchy
+// Structure: stats[puzzle][trackId][caseId] = { shown, correct }
+// Legacy flat keys (e.g. stats["A1"] = { shown, correct }) are supported and synced.
 let stats = readJSON(STATS_KEY) || {};
 GROUPS.forEach(group => delete stats[group]); // older versions kept separate group counters
 
 function saveStats() {
   writeJSON(STATS_KEY, stats);
+}
+
+function getCaseStat(puzzle = currentPuzzle, trackId = currentTrackId, caseId) {
+  if (!caseId || !stats) return { shown: 0, correct: 0 };
+  if (stats[puzzle] && stats[puzzle][trackId] && stats[puzzle][trackId][caseId]) {
+    return stats[puzzle][trackId][caseId];
+  }
+  // Check if legacy flat key exists
+  if (stats[caseId] && typeof stats[caseId] === "object" && typeof stats[caseId].shown === "number") {
+    return stats[caseId];
+  }
+  return { shown: 0, correct: 0 };
+}
+
+function recordCaseStat(puzzle = currentPuzzle, trackId = currentTrackId, caseId, isCorrect) {
+  if (!caseId) return;
+  if (!stats) stats = {};
+  if (!stats[puzzle]) stats[puzzle] = {};
+  if (!stats[puzzle][trackId]) stats[puzzle][trackId] = {};
+  if (!stats[puzzle][trackId][caseId]) {
+    const existing = getCaseStat(puzzle, trackId, caseId);
+    stats[puzzle][trackId][caseId] = { shown: existing.shown, correct: existing.correct };
+  }
+  const entry = stats[puzzle][trackId][caseId];
+  entry.shown++;
+  if (isCorrect) entry.correct++;
+
+  // Sync legacy flat key for 2x2 CLL backward compatibility
+  if (puzzle === "222" && trackId === "cll") {
+    stats[caseId] = { shown: entry.shown, correct: entry.correct };
+  }
+  saveStats();
+}
+
+function resetRecognitionStats(puzzle = currentPuzzle, trackId = currentTrackId) {
+  if (!stats) return;
+  if (stats[puzzle] && stats[puzzle][trackId]) {
+    delete stats[puzzle][trackId];
+  }
+  if (puzzle === "222" && trackId === "cll") {
+    CASE_IDS.forEach(id => delete stats[id]);
+  }
+  resetCaseAppearances();
+  saveStats();
 }
 
 function saveSettings() {
@@ -692,6 +737,7 @@ function setTrack(trackId) {
     if (solveTargetSelect) solveTargetSelect.value = solveTarget;
     regenerateScramble();
   }
+  updateStatsTable();
 }
 
 function populateSolveTargetSelect() {
@@ -1783,10 +1829,8 @@ function checkAnswer(group, caseNum) {
 
   // Every answer is an attempt at the shown case; it counts as a correct
   // identification only when both the group and the number are right.
-  const entry = stats[currentCaseId] ?? (stats[currentCaseId] = { shown: 0, correct: 0 });
-  entry.shown++;
-  if (groupCorrect && caseCorrect) entry.correct++;
-  saveStats();
+  const isCorrect = groupCorrect && caseCorrect;
+  recordCaseStat(currentPuzzle, currentTrackId, currentCaseId, isCorrect);
   updateStatsTable();
 
   const result = groupCorrect && caseCorrect ? "correct" : (groupCorrect || caseCorrect) ? "partial" : "incorrect";
@@ -1825,8 +1869,9 @@ function verifyGuess() {
 }
 
 function groupTotals(group) {
+  if (!casesByGroup[group]) return { shown: 0, correct: 0 };
   return casesByGroup[group].reduce((totals, caseObj) => {
-    const entry = stats[caseObj.id];
+    const entry = getCaseStat(currentPuzzle, currentTrackId, caseObj.id);
     if (entry) {
       totals.shown += entry.shown;
       totals.correct += entry.correct;
@@ -1837,7 +1882,7 @@ function groupTotals(group) {
 
 function buildStatsDisplay() {
   const parts = [];
-  const entry = stats[currentCaseId];
+  const entry = getCaseStat(currentPuzzle, currentTrackId, currentCaseId);
   if (entry) {
     parts.push(`${currentCaseId}: ${entry.correct}/${entry.shown}`);
   }
@@ -2864,9 +2909,12 @@ function stopSolve(byPointer) {
   }
 
   const scr = scrambleMoves || currentSolveScramble || scramble;
+  const isCaseTarget = ["cll", "pll", "oll", "f2l", "ortega"].includes(solveTarget);
   lastSolve = {
-    id: solveTarget === "cll" ? currentCaseId : null,
+    puzzle: currentPuzzle,
+    track: currentTrackId,
     target: solveTarget,
+    id: isCaseTarget ? (currentCaseId || null) : null,
     ms: finalMs,
     rawMs: Math.round(rawMs),
     penalty: solvePenalty,
@@ -3771,7 +3819,27 @@ document.addEventListener("keydown", e => {
 // Stats table
 // ---------------------------------------------------------------------------
 
+let sessionLogFilter = "all"; // "all" | "track" | "full"
+
 function renderStatsToggle() {
+  const track = getTrack(currentPuzzle, currentTrackId);
+  const pData = PUZZLES[currentPuzzle];
+  const pName = pData?.shortName || currentPuzzle;
+  const tName = track?.shortName || currentTrackId;
+
+  const badge = document.getElementById("statsScopeBadge");
+  if (badge) {
+    badge.textContent = `${pName} • ${tName}`;
+  }
+  const title = document.getElementById("statsPanelTitle");
+  if (title) {
+    title.textContent = `Stats — ${pName} ${tName}`;
+  }
+  const statsTabCll = document.getElementById("statsTabCll");
+  if (statsTabCll) {
+    statsTabCll.textContent = `${tName} Solves`;
+  }
+
   document.querySelectorAll(".stats-tab-btn").forEach(btn => {
     const isCurrent = btn.dataset.stats === statsType;
     btn.setAttribute("aria-pressed", String(isCurrent));
@@ -3792,61 +3860,208 @@ document.querySelectorAll(".stats-tab-btn").forEach(btn => {
 });
 
 function renderRecogStatsTable() {
-  const caseNumbers = [1, 2, 3, 4, 5, 6];
+  const container = document.getElementById("stats-table-container");
+  if (!container) return;
 
-  let html = '<table><thead><tr><th scope="col">Group</th>';
-  caseNumbers.forEach(c => {
-    html += `<th scope="col">${c}</th>`;
-  });
-  html += '<th scope="col">Total</th></tr></thead><tbody>';
+  const track = getTrack(currentPuzzle, currentTrackId);
+  if (!track) return;
 
-  GROUP_DISPLAY_ORDER.forEach(group => {
-    html += `<tr><th scope="row">${group}</th>`;
+  let html = `
+    <div class="recog-track-header" style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; padding: 2px 2px;">
+      <div>
+        <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700;">${escapeHtml(PUZZLES[currentPuzzle]?.name || currentPuzzle)} &mdash; ${escapeHtml(track.name)}</h3>
+        <p style="margin: 2px 0 0; font-size: 0.82rem; color: var(--muted);">${escapeHtml(track.description || '')}</p>
+      </div>
+    </div>
+  `;
 
-    caseNumbers.forEach(caseNum => {
-      const caseId = `${group}${caseNum}`;
-      if (!caseById.has(caseId)) {
-        html += '<td></td>';
-        return;
-      }
-      const stat = stats[caseId];
-      const correct = stat ? stat.correct : 0;
-      const shown = stat ? stat.shown : 0;
-      html += `<td>${correct}/${shown}</td>`;
+  if (currentPuzzle === "222" && currentTrackId === "cll") {
+    const caseNumbers = [1, 2, 3, 4, 5, 6];
+
+    html += '<table><thead><tr><th scope="col">Group</th>';
+    caseNumbers.forEach(c => {
+      html += `<th scope="col">${c}</th>`;
+    });
+    html += '<th scope="col">Total</th><th scope="col">Acc%</th></tr></thead><tbody>';
+
+    let overallShown = 0;
+    let overallCorrect = 0;
+
+    GROUP_DISPLAY_ORDER.forEach(group => {
+      html += `<tr><th scope="row">${group}</th>`;
+
+      let grpShown = 0;
+      let grpCorrect = 0;
+
+      caseNumbers.forEach(caseNum => {
+        const caseId = `${group}${caseNum}`;
+        if (!caseById.has(caseId)) {
+          html += '<td></td>';
+          return;
+        }
+        const stat = getCaseStat("222", "cll", caseId);
+        const correct = stat ? stat.correct : 0;
+        const shown = stat ? stat.shown : 0;
+        grpShown += shown;
+        grpCorrect += correct;
+        html += `<td title="${caseId}: ${correct}/${shown}">${correct}/${shown}</td>`;
+      });
+
+      overallShown += grpShown;
+      overallCorrect += grpCorrect;
+
+      const grpPct = grpShown > 0 ? Math.round((grpCorrect / grpShown) * 100) + '%' : '-';
+      html += `<td class="total">${grpCorrect}/${grpShown}</td><td class="total">${grpPct}</td></tr>`;
     });
 
-    const totals = groupTotals(group);
-    html += `<td class="total">${totals.correct}/${totals.shown}</td></tr>`;
-  });
+    const totalPct = overallShown > 0 ? Math.round((overallCorrect / overallShown) * 100) + '%' : '-';
+    html += `</tbody><tfoot><tr>
+      <th scope="row">Total</th>
+      <td colspan="6" style="text-align: right; color: var(--muted); font-size: 0.85rem;">All 40 CLL cases</td>
+      <td class="total"><strong>${overallCorrect}/${overallShown}</strong></td>
+      <td class="total"><strong>${totalPct}</strong></td>
+    </tr></tfoot></table>`;
+  } else if (track.cases && track.cases.length > 0) {
+    const groups = track.groups || ["Cases"];
+    let totalAttempts = 0;
+    let totalCorrect = 0;
+    let testedCases = 0;
 
-  html += '</tbody></table>';
-  document.getElementById("stats-table-container").innerHTML = html;
+    track.cases.forEach(c => {
+      const stat = getCaseStat(currentPuzzle, currentTrackId, c.id);
+      if (stat.shown > 0) {
+        testedCases++;
+        totalAttempts += stat.shown;
+        totalCorrect += stat.correct;
+      }
+    });
+
+    const overallPct = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : null;
+
+    html += `
+      <div class="layer-stats-grid" style="margin-bottom: 16px;">
+        <div class="layer-stat-card">
+          <span class="layer-stat-val">${testedCases} / ${track.cases.length}</span>
+          <span class="layer-stat-lbl">Practiced</span>
+        </div>
+        <div class="layer-stat-card">
+          <span class="layer-stat-val">${totalAttempts}</span>
+          <span class="layer-stat-lbl">Attempts</span>
+        </div>
+        <div class="layer-stat-card highlight-best">
+          <span class="layer-stat-val">${totalCorrect}</span>
+          <span class="layer-stat-lbl">Correct</span>
+        </div>
+        <div class="layer-stat-card">
+          <span class="layer-stat-val">${overallPct != null ? overallPct + '%' : '-'}</span>
+          <span class="layer-stat-lbl">Accuracy</span>
+        </div>
+      </div>
+    `;
+
+    html += '<div class="recog-group-tables">';
+    groups.forEach(groupName => {
+      const groupCases = track.cases.filter(c => c.group === groupName);
+      if (groupCases.length === 0) return;
+
+      let gShown = 0;
+      let gCorrect = 0;
+      let rowsHtml = '';
+
+      groupCases.forEach(c => {
+        const stat = getCaseStat(currentPuzzle, currentTrackId, c.id);
+        const shown = stat.shown || 0;
+        const correct = stat.correct || 0;
+        gShown += shown;
+        gCorrect += correct;
+        const pct = shown > 0 ? Math.round((correct / shown) * 100) : null;
+        const badgeClass = shown === 0 ? 'badge' : (pct >= 90 ? 'badge badge-green' : pct >= 70 ? 'badge badge-yellow' : 'badge badge-red');
+
+        rowsHtml += `
+          <tr>
+            <th scope="row"><strong>${escapeHtml(c.id)}</strong></th>
+            <td>${escapeHtml(c.name || c.id)}</td>
+            <td>${correct} / ${shown}</td>
+            <td><span class="${badgeClass}">${pct != null ? pct + '%' : 'untested'}</span></td>
+          </tr>
+        `;
+      });
+
+      const gPct = gShown > 0 ? Math.round((gCorrect / gShown) * 100) + '%' : '-';
+
+      html += `
+        <div class="recog-group-box" style="margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+            <h4 style="margin: 0; font-size: 0.95rem; font-weight: 600;">${escapeHtml(groupName)} (${groupCases.length})</h4>
+            <span style="font-size: 0.85rem; color: var(--muted);">${gCorrect}/${gShown} correct (${gPct})</span>
+          </div>
+          <table class="recog-table">
+            <thead>
+              <tr>
+                <th scope="col" style="width: 70px;">Case</th>
+                <th scope="col">Name</th>
+                <th scope="col" style="width: 100px;">Recognition</th>
+                <th scope="col" style="width: 80px;">Accuracy</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      `;
+    });
+    html += '</div>';
+  } else {
+    html += `
+      <div class="empty-stats" style="text-align: center; padding: 24px 16px;">
+        <h4 style="margin: 0 0 6px;">Inspection &amp; Solution Planning</h4>
+        <p style="color: var(--muted); font-size: 0.9rem; max-width: 480px; margin: 0 auto 16px;">
+          ${escapeHtml(track.name)} focuses on cross &amp; 1st layer inspection planning under 15s WCA regulations.
+        </p>
+        <p style="font-size: 0.9rem; color: var(--text-color);">
+          Use <strong>Practice</strong> mode to drill 15s inspection, find optimal solutions, and preserve pairs/EO.
+        </p>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
 }
 
 function renderSolveStatsTable() {
   const container = document.getElementById("stats-table-container");
   if (!container) return;
 
+  const track = getTrack(currentPuzzle, currentTrackId);
+  const trackCases = track?.cases || [];
+  const trackCaseIds = trackCases.map(c => c.id);
+  const caseMap = track?.caseById || new Map();
+
   const currentSess = getActiveSession();
   const currentSolves = currentSess.solves || [];
 
   const caseSolves = new Map();
   for (const s of currentSolves) {
-    if (s.id && selectedCases.has(s.id)) {
+    const isTrackMatch = s.track ? (s.track === currentTrackId) : true;
+    if (s.id && trackCaseIds.includes(s.id) && isTrackMatch) {
       if (!caseSolves.has(s.id)) {
         caseSolves.set(s.id, []);
       }
-      const timeVal = s.penalty === "+2" ? s.ms + 2000 : (s.penalty === "DNF" ? Infinity : s.ms);
+      const timeVal = (s.penalty === "+2" || s.penalty === 2)
+        ? ((s.ms ?? s.time) + 2000)
+        : ((s.penalty === "DNF" || s.penalty === -1) ? Infinity : (s.ms ?? s.time));
       if (Number.isFinite(timeVal)) {
         caseSolves.get(s.id).push(timeVal);
       }
     }
   }
 
-  const casesWithTimes = CASE_IDS.filter(id => caseSolves.has(id));
+  const casesWithTimes = trackCaseIds.filter(id => caseSolves.has(id));
 
   const sortCols = [
     { key: "case", label: "Case" },
+    { key: "name", label: "Name / Group" },
     { key: "attempts", label: "Attempts" },
     { key: "best", label: "Best", title: "Best time" },
     { key: "mean", label: "Mean", title: "Mean time" },
@@ -3863,7 +4078,10 @@ function renderSolveStatsTable() {
   html += '</tr></thead><tbody>';
 
   if (casesWithTimes.length === 0) {
-    html += `<tr><td colspan="6" class="empty-stats">No CLL solve times recorded in session "${escapeHtml(currentSess.name)}".</td></tr></tbody></table>`;
+    html += `<tr><td colspan="7" class="empty-stats" style="padding: 24px 12px; text-align: center;">
+      <p style="margin-bottom: 4px; font-weight: 600;">No ${escapeHtml(track?.shortName || '')} case solves recorded in session "${escapeHtml(currentSess.name)}".</p>
+      <p style="font-size: 0.85rem; color: var(--muted); margin: 0;">Time solves with Target set to <strong>${escapeHtml(track?.shortName || '')}</strong> in the Solve tab to build per-case statistics.</p>
+    </td></tr></tbody></table>`;
     container.innerHTML = html;
     attachSortListeners(container);
     return;
@@ -3878,15 +4096,17 @@ function renderSolveStatsTable() {
     const sorted = [...times].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     const median = sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
-    return { id, attempts, best, worst, mean, median };
+    const caseObj = caseMap.get(id);
+    const name = caseObj ? (caseObj.name || caseObj.group || id) : id;
+    return { id, name, attempts, best, worst, mean, median };
   });
 
   caseStatsList.sort((a, b) => {
     let valA = a[solveStatsSort.col];
     let valB = b[solveStatsSort.col];
     if (solveStatsSort.col === "case") {
-      valA = CASE_IDS.indexOf(a.id);
-      valB = CASE_IDS.indexOf(b.id);
+      valA = trackCaseIds.indexOf(a.id);
+      valB = trackCaseIds.indexOf(b.id);
     }
     if (valA < valB) return solveStatsSort.dir === "asc" ? -1 : 1;
     if (valA > valB) return solveStatsSort.dir === "asc" ? 1 : -1;
@@ -3895,7 +4115,8 @@ function renderSolveStatsTable() {
 
   caseStatsList.forEach(stat => {
     html += `<tr>
-      <th scope="row">${stat.id}</th>
+      <th scope="row"><strong>${escapeHtml(stat.id)}</strong></th>
+      <td style="color: var(--muted); font-size: 0.85rem;">${escapeHtml(stat.name)}</td>
       <td>${stat.attempts}</td>
       <td>${formatSolveTime(stat.best)}</td>
       <td>${formatSolveTime(stat.mean)}</td>
@@ -3907,7 +4128,11 @@ function renderSolveStatsTable() {
   html += '</tbody>';
 
   if (caseStatsList.length > 1) {
-    const allTimes = currentSolves.filter(s => s.id && selectedCases.has(s.id) && s.penalty !== "DNF").map(s => (s.penalty === "+2" ? s.ms + 2000 : s.ms));
+    const allTimes = [];
+    casesWithTimes.forEach(id => {
+      const times = caseSolves.get(id);
+      if (times) allTimes.push(...times);
+    });
     const totalAttempts = allTimes.length;
     const overallBest = allTimes.length ? Math.min(...allTimes) : 0;
     const overallWorst = allTimes.length ? Math.max(...allTimes) : 0;
@@ -3918,6 +4143,7 @@ function renderSolveStatsTable() {
 
     html += `<tfoot><tr>
       <th scope="row">Total</th>
+      <td style="color: var(--muted); font-size: 0.85rem;">${caseStatsList.length} cases</td>
       <td>${totalAttempts}</td>
       <td>${formatSolveTime(overallBest)}</td>
       <td>${formatSolveTime(overallMean)}</td>
@@ -3940,7 +4166,7 @@ function attachSortListeners(container) {
         solveStatsSort.dir = solveStatsSort.dir === "asc" ? "desc" : "asc";
       } else {
         solveStatsSort.col = col;
-        solveStatsSort.dir = (col === "case" || col === "best" || col === "mean" || col === "median" || col === "worst") ? "asc" : "desc";
+        solveStatsSort.dir = (col === "case" || col === "name" || col === "best" || col === "mean" || col === "median" || col === "worst") ? "asc" : "desc";
       }
       renderSolveStatsTable();
     });
@@ -3990,22 +4216,53 @@ function renderSessionLogTable() {
     return;
   }
 
-  const validTimes = sessSolves.filter(s => s.penalty !== "DNF").map(s => (s.penalty === "+2" ? s.ms + 2000 : s.ms));
-  const count = sessSolves.length;
+  const track = getTrack(currentPuzzle, currentTrackId);
+  const trackCases = track?.cases || [];
+  const trackCaseIds = trackCases.map(c => c.id);
+
+  const trackSolves = sessSolves.filter(s => {
+    if (s.track === currentTrackId) return true;
+    if (s.target === currentTrackId) return true;
+    if (s.id && trackCaseIds.includes(s.id)) return true;
+    return false;
+  });
+
+  const fullSolves = sessSolves.filter(s => s.target === "full" || (!s.target && !s.id));
+
+  let displaySolves = sessSolves;
+  if (sessionLogFilter === "track") {
+    displaySolves = trackSolves;
+  } else if (sessionLogFilter === "full") {
+    displaySolves = fullSolves;
+  }
+
+  const validTimes = displaySolves.filter(s => s.penalty !== "DNF" && s.penalty !== -1).map(s => {
+    const ms = s.ms ?? s.time ?? 0;
+    return (s.penalty === "+2" || s.penalty === 2) ? ms + 2000 : ms;
+  });
+
+  const count = displaySolves.length;
   const best = validTimes.length ? Math.min(...validTimes) : null;
   const mean = validTimes.length ? Math.round(validTimes.reduce((a, b) => a + b, 0) / validTimes.length) : null;
   const median = validTimes.length ? calculateMedian(validTimes) : null;
   const worst = validTimes.length ? Math.max(...validTimes) : null;
-  const curAo5 = calculateAoN(sessSolves, 5);
-  const bestAo5 = getBestAoN(sessSolves, 5);
-  const curAo12 = calculateAoN(sessSolves, 12);
-  const bestAo12 = getBestAoN(sessSolves, 12);
-  const curAo100 = calculateAoN(sessSolves, 100);
-  const bestAo100 = getBestAoN(sessSolves, 100);
+  const curAo5 = calculateAoN(displaySolves, 5);
+  const bestAo5 = getBestAoN(displaySolves, 5);
+  const curAo12 = calculateAoN(displaySolves, 12);
+  const bestAo12 = getBestAoN(displaySolves, 12);
+  const curAo100 = calculateAoN(displaySolves, 100);
+  const bestAo100 = getBestAoN(displaySolves, 100);
 
   const formatAo = (val) => val === "DNF" ? "DNF" : (val != null ? formatSolveTime(val) : "-");
 
   let html = `
+    <div class="stats-subfilter-bar">
+      <span style="font-size: 0.85rem; color: var(--muted); font-weight: 600;">Filter:</span>
+      <button type="button" class="stats-subfilter-btn ${sessionLogFilter === 'all' ? 'active' : ''}" data-log-filter="all">All (${sessSolves.length})</button>
+      <button type="button" class="stats-subfilter-btn ${sessionLogFilter === 'track' ? 'active' : ''}" data-log-filter="track">${escapeHtml(track?.shortName || 'Current Set')} (${trackSolves.length})</button>
+      <button type="button" class="stats-subfilter-btn ${sessionLogFilter === 'full' ? 'active' : ''}" data-log-filter="full">Full Solves (${fullSolves.length})</button>
+    </div>
+
     <div class="layer-stats-grid">
       <div class="layer-stat-card">
         <span class="layer-stat-val">${count}</span>
@@ -4090,39 +4347,63 @@ function renderSessionLogTable() {
       <tbody>
   `;
 
-  // Reverse chronological (newest at top)
-  const rows = [...sessSolves].map((s, idx) => ({ s, num: idx + 1, origIdx: idx })).reverse();
-  rows.forEach(({ s, num, origIdx }) => {
-    let targetLabel = "Full";
-    let targetClass = "badge";
-    if (s.id) {
-      targetLabel = s.id;
-      targetClass = "badge badge-case";
-    } else if (s.target === "layer") {
-      targetLabel = "1st Layer";
-    } else if (s.target === "face") {
-      targetLabel = "1st Face";
-    }
-    const dateStr = formatSolveDate(s.at);
+  if (displaySolves.length === 0) {
+    html += `<tr><td colspan="5" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+  } else {
+    // Reverse chronological (newest at top)
+    const rows = [...displaySolves].map((s, idx) => ({ s, num: idx + 1, origIdx: sessSolves.indexOf(s) })).reverse();
+    rows.forEach(({ s, num, origIdx }) => {
+      let targetLabel = "Full";
+      let targetClass = "badge";
+      if (s.id) {
+        targetLabel = s.id;
+        targetClass = "badge badge-case";
+      } else if (s.target === "layer") {
+        targetLabel = "1st Layer";
+      } else if (s.target === "face") {
+        targetLabel = "1st Face";
+      } else if (s.target === "cross") {
+        targetLabel = "White Cross";
+      } else if (s.target === "pll") {
+        targetLabel = "PLL";
+      } else if (s.target === "oll") {
+        targetLabel = "OLL";
+      } else if (s.target === "f2l") {
+        targetLabel = "F2L";
+      } else if (s.target === "cll") {
+        targetLabel = "CLL";
+      } else if (s.target === "full") {
+        targetLabel = (s.puzzle === "333" || currentPuzzle === "333") ? "3x3 Full" : "2x2 Full";
+      }
+      const dateStr = formatSolveDate(s.at);
 
-    html += `
-      <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click to view details &amp; scramble">
-        <td>${num}</td>
-        <td class="layer-time-cell">${formatSolveDisplay(s)}</td>
-        <td><span class="${targetClass}">${escapeHtml(targetLabel)}</span></td>
-        <td class="layer-date-cell">${dateStr}</td>
-        <td>
-          <div class="layer-log-actions">
-            <button type="button" class="btn-reattempt-solve" data-index="${origIdx}" data-num="${num}" title="Reattempt solve #${num} scramble">&#x21bb;</button>
-            <button type="button" class="btn-del-solve" data-index="${origIdx}" data-num="${num}" title="Delete solve #${num} (${formatSolveDisplay(s)})">&times;</button>
-          </div>
-        </td>
-      </tr>
-    `;
-  });
+      html += `
+        <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click to view details &amp; scramble">
+          <td>${num}</td>
+          <td class="layer-time-cell">${formatSolveDisplay(s)}</td>
+          <td><span class="${targetClass}">${escapeHtml(targetLabel)}</span></td>
+          <td class="layer-date-cell">${dateStr}</td>
+          <td>
+            <div class="layer-log-actions">
+              <button type="button" class="btn-reattempt-solve" data-index="${origIdx}" data-num="${num}" title="Reattempt solve #${num} scramble">&#x21bb;</button>
+              <button type="button" class="btn-del-solve" data-index="${origIdx}" data-num="${num}" title="Delete solve #${num} (${formatSolveDisplay(s)})">&times;</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+  }
 
   html += `</tbody></table>`;
   container.innerHTML = html;
+
+  // Attach subfilter button listeners
+  container.querySelectorAll(".stats-subfilter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      sessionLogFilter = btn.dataset.logFilter || "all";
+      renderSessionLogTable();
+    });
+  });
 
   // Attach row click listeners to show details popup
   container.querySelectorAll(".layer-log-row").forEach(row => {
@@ -4286,8 +4567,12 @@ statsToggle.addEventListener("click", () => {
 });
 
 document.getElementById("resetStatsBtn").addEventListener("click", () => {
+  const sess = getActiveSession();
+  const track = getTrack(currentPuzzle, currentTrackId);
+  const pName = PUZZLES[currentPuzzle]?.shortName || currentPuzzle;
+  const tName = track?.shortName || currentTrackId;
+
   if (statsType === "log" || statsType === "solve") {
-    const sess = getActiveSession();
     if (confirm(`Are you sure you want to clear all solves in session "${sess.name}"?`)) {
       sess.solves = [];
       solves = sess.solves;
@@ -4298,9 +4583,13 @@ document.getElementById("resetStatsBtn").addEventListener("click", () => {
       updateStatsTable();
     }
   } else if (statsType === "cll") {
-    const sess = getActiveSession();
-    if (confirm(`Are you sure you want to clear all CLL solve times in session "${sess.name}"?`)) {
-      sess.solves = sess.solves.filter(s => !s.id);
+    const trackCaseIds = track?.cases ? track.cases.map(c => c.id) : [];
+    if (confirm(`Are you sure you want to clear all ${tName} solve times in session "${sess.name}"?`)) {
+      sess.solves = sess.solves.filter(s => {
+        if (s.track && s.track === currentTrackId) return false;
+        if (s.id && trackCaseIds.includes(s.id)) return false;
+        return true;
+      });
       solves = sess.solves;
       lastSolve = solves.length ? solves[solves.length - 1] : null;
       saveSolves();
@@ -4309,12 +4598,8 @@ document.getElementById("resetStatsBtn").addEventListener("click", () => {
       updateStatsTable();
     }
   } else {
-    if (confirm("Are you sure you want to reset all recognition statistics?")) {
-      for (const key in stats) {
-        delete stats[key];
-      }
-      resetCaseAppearances();
-      saveStats();
+    if (confirm(`Are you sure you want to reset recognition statistics for ${pName} ${tName}?`)) {
+      resetRecognitionStats(currentPuzzle, currentTrackId);
       updateStatsTable();
     }
   }
@@ -5436,6 +5721,10 @@ studyView = new StudyView({
 
 practiceView = new PracticeView({
   container: practiceViewContainer,
+  onRecordRecognition: (caseId, isCorrect) => {
+    recordCaseStat(currentPuzzle, currentTrackId, caseId, isCorrect);
+    updateStatsTable();
+  },
   onGenerateScramble: async (trackId) => {
     const tid = trackId || currentTrackId;
     if (currentPuzzle === "333") {

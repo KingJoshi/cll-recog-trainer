@@ -83,8 +83,10 @@
     </div>
   </section>
 
-  <!-- Stage: mode, cube, guessing UI, timed session -->
+  <!-- Stage: training set (track), mode, cube, guessing UI, timed session -->
   <section class="stage">
+    <div id="trackBar" class="track-bar" role="group" aria-label="Algorithm Track"></div>
+
     <div class="seg mode-seg" role="group" aria-label="Mode">
       <button type="button" class="mode-btn" data-mode="solve" aria-pressed="true">Solve</button>
       <button type="button" class="mode-btn" data-mode="study" aria-pressed="false">Study</button>
@@ -92,8 +94,6 @@
       <button type="button" class="mode-btn" data-mode="timed" aria-pressed="false">Timed</button>
       <button type="button" class="mode-btn" data-mode="simulate" aria-pressed="false">Simulate</button>
     </div>
-
-    <div id="trackBar" class="track-bar" role="group" aria-label="Algorithm Track"></div>
 
     <!-- Study View Container (Case Grid, 3D Flashcard, Guides) -->
     <div id="studyViewContainer" class="study-container" hidden></div>
@@ -426,15 +426,16 @@
   <section class="panel stats" id="statsPanel">
     <div class="stats-head">
       <button type="button" class="panel-toggle" id="statsToggle" aria-expanded="true" aria-controls="statsBody">
-        <span class="panel-title">Stats</span>
+        <span class="panel-title" id="statsPanelTitle">Stats</span>
+        <span class="panel-meta" id="statsScopeBadge">2x2 &bull; CLL</span>
         <span class="chevron" aria-hidden="true"></span>
       </button>
       <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger">Reset</button>
     </div>
     <div id="statsBody" class="stats-body">
       <div class="seg stats-seg" role="group" aria-label="Stats type">
-        <button type="button" class="stats-tab-btn" id="statsTabLog" data-stats="log" aria-pressed="true">Log</button>
-        <button type="button" class="stats-tab-btn" id="statsTabCll" data-stats="cll" aria-pressed="false">CLL Solves</button>
+        <button type="button" class="stats-tab-btn" id="statsTabLog" data-stats="log" aria-pressed="true">Session Log</button>
+        <button type="button" class="stats-tab-btn" id="statsTabCll" data-stats="cll" aria-pressed="false">Case Solves</button>
         <button type="button" class="stats-tab-btn" id="statsTabRecog" data-stats="recog" aria-pressed="false">Recognition</button>
       </div>
       <div id="stats-table-container"></div>

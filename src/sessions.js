@@ -72,39 +72,93 @@ export function getSessionsForPuzzle(sessions, puzzle) {
   return sessions.filter(s => s.puzzle === puzzle);
 }
 
+export function getSolveTime(solve) {
+  if (!solve) return null;
+  const isDNF = solve.penalty === -1 || solve.penalty === "DNF";
+  if (isDNF) return Infinity;
+  const baseMs = solve.ms != null ? solve.ms : (solve.time != null ? solve.time : 0);
+  const isPlus2 = solve.penalty === 2 || solve.penalty === "+2";
+  return isPlus2 ? baseMs + 2000 : baseMs;
+}
+
+export function filterSolves(solves = [], criteria = {}) {
+  return solves.filter(s => {
+    if (criteria.puzzle && s.puzzle && s.puzzle !== criteria.puzzle) return false;
+    if (criteria.track && s.track && s.track !== criteria.track) return false;
+    if (criteria.target && s.target !== criteria.target) return false;
+    if (criteria.caseId && s.id !== criteria.caseId) return false;
+    return true;
+  });
+}
+
+export function groupSolvesByCase(solves = [], caseIds = []) {
+  const caseIdSet = new Set(caseIds);
+  const map = new Map();
+  for (const s of solves) {
+    if (s.id && (caseIds.length === 0 || caseIdSet.has(s.id))) {
+      if (!map.has(s.id)) map.set(s.id, []);
+      const t = getSolveTime(s);
+      if (Number.isFinite(t)) {
+        map.get(s.id).push(t);
+      }
+    }
+  }
+  return map;
+}
+
+export function computeCaseStats(times = []) {
+  if (!times || times.length === 0) {
+    return { attempts: 0, best: null, worst: null, mean: null, median: null };
+  }
+  const attempts = times.length;
+  const best = Math.min(...times);
+  const worst = Math.max(...times);
+  const sum = times.reduce((acc, t) => acc + t, 0);
+  const mean = Math.round(sum / attempts);
+  const sorted = [...times].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+  return { attempts, best, worst, mean, median };
+}
+
 export function computeStats(solves = []) {
   const validTimes = solves
-    .filter(s => s.penalty !== -1)
-    .map(s => (s.penalty === 2 ? s.time + 2000 : s.time));
+    .map(s => getSolveTime(s))
+    .filter(t => t != null && Number.isFinite(t));
 
   if (validTimes.length === 0) {
-    return { count: solves.length, best: null, ao5: null, ao12: null, mean: null };
+    return { count: solves.length, validCount: 0, best: null, worst: null, ao5: null, ao12: null, ao100: null, mean: null, median: null };
   }
 
   const best = Math.min(...validTimes);
+  const worst = Math.max(...validTimes);
   const sum = validTimes.reduce((acc, t) => acc + t, 0);
   const mean = Math.round(sum / validTimes.length);
+  const sorted = [...validTimes].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
 
   const ao5 = computeAverageOfN(solves, 5);
   const ao12 = computeAverageOfN(solves, 12);
+  const ao100 = computeAverageOfN(solves, 100);
 
   return {
     count: solves.length,
     validCount: validTimes.length,
     best,
+    worst,
     mean,
+    median,
     ao5,
-    ao12
+    ao12,
+    ao100
   };
 }
 
 export function computeAverageOfN(solves, n) {
   if (solves.length < n) return null;
   const recent = solves.slice(0, n);
-  const times = recent.map(s => {
-    if (s.penalty === -1) return Infinity;
-    return s.penalty === 2 ? s.time + 2000 : s.time;
-  });
+  const times = recent.map(s => getSolveTime(s));
 
   const dnfCount = times.filter(t => t === Infinity).length;
   if (dnfCount > 1) return -1; // DNF
