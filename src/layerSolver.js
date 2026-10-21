@@ -231,12 +231,30 @@ function identifyCaseUniversal(pattern, ctx, layer) {
     return 'Unknown';
 }
 
+function countFaceOnD(pattern, color) {
+    const d = pattern.patternData['CORNERS'];
+    let count = 0;
+    for (let s = 4; s <= 7; s++) {
+        const pieceColor = PIECE_COLORS[d.pieces[s]][(3 - d.orientation[s]) % 3];
+        if (pieceColor === color) count++;
+    }
+    return count;
+}
+
+function getInspComplexity(insp) {
+    if (!insp || insp === 'none') return 0;
+    const parts = insp.trim().split(/\s+/);
+    if (parts.length === 1 && parts[0].startsWith('y')) return 1;
+    if (parts.length === 1) return 2;
+    return 3;
+}
+
 /**
  * Searches for first layer solutions on specified face(s).
  * @param {string} scramble - The 2x2 scramble string
  * @param {Array<string>} targetFaces - Array of faces to solve (e.g. ['white'], ['white', 'yellow'], etc.)
  * @param {number} maxDepth - Max search depth (default 5, auto falls back to 6 if needed)
- * @returns {Promise<Array<{face: string, inspection: string, moves: string, moveCount: number, caseId: string}>>}
+ * @returns {Promise<Array<{face: string, inspection: string, moves: string, moveCount: number, caseId: string, fixedCount: number, orientedDCount: number}>>}
  */
 export async function findLayerSolutions(scramble, targetFaces = ['white'], maxDepth = 5) {
     if (!scramble || !scramble.trim()) return [];
@@ -251,11 +269,47 @@ export async function findLayerSolutions(scramble, targetFaces = ['white'], maxD
         return [];
     }
 
+    // Pre-calculate target colors on D in the original scramble
+    const scrambleCounts = {};
+    for (const f of allowedFaces) {
+        scrambleCounts[f] = countFaceOnD(scrambled, f);
+    }
+
     const rawSolutions = [];
 
     for (const curMax of [maxDepth, 6]) {
         for (const insp of ctx.orientations) {
             const orientedPattern = insp ? scrambled.applyAlg(new Alg(insp)) : scrambled;
+
+            const d = orientedPattern.patternData['CORNERS'];
+            const dblColor = PIECE_COLORS[d.pieces[6]][(3 - d.orientation[6]) % 3];
+
+            // Moves R, U, F can NEVER touch DBL (slot 6). If DBL does not match an allowed target face,
+            // it is mathematically impossible to solve any allowed layer with R, U, F moves.
+            if (!allowedFaces.has(dblColor)) {
+                continue;
+            }
+
+            const face = dblColor;
+            const orientedDCount = countFaceOnD(orientedPattern, face);
+            const scrambleDCount = scrambleCounts[face] || 0;
+            const keepsScrambleD = (!insp || insp === 'none' || insp === 'y' || insp === 'y2' || insp === "y'");
+            const inspComplexity = getInspComplexity(insp);
+
+            const dflIsTarget = PIECE_COLORS[d.pieces[5]][(3 - d.orientation[5]) % 3] === face;
+            const dbrIsTarget = PIECE_COLORS[d.pieces[7]][(3 - d.orientation[7]) % 3] === face;
+            const dfrIsTarget = PIECE_COLORS[d.pieces[4]][(3 - d.orientation[4]) % 3] === face;
+
+            const calcFixedCount = (moves) => {
+                let fixed = 1; // DBL is always fixed throughout any R, U, F sequence
+                const hasF = moves.some(m => m[0] === 'F');
+                const hasR = moves.some(m => m[0] === 'R');
+                if (dflIsTarget && !hasF) fixed++;
+                if (dbrIsTarget && !hasR) fixed++;
+                if (dfrIsTarget && !hasF && !hasR) fixed++;
+                return fixed;
+            };
+
             const initLayer = getSolvedBottomLayer(orientedPattern);
             if (initLayer && allowedFaces.has(initLayer.bottom)) {
                 rawSolutions.push({
@@ -263,7 +317,12 @@ export async function findLayerSolutions(scramble, targetFaces = ['white'], maxD
                     insp,
                     moves: [],
                     count: 0,
-                    caseId: identifyCaseUniversal(orientedPattern, ctx, initLayer)
+                    caseId: identifyCaseUniversal(orientedPattern, ctx, initLayer),
+                    fixedCount: 4,
+                    orientedDCount,
+                    scrambleDCount,
+                    keepsScrambleD,
+                    inspComplexity
                 });
             }
 
@@ -286,7 +345,12 @@ export async function findLayerSolutions(scramble, targetFaces = ['white'], maxD
                                 insp,
                                 moves: nextMoves,
                                 count: nextMoves.length,
-                                caseId: identifyCaseUniversal(nextPattern, ctx, layer)
+                                caseId: identifyCaseUniversal(nextPattern, ctx, layer),
+                                fixedCount: calcFixedCount(nextMoves),
+                                orientedDCount,
+                                scrambleDCount,
+                                keepsScrambleD,
+                                inspComplexity
                             });
                         } else if (depth < curMax) {
                             nextQueue.push({ pattern: nextPattern, moves: nextMoves });
@@ -300,9 +364,23 @@ export async function findLayerSolutions(scramble, targetFaces = ['white'], maxD
         if (rawSolutions.length > 0) break;
     }
 
-    // Sort by moveCount ascending, then by preferred face order
+    // Sort priority:
+    // 1. Move count ascending (shortest solutions first)
+    // 2. Fixed target pieces in bottom layer throughout solution descending (more fixed pieces is better)
+    // 3. Initial target pieces on bottom after inspection descending (more on bottom is better: 3 > 2 > 1)
+    // 4. If scramble already had target color on D, prefer solutions that keep the scramble's bottom face
+    // 5. Simpler inspection rotation ascending (none < y < x/z < compound)
+    // 6. Preferred face order (white first, etc.)
     rawSolutions.sort((a, b) => {
         if (a.count !== b.count) return a.count - b.count;
+        if (a.fixedCount !== b.fixedCount) return b.fixedCount - a.fixedCount;
+        if (a.orientedDCount !== b.orientedDCount) return b.orientedDCount - a.orientedDCount;
+        if (a.scrambleDCount > 0 || b.scrambleDCount > 0) {
+            if (a.keepsScrambleD !== b.keepsScrambleD) {
+                return (b.keepsScrambleD ? 1 : 0) - (a.keepsScrambleD ? 1 : 0);
+            }
+        }
+        if (a.inspComplexity !== b.inspComplexity) return a.inspComplexity - b.inspComplexity;
         return (FACE_ORDER[a.face] ?? 99) - (FACE_ORDER[b.face] ?? 99);
     });
 
@@ -320,7 +398,9 @@ export async function findLayerSolutions(scramble, targetFaces = ['white'], maxD
                 inspection: sol.insp || 'none',
                 moves: moveStr,
                 moveCount: sol.count,
-                caseId: sol.caseId
+                caseId: sol.caseId,
+                fixedCount: sol.fixedCount,
+                orientedDCount: sol.orientedDCount
             });
         }
     }

@@ -2662,12 +2662,15 @@ function renderLayerSolutions(sols, showAll = false) {
     const isSolved = sol.caseId === "Solved";
     const caseBadgeClass = isSolved ? "badge-solved" : "badge-case";
     const caseLabel = isSolved ? "Leaves Solved" : (sol.caseId === "PBL" ? "Leaves PBL" : `Leaves ${sol.caseId}`);
+    const faceName = sol.face || 'white';
     const inspText = sol.inspection && sol.inspection !== 'none' ? sol.inspection : 'none';
+    const inspTooltip = sol.fixedCount
+      ? `${sol.orientedDCount || 1} ${capitalize(faceName)} on bottom (${sol.fixedCount} fixed throughout solution)`
+      : '';
     const movesText = sol.moves || '(already solved)';
     const cObj = caseById.get(sol.caseId);
     const alg = cObj?.alg || cObj?.solutionAlg || '';
     const caseTitle = alg ? `CLL solution for ${sol.caseId}: ${alg}` : '';
-    const faceName = sol.face || 'white';
 
     return `
       <div class="layer-sol-row">
@@ -2675,7 +2678,7 @@ function renderLayerSolutions(sols, showAll = false) {
           <div class="layer-sol-badges">
             <span class="face-badge face-badge-${faceName}">${capitalize(faceName)}</span>
             <span class="badge layer-sol-moves-badge">${sol.moveCount} move${sol.moveCount === 1 ? '' : 's'}</span>
-            <span class="layer-sol-insp-chip">Inspection: <strong>${escapeHtml(inspText)}</strong></span>
+            <span class="layer-sol-insp-chip" ${inspTooltip ? `title="${escapeHtml(inspTooltip)}"` : ''}>Inspection: <strong>${escapeHtml(inspText)}</strong></span>
             <span class="badge ${caseBadgeClass}" ${caseTitle ? `title="${escapeHtml(caseTitle)}"` : ''}>${escapeHtml(caseLabel)}</span>
           </div>
           <div class="layer-sol-moves">${escapeHtml(movesText)}</div>
