@@ -1,6 +1,8 @@
 // Study View: Handles Case Grid, 3D Flashcard, and Reference Guide for any active track
 
 import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg } from './data/algRegistry.js';
+import { renderCaseSvg } from './caseVisualizer.js';
+import { ScrambleDisplay } from 'scramble-display';
 
 export class StudyView {
   constructor(options) {
@@ -14,6 +16,7 @@ export class StudyView {
     this.currentView = "grid"; // "grid" | "detail" | "guide"
     this.activeGroupFilter = "all";
     this.selectedCaseId = null;
+    this.activeDisplay3d = null;
   }
 
   setTrack(puzzleId, trackId) {
@@ -22,14 +25,11 @@ export class StudyView {
     this.activeGroupFilter = "all";
     const track = getTrack(puzzleId, trackId);
     if (track && track.cases.length > 0) {
-      if (!this.selectedCaseId || !track.caseById.has(this.selectedCaseId)) {
-        this.selectedCaseId = track.cases[0].id;
-      }
+      this.currentView = "grid";
+      this.selectedCaseId = track.cases[0].id;
     } else {
       this.selectedCaseId = null;
-      if (trackId === "layer" || trackId === "cross") {
-        this.currentView = "guide";
-      }
+      this.currentView = "guide";
     }
     this.render();
   }
@@ -40,6 +40,12 @@ export class StudyView {
   }
 
   render() {
+    if (this.activeDisplay3d) {
+      try {
+        this.activeDisplay3d.remove?.();
+      } catch (e) {}
+      this.activeDisplay3d = null;
+    }
     if (!this.container) return;
     const track = getTrack(this.currentPuzzle, this.currentTrackId);
     if (!track) return;
@@ -99,6 +105,9 @@ export class StudyView {
                   <span class="study-card-id">${c.id}</span>
                   <span class="study-card-group">${c.group}</span>
                 </div>
+                <div class="study-card-visual" id="studyCardVisual_${c.id}" data-case-id="${c.id}">
+                  <span class="study-visual-loading">Loading diagram...</span>
+                </div>
                 <div class="study-card-name">${c.name}</div>
                 <div class="study-card-alg-box">
                   <div class="study-card-alg-primary">${activeAlg ? activeAlg.alg : 'No alg'}</div>
@@ -110,8 +119,8 @@ export class StudyView {
                 ` : ''}
 
                 <div class="study-card-actions">
-                  <button type="button" class="btn btn-xs btn-study-view" data-case-id="${c.id}">Detail</button>
-                  <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${c.id}">Simulate 3D</button>
+                  <button type="button" class="btn btn-xs btn-study-view" data-case-id="${c.id}">Detail (3D)</button>
+                  <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${c.id}">Simulate</button>
                 </div>
               </div>
             `;
@@ -142,36 +151,50 @@ export class StudyView {
             </div>
           </div>
 
-          ${c.description ? `<p class="study-detail-desc">${c.description}</p>` : ''}
-
-          <div class="study-algs-section">
-            <h4 class="study-section-title">Algorithms &amp; Fingertricks</h4>
-            <div class="study-alg-list">
-              ${c.algs.map(a => {
-                const isPref = a.id === prefAlgId;
-                return `
-                  <div class="study-alg-row ${isPref ? 'preferred' : ''}">
-                    <button type="button" class="study-star-btn ${isPref ? 'starred' : ''}" data-case-id="${c.id}" data-alg-id="${a.id}" title="${isPref ? 'Preferred algorithm' : 'Set as preferred algorithm'}">
-                      ${isPref ? '★' : '☆'}
-                    </button>
-                    <div class="study-alg-info">
-                      <span class="study-alg-text">${a.alg}</span>
-                      ${a.note ? `<span class="study-alg-note">${a.note}</span>` : ''}
-                    </div>
-                    <button type="button" class="btn btn-xs btn-alg-sim" data-case-id="${c.id}" data-alg="${a.alg}">Simulate</button>
-                  </div>
-                `;
-              }).join('')}
+          <div class="study-detail-grid">
+            <div class="study-visual-box">
+              <div class="study-visual-diagram" id="studyDetailDiagram">
+                <span class="study-visual-loading">Loading diagram...</span>
+              </div>
+              <div class="study-visual-3d-wrap" id="studyDetail3dWrap">
+                <span class="study-visual-loading" style="display:flex;height:100%;align-items:center;justify-content:center;">Loading 3D...</span>
+              </div>
+              <div class="study-visual-3d-controls">
+                <button type="button" class="btn btn-xs" id="studyReset3dBtn" title="Reset camera orientation">&#x21bb; Reset 3D</button>
+                <button type="button" class="btn btn-xs btn-primary" id="studySimulateThisBtn" data-case-id="${c.id}" title="Open in 3D Scramble Simulator">&#x25B6; Full Simulator</button>
+              </div>
             </div>
-          </div>
 
-          <div class="study-detail-footer">
-            <button type="button" id="studyPracticeThisBtn" class="btn btn-primary btn-small" data-case-id="${c.id}">
-              Practice this case &rarr;
-            </button>
-            <button type="button" id="studySimulateThisBtn" class="btn btn-small" data-case-id="${c.id}">
-              Open in 3D Scramble Simulator
-            </button>
+            <div class="study-detail-body">
+              ${c.description ? `<p class="study-detail-desc">${c.description}</p>` : ''}
+
+              <div class="study-algs-section">
+                <h4 class="study-section-title">Algorithms &amp; Fingertricks</h4>
+                <div class="study-alg-list">
+                  ${c.algs.map(a => {
+                    const isPref = a.id === prefAlgId;
+                    return `
+                      <div class="study-alg-row ${isPref ? 'preferred' : ''}">
+                        <button type="button" class="study-star-btn ${isPref ? 'starred' : ''}" data-case-id="${c.id}" data-alg-id="${a.id}" title="${isPref ? 'Preferred algorithm' : 'Set as preferred algorithm'}">
+                          ${isPref ? '★' : '☆'}
+                        </button>
+                        <div class="study-alg-info">
+                          <span class="study-alg-text">${a.alg}</span>
+                          ${a.note ? `<span class="study-alg-note">${a.note}</span>` : ''}
+                        </div>
+                        <button type="button" class="btn btn-xs btn-alg-sim" data-case-id="${c.id}" data-alg="${a.alg}">Simulate</button>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+
+              <div class="study-detail-footer">
+                <button type="button" id="studyPracticeThisBtn" class="btn btn-primary btn-small" data-case-id="${c.id}">
+                  Practice this case &rarr;
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -349,6 +372,95 @@ export class StudyView {
           this.onSimulateCase(c, algObj);
         }
       });
+    }
+
+    // Populate visual representations
+    if (this.currentView === 'grid') {
+      this.populateGridVisuals(track);
+    } else if (this.currentView === 'detail') {
+      const c = track.caseById.get(this.selectedCaseId) || track.cases[0];
+      if (c) {
+        this.populateDetailVisuals(track, c);
+      }
+    }
+  }
+
+  async populateGridVisuals(track) {
+    const puzzle = this.currentPuzzle;
+    const trackId = this.currentTrackId;
+    const visualEls = this.container.querySelectorAll('.study-card-visual');
+    for (const el of visualEls) {
+      const caseId = el.dataset.caseId;
+      const c = track.caseById.get(caseId);
+      if (!c) continue;
+      try {
+        const svg = await renderCaseSvg(puzzle, trackId, c);
+        if (this.currentPuzzle === puzzle && this.currentTrackId === trackId && this.currentView === 'grid') {
+          el.innerHTML = svg;
+        }
+      } catch (err) {
+        console.error("Failed to render visual for", caseId, err);
+      }
+    }
+  }
+
+  async populateDetailVisuals(track, c) {
+    const puzzle = this.currentPuzzle;
+    const trackId = this.currentTrackId;
+
+    // 1. 2D Recognition Diagram
+    const diagramEl = this.container.querySelector('#studyDetailDiagram');
+    if (diagramEl) {
+      try {
+        const svg = await renderCaseSvg(puzzle, trackId, c);
+        if (this.currentPuzzle === puzzle && this.currentTrackId === trackId && this.currentView === 'detail' && this.selectedCaseId === c.id) {
+          diagramEl.innerHTML = svg;
+        }
+      } catch (err) {
+        console.error("Failed to render detail diagram:", err);
+      }
+    }
+
+    // 2. 3D ScrambleDisplay Flashcard
+    const wrapEl = this.container.querySelector('#studyDetail3dWrap');
+    if (wrapEl) {
+      wrapEl.innerHTML = '';
+      try {
+        const el = new ScrambleDisplay();
+        el.event = puzzle;
+        el.visualization = "3D";
+        el.scramble = c.setup || "";
+        wrapEl.appendChild(el);
+        this.activeDisplay3d = el;
+
+        const resetBtn = this.container.querySelector('#studyReset3dBtn');
+        if (resetBtn) {
+          resetBtn.onclick = async () => {
+            if (!this.activeDisplay3d || !this.activeDisplay3d.player) return;
+            try {
+              const p = await this.activeDisplay3d.player.experimentalCurrentThreeJSPuzzleObject?.();
+              if (p) {
+                p.quaternion.set(0, 0, 0, 1);
+                p.rotation.set(0, 0, 0);
+                p.scheduleRenderCallback?.();
+              }
+            } catch (e) {}
+            try {
+              this.activeDisplay3d.player.cameraLatitude = 35;
+              this.activeDisplay3d.player.cameraLongitude = 30;
+              this.activeDisplay3d.player.cameraDistance = 6;
+            } catch (e) {}
+            try {
+              if (this.activeDisplay3d.player.experimentalModel?.twistySceneModel?.orbitCoordinatesRequest) {
+                this.activeDisplay3d.player.experimentalModel.twistySceneModel.orbitCoordinatesRequest.set("auto");
+              }
+            } catch (e) {}
+          };
+        }
+      } catch (err) {
+        console.error("Failed to mount 3D ScrambleDisplay:", err);
+        wrapEl.innerHTML = `<span class="study-visual-loading">3D view unavailable</span>`;
+      }
     }
   }
 }
