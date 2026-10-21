@@ -244,9 +244,16 @@ function countFaceOnD(pattern, color) {
 function getInspComplexity(insp) {
     if (!insp || insp === 'none') return 0;
     const parts = insp.trim().split(/\s+/);
+    // Pure y rotation (yaw around vertical axis: bottom stays on bottom)
     if (parts.length === 1 && parts[0].startsWith('y')) return 1;
-    if (parts.length === 1) return 2;
-    return 3;
+    // Pure x roll or z2 (pitch roll forward/back, or 180 flip)
+    if (parts.length === 1 && (parts[0].startsWith('x') || parts[0] === 'z2')) return 2;
+    // Single z tilt
+    if (parts.length === 1) return 3;
+    // Standard compound x + y roll
+    if (!insp.includes('z')) return 4;
+    // Awkward compound z rotation (e.g. z' y, z' y2)
+    return 5;
 }
 
 /**
@@ -366,21 +373,21 @@ export async function findLayerSolutions(scramble, targetFaces = ['white'], maxD
 
     // Sort priority:
     // 1. Move count ascending (shortest solutions first)
-    // 2. Fixed target pieces in bottom layer throughout solution descending (more fixed pieces is better)
-    // 3. Initial target pieces on bottom after inspection descending (more on bottom is better: 3 > 2 > 1)
-    // 4. If scramble already had target color on D, prefer solutions that keep the scramble's bottom face
-    // 5. Simpler inspection rotation ascending (none < y < x/z < compound)
+    // 2. If scramble already had target color on D, strongly prefer keeping the scramble's bottom face!
+    // 3. Simpler inspection rotation ascending (none < y < x < z < compound)
+    // 4. Fixed target pieces in bottom layer throughout solution descending (more fixed pieces is better)
+    // 5. Initial target pieces on bottom after inspection descending (more on bottom is better: 3 > 2 > 1)
     // 6. Preferred face order (white first, etc.)
     rawSolutions.sort((a, b) => {
         if (a.count !== b.count) return a.count - b.count;
-        if (a.fixedCount !== b.fixedCount) return b.fixedCount - a.fixedCount;
-        if (a.orientedDCount !== b.orientedDCount) return b.orientedDCount - a.orientedDCount;
         if (a.scrambleDCount > 0 || b.scrambleDCount > 0) {
             if (a.keepsScrambleD !== b.keepsScrambleD) {
                 return (b.keepsScrambleD ? 1 : 0) - (a.keepsScrambleD ? 1 : 0);
             }
         }
         if (a.inspComplexity !== b.inspComplexity) return a.inspComplexity - b.inspComplexity;
+        if (a.fixedCount !== b.fixedCount) return b.fixedCount - a.fixedCount;
+        if (a.orientedDCount !== b.orientedDCount) return b.orientedDCount - a.orientedDCount;
         return (FACE_ORDER[a.face] ?? 99) - (FACE_ORDER[b.face] ?? 99);
     });
 
@@ -400,7 +407,10 @@ export async function findLayerSolutions(scramble, targetFaces = ['white'], maxD
                 moveCount: sol.count,
                 caseId: sol.caseId,
                 fixedCount: sol.fixedCount,
-                orientedDCount: sol.orientedDCount
+                orientedDCount: sol.orientedDCount,
+                scrambleDCount: sol.scrambleDCount,
+                keepsScrambleD: sol.keepsScrambleD,
+                inspComplexity: sol.inspComplexity
             });
         }
     }
