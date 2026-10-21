@@ -169,3 +169,57 @@ export function computeAverageOfN(solves, n) {
   const sum = trimmed.reduce((acc, t) => acc + t, 0);
   return Math.round(sum / trimmed.length);
 }
+
+// ---------------------------------------------------------------------------
+// CSV Export for Solve Logs
+// ---------------------------------------------------------------------------
+
+export function exportSolvesToCSV(solves = [], sessionName = "Session") {
+  const headers = [
+    "No",
+    "Time(s)",
+    "Penalty",
+    "Raw Time(ms)",
+    "Puzzle",
+    "Track",
+    "Case",
+    "Target",
+    "Scramble",
+    "Date"
+  ];
+
+  const rows = solves.map((s, idx) => {
+    const rawMs = s.ms != null ? s.ms : (s.time != null ? s.time : 0);
+    const penalty = s.penalty === -1 ? "DNF" : (s.penalty === 2 ? "+2" : "OK");
+    const finalSec = s.penalty === -1 ? "DNF" : ((rawMs + (s.penalty === 2 ? 2000 : 0)) / 1000).toFixed(2);
+    const dateStr = s.at ? new Date(s.at).toISOString().replace("T", " ").substring(0, 19) : "";
+    const cleanScramble = (s.scramble || "").replace(/"/g, '""');
+
+    return [
+      idx + 1,
+      finalSec,
+      penalty,
+      rawMs,
+      s.puzzle || "",
+      s.track || "",
+      s.id || s.caseTag || "",
+      s.target || "",
+      `"${cleanScramble}"`,
+      `"${dateStr}"`
+    ].join(",");
+  });
+
+  return [headers.join(","), ...rows].join("\r\n");
+}
+
+export function downloadCSV(content, filename = "speedcube-solves.csv") {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}

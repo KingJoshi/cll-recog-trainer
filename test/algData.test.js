@@ -6,13 +6,21 @@ import { ollCases } from '../src/data/ollData.js';
 import { f2lCases } from '../src/data/f2lData.js';
 import { ortegaCases } from '../src/data/ortegaData.js';
 import { cllCases } from '../src/data/cllData.js';
+import { parity444Cases, parity555Cases } from '../src/data/parityData.js';
+import { PLL_TWO_SIDED_GUIDE, OLL_TWO_SIDED_GUIDE } from '../src/data/twoSidedRecogData.js';
 import { Alg } from 'cubing/alg';
 
 test('PUZZLES registry structure', () => {
   assert.ok(PUZZLES['222'], 'Must have 222');
   assert.ok(PUZZLES['333'], 'Must have 333');
+  assert.ok(PUZZLES['333oh'], 'Must have 333oh');
+  assert.ok(PUZZLES['444'], 'Must have 444');
+  assert.ok(PUZZLES['555'], 'Must have 555');
   assert.strictEqual(PUZZLES['222'].tracks.length, 3);
   assert.strictEqual(PUZZLES['333'].tracks.length, 4);
+  assert.strictEqual(PUZZLES['333oh'].tracks.length, 4);
+  assert.strictEqual(PUZZLES['444'].tracks.length, 1);
+  assert.strictEqual(PUZZLES['555'].tracks.length, 1);
 
   const pllTrack = getTrack('333', 'pll');
   assert.ok(pllTrack);
@@ -112,4 +120,43 @@ test('3x3 CFOP cases default to White on bottom with z2', async () => {
     0,
     'Bottom center must remain White (index 0) after F2L execution'
   );
+});
+
+test('4x4 and 5x5 Parity algorithms integrity', () => {
+  assert.strictEqual(parity444Cases.length, 3, '4x4 must have 3 parity cases (OLL, PLL Opp, PLL Adj)');
+  assert.strictEqual(parity555Cases.length, 2, '5x5 must have 2 parity cases (Lucas Flip, Wings)');
+
+  for (const c of parity444Cases) {
+    assert.ok(c.id);
+    assert.ok(c.name);
+    assert.ok(c.alg);
+    assert.ok(c.setup);
+    assert.doesNotThrow(() => new Alg(c.alg), `4x4 alg ${c.alg} must parse`);
+  }
+
+  for (const c of parity555Cases) {
+    assert.ok(c.id);
+    assert.ok(c.name);
+    assert.ok(c.alg);
+    assert.ok(c.setup);
+    assert.doesNotThrow(() => new Alg(c.alg), `5x5 alg ${c.alg} must parse`);
+  }
+});
+
+test('2-Sided recognition guide integrity', () => {
+  assert.ok(PLL_TWO_SIDED_GUIDE.length > 0, 'Must have PLL two-sided categories');
+  assert.ok(OLL_TWO_SIDED_GUIDE.length > 0, 'Must have OLL two-sided categories');
+
+  let pllRulesCount = 0;
+  for (const cat of PLL_TWO_SIDED_GUIDE) {
+    assert.ok(cat.category);
+    assert.ok(cat.rules.length > 0);
+    for (const r of cat.rules) {
+      assert.ok(r.caseId);
+      assert.ok(r.frontSight);
+      assert.ok(r.rightSight);
+      pllRulesCount++;
+    }
+  }
+  assert.strictEqual(pllRulesCount, 21, 'Must cover all 21 PLL cases in 2-sided guide');
 });

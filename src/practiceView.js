@@ -16,6 +16,7 @@ export class PracticeView {
     this.currentPuzzle = "222";
     this.currentTrackId = "cll";
     this.practiceMode = "casual"; // "casual" | "timed"
+    this.twoSidedMode = false;
 
     // Inspection drill state (for 1st Layer / White Cross)
     this.inspectionRunning = false;
@@ -197,6 +198,7 @@ export class PracticeView {
   // ---------------------------------------------------------------------------
   renderCasualRecognitionDrill() {
     const track = getTrack(this.currentPuzzle, this.currentTrackId);
+    const is3x3Recog = (this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && ["pll", "oll"].includes(this.currentTrackId);
     return `
       <div class="recognition-drill-card">
         <div class="recognition-status-bar">
@@ -208,7 +210,21 @@ export class PracticeView {
             <span class="score-label">Score:</span>
             <span class="score-value" id="practiceScoreVal">${this.score}</span>
           </div>
+          ${is3x3Recog ? `
+            <div class="recognition-mode-toggle-wrap" style="margin-left: auto;">
+              <button type="button" class="btn btn-xs btn-twosided-toggle ${this.twoSidedMode ? 'active' : ''}" id="toggleTwoSidedModeBtn">
+                👀 2-Sided Recog: <strong>${this.twoSidedMode ? 'ON' : 'OFF'}</strong>
+              </button>
+            </div>
+          ` : ''}
         </div>
+
+        ${is3x3Recog && this.twoSidedMode ? `
+          <div class="twosided-banner">
+            <span class="twosided-banner-icon">👀</span>
+            <span><strong>2-Sided Recognition Drill Active:</strong> Identify the ${this.currentTrackId.toUpperCase()} case looking only at the <strong>Front and Right</strong> faces without rotating the cube!</span>
+          </div>
+        ` : ''}
 
         <div class="recognition-keypad-box" id="recognitionKeypad">
           ${this.renderKeypadForTrack(track)}
@@ -328,6 +344,27 @@ export class PracticeView {
 
   renderKeypadForTrack(track) {
     if (!track) return '';
+
+    if (track.id === "parity") {
+      const parityCases = this.currentPuzzle === "444"
+        ? [
+            { id: "444-oll-parity", label: "OLL Parity (Single Dedge)" },
+            { id: "444-pll-opp-parity", label: "PLL Parity (Opposite)" },
+            { id: "444-pll-adj-parity", label: "PLL Parity (Adjacent)" }
+          ]
+        : [
+            { id: "555-l2e-flip", label: "Lucas Parity (Middle Flip)" },
+            { id: "555-l2e-wings", label: "Wing Swap (Slice-Flip-Slice)" }
+          ];
+      return `
+        <p class="guess-label">Which ${this.currentPuzzle === "444" ? "4x4" : "5x5"} Parity is it?</p>
+        <div class="ortega-pill-row" style="flex-wrap: wrap; gap: 8px;">
+          ${parityCases.map(c => `
+            <button type="button" class="btn-recog-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${c.label}</button>
+          `).join('')}
+        </div>
+      `;
+    }
 
     if (track.id === "pll") {
       const pllNames = ["Ua", "Ub", "H", "Z", "Aa", "Ab", "Ja", "Jb", "Ra", "Rb", "T", "F", "V", "Y", "E", "Na", "Nb", "Ga", "Gb", "Gc", "Gd"];
@@ -504,6 +541,14 @@ export class PracticeView {
     }
 
     // Casual recognition drill event bindings
+    const twoSidedToggle = this.container.querySelector('#toggleTwoSidedModeBtn');
+    if (twoSidedToggle) {
+      twoSidedToggle.addEventListener('click', () => {
+        this.twoSidedMode = !this.twoSidedMode;
+        this.render();
+      });
+    }
+
     this.container.querySelectorAll('.btn-recog-key').forEach(btn => {
       btn.addEventListener('click', () => {
         this.guessCase = btn.dataset.case;
@@ -693,7 +738,9 @@ export class PracticeView {
       guess === c.name ||
       guess === c.group ||
       (c.group && c.id && guess === `${c.group}${c.id.replace(c.group, '')}`) ||
-      (c.name && guess.toLowerCase() === c.name.toLowerCase())
+      (c.name && guess.toLowerCase() === c.name.toLowerCase()) ||
+      (c.id && c.id.includes(guess)) ||
+      (typeof guess === "string" && c.id && guess.includes(c.id))
     );
   }
 

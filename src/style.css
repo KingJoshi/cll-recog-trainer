@@ -5046,3 +5046,343 @@ html.overview-open body {
     flex-direction: column;
     gap: 10px;
 }
+
+/* --------------------------------------------------------------------------
+   Free Face Rotations & Move Tracking
+   -------------------------------------------------------------------------- */
+
+.free-moves-panel {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.free-moves-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.free-moves-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.free-moves-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+}
+
+.free-moves-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.free-moves-keypad {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.free-moves-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.free-moves-row-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    width: 68px;
+    flex-shrink: 0;
+    text-transform: uppercase;
+}
+
+.btn-face-turn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    cursor: pointer;
+    transition: all 0.12s ease;
+}
+
+.btn-face-turn:hover {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+.free-moves-history {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+[data-theme="dark"] .free-moves-history {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.free-moves-history-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.free-moves-list {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 2px;
+}
+
+.free-move-chip {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--primary);
+    color: #fff;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   CSV Export & Header Actions
+   -------------------------------------------------------------------------- */
+
+.solve-times-actions,
+.stats-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* --------------------------------------------------------------------------
+   2-Sided Recognition Styles (Study & Practice)
+   -------------------------------------------------------------------------- */
+
+.btn-twosided-toggle {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-twosided-toggle.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.twosided-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(0, 86, 179, 0.08);
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.82rem;
+    margin-bottom: 8px;
+    text-align: left;
+}
+
+[data-theme="dark"] .twosided-banner {
+    background: rgba(59, 130, 246, 0.12);
+}
+
+.study-twosided-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.study-twosided-hero {
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.study-twosided-title {
+    margin: 0 0 6px 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.study-twosided-desc {
+    margin: 0 0 10px 0;
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.45;
+}
+
+.study-twosided-keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.twosided-key-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.pill-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+.headlights-dot { background: #3b82f6; }
+.bar-dot { background: #10b981; }
+.opposites-dot { background: #f59e0b; }
+.checker-dot { background: #8b5cf6; }
+
+.study-twosided-categories {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.twosided-cat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+}
+
+.twosided-cat-head {
+    margin-bottom: 12px;
+}
+
+.twosided-cat-title {
+    margin: 0 0 2px 0;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.twosided-cat-summary {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.twosided-rules-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+}
+
+.twosided-rule-card {
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.twosided-rule-header {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.twosided-case-badge {
+    padding: 2px 5px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.twosided-case-name {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.twosided-cue-text {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text);
+    line-height: 1.35;
+}
+
+.twosided-sight-boxes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+    padding: 6px;
+    background: var(--surface);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+}
+
+.sight-box {
+    display: flex;
+    gap: 4px;
+    font-size: 0.75rem;
+}
+
+.sight-label {
+    font-weight: 700;
+    color: var(--muted);
+    flex-shrink: 0;
+}
+
+.sight-val {
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-weight: 600;
+}
+
+.twosided-card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}

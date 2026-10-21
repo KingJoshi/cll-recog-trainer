@@ -6,6 +6,7 @@ import { ortegaCases, ortegaCaseById } from './ortegaData.js';
 import { pllCases, pllCaseById } from './pllData.js';
 import { ollCases, ollCaseById } from './ollData.js';
 import { f2lCases, f2lCaseById } from './f2lData.js';
+import { parity444Cases, parity444CaseById, parity555Cases, parity555CaseById } from './parityData.js';
 
 export const PUZZLES = {
   "222": {
@@ -112,6 +113,108 @@ export const PUZZLES = {
           "Diagonal Corner Swap",
           "G-Permutation"
         ]
+      }
+    ]
+  },
+  "333oh": {
+    id: "333oh",
+    name: "3x3x3 One-Handed (OH)",
+    shortName: "3x3 OH",
+    wcaEvent: "333oh",
+    defaultTrack: "pll",
+    tracks: [
+      {
+        id: "pll",
+        name: "PLL (OH Optimized)",
+        shortName: "PLL",
+        description: "Permutation of the Last Layer: RU-gen and table-abuse friendly algorithms for one-handed solving",
+        cases: pllCases,
+        caseById: pllCaseById,
+        groups: ["Edges Only", "Adjacent Corner Swap", "Diagonal Corner Swap", "G-Permutation"]
+      },
+      {
+        id: "oll",
+        name: "OLL (OH Optimized)",
+        shortName: "OLL",
+        description: "Orientation of the Last Layer: rotationless and ergonomically favorable OH algorithms",
+        cases: ollCases,
+        caseById: ollCaseById,
+        groups: [
+          "All Edges Oriented (Cross)",
+          "T-Shapes",
+          "Square-Shapes",
+          "C-Shapes",
+          "W-Shapes",
+          "Corners Oriented",
+          "P-Shapes",
+          "I-Shapes",
+          "Fish-Shapes",
+          "Knight-move Shapes",
+          "Awkward Shapes",
+          "L-Shapes",
+          "Lightning Bolts",
+          "Dot Shapes"
+        ]
+      },
+      {
+        id: "f2l",
+        name: "F2L (41 Cases)",
+        shortName: "F2L",
+        description: "First Two Layers: rotationless and ergonomic one-handed corner-edge pairs",
+        cases: f2lCases,
+        caseById: f2lCaseById,
+        groups: [
+          "Basic Inserts",
+          "Corner in U, Edge in U",
+          "Corner in Slot, Edge in U",
+          "Corner in U, Edge in Slot",
+          "Both in Slot"
+        ]
+      },
+      {
+        id: "cross",
+        name: "White Cross",
+        shortName: "Cross",
+        description: "Inspection planning and rotationless cross execution for OH",
+        cases: [],
+        caseById: new Map(),
+        groups: ["Cross Planning", "Edge Orientation", "Cross+1"]
+      }
+    ]
+  },
+  "444": {
+    id: "444",
+    name: "4x4x4 Cube",
+    shortName: "4x4",
+    wcaEvent: "444",
+    defaultTrack: "parity",
+    tracks: [
+      {
+        id: "parity",
+        name: "4x4 Parity (OLL & PLL)",
+        shortName: "Parity",
+        description: "Essential OLL dedge flip and PLL opposite/adjacent edge swap parity algorithms",
+        cases: parity444Cases,
+        caseById: parity444CaseById,
+        groups: ["OLL Parity", "PLL Parity"]
+      }
+    ]
+  },
+  "555": {
+    id: "555",
+    name: "5x5x5 Cube",
+    shortName: "5x5",
+    wcaEvent: "555",
+    defaultTrack: "parity",
+    tracks: [
+      {
+        id: "parity",
+        name: "5x5 Parity & L2E",
+        shortName: "Parity",
+        description: "Last Two Edges (L2E) middle edge flip (Lucas Parity) and wing edge swap algorithms",
+        cases: parity555Cases,
+        caseById: parity555CaseById,
+        groups: ["L2E Parity"]
       }
     ]
   }

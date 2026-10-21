@@ -17,10 +17,13 @@
 
 <header class="app-header">
   <div class="header-brand">
-    <h1 class="app-title" id="appTitle">2x2 &amp; 3x3 Speedcube Trainer</h1>
+    <h1 class="app-title" id="appTitle">Speedcube Recog &amp; Parity Trainer</h1>
     <div class="puzzle-seg" id="puzzleSwitcher" role="group" aria-label="Select Puzzle">
       <button type="button" class="puzzle-btn active" data-puzzle="222" aria-pressed="true">2x2</button>
       <button type="button" class="puzzle-btn" data-puzzle="333" aria-pressed="false">3x3</button>
+      <button type="button" class="puzzle-btn" data-puzzle="333oh" aria-pressed="false">3x3 OH</button>
+      <button type="button" class="puzzle-btn" data-puzzle="444" aria-pressed="false">4x4</button>
+      <button type="button" class="puzzle-btn" data-puzzle="555" aria-pressed="false">5x5</button>
     </div>
   </div>
   <div class="header-actions">
@@ -182,6 +185,59 @@
               <button type="button" class="btn-rot" data-rot="z'" title="Rotate Z' (roll counter-clockwise) · Keyboard: Shift+Z" aria-label="Rotate Z prime">Z'</button>
             </div>
           </div>
+        </div>
+      </div>
+      <div id="freeMovesPanel" class="free-moves-panel" role="region" aria-label="Free Face Rotations">
+        <div class="free-moves-header">
+          <div class="free-moves-title-wrap">
+            <span class="free-moves-title">Free Face Turns</span>
+            <span id="freeMovesCountBadge" class="badge">0 turns</span>
+          </div>
+          <div class="free-moves-header-actions">
+            <button type="button" id="freeMoveUndoBtn" class="btn btn-xs" title="Undo last face turn" disabled>↶ Undo</button>
+            <button type="button" id="freeMoveReverseBtn" class="btn btn-xs" title="Reverse all user turns back to initial state" disabled>↺ Reverse Moves</button>
+            <button type="button" id="freeMoveResetScrambleBtn" class="btn btn-xs" title="Reset cube to scramble">Reset Scramble</button>
+            <button type="button" id="freeMoveResetSolvedBtn" class="btn btn-xs" title="Reset cube to solved">Reset Solved</button>
+          </div>
+        </div>
+        <div class="free-moves-keypad">
+          <div class="free-moves-row free-moves-cw">
+            <span class="free-moves-row-label">Clockwise:</span>
+            <button type="button" class="btn-face-turn" data-move="U" title="Turn U (Up)">U</button>
+            <button type="button" class="btn-face-turn" data-move="D" title="Turn D (Down)">D</button>
+            <button type="button" class="btn-face-turn" data-move="L" title="Turn L (Left)">L</button>
+            <button type="button" class="btn-face-turn" data-move="R" title="Turn R (Right)">R</button>
+            <button type="button" class="btn-face-turn" data-move="F" title="Turn F (Front)">F</button>
+            <button type="button" class="btn-face-turn" data-move="B" title="Turn B (Back)">B</button>
+          </div>
+          <div class="free-moves-row free-moves-ccw">
+            <span class="free-moves-row-label">Inverse:</span>
+            <button type="button" class="btn-face-turn" data-move="U'" title="Turn U' (Up prime)">U'</button>
+            <button type="button" class="btn-face-turn" data-move="D'" title="Turn D' (Down prime)">D'</button>
+            <button type="button" class="btn-face-turn" data-move="L'" title="Turn L' (Left prime)">L'</button>
+            <button type="button" class="btn-face-turn" data-move="R'" title="Turn R' (Right prime)">R'</button>
+            <button type="button" class="btn-face-turn" data-move="F'" title="Turn F' (Front prime)">F'</button>
+            <button type="button" class="btn-face-turn" data-move="B'" title="Turn B' (Back prime)">B'</button>
+          </div>
+          <div id="freeMovesWideRow" class="free-moves-row free-moves-wide" hidden>
+            <span class="free-moves-row-label">Wide:</span>
+            <button type="button" class="btn-face-turn" data-move="Uw" title="Turn Uw">Uw</button>
+            <button type="button" class="btn-face-turn" data-move="Uw'" title="Turn Uw'">Uw'</button>
+            <button type="button" class="btn-face-turn" data-move="Rw" title="Turn Rw">Rw</button>
+            <button type="button" class="btn-face-turn" data-move="Rw'" title="Turn Rw'">Rw'</button>
+            <button type="button" class="btn-face-turn" data-move="Fw" title="Turn Fw">Fw</button>
+            <button type="button" class="btn-face-turn" data-move="Fw'" title="Turn Fw'">Fw'</button>
+            <button type="button" class="btn-face-turn" data-move="Lw" title="Turn Lw">Lw</button>
+            <button type="button" class="btn-face-turn" data-move="Lw'" title="Turn Lw'">Lw'</button>
+            <button type="button" class="btn-face-turn" data-move="Dw" title="Turn Dw">Dw</button>
+            <button type="button" class="btn-face-turn" data-move="Dw'" title="Turn Dw'">Dw'</button>
+            <button type="button" class="btn-face-turn" data-move="Bw" title="Turn Bw">Bw</button>
+            <button type="button" class="btn-face-turn" data-move="Bw'" title="Turn Bw'">Bw'</button>
+          </div>
+        </div>
+        <div id="freeMovesHistoryWrap" class="free-moves-history" hidden>
+          <span class="free-moves-history-label">User turns:</span>
+          <div id="freeMovesList" class="free-moves-list"></div>
         </div>
       </div>
       <p id="empty-state" class="empty-state" hidden>
@@ -410,7 +466,10 @@
           <h2>Solve Times</h2>
           <span id="solveSessionBadge" class="session-badge"></span>
         </div>
-        <button type="button" id="clearSolvesBtn" class="btn btn-small btn-danger" hidden>Clear Session</button>
+        <div class="solve-times-actions">
+          <button type="button" id="exportSolvesCsvBtn" class="btn btn-small" title="Export session solves to CSV">📥 Export CSV</button>
+          <button type="button" id="clearSolvesBtn" class="btn btn-small btn-danger" hidden>Clear Session</button>
+        </div>
       </div>
       <div id="solveSummary" class="solve-summary"></div>
       <div id="solveStatsBar" class="solve-stats-bar">
@@ -430,7 +489,10 @@
         <span class="panel-meta" id="statsScopeBadge">2x2 &bull; CLL</span>
         <span class="chevron" aria-hidden="true"></span>
       </button>
-      <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger">Reset</button>
+      <div class="stats-head-actions">
+        <button type="button" id="statsExportCsvBtn" class="btn btn-small" title="Export session solves to CSV">📥 Export CSV</button>
+        <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger">Reset</button>
+      </div>
     </div>
     <div id="statsBody" class="stats-body">
       <div class="seg stats-seg" role="group" aria-label="Stats type">

@@ -13,6 +13,7 @@ import { pllCases } from './data/pllData.js';
 import { ollCases } from './data/ollData.js';
 import { f2lCases } from './data/f2lData.js';
 import { ortegaCases } from './data/ortegaData.js';
+import { exportSolvesToCSV, downloadCSV } from './sessions.js';
 import {
   DEFAULT_CUBE_COLORS,
   CUBE_COLORS,
@@ -114,10 +115,11 @@ function resetCaseAppearances() {
 // App state
 // ---------------------------------------------------------------------------
 
+const VALID_PUZZLES = ["222", "333", "333oh", "444", "555"];
 const savedSettings = readJSON(SETTINGS_KEY) || {};
 
-let currentPuzzle = savedSettings.currentPuzzle === "333" ? "333" : "222";
-let currentTrackId = savedSettings.currentTrackId || (currentPuzzle === "333" ? "pll" : "cll");
+let currentPuzzle = VALID_PUZZLES.includes(savedSettings.currentPuzzle) ? savedSettings.currentPuzzle : "222";
+let currentTrackId = savedSettings.currentTrackId || (PUZZLES[currentPuzzle]?.defaultTrack || "cll");
 
 let selectedCases = new Set(
   Array.isArray(savedSettings.selected)
@@ -152,7 +154,7 @@ let mode = MODES.includes(savedSettings.mode)
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.has("puzzle")) {
   const p = urlParams.get("puzzle");
-  if (p === "222" || p === "333") currentPuzzle = p;
+  if (VALID_PUZZLES.includes(p)) currentPuzzle = p;
 }
 if (urlParams.has("track")) {
   currentTrackId = urlParams.get("track");
@@ -605,7 +607,7 @@ const simSpeedButtons = Array.from(document.querySelectorAll(".sim-speed-btn"));
 // Create scramble display element
 const el = new ScrambleDisplay();
 el.player.hintFacelets = showReflection ? "floating" : "none";
-el.event = currentPuzzle;
+el.event = currentPuzzle === "333oh" ? "333" : currentPuzzle;
 el.visualization = "3D";
 applyReflection();
 displayContainer.appendChild(el);
@@ -646,6 +648,9 @@ function clearViewRotations() {
 
 function applyScrambleToDisplay(scrambleString) {
   currentBaseDisplayScramble = scrambleString || "";
+  freeMoveBaseScramble = currentBaseDisplayScramble;
+  userFreeMoves = [];
+  updateFreeMovesUI();
   if (!el) return;
   el.scramble = currentBaseDisplayScramble;
   if (el.player) {
@@ -697,6 +702,175 @@ document.querySelectorAll(".btn-rot").forEach(btn => {
     addViewRotation(move);
     btn.blur();
   });
+});
+
+// ---------------------------------------------------------------------------
+// Free Face Rotations & Move Tracking Controller
+// ---------------------------------------------------------------------------
+
+let userFreeMoves = [];
+let freeMoveBaseScramble = "";
+
+function invertMove(m) {
+  if (!m) return "";
+  m = m.trim();
+  if (m.endsWith("2")) return m;
+  if (m.endsWith("'")) return m.slice(0, -1);
+  return m + "'";
+}
+
+function invertMoves(movesArr) {
+  return movesArr.slice().reverse().map(invertMove);
+}
+
+function updateFreeMovesUI() {
+  const countBadge = document.getElementById("freeMovesCountBadge");
+  const undoBtn = document.getElementById("freeMoveUndoBtn");
+  const reverseBtn = document.getElementById("freeMoveReverseBtn");
+  const listEl = document.getElementById("freeMovesList");
+  const wrapEl = document.getElementById("freeMovesHistoryWrap");
+  const wideRow = document.getElementById("freeMovesWideRow");
+
+  if (countBadge) {
+    countBadge.textContent = `${userFreeMoves.length} turn${userFreeMoves.length === 1 ? '' : 's'}`;
+  }
+  if (undoBtn) undoBtn.disabled = userFreeMoves.length === 0;
+  if (reverseBtn) reverseBtn.disabled = userFreeMoves.length === 0;
+
+  if (wideRow) {
+    wideRow.hidden = !(currentPuzzle === "444" || currentPuzzle === "555");
+  }
+
+  if (wrapEl && listEl) {
+    if (userFreeMoves.length === 0) {
+      wrapEl.hidden = true;
+      listEl.innerHTML = "";
+    } else {
+      wrapEl.hidden = false;
+      listEl.innerHTML = userFreeMoves.map((m, idx) => `
+        <span class="free-move-chip" data-idx="${idx}">${escapeHtml(m)}</span>
+      `).join(" ");
+      listEl.scrollLeft = listEl.scrollWidth;
+    }
+  }
+}
+
+async function applyFreeMove(move) {
+  if (!move || !el) return;
+  userFreeMoves.push(move);
+
+  let animated = false;
+  try {
+    if (el.player?.experimentalAddMove) {
+      await el.player.experimentalAddMove(move, { cancel: false });
+      animated = true;
+    }
+  } catch (e) {
+    animated = false;
+  }
+
+  if (!animated) {
+    const fullSeq = [freeMoveBaseScramble, ...userFreeMoves].filter(Boolean).join(" ");
+    el.scramble = fullSeq;
+    try {
+      el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
+    } catch {}
+  }
+
+  applyColorsTo3DCube(el);
+  updateFreeMovesUI();
+}
+
+function undoLastFreeMove() {
+  if (!userFreeMoves.length) return;
+  userFreeMoves.pop();
+  const fullSeq = [freeMoveBaseScramble, ...userFreeMoves].filter(Boolean).join(" ");
+  el.scramble = fullSeq;
+  try {
+    el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
+  } catch {}
+  applyColorsTo3DCube(el);
+  updateFreeMovesUI();
+}
+
+async function reverseAllFreeMoves() {
+  if (!userFreeMoves.length) return;
+  const invMoves = invertMoves(userFreeMoves);
+  try {
+    if (el.player?.experimentalAddMove) {
+      for (const m of invMoves) {
+        await el.player.experimentalAddMove(m, { cancel: false });
+      }
+    }
+  } catch {}
+
+  userFreeMoves = [];
+  el.scramble = freeMoveBaseScramble;
+  try {
+    el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
+  } catch {}
+  applyColorsTo3DCube(el);
+  updateFreeMovesUI();
+}
+
+function resetFreeMovesToScramble() {
+  userFreeMoves = [];
+  el.scramble = freeMoveBaseScramble;
+  try {
+    el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
+  } catch {}
+  applyColorsTo3DCube(el);
+  updateFreeMovesUI();
+}
+
+function resetFreeMovesToSolved() {
+  userFreeMoves = [];
+  freeMoveBaseScramble = "";
+  el.scramble = "";
+  try {
+    el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
+  } catch {}
+  applyColorsTo3DCube(el);
+  updateFreeMovesUI();
+}
+
+// Wire Free Moves keypad buttons
+document.querySelectorAll(".btn-face-turn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const move = btn.dataset.move;
+    if (move) applyFreeMove(move);
+    btn.blur();
+  });
+});
+
+const freeMoveUndoBtn = document.getElementById("freeMoveUndoBtn");
+if (freeMoveUndoBtn) freeMoveUndoBtn.addEventListener("click", undoLastFreeMove);
+
+const freeMoveReverseBtn = document.getElementById("freeMoveReverseBtn");
+if (freeMoveReverseBtn) freeMoveReverseBtn.addEventListener("click", reverseAllFreeMoves);
+
+const freeMoveResetScrambleBtn = document.getElementById("freeMoveResetScrambleBtn");
+if (freeMoveResetScrambleBtn) freeMoveResetScrambleBtn.addEventListener("click", resetFreeMovesToScramble);
+
+const freeMoveResetSolvedBtn = document.getElementById("freeMoveResetSolvedBtn");
+if (freeMoveResetSolvedBtn) freeMoveResetSolvedBtn.addEventListener("click", resetFreeMovesToSolved);
+
+// Keyboard shortcuts for face turns (U, D, L, R, F, B) when not typing in an input
+window.addEventListener("keydown", e => {
+  const activeEl = document.activeElement;
+  const isInput = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT");
+  if (isInput) return;
+
+  const key = e.key.toUpperCase();
+  if (["U", "D", "L", "R", "F", "B"].includes(key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const move = e.shiftKey ? `${key}'` : key;
+    applyFreeMove(move);
+  } else if (e.key === "Backspace" && (e.ctrlKey || e.metaKey || userFreeMoves.length > 0)) {
+    if (userFreeMoves.length > 0) {
+      e.preventDefault();
+      undoLastFreeMove();
+    }
+  }
 });
 
 
@@ -772,16 +946,32 @@ function setTrack(trackId) {
 
 function populateSolveTargetSelect() {
   if (!solveTargetSelect) return;
-  const is3x3 = currentPuzzle === "333";
-  if (is3x3) {
+  if (currentPuzzle === "333" || currentPuzzle === "333oh") {
+    const isOh = currentPuzzle === "333oh";
     solveTargetSelect.innerHTML = `
-      <option value="full">Full Solve (WCA 3x3)</option>
+      <option value="full">Full Solve (WCA ${isOh ? "3x3 OH" : "3x3"})</option>
       <option value="cross">White Cross Only</option>
       <option value="f2l">F2L Case</option>
       <option value="oll">OLL Case</option>
       <option value="pll">PLL Case</option>
     `;
     if (!["full", "cross", "f2l", "oll", "pll"].includes(solveTarget)) {
+      solveTarget = "full";
+    }
+  } else if (currentPuzzle === "444") {
+    solveTargetSelect.innerHTML = `
+      <option value="full">Full Solve (WCA 4x4)</option>
+      <option value="parity">4x4 Parity Drill (OLL &amp; PLL)</option>
+    `;
+    if (!["full", "parity"].includes(solveTarget)) {
+      solveTarget = "full";
+    }
+  } else if (currentPuzzle === "555") {
+    solveTargetSelect.innerHTML = `
+      <option value="full">Full Solve (WCA 5x5)</option>
+      <option value="parity">5x5 Parity &amp; L2E Drill</option>
+    `;
+    if (!["full", "parity"].includes(solveTarget)) {
       solveTarget = "full";
     }
   } else {
@@ -797,14 +987,14 @@ function populateSolveTargetSelect() {
   }
   solveTargetSelect.value = solveTarget;
   if (solveScrambleOrient) {
-    solveScrambleOrient.textContent = is3x3 ? "(white on bottom, green on front)" : "(white on bottom)";
+    solveScrambleOrient.textContent = currentPuzzle === "222" ? "(white on bottom)" : "(white on top, green on front)";
   }
 }
 
 function setPuzzle(puzzleId) {
-  if (puzzleId !== "222" && puzzleId !== "333") return;
+  if (!VALID_PUZZLES.includes(puzzleId)) return;
   currentPuzzle = puzzleId;
-  el.event = currentPuzzle;
+  el.event = currentPuzzle === "333oh" ? "333" : currentPuzzle;
   applyColorsTo3DCube(el);
 
   puzzleButtons.forEach(btn => {
@@ -813,20 +1003,22 @@ function setPuzzle(puzzleId) {
     btn.setAttribute("aria-pressed", String(active));
   });
 
-  if (pblOverviewBtn) pblOverviewBtn.hidden = currentPuzzle === "333";
-  if (overviewBtn) overviewBtn.hidden = currentPuzzle === "333";
+  if (pblOverviewBtn) pblOverviewBtn.hidden = currentPuzzle !== "222";
+  if (overviewBtn) overviewBtn.hidden = currentPuzzle !== "222";
 
-  currentTrackId = currentPuzzle === "333" ? "pll" : "cll";
+  const pDef = PUZZLES[currentPuzzle];
+  currentTrackId = pDef?.defaultTrack || (currentPuzzle === "222" ? "cll" : (currentPuzzle === "444" || currentPuzzle === "555" ? "parity" : "pll"));
 
   renderTrackBar();
   populateSolveTargetSelect();
 
   let matchingSessions = sessions.filter(s => (s.puzzle || "222") === currentPuzzle);
   if (matchingSessions.length === 0) {
+    const defaultName = pDef?.shortName ? `${pDef.shortName} Main` : `${currentPuzzle} Main`;
     const newSess = {
       id: `session-${currentPuzzle}-${Date.now()}`,
       puzzle: currentPuzzle,
-      name: currentPuzzle === "333" ? "3x3 Main" : "2x2 Main",
+      name: defaultName,
       target: "full",
       inspection: true,
       showCube: true,
@@ -851,6 +1043,7 @@ function setPuzzle(puzzleId) {
   if (studyView) studyView.setTrack(currentPuzzle, currentTrackId);
   if (practiceView) practiceView.setTrack(currentPuzzle, currentTrackId);
 
+  updateFreeMovesUI();
   saveSettings();
   renderStage();
   renderSolvePanel();
@@ -874,7 +1067,7 @@ function buildCasePicker() {
   casePicker.innerHTML = "";
   ensureTrackSelection();
 
-  if (currentPuzzle === "333") {
+  if (currentPuzzle !== "222") {
     const track = getTrack(currentPuzzle, currentTrackId);
     if (!track || !track.cases || track.cases.length === 0) {
       casePicker.innerHTML = `<p class="hint" style="padding: 10px 0;">This track (${track ? track.name : ''}) focuses on cross planning &amp; EO rather than discrete case recognition.</p>`;
@@ -1434,10 +1627,12 @@ function regenerateScramble() {
     solveScrambleSubtext.textContent = "";
   }
 
-  if (currentPuzzle === "333") {
+  if (currentPuzzle === "333" || currentPuzzle === "333oh") {
+    const isOh = currentPuzzle === "333oh";
+    const gen333 = isOh ? generateWca3x3OhScramble : generateWca3x3Scramble;
     if (mode === "solve") {
       if (solveTarget === "full" || solveTarget === "cross") {
-        generateWca3x3Scramble().then(wcaScr => {
+        gen333().then(wcaScr => {
           currentSolveScramble = wcaScr;
           scrambleMoves = wcaScr;
           scramble = wcaScr;
@@ -1450,7 +1645,7 @@ function regenerateScramble() {
         updateStatsTable();
         return;
       } else if (solveTarget === "pll") {
-        const track = getTrack("333", "pll");
+        const track = getTrack(currentPuzzle, "pll");
         const active = track.cases.filter(c => selectedCases.has(c.id));
         const pool = active.length > 0 ? active : track.cases;
         const c = pool[Math.floor(Math.random() * pool.length)];
@@ -1472,7 +1667,7 @@ function regenerateScramble() {
         updateStatsTable();
         return;
       } else if (solveTarget === "oll") {
-        const track = getTrack("333", "oll");
+        const track = getTrack(currentPuzzle, "oll");
         const active = track.cases.filter(c => selectedCases.has(c.id));
         const pool = active.length > 0 ? active : track.cases;
         const c = pool[Math.floor(Math.random() * pool.length)];
@@ -1494,7 +1689,7 @@ function regenerateScramble() {
         updateStatsTable();
         return;
       } else if (solveTarget === "f2l") {
-        const track = getTrack("333", "f2l");
+        const track = getTrack(currentPuzzle, "f2l");
         const active = track.cases.filter(c => selectedCases.has(c.id));
         const pool = active.length > 0 ? active : track.cases;
         const c = pool[Math.floor(Math.random() * pool.length)];
@@ -1528,7 +1723,7 @@ function regenerateScramble() {
       currentCaseScramble = scr;
       scrambleMoves = scr;
       scramble = scr;
-      const is333Case = currentPuzzle === "333" && ["f2l", "oll", "pll"].includes(currentTrackId);
+      const is333Case = ["f2l", "oll", "pll"].includes(currentTrackId);
       const displayScr = (alwaysWhiteBottom && is333Case) ? `z2 ${scr}` : scr;
       applyScrambleToDisplay(displayScr);
       if (mode === "solve") {
@@ -1538,7 +1733,7 @@ function regenerateScramble() {
         updateCrossSolutions(scr);
       }
     } else {
-      generateWca3x3Scramble().then(wcaScr => {
+      gen333().then(wcaScr => {
         scramble = wcaScr;
         scrambleMoves = wcaScr;
         currentSolveScramble = wcaScr;
@@ -1550,6 +1745,104 @@ function regenerateScramble() {
     resetGuessingUI();
     updateStatsTable();
     return;
+  }
+
+  if (currentPuzzle === "444") {
+    if (mode === "solve" && solveTarget === "parity") {
+      const track = getTrack("444", "parity");
+      const active = track.cases.filter(c => selectedCases.has(c.id));
+      const pool = active.length > 0 ? active : track.cases;
+      const c = pool[Math.floor(Math.random() * pool.length)];
+      const scr = c.setup || c.scramble;
+      currentSolveScramble = scr;
+      scrambleMoves = scr;
+      scramble = scr;
+      currentCaseId = c.id;
+      applyScrambleToDisplay(scr);
+      if (solveScrambleText) solveScrambleText.textContent = scr;
+      if (solveScrambleSubtext) {
+        solveScrambleSubtext.hidden = false;
+        solveScrambleSubtext.textContent = `4x4 Parity Case: ${c.name} (${c.group})`;
+      }
+      resetGuessingUI();
+      updateStatsTable();
+      return;
+    } else if (mode !== "solve" && hasCases) {
+      const track = getTrack("444", "parity");
+      const active = track.cases.filter(c => selectedCases.has(c.id));
+      const pool = active.length > 0 ? active : track.cases;
+      const c = pool[Math.floor(Math.random() * pool.length)];
+      const scr = c.setup || c.scramble;
+      currentCaseId = c.id;
+      currentCaseScramble = scr;
+      scrambleMoves = scr;
+      scramble = scr;
+      applyScrambleToDisplay(scr);
+      resetGuessingUI();
+      updateStatsTable();
+      return;
+    } else {
+      generateWca4x4Scramble().then(wcaScr => {
+        currentSolveScramble = wcaScr;
+        scrambleMoves = wcaScr;
+        scramble = wcaScr;
+        currentCaseId = null;
+        applyScrambleToDisplay(wcaScr);
+        if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+      });
+      resetGuessingUI();
+      updateStatsTable();
+      return;
+    }
+  }
+
+  if (currentPuzzle === "555") {
+    if (mode === "solve" && solveTarget === "parity") {
+      const track = getTrack("555", "parity");
+      const active = track.cases.filter(c => selectedCases.has(c.id));
+      const pool = active.length > 0 ? active : track.cases;
+      const c = pool[Math.floor(Math.random() * pool.length)];
+      const scr = c.setup || c.scramble;
+      currentSolveScramble = scr;
+      scrambleMoves = scr;
+      scramble = scr;
+      currentCaseId = c.id;
+      applyScrambleToDisplay(scr);
+      if (solveScrambleText) solveScrambleText.textContent = scr;
+      if (solveScrambleSubtext) {
+        solveScrambleSubtext.hidden = false;
+        solveScrambleSubtext.textContent = `5x5 Parity Case: ${c.name} (${c.group})`;
+      }
+      resetGuessingUI();
+      updateStatsTable();
+      return;
+    } else if (mode !== "solve" && hasCases) {
+      const track = getTrack("555", "parity");
+      const active = track.cases.filter(c => selectedCases.has(c.id));
+      const pool = active.length > 0 ? active : track.cases;
+      const c = pool[Math.floor(Math.random() * pool.length)];
+      const scr = c.setup || c.scramble;
+      currentCaseId = c.id;
+      currentCaseScramble = scr;
+      scrambleMoves = scr;
+      scramble = scr;
+      applyScrambleToDisplay(scr);
+      resetGuessingUI();
+      updateStatsTable();
+      return;
+    } else {
+      generateWca5x5Scramble().then(wcaScr => {
+        currentSolveScramble = wcaScr;
+        scrambleMoves = wcaScr;
+        scramble = wcaScr;
+        currentCaseId = null;
+        applyScrambleToDisplay(wcaScr);
+        if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+      });
+      resetGuessingUI();
+      updateStatsTable();
+      return;
+    }
   }
 
   if (mode === "solve" && solveTarget !== "cll") {
@@ -1642,9 +1935,9 @@ function setMode(next, { skipSimInit = false } = {}) {
       const displayScr = (alwaysWhiteBottom && is333Case) ? `z2 ${currentSolveScramble}` : currentSolveScramble;
       applyScrambleToDisplay(displayScr);
       applyReflection();
-      if (currentPuzzle === "333") {
+      if (currentPuzzle === "333" || currentPuzzle === "333oh") {
         updateCrossSolutions(currentSolveScramble);
-      } else {
+      } else if (currentPuzzle === "222") {
         if (!currentLayerSolutionsScramble || currentLayerSolutionsScramble !== currentSolveScramble) {
           updateLayerSolutions(currentSolveScramble);
         }
@@ -1730,7 +2023,7 @@ function renderStage() {
     layerSolutionsWidget.hidden = !solving || currentPuzzle !== "222";
   }
   if (crossSolutionsWidget) {
-    crossSolutionsWidget.hidden = !solving || currentPuzzle !== "333";
+    crossSolutionsWidget.hidden = !solving || (currentPuzzle !== "333" && currentPuzzle !== "333oh");
   }
   if (solving) renderSolvePanel();
 }
@@ -2740,6 +3033,67 @@ async function generateWca3x3Scramble() {
   return moves.join(" ");
 }
 
+async function generateWca3x3OhScramble() {
+  try {
+    const scrPromise = randomScrambleForEvent('333oh');
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000));
+    const scr = await Promise.race([scrPromise, timeoutPromise]);
+    if (scr && typeof scr.toString === 'function') {
+      const s = scr.toString().trim();
+      if (s) return s;
+    }
+  } catch (err) {}
+  return generateWca3x3Scramble();
+}
+
+async function generateWca4x4Scramble() {
+  try {
+    const scrPromise = randomScrambleForEvent('444');
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500));
+    const scr = await Promise.race([scrPromise, timeoutPromise]);
+    if (scr && typeof scr.toString === 'function') {
+      const s = scr.toString().trim();
+      if (s) return s;
+    }
+  } catch (err) {}
+  const faces = ["R", "L", "U", "D", "F", "B", "Rw", "Fw", "Uw"];
+  const modifiers = ["", "'", "2"];
+  const moves = [];
+  let lastFace = "";
+  for (let i = 0; i < 40; i++) {
+    const allowed = faces.filter(f => f !== lastFace);
+    const face = allowed[Math.floor(Math.random() * allowed.length)];
+    lastFace = face;
+    const mod = modifiers[Math.floor(Math.random() * modifiers.length)];
+    moves.push(face + mod);
+  }
+  return moves.join(" ");
+}
+
+async function generateWca5x5Scramble() {
+  try {
+    const scrPromise = randomScrambleForEvent('555');
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500));
+    const scr = await Promise.race([scrPromise, timeoutPromise]);
+    if (scr && typeof scr.toString === 'function') {
+      const s = scr.toString().trim();
+      if (s) return s;
+    }
+  } catch (err) {}
+  const faces = ["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Fw", "Bw", "Uw", "Dw"];
+  const modifiers = ["", "'", "2"];
+  const moves = [];
+  let lastFace = "";
+  for (let i = 0; i < 60; i++) {
+    const allowed = faces.filter(f => f !== lastFace);
+    const face = allowed[Math.floor(Math.random() * allowed.length)];
+    lastFace = face;
+    const mod = modifiers[Math.floor(Math.random() * modifiers.length)];
+    moves.push(face + mod);
+  }
+  return moves.join(" ");
+}
+
 function formatSolveDisplay(s) {
   if (!s) return "-";
   if (s.penalty === "DNF") return "DNF";
@@ -3572,6 +3926,24 @@ clearSolvesBtn.addEventListener("click", () => {
     updateStatsTable();
   }
 });
+
+function handleExportCSV() {
+  const currentSess = getActiveSession();
+  const currentSolves = currentSess?.solves || [];
+  if (currentSolves.length === 0) {
+    alert("No recorded solves in this session yet to export.");
+    return;
+  }
+  const csvData = exportSolvesToCSV(currentSolves, currentSess?.name || "Session");
+  const filename = `${(currentSess?.name || "solves").toLowerCase().replace(/[^a-z0-9]/g, "-")}-${Date.now()}.csv`;
+  downloadCSV(csvData, filename);
+}
+
+const exportSolvesCsvBtn = document.getElementById("exportSolvesCsvBtn");
+if (exportSolvesCsvBtn) exportSolvesCsvBtn.addEventListener("click", handleExportCSV);
+
+const statsExportCsvBtn = document.getElementById("statsExportCsvBtn");
+if (statsExportCsvBtn) statsExportCsvBtn.addEventListener("click", handleExportCSV);
 
 solveList.addEventListener("click", e => {
   const chip = e.target.closest(".solve-chip");
@@ -4556,6 +4928,7 @@ function renderSessionLogTable() {
       <button type="button" class="stats-subfilter-btn ${sessionLogFilter === 'all' ? 'active' : ''}" data-log-filter="all">All (${sessSolves.length})</button>
       <button type="button" class="stats-subfilter-btn ${sessionLogFilter === 'track' ? 'active' : ''}" data-log-filter="track">${escapeHtml(track?.shortName || 'Current Set')} (${trackSolves.length})</button>
       <button type="button" class="stats-subfilter-btn ${sessionLogFilter === 'full' ? 'active' : ''}" data-log-filter="full">Full Solves (${fullSolves.length})</button>
+      <button type="button" class="btn btn-xs" id="sessionLogExportCsvBtn" style="margin-left: auto;" title="Export current session to CSV">📥 Export CSV</button>
     </div>
 
     <div class="layer-stats-grid">
@@ -4693,6 +5066,7 @@ function renderSessionLogTable() {
   container.innerHTML = html;
 
   // Attach subfilter button listeners
+  container.querySelector("#sessionLogExportCsvBtn")?.addEventListener("click", handleExportCSV);
   container.querySelectorAll(".stats-subfilter-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       sessionLogFilter = btn.dataset.logFilter || "all";
@@ -5084,7 +5458,39 @@ function simTeardown() {
 function populateSimCaseSelect() {
   simCaseSelect.innerHTML = `<option value="">Load a case to simulate...</option>`;
 
-  if (currentPuzzle === "333") {
+  if (currentPuzzle === "444") {
+    const parityTrack = getTrack("444", "parity");
+    if (parityTrack) {
+      const g = document.createElement("optgroup");
+      g.label = "4x4 Parity";
+      parityTrack.cases.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = `444:parity:${c.id}`;
+        opt.textContent = `${c.name}: ${c.alg}`;
+        g.appendChild(opt);
+      });
+      simCaseSelect.appendChild(g);
+    }
+    return;
+  }
+
+  if (currentPuzzle === "555") {
+    const parityTrack = getTrack("555", "parity");
+    if (parityTrack) {
+      const g = document.createElement("optgroup");
+      g.label = "5x5 Parity & L2E";
+      parityTrack.cases.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = `555:parity:${c.id}`;
+        opt.textContent = `${c.name}: ${c.alg}`;
+        g.appendChild(opt);
+      });
+      simCaseSelect.appendChild(g);
+    }
+    return;
+  }
+
+  if (currentPuzzle === "333" || currentPuzzle === "333oh") {
     const pllTrack = getTrack("333", "pll");
     if (pllTrack) {
       const g = document.createElement("optgroup");
@@ -6025,13 +6431,13 @@ practiceView = new PracticeView({
   },
   onGenerateScramble: async (trackId) => {
     const tid = trackId || currentTrackId;
-    if (currentPuzzle === "333") {
+    if (currentPuzzle === "333" || currentPuzzle === "333oh") {
       if (tid === "cross") {
-        const wcaScr = await generateWca3x3Scramble();
+        const wcaScr = currentPuzzle === "333oh" ? await generateWca3x3OhScramble() : await generateWca3x3Scramble();
         applyScrambleToDisplay(wcaScr);
         return { scramble: wcaScr, caseObj: null };
       }
-      const track = getTrack("333", tid);
+      const track = getTrack(currentPuzzle, tid);
       if (track && track.cases.length > 0) {
         const active = track.cases.filter(c => selectedCases.has(c.id));
         const pool = active.length > 0 ? active : track.cases;
@@ -6042,6 +6448,19 @@ practiceView = new PracticeView({
         return { scramble: scr, caseObj: c };
       }
       const wcaScr = await generateWca3x3Scramble();
+      applyScrambleToDisplay(wcaScr);
+      return { scramble: wcaScr, caseObj: null };
+    } else if (currentPuzzle === "444" || currentPuzzle === "555") {
+      const track = getTrack(currentPuzzle, "parity");
+      if (track && track.cases.length > 0) {
+        const active = track.cases.filter(c => selectedCases.has(c.id));
+        const pool = active.length > 0 ? active : track.cases;
+        const c = pool[Math.floor(Math.random() * pool.length)];
+        const scr = c.setup || c.scramble;
+        applyScrambleToDisplay(scr);
+        return { scramble: scr, caseObj: c };
+      }
+      const wcaScr = currentPuzzle === "444" ? await generateWca4x4Scramble() : await generateWca5x5Scramble();
       applyScrambleToDisplay(wcaScr);
       return { scramble: wcaScr, caseObj: null };
     } else {
@@ -6082,8 +6501,8 @@ puzzleButtons.forEach(btn => {
   btn.classList.toggle("active", active);
   btn.setAttribute("aria-pressed", String(active));
 });
-if (pblOverviewBtn) pblOverviewBtn.hidden = currentPuzzle === "333";
-if (overviewBtn) overviewBtn.hidden = currentPuzzle === "333";
+if (pblOverviewBtn) pblOverviewBtn.hidden = currentPuzzle !== "222";
+if (overviewBtn) overviewBtn.hidden = currentPuzzle !== "222";
 
 buildCasePicker();
 applyTheme();

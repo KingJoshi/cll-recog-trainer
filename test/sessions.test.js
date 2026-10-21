@@ -6,7 +6,8 @@ import {
   computeAverageOfN,
   filterSolves,
   groupSolvesByCase,
-  computeCaseStats
+  computeCaseStats,
+  exportSolvesToCSV
 } from '../src/sessions.js';
 
 test('createDefaultSession supports 222 and 333', () => {
@@ -87,4 +88,18 @@ test('groupSolvesByCase and computeCaseStats aggregate metrics per case', () => 
   assert.strictEqual(tStats.worst, 5000);
   assert.strictEqual(tStats.mean, Math.round((2000 + 2500 + 5000) / 3)); // 3167
   assert.strictEqual(tStats.median, 2500);
+});
+
+test('exportSolvesToCSV exports clean CSV with headers and solve records', () => {
+  const solves = [
+    { ms: 1250, penalty: 0, puzzle: "222", track: "cll", id: "T1", target: "cll", scramble: "R U R'", at: 1700000000000 },
+    { ms: 14000, penalty: 2, puzzle: "333", track: "pll", id: "Ja", target: "pll", scramble: "R U R' F'", at: 1700000010000 },
+    { ms: 18500, penalty: -1, puzzle: "444", track: "parity", id: "444-oll-parity", target: "parity", scramble: "Rw U2", at: 1700000020000 }
+  ];
+
+  const csv = exportSolvesToCSV(solves, "Testing");
+  assert.ok(csv.includes("No,Time(s),Penalty,Raw Time(ms),Puzzle,Track,Case,Target,Scramble,Date"));
+  assert.ok(csv.includes("1,1.25,OK,1250,222,cll,T1,cll,\"R U R'\""));
+  assert.ok(csv.includes("2,16.00,+2,14000,333,pll,Ja,pll,\"R U R' F'\""));
+  assert.ok(csv.includes("3,DNF,DNF,18500,444,parity,444-oll-parity,parity,\"Rw U2\""));
 });

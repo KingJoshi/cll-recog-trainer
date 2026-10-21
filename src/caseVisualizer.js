@@ -87,6 +87,16 @@ export function applyColorsToThreeJSPuzzle(p, colors = CUBE_COLORS) {
 
   let needsRender = false;
   p.traverse(node => {
+    // Ensure all moves use black opacity and not transparency for the cube
+    if (node.material) {
+      const mats = Array.isArray(node.material) ? node.material : [node.material];
+      mats.forEach(m => {
+        m.transparent = false;
+        m.opacity = 1.0;
+        m.depthWrite = true;
+      });
+    }
+
     if (node.geometry && node.geometry.attributes && node.geometry.attributes.color) {
       const attr = node.geometry.attributes.color;
       if (!node.geometry.userData.origColors) {
@@ -283,7 +293,12 @@ export async function renderCaseSvg(puzzleId, trackId, caseObj) {
       } else {
         svg = await renderCllSvg(caseObj);
       }
+    } else if (puzzleId === "444") {
+      svg = render444ParitySvg(caseObj);
+    } else if (puzzleId === "555") {
+      svg = render555ParitySvg(caseObj);
     } else {
+      // 333 and 333oh
       if (trackId === "pll") {
         svg = await renderPllSvg(caseObj);
       } else if (trackId === "oll") {
@@ -629,6 +644,91 @@ export async function renderF2lSvg(caseObj) {
     <!-- Target Slot Outline indicator (White badge with Red text) -->
     <circle cx="${T + 2 * S + S / 2}" cy="${T + 2 * S + S / 2}" r="7" fill="${CUBE_COLORS.white}" stroke="#111827" stroke-width="1.5"/>
     <text x="${T + 2 * S + S / 2}" y="${T + 2 * S + S / 2 + 3.5}" text-anchor="middle" font-size="9" font-weight="900" fill="${CUBE_COLORS.red}">FR</text>
+  </svg>`;
+}
+
+// ---------------------------------------------------------------------------
+// 4x4 & 5x5 Parity SVGs
+// ---------------------------------------------------------------------------
+
+export function render444ParitySvg(caseObj) {
+  const isOll = caseObj.id.includes("oll");
+  const isOpp = caseObj.id.includes("opp");
+  const isAdj = caseObj.id.includes("adj");
+
+  const S = 17;
+  const T = 16;
+  const rect = (x, y, fill) =>
+    `<rect x="${x}" y="${y}" width="${S}" height="${S}" rx="1.5" fill="${fill}" stroke="#1e293b" stroke-width="1.1"/>`;
+
+  let stickersHtml = "";
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      let fill = CUBE_COLORS.yellow;
+      if (isOll && r === 3 && (c === 1 || c === 2)) {
+        fill = CUBE_COLORS.slate;
+      }
+      stickersHtml += rect(T + c * S, T + r * S, fill);
+    }
+  }
+
+  let overlays = "";
+  if (isOll) {
+    overlays += `<rect x="${T + S}" y="${T + 4 * S + 3}" width="${2 * S}" height="6" rx="1.5" fill="${CUBE_COLORS.yellow}" stroke="#1e293b" stroke-width="1.1"/>`;
+    overlays += `<text x="50" y="${T + 3.5 * S + 4}" text-anchor="middle" font-size="11" font-weight="900" fill="${CUBE_COLORS.orange}">&#x21C5;</text>`;
+  } else if (isOpp) {
+    overlays += `
+      <line x1="50" y1="${T + 12}" x2="50" y2="${T + 4 * S - 12}" stroke="${CUBE_COLORS.red}" stroke-width="3" stroke-linecap="round"/>
+      <polygon points="46,${T + 12} 54,${T + 12} 50,${T + 4}" fill="${CUBE_COLORS.red}"/>
+      <polygon points="46,${T + 4 * S - 12} 54,${T + 4 * S - 12} 50,${T + 4 * S - 4}" fill="${CUBE_COLORS.red}"/>
+    `;
+  } else if (isAdj) {
+    overlays += `
+      <path d="M 50 ${T + 3.5 * S} Q ${T + 3.5 * S} ${T + 3.5 * S} ${T + 3.5 * S} 50" fill="none" stroke="${CUBE_COLORS.red}" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="50" cy="${T + 3.5 * S}" r="3.5" fill="${CUBE_COLORS.red}"/>
+      <circle cx="${T + 3.5 * S}" cy="50" r="3.5" fill="${CUBE_COLORS.red}"/>
+    `;
+  }
+
+  return `<svg viewBox="0 0 100 100" class="case-svg case-svg-444" xmlns="http://www.w3.org/2000/svg">
+    ${stickersHtml}
+    ${overlays}
+  </svg>`;
+}
+
+export function render555ParitySvg(caseObj) {
+  const isFlip = caseObj.id.includes("flip");
+  const S = 14;
+  const T = 15;
+  const rect = (x, y, fill) =>
+    `<rect x="${x}" y="${y}" width="${S}" height="${S}" rx="1.5" fill="${fill}" stroke="#1e293b" stroke-width="1.1"/>`;
+
+  let stickersHtml = "";
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      let fill = CUBE_COLORS.yellow;
+      if (isFlip && r === 4 && c === 2) {
+        fill = CUBE_COLORS.slate;
+      }
+      stickersHtml += rect(T + c * S, T + r * S, fill);
+    }
+  }
+
+  let overlays = "";
+  if (isFlip) {
+    overlays += `<rect x="${T + 2 * S}" y="${T + 5 * S + 3}" width="${S}" height="5" rx="1" fill="${CUBE_COLORS.yellow}" stroke="#1e293b" stroke-width="1.1"/>`;
+    overlays += `<text x="${T + 2.5 * S}" y="${T + 4.5 * S + 4}" text-anchor="middle" font-size="10" font-weight="900" fill="${CUBE_COLORS.orange}">&#x21C5;</text>`;
+  } else {
+    overlays += `
+      <path d="M ${T + 1.5 * S} ${T + 4.5 * S} Q 50 ${T + 3.5 * S} ${T + 3.5 * S} ${T + 4.5 * S}" fill="none" stroke="${CUBE_COLORS.red}" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="${T + 1.5 * S}" cy="${T + 4.5 * S}" r="3" fill="${CUBE_COLORS.red}"/>
+      <circle cx="${T + 3.5 * S}" cy="${T + 4.5 * S}" r="3" fill="${CUBE_COLORS.red}"/>
+    `;
+  }
+
+  return `<svg viewBox="0 0 100 100" class="case-svg case-svg-555" xmlns="http://www.w3.org/2000/svg">
+    ${stickersHtml}
+    ${overlays}
   </svg>`;
 }
 

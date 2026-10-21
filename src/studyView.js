@@ -2,6 +2,7 @@
 
 import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg } from './data/algRegistry.js';
 import { renderCaseSvg, applyColorsTo3DCube } from './caseVisualizer.js';
+import { PLL_TWO_SIDED_GUIDE, OLL_TWO_SIDED_GUIDE } from './data/twoSidedRecogData.js';
 import { ScrambleDisplay } from 'scramble-display';
 
 export class StudyView {
@@ -61,6 +62,9 @@ export class StudyView {
             <button type="button" class="study-subnav-btn ${this.currentView === 'grid' ? 'active' : ''}" data-view="grid">📋 Case Grid (${track.cases.length})</button>
             <button type="button" class="study-subnav-btn ${this.currentView === 'detail' ? 'active' : ''}" data-view="detail">🔍 3D Flashcard</button>
           ` : ''}
+          ${(this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && (this.currentTrackId === "pll" || this.currentTrackId === "oll") ? `
+            <button type="button" class="study-subnav-btn ${this.currentView === 'twosided' ? 'active' : ''}" data-view="twosided">👀 2-Sided Recognition</button>
+          ` : ''}
           <button type="button" class="study-subnav-btn ${this.currentView === 'guide' ? 'active' : ''}" data-view="guide">📖 Reference Guide</button>
         </div>
       </div>
@@ -68,6 +72,7 @@ export class StudyView {
       <div class="study-content">
         ${this.currentView === 'grid' ? this.renderGridView(track) : ''}
         ${this.currentView === 'detail' ? this.renderDetailView(track) : ''}
+        ${this.currentView === 'twosided' ? this.renderTwoSidedView(track) : ''}
         ${this.currentView === 'guide' ? this.renderGuideView(track) : ''}
       </div>
     `;
@@ -255,11 +260,144 @@ export class StudyView {
       `;
     }
 
+    if (this.currentPuzzle === "444" || (this.currentPuzzle === "444" && this.currentTrackId === "parity")) {
+      return `
+        <div class="guide-card-stack">
+          <section class="guide-card">
+            <h3 class="guide-card-title">⚖️ 4x4 Parity Fundamentals</h3>
+            <p>Because the 4x4 cube has an even number of layers and lacks fixed physical center pieces, internal slice permutations can create states that are <strong>mathematically impossible on a 3x3</strong>.</p>
+            <ul class="guide-list">
+              <li><strong>OLL Parity (50% probability):</strong> A single edge pair (dedge) appears flipped. Fixed with an inner slice sequence that flips the front edge without disrupting corners.</li>
+              <li><strong>PLL Parity (50% probability):</strong> Two edge pairs need to be swapped (opposite or adjacent) while all other pieces are solved. Fixed with <code>2R2 U2 2R2 Uw2 2R2 Uw2</code>.</li>
+            </ul>
+          </section>
+
+          <section class="guide-card">
+            <h3 class="guide-card-title">⚡ 4x4 Parity Fingertricks &amp; Tips</h3>
+            <ul class="guide-list">
+              <li><strong>Wide turns (Rw, Lw):</strong> Turn two outer layers together. Practice wide turns with your index and middle fingers for smooth execution.</li>
+              <li><strong>Inner slice (2R / r):</strong> Slice the right inner layer directly with your ring finger or use <code>Rw2 R2</code> equivalent if inner slice is stiff.</li>
+            </ul>
+          </section>
+        </div>
+      `;
+    }
+
+    if (this.currentPuzzle === "555" || (this.currentPuzzle === "555" && this.currentTrackId === "parity")) {
+      return `
+        <div class="guide-card-stack">
+          <section class="guide-card">
+            <h3 class="guide-card-title">⚖️ 5x5 Parity &amp; Last Two Edges (L2E)</h3>
+            <p>5x5 cubes have true fixed center pieces, which means corner/edge parity like 4x4 PLL parity is <strong>impossible</strong>. However, wing edge pieces during reduction (Last Two Edges) can require parity flips:</p>
+            <ul class="guide-list">
+              <li><strong>Middle Edge Flip (Lucas Parity):</strong> The middle edge (midge) of the last edge group is inverted. Fixed with <code>Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 3Rw' U2 Rw U2 Rw' U2 Rw'</code>.</li>
+              <li><strong>Slice-Flip-Slice:</strong> Slice the inner layer to pair one wing, flip the edge using <code>R U R' F R' F' R</code>, then restore the slice.</li>
+            </ul>
+          </section>
+        </div>
+      `;
+    }
+
     return `
       <div class="guide-card">
         <h3 class="guide-card-title">📖 ${track.name} Reference</h3>
         <p>${track.description}</p>
         <p>Use the <strong>Case Grid</strong> to browse all cases and set your preferred algorithms (★), or test yourself in the <strong>Practice</strong> tab.</p>
+      </div>
+    `;
+  }
+
+  renderTwoSidedView(track) {
+    if (this.currentTrackId === "pll") {
+      return `
+        <div class="study-twosided-wrap">
+          <div class="study-twosided-hero">
+            <h3 class="study-twosided-title">👀 2-Sided PLL Recognition Guide</h3>
+            <p class="study-twosided-desc">
+              Top speedcubers recognize all 21 PLL cases instantly by examining only <strong>two adjacent faces</strong> (Front &amp; Right) without rotating the cube (AUF or U/U' inspection).
+            </p>
+            <div class="study-twosided-keys">
+              <span class="twosided-key-pill"><span class="pill-dot headlights-dot"></span> Headlights (Matching corners)</span>
+              <span class="twosided-key-pill"><span class="pill-dot bar-dot"></span> 1x2 or 1x3 Bars</span>
+              <span class="twosided-key-pill"><span class="pill-dot opposites-dot"></span> Bookends (Opposite colors)</span>
+              <span class="twosided-key-pill"><span class="pill-dot checker-dot"></span> Checkers (Alternating colors)</span>
+            </div>
+          </div>
+
+          <div class="study-twosided-categories">
+            ${PLL_TWO_SIDED_GUIDE.map(cat => `
+              <div class="twosided-cat-card">
+                <div class="twosided-cat-head">
+                  <h4 class="twosided-cat-title">${cat.category}</h4>
+                  <span class="twosided-cat-summary">${cat.summary}</span>
+                </div>
+                <div class="twosided-rules-grid">
+                  ${cat.rules.map(r => `
+                    <div class="twosided-rule-card">
+                      <div class="twosided-rule-header">
+                        <span class="twosided-case-badge">${r.caseId}</span>
+                        <h5 class="twosided-case-name">${r.name}</h5>
+                      </div>
+                      <p class="twosided-cue-text">${r.cue}</p>
+                      <div class="twosided-sight-boxes">
+                        <div class="sight-box">
+                          <span class="sight-label">Front Sight:</span>
+                          <span class="sight-val">${r.frontSight}</span>
+                        </div>
+                        <div class="sight-box">
+                          <span class="sight-label">Right Sight:</span>
+                          <span class="sight-val">${r.rightSight}</span>
+                        </div>
+                      </div>
+                      <div class="twosided-card-actions">
+                        <button type="button" class="btn btn-xs btn-study-view" data-case-id="${r.caseId}">Detail (3D)</button>
+                        <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${r.caseId}">Simulate</button>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // OLL 2-sided guide
+    return `
+      <div class="study-twosided-wrap">
+        <div class="study-twosided-hero">
+          <h3 class="study-twosided-title">👀 2-Sided OLL Recognition Guide</h3>
+          <p class="study-twosided-desc">
+            Identify OLL cases by matching the yellow top orientation with only the <strong>Front and Right</strong> visible side facelets.
+          </p>
+        </div>
+
+        <div class="study-twosided-categories">
+          ${OLL_TWO_SIDED_GUIDE.map(cat => `
+            <div class="twosided-cat-card">
+              <div class="twosided-cat-head">
+                <h4 class="twosided-cat-title">${cat.category}</h4>
+              </div>
+              <div class="twosided-rules-grid">
+                ${cat.rules.map(r => `
+                  <div class="twosided-rule-card">
+                    <div class="twosided-rule-header">
+                      <h5 class="twosided-case-name">${r.caseName}</h5>
+                    </div>
+                    <p class="twosided-cue-text">${r.cue}</p>
+                    <div class="twosided-sight-boxes">
+                      <div class="sight-box">
+                        <span class="sight-label">Recognition:</span>
+                        <span class="sight-val">${r.recognition}</span>
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
       </div>
     `;
   }
@@ -427,9 +565,9 @@ export class StudyView {
       wrapEl.innerHTML = '';
       try {
         const el = new ScrambleDisplay();
-        el.event = puzzle;
+        el.event = puzzle === "333oh" ? "333" : puzzle;
         el.visualization = "3D";
-        const is333Case = puzzle === "333" && ["f2l", "oll", "pll"].includes(trackId);
+        const is333Case = (puzzle === "333" || puzzle === "333oh") && ["f2l", "oll", "pll"].includes(trackId);
         const setupAlg = c.setup || c.scramble || "";
         el.scramble = (is333Case ? `z2 ${setupAlg}` : setupAlg).trim();
         wrapEl.appendChild(el);
