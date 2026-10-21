@@ -2085,6 +2085,7 @@ button.solve-chip:hover .solve-chip-del {
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
     animation: solveModalFadeIn .15s ease-out;
+    transition: background .2s ease, backdrop-filter .2s ease, -webkit-backdrop-filter .2s ease;
 }
 
 .solve-modal-card {
@@ -4905,6 +4906,21 @@ html.overview-open body {
     max-height: 90vh;
     display: flex;
     flex-direction: column;
+    transition: box-shadow .2s ease;
+}
+
+#settingsModal.picking-color {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+#settingsModal.picking-color .settings-modal-card {
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="dark"] #settingsModal.picking-color .settings-modal-card {
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--border);
 }
 
 .settings-modal-body {
@@ -4985,6 +5001,13 @@ html.overview-open body {
     border-radius: 50%;
     border: 1px solid rgba(0, 0, 0, 0.25);
     flex: none;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.color-picker-swatch:hover {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 2px var(--primary);
 }
 
 .color-picker-label {

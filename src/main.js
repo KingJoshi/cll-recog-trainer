@@ -3890,6 +3890,15 @@ const COLOR_PRESETS = {
   }
 };
 
+function setPickingColor(isPicking) {
+  if (!settingsModal) return;
+  if (isPicking) {
+    settingsModal.classList.add("picking-color");
+  } else {
+    settingsModal.classList.remove("picking-color");
+  }
+}
+
 function renderColorPickers() {
   if (!colorPickerGrid) return;
   colorPickerGrid.innerHTML = COLOR_CONFIG.map(item => {
@@ -3922,16 +3931,80 @@ function renderColorPickers() {
       refreshActiveViews();
     };
 
-    nativeInput?.addEventListener("input", (e) => updateColor(e.target.value));
-    hexInput?.addEventListener("change", (e) => {
-      let val = e.target.value.trim();
-      if (!val.startsWith("#")) val = "#" + val;
-      if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-        updateColor(val);
-      } else {
-        hexInput.value = (CUBE_COLORS[key] || "#ffffff").toUpperCase();
-      }
-    });
+    if (swatch) {
+      swatch.addEventListener("click", () => {
+        setPickingColor(true);
+        if (typeof nativeInput?.showPicker === "function") {
+          try {
+            nativeInput.showPicker();
+            return;
+          } catch (_) {}
+        }
+        nativeInput?.click();
+      });
+    }
+
+    if (nativeInput) {
+      nativeInput.addEventListener("focus", () => setPickingColor(true));
+      nativeInput.addEventListener("click", () => setPickingColor(true));
+      nativeInput.addEventListener("input", (e) => {
+        setPickingColor(true);
+        updateColor(e.target.value);
+      });
+      nativeInput.addEventListener("change", (e) => {
+        updateColor(e.target.value);
+        setPickingColor(false);
+      });
+      nativeInput.addEventListener("cancel", () => setPickingColor(false));
+      nativeInput.addEventListener("close", () => setPickingColor(false));
+      nativeInput.addEventListener("blur", () => {
+        setTimeout(() => {
+          const active = document.activeElement;
+          if (active !== nativeInput && active !== hexInput) {
+            setPickingColor(false);
+          }
+        }, 120);
+      });
+    }
+
+    if (hexInput) {
+      hexInput.addEventListener("focus", () => {
+        setPickingColor(true);
+        hexInput.select();
+      });
+      hexInput.addEventListener("input", (e) => {
+        let val = e.target.value.trim();
+        if (!val.startsWith("#") && /^[0-9A-Fa-f]{6}$/.test(val)) {
+          val = "#" + val;
+        }
+        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+          updateColor(val);
+        }
+      });
+      hexInput.addEventListener("change", (e) => {
+        let val = e.target.value.trim();
+        if (!val.startsWith("#")) val = "#" + val;
+        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+          updateColor(val);
+        } else {
+          hexInput.value = (CUBE_COLORS[key] || "#ffffff").toUpperCase();
+        }
+        setPickingColor(false);
+      });
+      hexInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === "Escape") {
+          hexInput.blur();
+        }
+      });
+      hexInput.addEventListener("blur", () => {
+        setTimeout(() => {
+          const active = document.activeElement;
+          if (active !== nativeInput && active !== hexInput) {
+            setPickingColor(false);
+          }
+        }, 120);
+      });
+    }
   });
 }
 
@@ -3950,6 +4023,7 @@ function refreshActiveViews() {
 
 function openSettingsModal() {
   if (!settingsModal) return;
+  setPickingColor(false);
   renderColorPickers();
 
   if (settingsDarkTheme) settingsDarkTheme.checked = darkMode;
@@ -3964,6 +4038,7 @@ function openSettingsModal() {
 
 function closeSettingsModal() {
   if (!settingsModal) return;
+  setPickingColor(false);
   settingsModal.hidden = true;
   document.documentElement.classList.remove("overview-open");
   settingsBtn?.focus();
@@ -3981,6 +4056,7 @@ if (settingsModal) {
 
 document.querySelectorAll('.settings-presets-row .preset-btn').forEach(btn => {
   btn.addEventListener("click", () => {
+    setPickingColor(false);
     const preset = COLOR_PRESETS[btn.dataset.preset];
     if (preset) {
       setCustomCubeColors(preset);
@@ -3994,6 +4070,7 @@ document.querySelectorAll('.settings-presets-row .preset-btn').forEach(btn => {
 
 if (resetColorsBtn) {
   resetColorsBtn.addEventListener("click", () => {
+    setPickingColor(false);
     setCustomCubeColors(DEFAULT_CUBE_COLORS);
     applyCubeColorsToCss(DEFAULT_CUBE_COLORS);
     renderColorPickers();
