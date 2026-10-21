@@ -54,7 +54,7 @@ export const PUZZLES = {
       {
         id: "cross",
         name: "White Cross & Cross+1",
-        shortName: "Cross",
+        shortName: "White Cross",
         description: "Optimal White Cross solutions, Edge Orientation (EO), and F2L Pair (Cross+1) preservation",
         cases: [],
         caseById: new Map(),

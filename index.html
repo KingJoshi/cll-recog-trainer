@@ -85,8 +85,6 @@
 
   <!-- Stage: mode, cube, guessing UI, timed session -->
   <section class="stage">
-    <div id="trackBar" class="track-bar" role="group" aria-label="Algorithm Track"></div>
-
     <div class="seg mode-seg" role="group" aria-label="Mode">
       <button type="button" class="mode-btn" data-mode="solve" aria-pressed="true">Solve</button>
       <button type="button" class="mode-btn" data-mode="study" aria-pressed="false">Study</button>
@@ -94,6 +92,8 @@
       <button type="button" class="mode-btn" data-mode="timed" aria-pressed="false">Timed</button>
       <button type="button" class="mode-btn" data-mode="simulate" aria-pressed="false">Simulate</button>
     </div>
+
+    <div id="trackBar" class="track-bar" role="group" aria-label="Algorithm Track"></div>
 
     <!-- Study View Container (Case Grid, 3D Flashcard, Guides) -->
     <div id="studyViewContainer" class="study-container" hidden></div>
@@ -133,14 +133,6 @@
             <option value="layer">1st Layer Only</option>
             <option value="face">1st Face Only (Ortega)</option>
             <option value="cll">CLL Case</option>
-          </select>
-        </div>
-        <div class="solve-target-wrap">
-          <label for="solveSizeSelect" class="solve-target-label">Size:</label>
-          <select id="solveSizeSelect" class="solve-target-select" aria-label="Cube and timer size">
-            <option value="small">Small</option>
-            <option value="medium" selected>Medium</option>
-            <option value="large">Large</option>
           </select>
         </div>
         <label class="solve-toggle-label">

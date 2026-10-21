@@ -31,12 +31,22 @@ export class PracticeView {
     this.answered = false;
   }
 
-  setTrack(puzzleId, trackId) {
+  async setTrack(puzzleId, trackId) {
     this.currentPuzzle = puzzleId;
     this.currentTrackId = trackId;
     this.stopInspectionTimer();
     this.solutionRevealed = false;
     this.answered = false;
+    this.guessGroup = null;
+    this.guessCase = null;
+    if (this.onGenerateScramble) {
+      const res = await this.onGenerateScramble(this.currentTrackId);
+      if (typeof res === 'object' && res?.caseObj) {
+        this.currentCase = res.caseObj;
+      } else if (typeof res === 'string') {
+        this.inspectionScramble = res;
+      }
+    }
     this.render();
   }
 
@@ -229,11 +239,9 @@ export class PracticeView {
           this.solutionRevealed = false;
           this.inspectionSeconds = 15;
           if (this.onGenerateScramble) {
-            const scramble = await this.onGenerateScramble();
+            const res = await this.onGenerateScramble(this.currentTrackId);
+            const scramble = typeof res === 'string' ? res : (res?.scramble || '');
             this.inspectionScramble = scramble;
-            if (this.onApplyScrambleToDisplay) {
-              this.onApplyScrambleToDisplay(scramble);
-            }
           }
           this.render();
         });
@@ -261,6 +269,34 @@ export class PracticeView {
         });
       });
 
+      const verifyBtn = this.container.querySelector('#verifyRecognitionBtn');
+      if (verifyBtn) {
+        verifyBtn.addEventListener('click', () => {
+          if (this.answered || !this.guessCase) return;
+          this.answered = true;
+          const isCorrect = this.currentCase && (
+            this.guessCase === this.currentCase.id ||
+            this.guessCase === this.currentCase.name ||
+            this.guessCase === this.currentCase.group
+          );
+          if (isCorrect) {
+            this.score++;
+            this.streak++;
+          } else {
+            this.streak = 0;
+          }
+          this.render();
+          const feedback = this.container.querySelector('#recognitionFeedback');
+          if (feedback) {
+            feedback.hidden = false;
+            feedback.className = `recognition-feedback ${isCorrect ? 'correct' : 'incorrect'}`;
+            feedback.innerHTML = isCorrect
+              ? `🎉 <strong>Correct!</strong> That is ${this.currentCase?.name || this.guessCase}.`
+              : `❌ <strong>Incorrect.</strong> The case was <strong>${this.currentCase?.name || this.currentCase?.id || 'Unknown'}</strong>.`;
+          }
+        });
+      }
+
       const nextBtn = this.container.querySelector('#nextRecognitionScrambleBtn');
       if (nextBtn) {
         nextBtn.addEventListener('click', async () => {
@@ -268,7 +304,8 @@ export class PracticeView {
           this.guessGroup = null;
           this.guessCase = null;
           if (this.onGenerateScramble) {
-            await this.onGenerateScramble();
+            const res = await this.onGenerateScramble(this.currentTrackId);
+            this.currentCase = typeof res === 'object' ? res?.caseObj : null;
           }
           this.render();
         });

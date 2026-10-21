@@ -457,9 +457,9 @@ button {
     --vh: 100vh;
     --cube-w: 640px;
     --cube-card-max-w: 360px;
-    --solve-cube-max-w: 300px;
-    --solve-timer-min-h: 280px;
-    --solve-timer-font: 3.4rem;
+    --solve-cube-max-w: 380px;
+    --solve-timer-min-h: 360px;
+    --solve-timer-font: 4.2rem;
     display: grid;
     gap: var(--gap);
     align-content: start;
@@ -4064,27 +4064,35 @@ html.overview-open body {
 .track-bar {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 6px;
+    justify-content: stretch;
+    gap: 4px;
+    padding: 3px 4px;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-sm);
     width: 100%;
     box-sizing: border-box;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
     margin: 0 auto;
 }
 
 .track-btn {
-    padding: 6px 14px;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 6px 10px;
     font-size: 0.85rem;
     font-weight: 600;
     border: 1px solid transparent;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-xs, 4px);
     background: transparent;
     color: var(--muted);
     cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     transition: all 0.15s ease;
 }
 
@@ -4093,10 +4101,28 @@ html.overview-open body {
     background: var(--surface-2);
 }
 
-.track-btn.active {
+.track-btn.active,
+.track-btn[aria-pressed="true"] {
     background: var(--primary);
     color: #ffffff;
     border-color: var(--primary);
+}
+
+.track-btn-short {
+    display: none;
+}
+
+@media (max-width: 680px) {
+    .track-btn-full {
+        display: none;
+    }
+    .track-btn-short {
+        display: inline;
+    }
+    .track-btn {
+        padding: 5px 6px;
+        font-size: 0.8rem;
+    }
 }
 
 /* --------------------------------------------------------------------------

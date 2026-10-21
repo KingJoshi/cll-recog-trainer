@@ -76,3 +76,40 @@ test('Ortega and CLL 2x2 cases integrity', () => {
     }
   }
 });
+
+test('3x3 CFOP cases default to White on bottom with z2', async () => {
+  const { puzzles } = await import('cubing/puzzles');
+  const kp = await puzzles['3x3x3'].kpuzzle();
+  const def = kp.defaultPattern();
+  const z2Solved = def.applyAlg(new Alg('z2'));
+
+  // Sample PLL case (e.g. Ua)
+  const ua = pllCases.find(c => c.id === 'Ua');
+  assert.ok(ua);
+  const uaSol = def.applyAlg(new Alg(`z2 ${ua.setup} ${ua.algs[0].alg}`));
+  assert.strictEqual(
+    JSON.stringify(uaSol.patternData),
+    JSON.stringify(z2Solved.patternData),
+    'Applying z2 + setup + alg must result in solved cube with White on bottom'
+  );
+
+  // Sample OLL case (e.g. OLL 1)
+  const oll1 = ollCases.find(c => c.number === 1);
+  assert.ok(oll1);
+  const ollSol = def.applyAlg(new Alg(`z2 ${oll1.setup} ${oll1.algs[0].alg}`));
+  assert.strictEqual(
+    ollSol.patternData.CENTERS.pieces[5],
+    0,
+    'Bottom center must remain White (index 0) after OLL execution'
+  );
+
+  // Sample F2L case (e.g. F2L 1)
+  const f2l1 = f2lCases.find(c => c.number === 1);
+  assert.ok(f2l1);
+  const f2lSol = def.applyAlg(new Alg(`z2 ${f2l1.setup} ${f2l1.algs[0].alg}`));
+  assert.strictEqual(
+    f2lSol.patternData.CENTERS.pieces[5],
+    0,
+    'Bottom center must remain White (index 0) after F2L execution'
+  );
+});

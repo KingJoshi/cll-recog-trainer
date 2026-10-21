@@ -215,10 +215,10 @@ function getActiveSession() {
   return sessions.find(s => s.id === activeSessionId) || sessions[0];
 }
 
-let solveTarget = getActiveSession().target || savedSettings.solveTarget || "full";
+let solveTarget = urlParams.get("target") || (urlParams.has("track") && ["pll", "oll", "f2l", "cross", "layer", "face", "cll"].includes(urlParams.get("track")) ? urlParams.get("track") : null) || getActiveSession().target || savedSettings.solveTarget || "full";
 let solveShowCube = getActiveSession().showCube ?? true;
 let solveInspection = getActiveSession().inspection ?? true;
-let solveWidgetSize = ["small", "medium", "large"].includes(savedSettings.solveWidgetSize) ? savedSettings.solveWidgetSize : "medium";
+let solveWidgetSize = "large";
 
 let solves = getActiveSession().solves;
 
@@ -478,7 +478,6 @@ const newSessionBtn = document.getElementById("newSessionBtn");
 const renameSessionBtn = document.getElementById("renameSessionBtn");
 const deleteSessionBtn = document.getElementById("deleteSessionBtn");
 const solveTargetSelect = document.getElementById("solveTargetSelect");
-const solveSizeSelect = document.getElementById("solveSizeSelect");
 const solveShowCubeToggle = document.getElementById("solveShowCubeToggle");
 const solveInspectionToggle = document.getElementById("solveInspectionToggle");
 const solveStatsBar = document.getElementById("solveStatsBar");
@@ -649,7 +648,10 @@ function renderTrackBar() {
   }
   trackBar.innerHTML = pData.tracks.map(t => {
     const active = t.id === currentTrackId;
-    return `<button type="button" class="track-btn ${active ? 'active' : ''}" data-track="${t.id}" aria-pressed="${active}">${t.name}</button>`;
+    return `<button type="button" class="track-btn ${active ? 'active' : ''}" data-track="${t.id}" aria-pressed="${active}">
+      <span class="track-btn-full">${t.name}</span>
+      <span class="track-btn-short">${t.shortName || t.name}</span>
+    </button>`;
   }).join("");
 
   trackBar.querySelectorAll(".track-btn").forEach(btn => {
@@ -1379,12 +1381,14 @@ function regenerateScramble() {
         scrambleMoves = scr;
         scramble = scr;
         currentCaseId = c.id;
-        applyScrambleToDisplay(scr);
+        const displayScr = alwaysWhiteBottom ? `z2 ${scr}` : scr;
+        applyScrambleToDisplay(displayScr);
         if (solveScrambleText) solveScrambleText.textContent = scr;
         if (solveScrambleSubtext) {
           solveScrambleSubtext.hidden = false;
           solveScrambleSubtext.textContent = `PLL Case: ${c.name} (${c.group})`;
         }
+        if (solveScrambleOrient) solveScrambleOrient.textContent = "(white on bottom)";
         updateCrossSolutions(scr);
         resetGuessingUI();
         updateStatsTable();
@@ -1399,12 +1403,14 @@ function regenerateScramble() {
         scrambleMoves = scr;
         scramble = scr;
         currentCaseId = c.id;
-        applyScrambleToDisplay(scr);
+        const displayScr = alwaysWhiteBottom ? `z2 ${scr}` : scr;
+        applyScrambleToDisplay(displayScr);
         if (solveScrambleText) solveScrambleText.textContent = scr;
         if (solveScrambleSubtext) {
           solveScrambleSubtext.hidden = false;
           solveScrambleSubtext.textContent = `OLL Case: ${c.id} (${c.group})`;
         }
+        if (solveScrambleOrient) solveScrambleOrient.textContent = "(white on bottom)";
         updateCrossSolutions(scr);
         resetGuessingUI();
         updateStatsTable();
@@ -1419,12 +1425,14 @@ function regenerateScramble() {
         scrambleMoves = scr;
         scramble = scr;
         currentCaseId = c.id;
-        applyScrambleToDisplay(scr);
+        const displayScr = alwaysWhiteBottom ? `z2 ${scr}` : scr;
+        applyScrambleToDisplay(displayScr);
         if (solveScrambleText) solveScrambleText.textContent = scr;
         if (solveScrambleSubtext) {
           solveScrambleSubtext.hidden = false;
           solveScrambleSubtext.textContent = `F2L Case: ${c.id} (${c.group})`;
         }
+        if (solveScrambleOrient) solveScrambleOrient.textContent = "(white on bottom)";
         updateCrossSolutions(scr);
         resetGuessingUI();
         updateStatsTable();
@@ -1442,10 +1450,13 @@ function regenerateScramble() {
       currentCaseScramble = scr;
       scrambleMoves = scr;
       scramble = scr;
-      applyScrambleToDisplay(scr);
+      const is333Case = currentPuzzle === "333" && ["f2l", "oll", "pll"].includes(currentTrackId);
+      const displayScr = (alwaysWhiteBottom && is333Case) ? `z2 ${scr}` : scr;
+      applyScrambleToDisplay(displayScr);
       if (mode === "solve") {
         currentSolveScramble = scr;
         if (solveScrambleText) solveScrambleText.textContent = scr;
+        if (solveScrambleOrient) solveScrambleOrient.textContent = is333Case ? "(white on bottom)" : "(WCA orientation)";
         updateCrossSolutions(scr);
       }
     } else {
@@ -1545,7 +1556,9 @@ function setMode(next, { skipSimInit = false } = {}) {
     if (!currentSolveScramble) {
       regenerateScramble();
     } else {
-      applyScrambleToDisplay(currentSolveScramble);
+      const is333Case = currentPuzzle === "333" && ["f2l", "oll", "pll"].includes(solveTarget);
+      const displayScr = (alwaysWhiteBottom && is333Case) ? `z2 ${currentSolveScramble}` : currentSolveScramble;
+      applyScrambleToDisplay(displayScr);
       applyReflection();
       if (currentPuzzle === "333") {
         updateCrossSolutions(currentSolveScramble);
@@ -2487,7 +2500,6 @@ function switchSession(sessId) {
   if (solveTargetSelect) solveTargetSelect.value = solveTarget;
   if (solveShowCubeToggle) solveShowCubeToggle.checked = solveShowCube;
   if (solveInspectionToggle) solveInspectionToggle.checked = solveInspection;
-  if (solveSizeSelect) solveSizeSelect.value = solveWidgetSize;
   if (solveSessionSelect) solveSessionSelect.value = sessId;
 
   saveSettings();
@@ -2559,13 +2571,6 @@ if (solveInspectionToggle) {
     saveSessions();
     saveSettings();
     renderSolvePanel();
-  });
-}
-if (solveSizeSelect) {
-  solveSizeSelect.addEventListener("change", () => {
-    solveWidgetSize = solveSizeSelect.value;
-    saveSettings();
-    renderStage();
   });
 }
 
@@ -2665,12 +2670,12 @@ function renderSolvePanel() {
   if (solveTargetSelect) solveTargetSelect.value = solveTarget;
   if (solveShowCubeToggle) solveShowCubeToggle.checked = solveShowCube;
   if (solveInspectionToggle) solveInspectionToggle.checked = solveInspection;
-  if (solveSizeSelect) solveSizeSelect.value = solveWidgetSize;
 
   const currentScr = scrambleMoves || currentSolveScramble || scramble;
   solveScrambleText.textContent = currentScr;
   if (solveScrambleOrient) {
-    solveScrambleOrient.textContent = solveTarget === "cll" ? "(white on bottom)" : "(WCA orientation)";
+    const isWhiteBottom = solveTarget === "cll" || (currentPuzzle === "333" && ["f2l", "oll", "pll"].includes(solveTarget));
+    solveScrambleOrient.textContent = isWhiteBottom ? "(white on bottom)" : "(WCA orientation)";
   }
 
   if (solveScrambleSource) {
@@ -5400,12 +5405,24 @@ studyView = new StudyView({
   onSelectCase: (caseObj) => {},
   onSimulateCase: (caseObj, algObj) => {
     setMode("simulate", { skipSimInit: true });
-    const moves = algObj ? algObj.alg : (caseObj.algs?.[0]?.alg || caseObj.solutionAlg || caseObj.solution);
-    simScrambleInput.value = moves;
-    simLoadScramble(moves, {
-      expectedCase: caseObj,
-      startAtSolution: false
-    });
+    const chosenAlg = algObj ? algObj.alg : (caseObj.algs?.[0]?.alg || caseObj.solutionAlg || caseObj.solution || "");
+    const scr = caseObj.setup || caseObj.scramble || caseObj.scrambles?.[0] || "";
+    if (scr) {
+      const mockCase = {
+        ...caseObj,
+        scrambles: [scr],
+        scramble: scr,
+        solution: chosenAlg,
+        solutionAlg: chosenAlg
+      };
+      simLoadCaseWithSolution(mockCase, 0);
+    } else {
+      simScrambleInput.value = chosenAlg;
+      simLoadScramble(chosenAlg, {
+        expectedCase: caseObj,
+        startAtSolution: false
+      });
+    }
   },
   onPracticeCase: (caseObj) => {
     setMode("practice");
@@ -5414,15 +5431,52 @@ studyView = new StudyView({
 
 practiceView = new PracticeView({
   container: practiceViewContainer,
-  onGenerateScramble: async () => {
+  onGenerateScramble: async (trackId) => {
+    const tid = trackId || currentTrackId;
     if (currentPuzzle === "333") {
-      return await generateWca3x3Scramble();
+      if (tid === "cross") {
+        const wcaScr = await generateWca3x3Scramble();
+        applyScrambleToDisplay(wcaScr);
+        return { scramble: wcaScr, caseObj: null };
+      }
+      const track = getTrack("333", tid);
+      if (track && track.cases.length > 0) {
+        const active = track.cases.filter(c => selectedCases.has(c.id));
+        const pool = active.length > 0 ? active : track.cases;
+        const c = pool[Math.floor(Math.random() * pool.length)];
+        const scr = c.setup || c.scramble;
+        const displayScr = alwaysWhiteBottom ? `z2 ${scr}` : scr;
+        applyScrambleToDisplay(displayScr);
+        return { scramble: scr, caseObj: c };
+      }
+      const wcaScr = await generateWca3x3Scramble();
+      applyScrambleToDisplay(wcaScr);
+      return { scramble: wcaScr, caseObj: null };
     } else {
-      return await generateWca2x2Scramble();
+      if (tid === "layer") {
+        const wcaScr = await generateWca2x2Scramble();
+        applyScrambleToDisplay(wcaScr);
+        return { scramble: wcaScr, caseObj: null };
+      }
+      const track = getTrack("222", tid);
+      if (track && track.cases.length > 0) {
+        const active = track.cases.filter(c => selectedCases.has(c.id));
+        const pool = active.length > 0 ? active : track.cases;
+        const c = pool[Math.floor(Math.random() * pool.length)];
+        const scr = c.setup || c.scramble || c.scrambles?.[0];
+        const displayScr = alwaysWhiteBottom ? `z2 ${scr}` : scr;
+        applyScrambleToDisplay(displayScr);
+        return { scramble: scr, caseObj: c };
+      }
+      const wcaScr = await generateWca2x2Scramble();
+      applyScrambleToDisplay(wcaScr);
+      return { scramble: wcaScr, caseObj: null };
     }
   },
   onApplyScrambleToDisplay: (scramble) => {
-    applyScrambleToDisplay(scramble);
+    const is333Case = currentPuzzle === "333" && ["f2l", "oll", "pll"].includes(currentTrackId);
+    const displayScr = (alwaysWhiteBottom && is333Case) ? `z2 ${scramble}` : scramble;
+    applyScrambleToDisplay(displayScr);
   }
 });
 
