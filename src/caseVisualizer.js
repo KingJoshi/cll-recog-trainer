@@ -5,16 +5,18 @@ import { puzzles } from 'cubing/puzzles';
 import { Alg } from 'cubing/alg';
 
 // Canonical High-Contrast Speedcube Color Palette
-// Unified across 2D visualizers, 3D cube matching, badges, and UI
-export const CUBE_COLORS = {
+// Defaults matched to the bright, vibrant 3D cube
+export const DEFAULT_CUBE_COLORS = {
   white:  "#ffffff", // pure crisp white
-  yellow: "#ffd500", // bright golden yellow (high contrast against white)
-  green:  "#00c853", // vivid emerald speedcube green (distinct from blue/dark)
-  blue:   "#2563eb", // vibrant royal/cobalt blue (distinct from green)
-  red:    "#dc2626", // vivid speedcube red (distinct from orange)
-  orange: "#ff7700", // warm safety orange (distinct from red/yellow)
+  yellow: "#ffd500", // bright golden yellow
+  green:  "#32cd32", // bright lime green (matching 3D cube)
+  blue:   "#2266ff", // vibrant royal blue (matching 3D cube)
+  red:    "#ff0000", // vivid red (matching 3D cube)
+  orange: "#ff8000", // warm bright orange (matching 3D cube)
   slate:  "#374151"  // neutral slate grey for unoriented/base facelets
 };
+
+export const CUBE_COLORS = { ...DEFAULT_CUBE_COLORS };
 
 export const FACE_COLORS = {
   U: CUBE_COLORS.yellow,
@@ -24,6 +26,34 @@ export const FACE_COLORS = {
   L: CUBE_COLORS.orange,
   R: CUBE_COLORS.red
 };
+
+export function clearSvgCache() {
+  svgCache.clear();
+}
+
+export function setCustomCubeColors(custom) {
+  if (!custom) return;
+  Object.assign(CUBE_COLORS, custom);
+  FACE_COLORS.U = CUBE_COLORS.yellow;
+  FACE_COLORS.D = CUBE_COLORS.white;
+  FACE_COLORS.F = CUBE_COLORS.green;
+  FACE_COLORS.B = CUBE_COLORS.blue;
+  FACE_COLORS.L = CUBE_COLORS.orange;
+  FACE_COLORS.R = CUBE_COLORS.red;
+  clearSvgCache();
+}
+
+export function applyCubeColorsToCss(colors = CUBE_COLORS) {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  root.style.setProperty('--cube-white', colors.white);
+  root.style.setProperty('--cube-yellow', colors.yellow);
+  root.style.setProperty('--cube-green', colors.green);
+  root.style.setProperty('--cube-blue', colors.blue);
+  root.style.setProperty('--cube-red', colors.red);
+  root.style.setProperty('--cube-orange', colors.orange);
+  root.style.setProperty('--cube-slate', colors.slate);
+}
 
 const CORNER_FACES_222 = [
   ["U", "R", "F"], ["U", "B", "R"], ["U", "L", "B"], ["U", "F", "L"],
@@ -432,18 +462,19 @@ export async function renderPllSvg(caseObj) {
   const arrows = PLL_ARROWS[caseObj.id] || [];
   let arrowSvg = "";
   arrows.forEach(a => {
+    const arrowColor = (a.arrowType === "corner" || a.color === ARROW_CORNER) ? CUBE_COLORS.red : CUBE_COLORS.blue;
     if (a.type === "double") {
       arrowSvg += `
-        <line x1="${a.x1}" y1="${a.y1}" x2="${a.x2}" y2="${a.y2}" stroke="${a.color}" stroke-width="3.5" stroke-linecap="round"/>
-        <circle cx="${a.x1}" cy="${a.y1}" r="3.5" fill="${a.color}"/>
-        <circle cx="${a.x2}" cy="${a.y2}" r="3.5" fill="${a.color}"/>
+        <line x1="${a.x1}" y1="${a.y1}" x2="${a.x2}" y2="${a.y2}" stroke="${arrowColor}" stroke-width="3.5" stroke-linecap="round"/>
+        <circle cx="${a.x1}" cy="${a.y1}" r="3.5" fill="${arrowColor}"/>
+        <circle cx="${a.x2}" cy="${a.y2}" r="3.5" fill="${arrowColor}"/>
       `;
     } else if (a.type === "cycle3") {
       arrowSvg += `
-        <path d="M ${a.p1[0]} ${a.p1[1]} Q 50 50 ${a.p2[0]} ${a.p2[1]} Q 50 50 ${a.p3[0]} ${a.p3[1]} Z" fill="none" stroke="${a.color}" stroke-width="3" stroke-dasharray="4,2"/>
-        <circle cx="${a.p1[0]}" cy="${a.p1[1]}" r="3.5" fill="${a.color}"/>
-        <circle cx="${a.p2[0]}" cy="${a.p2[1]}" r="3.5" fill="${a.color}"/>
-        <circle cx="${a.p3[0]}" cy="${a.p3[1]}" r="3.5" fill="${a.color}"/>
+        <path d="M ${a.p1[0]} ${a.p1[1]} Q 50 50 ${a.p2[0]} ${a.p2[1]} Q 50 50 ${a.p3[0]} ${a.p3[1]} Z" fill="none" stroke="${arrowColor}" stroke-width="3" stroke-dasharray="4,2"/>
+        <circle cx="${a.p1[0]}" cy="${a.p1[1]}" r="3.5" fill="${arrowColor}"/>
+        <circle cx="${a.p2[0]}" cy="${a.p2[1]}" r="3.5" fill="${arrowColor}"/>
+        <circle cx="${a.p3[0]}" cy="${a.p3[1]}" r="3.5" fill="${arrowColor}"/>
       `;
     }
   });

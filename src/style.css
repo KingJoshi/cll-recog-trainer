@@ -29,13 +29,13 @@
     --tap: 44px;            /* minimum touch target */
     --gap: 12px;
 
-    /* Canonical High-Contrast Speedcube Colors */
+    /* Canonical High-Contrast Speedcube Colors (Default matches 3D Cube) */
     --cube-white: #ffffff;
     --cube-yellow: #ffd500;
-    --cube-green: #00c853;
-    --cube-blue: #2563eb;
-    --cube-red: #dc2626;
-    --cube-orange: #ff7700;
+    --cube-green: #32cd32;
+    --cube-blue: #2266ff;
+    --cube-red: #ff0000;
+    --cube-orange: #ff8000;
     --cube-slate: #374151;
 }
 
@@ -844,7 +844,7 @@ scramble-display {
 
 .mode-seg {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     width: 100%;
 }
 
@@ -4140,26 +4140,59 @@ html.overview-open body {
 
 .puzzle-seg {
     display: inline-flex;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    background: var(--surface);
+    align-items: center;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 3px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .puzzle-btn {
-    padding: 4px 10px;
-    font-size: 0.85rem;
+    padding: 5px 14px;
+    font-size: 0.92rem;
     font-weight: 700;
+    letter-spacing: 0.02em;
     border: none;
+    border-radius: 6px;
     background: transparent;
-    color: var(--muted);
+    color: rgba(255, 255, 255, 0.9);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.16s ease;
+    line-height: 1.2;
+}
+
+.puzzle-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
 }
 
 .puzzle-btn.active {
+    background: #ffffff;
+    color: #0056b3;
+    font-weight: 800;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .puzzle-seg {
+    background: rgba(0, 0, 0, 0.35);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .puzzle-btn {
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .puzzle-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .puzzle-btn.active {
     background: var(--primary);
     color: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .track-bar {
@@ -4860,4 +4893,135 @@ html.overview-open body {
     background: var(--primary);
     color: #ffffff;
     border-color: var(--primary);
+}
+
+/* --------------------------------------------------------------------------
+   Settings Modal & Color Customization
+   -------------------------------------------------------------------------- */
+
+.settings-modal-card {
+    max-width: 580px;
+    width: 95%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-modal-body {
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.settings-section {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+}
+
+.settings-section-head {
+    margin-bottom: 12px;
+}
+
+.settings-section-title {
+    margin: 0 0 4px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.settings-section-desc {
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.settings-presets-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    margin-bottom: 14px;
+}
+
+.preset-btn {
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.preset-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.color-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 10px;
+}
+
+.color-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+}
+
+.color-picker-swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    flex: none;
+}
+
+.color-picker-label {
+    flex: 1;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 0;
+}
+
+.color-picker-input-native {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    flex: none;
+}
+
+.color-picker-input-hex {
+    width: 76px;
+    padding: 3px 6px;
+    font-size: 0.82rem;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    text-transform: uppercase;
+    background: var(--bg);
+    color: var(--text);
+    text-align: center;
+}
+
+.settings-toggles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }

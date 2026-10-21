@@ -13,7 +13,14 @@ import { pllCases } from './data/pllData.js';
 import { ollCases } from './data/ollData.js';
 import { f2lCases } from './data/f2lData.js';
 import { ortegaCases } from './data/ortegaData.js';
-import { CUBE_COLORS, renderCaseSvg } from './caseVisualizer.js';
+import {
+  DEFAULT_CUBE_COLORS,
+  CUBE_COLORS,
+  setCustomCubeColors,
+  applyCubeColorsToCss,
+  clearSvgCache,
+  renderCaseSvg
+} from './caseVisualizer.js';
 import './style.css';
 
 // Register service worker for offline support (production only; the dev
@@ -121,6 +128,12 @@ let allowAUF = savedSettings.allowAUF ?? true;
 let showReflection = savedSettings.showReflection ?? true;
 let darkMode = savedSettings.darkMode ?? false;
 let statsCollapsed = savedSettings.statsCollapsed ?? false;
+if (savedSettings.customColors) {
+  setCustomCubeColors(savedSettings.customColors);
+  applyCubeColorsToCss(savedSettings.customColors);
+} else {
+  applyCubeColorsToCss(DEFAULT_CUBE_COLORS);
+}
 let layerTargetFaces = Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
   ? savedSettings.layerTargetFaces
   : ["white"];
@@ -404,7 +417,8 @@ function saveSettings() {
     solveTarget,
     solveShowCube,
     solveInspection,
-    solveWidgetSize
+    solveWidgetSize,
+    customColors: { ...CUBE_COLORS }
   });
 }
 
@@ -519,6 +533,17 @@ const sessionShowCubeCheckbox = document.getElementById("sessionShowCubeCheckbox
 const sessionInspectionCheckbox = document.getElementById("sessionInspectionCheckbox");
 const sessionModalSaveBtn = document.getElementById("sessionModalSaveBtn");
 const sessionModalCancelBtn = document.getElementById("sessionModalCancelBtn");
+
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsModal = document.getElementById("settingsModal");
+const settingsModalCloseBtn = document.getElementById("settingsModalCloseBtn");
+const settingsDoneBtn = document.getElementById("settingsDoneBtn");
+const colorPickerGrid = document.getElementById("colorPickerGrid");
+const resetColorsBtn = document.getElementById("resetColorsBtn");
+const settingsDarkTheme = document.getElementById("settingsDarkTheme");
+const settingsAlwaysWhiteBottom = document.getElementById("settingsAlwaysWhiteBottom");
+const settingsAllowAUF = document.getElementById("settingsAllowAUF");
+const settingsShowReflection = document.getElementById("settingsShowReflection");
 
 const solveSessionSelect = document.getElementById("solveSessionSelect");
 const newSessionBtn = document.getElementById("newSessionBtn");
@@ -3820,8 +3845,184 @@ document.addEventListener("keydown", e => {
     if (pblModal && !pblModal.hidden) closePblModal();
     if (customLabelModal && !customLabelModal.hidden) closeCustomLabelModal();
     if (sessionModal && !sessionModal.hidden) closeSessionModal();
+    if (settingsModal && !settingsModal.hidden) closeSettingsModal();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Settings Modal & Color Customization
+// ---------------------------------------------------------------------------
+
+const COLOR_CONFIG = [
+  { key: "white",  label: "White / Bottom (D)" },
+  { key: "yellow", label: "Yellow / Top (U)" },
+  { key: "green",  label: "Green / Front (F)" },
+  { key: "blue",   label: "Blue / Back (B)" },
+  { key: "red",    label: "Red / Right (R)" },
+  { key: "orange", label: "Orange / Left (L)" },
+  { key: "slate",  label: "Slate / Unoriented" }
+];
+
+const COLOR_PRESETS = {
+  bright: DEFAULT_CUBE_COLORS,
+  fluro: {
+    white:  "#ffffff",
+    yellow: "#ffea00",
+    green:  "#00ff66",
+    blue:   "#0070f3",
+    red:    "#ff1744",
+    orange: "#ff6600",
+    slate:  "#374151"
+  },
+  matte: {
+    white:  "#ffffff",
+    yellow: "#ffd500",
+    green:  "#009b48",
+    blue:   "#0046ad",
+    red:    "#b71234",
+    orange: "#ff5800",
+    slate:  "#374151"
+  }
+};
+
+function renderColorPickers() {
+  if (!colorPickerGrid) return;
+  colorPickerGrid.innerHTML = COLOR_CONFIG.map(item => {
+    const val = (CUBE_COLORS[item.key] || "#ffffff").toLowerCase();
+    return `
+      <div class="color-picker-row" data-color-key="${item.key}">
+        <span class="color-picker-swatch" style="background: ${val};" data-swatch="${item.key}"></span>
+        <span class="color-picker-label">${item.label}</span>
+        <input type="color" class="color-picker-input-native" value="${val}" data-native-key="${item.key}" aria-label="Pick ${item.label}">
+        <input type="text" class="color-picker-input-hex" value="${val.toUpperCase()}" maxlength="7" data-hex-key="${item.key}" aria-label="Hex for ${item.label}">
+      </div>
+    `;
+  }).join("");
+
+  colorPickerGrid.querySelectorAll('.color-picker-row').forEach(row => {
+    const key = row.dataset.colorKey;
+    const nativeInput = row.querySelector('.color-picker-input-native');
+    const hexInput = row.querySelector('.color-picker-input-hex');
+    const swatch = row.querySelector('.color-picker-swatch');
+
+    const updateColor = (hex) => {
+      if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
+      CUBE_COLORS[key] = hex.toLowerCase();
+      setCustomCubeColors({ [key]: hex.toLowerCase() });
+      applyCubeColorsToCss(CUBE_COLORS);
+      if (swatch) swatch.style.background = hex;
+      if (nativeInput) nativeInput.value = hex;
+      if (hexInput) hexInput.value = hex.toUpperCase();
+      saveSettings();
+      refreshActiveViews();
+    };
+
+    nativeInput?.addEventListener("input", (e) => updateColor(e.target.value));
+    hexInput?.addEventListener("change", (e) => {
+      let val = e.target.value.trim();
+      if (!val.startsWith("#")) val = "#" + val;
+      if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+        updateColor(val);
+      } else {
+        hexInput.value = (CUBE_COLORS[key] || "#ffffff").toUpperCase();
+      }
+    });
+  });
+}
+
+function refreshActiveViews() {
+  clearSvgCache();
+  if (mode === "study" && studyView) {
+    studyView.render();
+  } else if (mode === "practice" && practiceView) {
+    practiceView.render();
+  }
+}
+
+function openSettingsModal() {
+  if (!settingsModal) return;
+  renderColorPickers();
+
+  if (settingsDarkTheme) settingsDarkTheme.checked = darkMode;
+  if (settingsAlwaysWhiteBottom) settingsAlwaysWhiteBottom.checked = alwaysWhiteBottom;
+  if (settingsAllowAUF) settingsAllowAUF.checked = allowAUF;
+  if (settingsShowReflection) settingsShowReflection.checked = showReflection;
+
+  settingsModal.hidden = false;
+  document.documentElement.classList.add("overview-open");
+  settingsModalCloseBtn?.focus();
+}
+
+function closeSettingsModal() {
+  if (!settingsModal) return;
+  settingsModal.hidden = true;
+  document.documentElement.classList.remove("overview-open");
+  settingsBtn?.focus();
+  saveSettings();
+}
+
+if (settingsBtn) settingsBtn.addEventListener("click", openSettingsModal);
+if (settingsModalCloseBtn) settingsModalCloseBtn.addEventListener("click", closeSettingsModal);
+if (settingsDoneBtn) settingsDoneBtn.addEventListener("click", closeSettingsModal);
+if (settingsModal) {
+  settingsModal.addEventListener("click", (e) => {
+    if (e.target === settingsModal) closeSettingsModal();
+  });
+}
+
+document.querySelectorAll('.settings-presets-row .preset-btn').forEach(btn => {
+  btn.addEventListener("click", () => {
+    const preset = COLOR_PRESETS[btn.dataset.preset];
+    if (preset) {
+      setCustomCubeColors(preset);
+      applyCubeColorsToCss(CUBE_COLORS);
+      renderColorPickers();
+      saveSettings();
+      refreshActiveViews();
+    }
+  });
+});
+
+if (resetColorsBtn) {
+  resetColorsBtn.addEventListener("click", () => {
+    setCustomCubeColors(DEFAULT_CUBE_COLORS);
+    applyCubeColorsToCss(DEFAULT_CUBE_COLORS);
+    renderColorPickers();
+    saveSettings();
+    refreshActiveViews();
+  });
+}
+
+if (settingsDarkTheme) {
+  settingsDarkTheme.addEventListener("change", (e) => {
+    setDarkMode(e.target.checked);
+  });
+}
+if (settingsAlwaysWhiteBottom) {
+  settingsAlwaysWhiteBottom.addEventListener("change", (e) => {
+    alwaysWhiteBottom = e.target.checked;
+    renderToggles();
+    saveSettings();
+    regenerateScramble();
+    refreshActiveViews();
+  });
+}
+if (settingsAllowAUF) {
+  settingsAllowAUF.addEventListener("change", (e) => {
+    allowAUF = e.target.checked;
+    renderToggles();
+    saveSettings();
+    regenerateScramble();
+  });
+}
+if (settingsShowReflection) {
+  settingsShowReflection.addEventListener("change", (e) => {
+    showReflection = e.target.checked;
+    applyReflection();
+    renderToggles();
+    saveSettings();
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Stats table

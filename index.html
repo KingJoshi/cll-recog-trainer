@@ -18,13 +18,14 @@
 <header class="app-header">
   <div class="header-brand">
     <h1 class="app-title" id="appTitle">2x2 &amp; 3x3 Speedcube Trainer</h1>
-    <div class="seg puzzle-seg" id="puzzleSwitcher" role="group" aria-label="Select Puzzle">
+    <div class="puzzle-seg" id="puzzleSwitcher" role="group" aria-label="Select Puzzle">
       <button type="button" class="puzzle-btn active" data-puzzle="222" aria-pressed="true">2x2</button>
       <button type="button" class="puzzle-btn" data-puzzle="333" aria-pressed="false">3x3</button>
     </div>
   </div>
   <div class="header-actions">
     <button type="button" id="themeToggleBtn" class="header-btn" title="Toggle Dark/Light Theme">🌙 Dark</button>
+    <button type="button" id="settingsBtn" class="header-btn" title="Trainer Settings">⚙️ Settings</button>
     <button type="button" id="guideBtn" class="header-btn">Tips &amp; Guide</button>
     <button type="button" id="pblOverviewBtn" class="header-btn">Ortega PBL</button>
     <button type="button" id="overviewBtn" class="header-btn">CLL Overview</button>
@@ -642,6 +643,63 @@
     <div class="solve-modal-actions">
       <button type="button" id="sessionModalSaveBtn" class="btn btn-primary btn-small">Save</button>
       <button type="button" id="sessionModalCancelBtn" class="btn btn-small">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings & Color Customization Modal -->
+<div id="settingsModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" hidden>
+  <div class="solve-modal-card settings-modal-card">
+    <div class="solve-modal-header">
+      <h3 id="settingsModalTitle" class="solve-modal-title">⚙️ Trainer Settings</h3>
+      <button type="button" id="settingsModalCloseBtn" class="solve-modal-close" aria-label="Close dialog">&times;</button>
+    </div>
+    <div class="solve-modal-body settings-modal-body">
+      <!-- Cube Colors Customizer -->
+      <div class="settings-section">
+        <div class="settings-section-head">
+          <h4 class="settings-section-title">🎨 Cube Colors (2D Diagrams &amp; Badges)</h4>
+          <span class="settings-section-desc">Adjust HEX values to match your cube or visual preference</span>
+        </div>
+
+        <div class="settings-presets-row">
+          <button type="button" class="preset-btn" data-preset="bright">3D Cube Bright (Default)</button>
+          <button type="button" class="preset-btn" data-preset="fluro">High Contrast Neon</button>
+          <button type="button" class="preset-btn" data-preset="matte">Competition Matte</button>
+        </div>
+
+        <div class="color-picker-grid" id="colorPickerGrid"></div>
+
+        <button type="button" id="resetColorsBtn" class="btn btn-small" style="margin-top: 10px;">Reset Colors to Default</button>
+      </div>
+
+      <!-- Trainer Preferences -->
+      <div class="settings-section">
+        <div class="settings-section-head">
+          <h4 class="settings-section-title">🔧 Preferences</h4>
+        </div>
+        <div class="settings-toggles-list">
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="settingsDarkTheme">
+            <span>Dark theme</span>
+          </label>
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="settingsAlwaysWhiteBottom">
+            <span>Always white bottom (z2 CFOP orientation)</span>
+          </label>
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="settingsAllowAUF">
+            <span>Allow AUF (Adjust Upper Face)</span>
+          </label>
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="settingsShowReflection">
+            <span>Show reflection facelets (backs &amp; bottom)</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="solve-modal-actions">
+      <button type="button" id="settingsDoneBtn" class="btn btn-primary btn-small">Done</button>
     </div>
   </div>
 </div>
