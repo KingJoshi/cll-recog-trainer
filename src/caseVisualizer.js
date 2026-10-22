@@ -103,13 +103,51 @@ export function applyColorsToThreeJSPuzzle(p, colors = CUBE_COLORS) {
     needsRender = true;
   }
 
-  // 2. Traverse all nodes to enforce full black opacity on foundation/border materials & sync colors
+  // 2. Force 100% solid opacity on 3x3 / 3x3 OH reflection (hint) facelets
+  if (p.experimentalHintStickerMeshes && p.experimentalHintStickerMeshes.length > 0) {
+    for (const mesh of p.experimentalHintStickerMeshes) {
+      if (mesh.material) {
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const m of mats) {
+          m.opacity = 1.0;
+          m.transparent = false;
+          m.depthWrite = true;
+          m.needsUpdate = true;
+        }
+      }
+    }
+    needsRender = true;
+  }
+
+  if (p.kpuzzleFaceletInfo) {
+    try {
+      for (const orbit of Object.values(p.kpuzzleFaceletInfo)) {
+        for (const piece of Object.values(orbit)) {
+          const pieceArr = Array.isArray(piece) ? piece : [piece];
+          for (const faceletInfo of pieceArr) {
+            if (faceletInfo && faceletInfo.hintFacelet && faceletInfo.hintFacelet.material) {
+              const mats = Array.isArray(faceletInfo.hintFacelet.material) ? faceletInfo.hintFacelet.material : [faceletInfo.hintFacelet.material];
+              for (const m of mats) {
+                m.opacity = 1.0;
+                m.transparent = false;
+                m.depthWrite = true;
+                m.needsUpdate = true;
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 3. Traverse all nodes to enforce full black opacity on foundation/border materials, full reflection opacity, & sync colors
   p.traverse(node => {
     if (node.material) {
       const mats = Array.isArray(node.material) ? node.material : [node.material];
       mats.forEach(m => {
         const isBlack = m.color && (m.color.r < 0.05 && m.color.g < 0.05 && m.color.b < 0.05);
-        if (isBlack || !m.color) {
+        const isHint = m.side === 1 /* BackSide */ || (p.experimentalHintStickerMeshes && p.experimentalHintStickerMeshes.includes(node));
+        if (isBlack || !m.color || isHint) {
           m.transparent = false;
           m.opacity = 1.0;
           m.depthWrite = true;
@@ -161,6 +199,7 @@ export async function ensure3x3FoundationOpaque() {
         const temp = new sdClass();
         temp.event = '333';
         temp.visualization = '3D';
+        temp.hintFacelets = 'floating';
         temp.style.position = 'fixed';
         temp.style.opacity = '0';
         temp.style.pointerEvents = 'none';
