@@ -62,11 +62,18 @@ export function hexToRgb(hex) {
   return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
 }
 
-function classifyBaseVertex(r, g, b) {
-  if (r < 50 && g < 50 && b < 50) return 'black';
+function classifyBaseVertex(r, g, b, targets = null) {
+  if (r < 40 && g < 40 && b < 40) return 'black';
+  if (targets) {
+    for (const [name, rgb] of Object.entries(targets)) {
+      if (Math.abs(r - rgb[0]) <= 2 && Math.abs(g - rgb[1]) <= 2 && Math.abs(b - rgb[2]) <= 2) {
+        return name;
+      }
+    }
+  }
   if (r > 200 && g > 200 && b > 200) return 'white';
-  if (r > 180 && g > 180 && b < 60) return 'yellow';
-  if (r < 100 && g > 160 && b < 80) return 'green';
+  if (r > 180 && g > 180 && b < 70) return 'yellow';
+  if (r < 110 && g > 150 && b < 100) return 'green';
   if (r < 80 && g < 150 && b > 180) return 'blue';
   if (r > 180 && g < 60 && b < 60) return 'red';
   if (r > 180 && g >= 60 && g <= 180 && b < 60) return 'orange';
@@ -83,6 +90,15 @@ export function applyColorsToThreeJSPuzzle(p, colors = CUBE_COLORS) {
     blue: hexToRgb(colors.blue || '#2266ff'),
     red: hexToRgb(colors.red || '#ff0000'),
     orange: hexToRgb(colors.orange || '#ff8000')
+  };
+
+  const hexTargets = {
+    white: (targetRgb.white[0] << 16) | (targetRgb.white[1] << 8) | targetRgb.white[2],
+    yellow: (targetRgb.yellow[0] << 16) | (targetRgb.yellow[1] << 8) | targetRgb.yellow[2],
+    green: (targetRgb.green[0] << 16) | (targetRgb.green[1] << 8) | targetRgb.green[2],
+    blue: (targetRgb.blue[0] << 16) | (targetRgb.blue[1] << 8) | targetRgb.blue[2],
+    red: (targetRgb.red[0] << 16) | (targetRgb.red[1] << 8) | targetRgb.red[2],
+    orange: (targetRgb.orange[0] << 16) | (targetRgb.orange[1] << 8) | targetRgb.orange[2]
   };
 
   let needsRender = false;
@@ -140,7 +156,67 @@ export function applyColorsToThreeJSPuzzle(p, colors = CUBE_COLORS) {
     } catch {}
   }
 
-  // 3. Traverse all nodes to enforce full black opacity on foundation/border materials, full reflection opacity, & sync colors
+  // 3. For PG3D puzzles (2x2, 4x4, 5x5): patch filler.colors palette buffers (active + source)
+  if (p.filler && p.filler.colors) {
+    const colorsBuf = p.filler.colors;
+    let fillerModified = false;
+    for (let i = 0; i < colorsBuf.length; i += 3) {
+      const type = classifyBaseVertex(colorsBuf[i], colorsBuf[i + 1], colorsBuf[i + 2], targetRgb);
+      if (type && targetRgb[type]) {
+        const tr = targetRgb[type][0];
+        const tg = targetRgb[type][1];
+        const tb = targetRgb[type][2];
+        if (colorsBuf[i] !== tr || colorsBuf[i + 1] !== tg || colorsBuf[i + 2] !== tb) {
+          colorsBuf[i] = tr;
+          colorsBuf[i + 1] = tg;
+          colorsBuf[i + 2] = tb;
+          fillerModified = true;
+        }
+      }
+    }
+    if (fillerModified) {
+      needsRender = true;
+    }
+  }
+
+  // 4. For PG3D puzzles: synchronize sticker definitions with target hex colors
+  if (p.stickers) {
+    try {
+      for (const orbit of Object.values(p.stickers)) {
+        if (!Array.isArray(orbit)) continue;
+        for (const ori of orbit) {
+          if (!Array.isArray(ori)) continue;
+          for (const sd of ori) {
+            if (!sd) continue;
+            if (typeof sd.origColor === 'number') {
+              const r = (sd.origColor >> 16) & 255;
+              const g = (sd.origColor >> 8) & 255;
+              const b = sd.origColor & 255;
+              const type = classifyBaseVertex(r, g, b, targetRgb);
+              if (type && hexTargets[type] !== undefined) {
+                const targetHex = hexTargets[type];
+                if (sd.origColorStickeringMask === sd.origColor) {
+                  sd.origColorStickeringMask = targetHex;
+                }
+                sd.origColor = targetHex;
+              }
+            }
+            if (typeof sd.faceColor === 'number') {
+              const r = (sd.faceColor >> 16) & 255;
+              const g = (sd.faceColor >> 8) & 255;
+              const b = sd.faceColor & 255;
+              const type = classifyBaseVertex(r, g, b, targetRgb);
+              if (type && hexTargets[type] !== undefined) {
+                sd.faceColor = hexTargets[type];
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 5. Traverse all nodes to enforce full black opacity, update 3x3 materials, and sync geometry colors
   p.traverse(node => {
     if (node.material) {
       const mats = Array.isArray(node.material) ? node.material : [node.material];
@@ -154,24 +230,46 @@ export function applyColorsToThreeJSPuzzle(p, colors = CUBE_COLORS) {
           m.needsUpdate = true;
           needsRender = true;
         }
+
+        // Apply custom colors to 3x3 Cube3D materials if applicable
+        if (m.color && !isBlack) {
+          const r = Math.round(m.color.r * 255);
+          const g = Math.round(m.color.g * 255);
+          const b = Math.round(m.color.b * 255);
+          const type = classifyBaseVertex(r, g, b, targetRgb);
+          if (type && targetRgb[type]) {
+            const tr = targetRgb[type][0] / 255;
+            const tg = targetRgb[type][1] / 255;
+            const tb = targetRgb[type][2] / 255;
+            if (Math.abs(m.color.r - tr) > 0.005 || Math.abs(m.color.g - tg) > 0.005 || Math.abs(m.color.b - tb) > 0.005) {
+              m.color.setRGB(tr, tg, tb);
+              m.needsUpdate = true;
+              needsRender = true;
+            }
+          }
+        }
       });
     }
 
     if (node.geometry && node.geometry.attributes && node.geometry.attributes.color) {
-      const attr = node.geometry.attributes.color;
-      if (!node.geometry.userData.origColors) {
-        node.geometry.userData.origColors = new Float32Array(attr.array);
+      if (node.geometry.userData && node.geometry.userData.origColors) {
+        delete node.geometry.userData.origColors;
       }
-      const orig = node.geometry.userData.origColors;
+      const attr = node.geometry.attributes.color;
       const cur = attr.array;
       let modified = false;
-      for (let i = 0; i < orig.length; i += 3) {
-        const type = classifyBaseVertex(orig[i], orig[i + 1], orig[i + 2]);
+      for (let i = 0; i < cur.length; i += 3) {
+        const type = classifyBaseVertex(cur[i], cur[i + 1], cur[i + 2], targetRgb);
         if (type && targetRgb[type]) {
-          cur[i] = targetRgb[type][0];
-          cur[i + 1] = targetRgb[type][1];
-          cur[i + 2] = targetRgb[type][2];
-          modified = true;
+          const tr = targetRgb[type][0];
+          const tg = targetRgb[type][1];
+          const tb = targetRgb[type][2];
+          if (cur[i] !== tr || cur[i + 1] !== tg || cur[i + 2] !== tb) {
+            cur[i] = tr;
+            cur[i + 1] = tg;
+            cur[i + 2] = tb;
+            modified = true;
+          }
         }
       }
       if (modified) {
@@ -180,6 +278,10 @@ export function applyColorsToThreeJSPuzzle(p, colors = CUBE_COLORS) {
       }
     }
   });
+
+  if (p.fixedGeo && p.fixedGeo.attributes && p.fixedGeo.attributes.color) {
+    p.fixedGeo.attributes.color.needsUpdate = true;
+  }
 
   if (needsRender) {
     p.scheduleRenderCallback?.();
