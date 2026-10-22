@@ -701,7 +701,7 @@ function updateFreeMovesUI() {
   const reverseBtn = document.getElementById("freeMoveReverseBtn");
   const listEl = document.getElementById("freeMovesList");
   const wrapEl = document.getElementById("freeMovesHistoryWrap");
-  const wideRow = document.getElementById("freeMovesWideRow");
+  const wideWrap = document.getElementById("freeMovesWideWrap") || document.getElementById("freeMovesWideRow");
 
   if (countBadge) {
     countBadge.textContent = `${userFreeMoves.length} turn${userFreeMoves.length === 1 ? '' : 's'}`;
@@ -709,20 +709,18 @@ function updateFreeMovesUI() {
   if (undoBtn) undoBtn.disabled = userFreeMoves.length === 0;
   if (reverseBtn) reverseBtn.disabled = userFreeMoves.length === 0;
 
-  if (wideRow) {
-    wideRow.hidden = !(currentPuzzle === "444" || currentPuzzle === "555");
+  if (wideWrap) {
+    wideWrap.hidden = !(currentPuzzle === "444" || currentPuzzle === "555");
   }
 
   if (wrapEl && listEl) {
+    wrapEl.hidden = false;
     if (userFreeMoves.length === 0) {
-      wrapEl.hidden = true;
-      listEl.innerHTML = "";
+      listEl.innerHTML = '<span class="free-moves-empty">None</span>';
     } else {
-      wrapEl.hidden = false;
       listEl.innerHTML = userFreeMoves.map((m, idx) => `
         <span class="free-move-chip" data-idx="${idx}">${escapeHtml(m)}</span>
       `).join(" ");
-      listEl.scrollLeft = listEl.scrollWidth;
     }
   }
 }
@@ -730,6 +728,8 @@ function updateFreeMovesUI() {
 async function applyFreeMove(move) {
   if (!move || !el) return;
   userFreeMoves.push(move);
+  // Update badge and history chips immediately on click to prevent layout latency
+  updateFreeMovesUI();
 
   let animated = false;
   try {

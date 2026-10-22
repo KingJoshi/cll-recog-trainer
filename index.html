@@ -211,25 +211,32 @@
             <button type="button" class="btn-face-turn" data-move="F'" title="Turn F' (Front prime)">F'</button>
             <button type="button" class="btn-face-turn" data-move="B'" title="Turn B' (Back prime)">B'</button>
           </div>
-          <div id="freeMovesWideRow" class="free-moves-row free-moves-wide" hidden>
-            <span class="free-moves-row-label">Wide:</span>
-            <button type="button" class="btn-face-turn" data-move="Uw" title="Turn Uw">Uw</button>
-            <button type="button" class="btn-face-turn" data-move="Uw'" title="Turn Uw'">Uw'</button>
-            <button type="button" class="btn-face-turn" data-move="Rw" title="Turn Rw">Rw</button>
-            <button type="button" class="btn-face-turn" data-move="Rw'" title="Turn Rw'">Rw'</button>
-            <button type="button" class="btn-face-turn" data-move="Fw" title="Turn Fw">Fw</button>
-            <button type="button" class="btn-face-turn" data-move="Fw'" title="Turn Fw'">Fw'</button>
-            <button type="button" class="btn-face-turn" data-move="Lw" title="Turn Lw">Lw</button>
-            <button type="button" class="btn-face-turn" data-move="Lw'" title="Turn Lw'">Lw'</button>
-            <button type="button" class="btn-face-turn" data-move="Dw" title="Turn Dw">Dw</button>
-            <button type="button" class="btn-face-turn" data-move="Dw'" title="Turn Dw'">Dw'</button>
-            <button type="button" class="btn-face-turn" data-move="Bw" title="Turn Bw">Bw</button>
-            <button type="button" class="btn-face-turn" data-move="Bw'" title="Turn Bw'">Bw'</button>
+          <div id="freeMovesWideWrap" class="free-moves-wide-wrap" hidden>
+            <div class="free-moves-row free-moves-wide-cw">
+              <span class="free-moves-row-label">Wide:</span>
+              <button type="button" class="btn-face-turn" data-move="Uw" title="Turn Uw">Uw</button>
+              <button type="button" class="btn-face-turn" data-move="Dw" title="Turn Dw">Dw</button>
+              <button type="button" class="btn-face-turn" data-move="Lw" title="Turn Lw">Lw</button>
+              <button type="button" class="btn-face-turn" data-move="Rw" title="Turn Rw">Rw</button>
+              <button type="button" class="btn-face-turn" data-move="Fw" title="Turn Fw">Fw</button>
+              <button type="button" class="btn-face-turn" data-move="Bw" title="Turn Bw">Bw</button>
+            </div>
+            <div class="free-moves-row free-moves-wide-ccw">
+              <span class="free-moves-row-label">Wide Inv:</span>
+              <button type="button" class="btn-face-turn" data-move="Uw'" title="Turn Uw'">Uw'</button>
+              <button type="button" class="btn-face-turn" data-move="Dw'" title="Turn Dw'">Dw'</button>
+              <button type="button" class="btn-face-turn" data-move="Lw'" title="Turn Lw'">Lw'</button>
+              <button type="button" class="btn-face-turn" data-move="Rw'" title="Turn Rw'">Rw'</button>
+              <button type="button" class="btn-face-turn" data-move="Fw'" title="Turn Fw'">Fw'</button>
+              <button type="button" class="btn-face-turn" data-move="Bw'" title="Turn Bw'">Bw'</button>
+            </div>
           </div>
         </div>
-        <div id="freeMovesHistoryWrap" class="free-moves-history" hidden>
+        <div id="freeMovesHistoryWrap" class="free-moves-history">
           <span class="free-moves-history-label">User turns:</span>
-          <div id="freeMovesList" class="free-moves-list"></div>
+          <div id="freeMovesList" class="free-moves-list">
+            <span class="free-moves-empty">None</span>
+          </div>
         </div>
       </div>
       <p id="empty-state" class="empty-state" hidden>

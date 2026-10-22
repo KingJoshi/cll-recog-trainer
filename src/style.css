@@ -541,15 +541,15 @@ button {
 .cube-card {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
+    justify-content: flex-start;
     padding: 10px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     position: relative;
-    width: min(100%, var(--cube-card-max-w, 360px));
+    width: min(100%, max(var(--cube-card-max-w, 360px), 360px));
     box-sizing: border-box;
     margin: 0 auto;
 }
@@ -4979,6 +4979,8 @@ html.overview-open body {
    -------------------------------------------------------------------------- */
 
 .free-moves-panel {
+    width: 100%;
+    box-sizing: border-box;
     margin-top: 10px;
     padding: 10px 12px;
     background: var(--surface);
@@ -4995,6 +4997,8 @@ html.overview-open body {
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .free-moves-title-wrap {
@@ -5021,14 +5025,26 @@ html.overview-open body {
 .free-moves-keypad {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.free-moves-wide-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .free-moves-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 68px repeat(6, 1fr);
     align-items: center;
-    gap: 5px;
-    flex-wrap: wrap;
+    gap: 4px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .free-moves-rot .btn-face-turn {
@@ -5043,43 +5059,65 @@ html.overview-open body {
     border-color: var(--primary);
 }
 
+.free-moves-rot .btn-face-turn:active {
+    background: var(--primary-dark, #0056b3);
+    color: #fff;
+}
+
 .free-moves-row-label {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 700;
     color: var(--muted);
-    width: 68px;
-    flex-shrink: 0;
     text-transform: uppercase;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
 }
 
 .btn-face-turn {
     background: var(--bg);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: 3px 8px;
+    width: 100%;
+    height: 30px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 4px;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 700;
     font-family: ui-monospace, SFMono-Regular, monospace;
     cursor: pointer;
-    transition: all 0.12s ease;
+    box-sizing: border-box;
+    user-select: none;
+    touch-action: manipulation;
+    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
 }
 
 .btn-face-turn:hover {
     background: var(--primary);
     color: #fff;
     border-color: var(--primary);
-    transform: translateY(-1px);
+}
+
+.btn-face-turn:active {
+    background: var(--primary-dark, #0056b3);
+    color: #fff;
 }
 
 .free-moves-history {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
-    padding: 5px 8px;
+    padding: 6px 8px;
     background: rgba(0, 0, 0, 0.04);
     border-radius: 4px;
-    overflow: hidden;
+    width: 100%;
+    min-height: 32px;
+    box-sizing: border-box;
 }
 
 [data-theme="dark"] .free-moves-history {
@@ -5090,19 +5128,36 @@ html.overview-open body {
     font-size: 0.72rem;
     color: var(--muted);
     white-space: nowrap;
-    font-weight: 600;
+    font-weight: 700;
+    line-height: 22px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    user-select: none;
 }
 
 .free-moves-list {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
-    overflow-x: auto;
-    white-space: nowrap;
-    padding-bottom: 2px;
+    align-items: center;
+    white-space: normal;
+    flex: 1;
+    min-height: 22px;
+    box-sizing: border-box;
+}
+
+.free-moves-empty {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-style: italic;
+    line-height: 22px;
+    user-select: none;
 }
 
 .free-move-chip {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 2px 6px;
     background: var(--primary);
     color: #fff;
@@ -5110,6 +5165,7 @@ html.overview-open body {
     font-size: 0.75rem;
     font-weight: 700;
     border-radius: 3px;
+    line-height: 1.2;
 }
 
 /* --------------------------------------------------------------------------
