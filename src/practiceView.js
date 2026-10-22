@@ -230,10 +230,11 @@ export class PracticeView {
           ${this.renderKeypadForTrack(track)}
         </div>
 
-        <div id="recognitionFeedback" class="recognition-feedback ${this.lastResult ? (this.lastResult.isCorrect ? 'correct' : 'incorrect') : ''}" ${this.lastResult ? '' : 'hidden'}>
+        <div id="recognitionFeedback" class="recognition-feedback ${this.lastResult ? (this.lastResult.isCorrect ? 'correct' : 'incorrect') : (this.selectWarning ? 'warning' : '')}" ${this.lastResult || this.selectWarning ? '' : 'hidden'}>
           ${this.lastResult ? (this.lastResult.isCorrect
             ? `🎉 <strong>Correct!</strong> That is ${this.lastResult.name}.`
-            : `❌ <strong>Incorrect.</strong> The case was <strong>${this.lastResult.name}</strong>.`) : ''}
+            : `❌ <strong>Incorrect.</strong> The case was <strong>${this.lastResult.name}</strong>.`)
+            : (this.selectWarning ? `⚠️ <strong>Please select a case above</strong> before clicking Verify.` : '')}
         </div>
 
         <div class="recognition-actions">
@@ -349,12 +350,12 @@ export class PracticeView {
       const parityCases = this.currentPuzzle === "444"
         ? [
             { id: "444-oll-parity", label: "OLL Parity (Single Dedge)" },
-            { id: "444-pll-opp-parity", label: "PLL Parity (Opposite)" },
-            { id: "444-pll-adj-parity", label: "PLL Parity (Adjacent)" }
+            { id: "444-pll-parity-opp", label: "PLL Parity (Opposite)" },
+            { id: "444-pll-parity-adj", label: "PLL Parity (Adjacent)" }
           ]
         : [
-            { id: "555-l2e-flip", label: "Lucas Parity (Middle Flip)" },
-            { id: "555-l2e-wings", label: "Wing Swap (Slice-Flip-Slice)" }
+            { id: "555-edge-parity-flip", label: "Lucas Parity (Middle Flip)" },
+            { id: "555-wing-swap", label: "Wing Swap (Slice-Flip-Slice)" }
           ];
       return `
         <p class="guess-label">Which ${this.currentPuzzle === "444" ? "4x4" : "5x5"} Parity is it?</p>
@@ -552,6 +553,7 @@ export class PracticeView {
     this.container.querySelectorAll('.btn-recog-key').forEach(btn => {
       btn.addEventListener('click', () => {
         this.guessCase = btn.dataset.case;
+        this.selectWarning = false;
         this.render();
       });
     });
@@ -559,6 +561,7 @@ export class PracticeView {
     this.container.querySelectorAll('.group-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         this.guessGroup = btn.dataset.group;
+        this.selectWarning = false;
         this.render();
       });
     });
@@ -566,6 +569,7 @@ export class PracticeView {
     this.container.querySelectorAll('.case-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         this.guessCase = btn.dataset.case;
+        this.selectWarning = false;
         this.render();
       });
     });
@@ -689,10 +693,19 @@ export class PracticeView {
     if (this.answered) return;
     let guess = this.guessCase;
     if (this.currentTrackId === "cll") {
-      if (!this.guessGroup || !this.guessCase) return;
+      if (!this.guessGroup || !this.guessCase) {
+        this.selectWarning = true;
+        this.render();
+        return;
+      }
       guess = `${this.guessGroup}${this.guessCase}`;
     }
-    if (!guess) return;
+    if (!guess) {
+      this.selectWarning = true;
+      this.render();
+      return;
+    }
+    this.selectWarning = false;
 
     this.answered = true;
     const isCorrect = this.checkAnswerMatch(guess);
@@ -723,6 +736,7 @@ export class PracticeView {
     this.guessGroup = null;
     this.guessCase = null;
     this.lastResult = null;
+    this.selectWarning = false;
     if (this.onGenerateScramble) {
       const res = await this.onGenerateScramble(this.currentTrackId);
       this.currentCase = typeof res === 'object' ? res?.caseObj : null;

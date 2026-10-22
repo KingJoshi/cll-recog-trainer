@@ -346,37 +346,43 @@ button {
 }
 
 .case-row {
-    display: grid;
-    grid-template-columns: minmax(40px, 1.15fr) repeat(6, minmax(0, 1fr));
-    gap: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
 }
 
 .group-toggle,
 .case-chip {
-    min-height: 40px;
-    min-width: 0;
-    padding: 0;
+    min-height: 38px;
+    padding: 0 10px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--surface);
     cursor: pointer;
     user-select: none;
-    transition: background .15s, border-color .15s, color .15s;
+    transition: all .15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    box-sizing: border-box;
 }
 
 .group-toggle {
     font-weight: 700;
     color: var(--muted);
+    min-width: 44px;
 }
 
-.group-toggle:hover,
-.case-chip:hover {
-    border-color: #b8c2cf;
+.group-toggle:hover {
+    border-color: var(--primary);
+    color: var(--text);
 }
 
 .group-toggle[data-state="all"] {
     background: var(--primary);
-    border-color: var(--primary);
+    border-color: var(--primary-dark);
     color: #fff;
 }
 
@@ -386,16 +392,24 @@ button {
 }
 
 .case-chip {
-    font-weight: 500;
-    color: var(--muted);
+    font-weight: 600;
+    color: var(--text);
     background: var(--surface-2);
+    min-width: 38px;
+    position: relative;
+}
+
+.case-chip:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
 }
 
 .case-chip[aria-pressed="true"] {
-    background: var(--primary-soft);
-    border-color: var(--primary);
-    color: var(--primary-dark);
+    background: var(--primary) !important;
+    border-color: var(--primary-dark) !important;
+    color: #ffffff !important;
     font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
 }
 
 /* Option switches */
@@ -3118,6 +3132,7 @@ html.overview-open body {
         grid-template-areas:
             "stage settings"
             "stage stats";
+        grid-template-rows: auto 1fr;
         align-items: start;
         padding: 20px;
         gap: 20px;
@@ -5363,4 +5378,104 @@ html.overview-open body {
     display: flex;
     gap: 6px;
     margin-top: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   Practice Recognition Drill Buttons & Feedback
+   -------------------------------------------------------------------------- */
+
+.btn-recog-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-recog-key:hover {
+    background: var(--surface-2);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+.btn-recog-key.active {
+    background: var(--primary) !important;
+    border-color: var(--primary-dark) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 2px var(--primary-soft), 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+    transform: scale(1.02);
+}
+
+[data-theme="dark"] .btn-recog-key {
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-recog-key:hover {
+    background: #334155;
+    border-color: #60a5fa;
+}
+
+[data-theme="dark"] .btn-recog-key.active {
+    background: #2563eb !important;
+    border-color: #60a5fa !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4) !important;
+}
+
+.recognition-feedback.warning {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid #f59e0b;
+    color: #b45309;
+}
+
+[data-theme="dark"] .recognition-feedback.warning {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: #f59e0b;
+    color: #fcd34d;
+}
+
+[data-theme="dark"] .case-chip {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+}
+
+[data-theme="dark"] .case-chip:hover {
+    background: #334155;
+    border-color: #60a5fa;
+}
+
+[data-theme="dark"] .case-chip[aria-pressed="true"] {
+    background: #2563eb !important;
+    border-color: #60a5fa !important;
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .group-toggle {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .group-toggle:hover {
+    border-color: #60a5fa;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .group-toggle[data-state="all"] {
+    background: #2563eb;
+    border-color: #60a5fa;
+    color: #fff;
 }

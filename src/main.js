@@ -1034,6 +1034,33 @@ puzzleButtons.forEach(btn => {
 // Case picker: one row per group, a group button plus one chip per case
 // ---------------------------------------------------------------------------
 
+function getCaseShortLabel(caseObj, track) {
+  if (!caseObj) return "";
+  if (caseObj.shortName) return caseObj.shortName;
+
+  const id = caseObj.id || "";
+  if (id.startsWith("555-edge-parity")) return "Middle Flip";
+  if (id.startsWith("555-wing-swap")) return "Wing Swap";
+  if (id.startsWith("444-oll-parity")) return "OLL Parity";
+  if (id.startsWith("444-pll-parity-opp")) return "Opposite";
+  if (id.startsWith("444-pll-parity-adj")) return "Adjacent";
+
+  if (track && track.id === "pll") {
+    return caseObj.name || id.replace(/^pll-/, "");
+  }
+  if (track && track.id === "oll") {
+    return id.replace(/^oll-/, "");
+  }
+  if (track && track.id === "f2l") {
+    return id.replace(/^f2l-/, "");
+  }
+
+  if (caseObj.name && caseObj.name.length <= 14) {
+    return caseObj.name;
+  }
+  return id.replace(/^[0-9]{3}-/, "").replace(/^[a-z0-9]+-/, "");
+}
+
 function buildCasePicker() {
   casePicker.innerHTML = "";
   ensureTrackSelection();
@@ -1057,7 +1084,7 @@ function buildCasePicker() {
       groupBtn.type = "button";
       groupBtn.className = "group-toggle";
       groupBtn.dataset.group = group;
-      groupBtn.textContent = group.length > 8 ? group.slice(0, 7) + "…" : group;
+      groupBtn.textContent = group.length > 15 ? group.slice(0, 14) + "…" : group;
       groupBtn.title = `Add or remove all ${group} cases`;
       groupBtn.setAttribute("aria-label", `Group ${group}: add or remove all cases`);
       groupBtn.addEventListener("click", () => toggleGroup(group));
@@ -1069,7 +1096,8 @@ function buildCasePicker() {
         chip.className = "case-chip";
         chip.dataset.case = caseObj.id;
         const tag = getCaseTag(caseObj.id);
-        chip.innerHTML = `${caseObj.id}<span class="case-chip-dot tag-dot-${tag}"></span>`;
+        const shortLabel = getCaseShortLabel(caseObj, track);
+        chip.innerHTML = `${shortLabel}<span class="case-chip-dot tag-dot-${tag}"></span>`;
         chip.title = `Case ${caseObj.name || caseObj.id} (${tag}) · Click to toggle practice, Right-click to change tag`;
         chip.setAttribute("aria-label", `Case ${caseObj.id}`);
         chip.addEventListener("click", () => toggleCase(caseObj.id));
@@ -1588,6 +1616,10 @@ function buildScramble() {
 }
 
 function regenerateScramble() {
+  if (mode === "practice" && practiceView) {
+    practiceView.advanceCasualScramble();
+    return;
+  }
   resetCubeOrientation();
   const hasCases = selectedCases.size > 0;
   emptyState.hidden = hasCases;
@@ -1743,7 +1775,9 @@ function regenerateScramble() {
       const active = track.cases.filter(c => selectedCases.has(c.id));
       const pool = active.length > 0 ? active : track.cases;
       const c = pool[Math.floor(Math.random() * pool.length)];
-      const scr = c.setup || c.scramble;
+      const scr = (c.scrambles && c.scrambles.length > 0)
+        ? c.scrambles[Math.floor(Math.random() * c.scrambles.length)]
+        : (c.setup || c.scramble);
       currentCaseId = c.id;
       currentCaseScramble = scr;
       scrambleMoves = scr;
@@ -1773,7 +1807,9 @@ function regenerateScramble() {
       const active = track.cases.filter(c => selectedCases.has(c.id));
       const pool = active.length > 0 ? active : track.cases;
       const c = pool[Math.floor(Math.random() * pool.length)];
-      const scr = c.setup || c.scramble;
+      const scr = (c.scrambles && c.scrambles.length > 0)
+        ? c.scrambles[Math.floor(Math.random() * c.scrambles.length)]
+        : (c.setup || c.scramble);
       currentSolveScramble = scr;
       scrambleMoves = scr;
       scramble = scr;
@@ -1792,7 +1828,9 @@ function regenerateScramble() {
       const active = track.cases.filter(c => selectedCases.has(c.id));
       const pool = active.length > 0 ? active : track.cases;
       const c = pool[Math.floor(Math.random() * pool.length)];
-      const scr = c.setup || c.scramble;
+      const scr = (c.scrambles && c.scrambles.length > 0)
+        ? c.scrambles[Math.floor(Math.random() * c.scrambles.length)]
+        : (c.setup || c.scramble);
       currentCaseId = c.id;
       currentCaseScramble = scr;
       scrambleMoves = scr;
@@ -6427,7 +6465,9 @@ practiceView = new PracticeView({
         const active = track.cases.filter(c => selectedCases.has(c.id));
         const pool = active.length > 0 ? active : track.cases;
         const c = pool[Math.floor(Math.random() * pool.length)];
-        const scr = c.setup || c.scramble;
+        const scr = (c.scrambles && c.scrambles.length > 0)
+          ? c.scrambles[Math.floor(Math.random() * c.scrambles.length)]
+          : (c.setup || c.scramble);
         applyScrambleToDisplay(scr);
         return { scramble: scr, caseObj: c };
       }
