@@ -729,34 +729,31 @@ function updateFreeMovesUI() {
 async function applyFreeMove(move) {
   if (!move || !el) return;
   userFreeMoves.push(move);
-  // Update badge and history chips immediately on click to prevent layout latency
   updateFreeMovesUI();
 
-  let animated = false;
+  const fullSeq = [freeMoveBaseScramble, ...userFreeMoves].filter(Boolean).join(" ");
+  el.scramble = fullSeq;
   try {
-    if (el.player?.experimentalAddMove) {
-      await el.player.experimentalAddMove(move, { cancel: false });
-      animated = true;
-    }
-  } catch (e) {
-    animated = false;
-  }
-
-  if (!animated) {
-    const fullSeq = [freeMoveBaseScramble, ...userFreeMoves].filter(Boolean).join(" ");
-    el.scramble = fullSeq;
-    try {
-      el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
-    } catch {}
-  }
+    el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
+  } catch {}
 
   applyColorsTo3DCube(el);
   updateFreeMovesUI();
+
+  if (mode === "simulate") {
+    simStatusBadge.textContent = "Free Turns";
+    simStatusBadge.className = "sim-badge badge-warning";
+    simStepCounter.textContent = `Free face turns active (${userFreeMoves.length} turn${userFreeMoves.length === 1 ? '' : 's'} · click Reset Scramble to restore case)`;
+  }
 }
 
 function undoLastFreeMove() {
   if (!userFreeMoves.length) return;
   userFreeMoves.pop();
+  if (userFreeMoves.length === 0) {
+    resetFreeMovesToScramble();
+    return;
+  }
   const fullSeq = [freeMoveBaseScramble, ...userFreeMoves].filter(Boolean).join(" ");
   el.scramble = fullSeq;
   try {
@@ -764,47 +761,48 @@ function undoLastFreeMove() {
   } catch {}
   applyColorsTo3DCube(el);
   updateFreeMovesUI();
+
+  if (mode === "simulate") {
+    simStatusBadge.textContent = "Free Turns";
+    simStatusBadge.className = "sim-badge badge-warning";
+    simStepCounter.textContent = `Free face turns active (${userFreeMoves.length} turn${userFreeMoves.length === 1 ? '' : 's'} · click Reset Scramble to restore case)`;
+  }
 }
 
 async function reverseAllFreeMoves() {
   if (!userFreeMoves.length) return;
-  const invMoves = invertMoves(userFreeMoves);
-  try {
-    if (el.player?.experimentalAddMove) {
-      for (const m of invMoves) {
-        await el.player.experimentalAddMove(m, { cancel: false });
-      }
-    }
-  } catch {}
-
-  userFreeMoves = [];
-  el.scramble = freeMoveBaseScramble;
-  try {
-    el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
-  } catch {}
-  applyColorsTo3DCube(el);
-  updateFreeMovesUI();
+  resetFreeMovesToScramble();
 }
 
 function resetFreeMovesToScramble() {
   userFreeMoves = [];
-  el.scramble = freeMoveBaseScramble;
-  try {
-    el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
-  } catch {}
-  applyColorsTo3DCube(el);
   updateFreeMovesUI();
+  if (mode === "simulate" && simHasSolutionAppended) {
+    if (el && el.player) {
+      try {
+        el.player.pause();
+        el.scramble = simMoves.join(" ");
+        applyReflection();
+        simJumpToCaseState();
+      } catch {}
+    }
+  } else {
+    el.scramble = freeMoveBaseScramble;
+    try {
+      el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
+    } catch {}
+  }
+  applyColorsTo3DCube(el);
 }
 
 function resetFreeMovesToSolved() {
   userFreeMoves = [];
-  freeMoveBaseScramble = "";
+  updateFreeMovesUI();
   el.scramble = "";
   try {
     el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
   } catch {}
   applyColorsTo3DCube(el);
-  updateFreeMovesUI();
 }
 
 // Wire Free Moves keypad buttons
@@ -5374,7 +5372,8 @@ function simInit() {
   }
 
   if (currentCaseId) {
-    const c = caseById.get(currentCaseId);
+    const track = getTrack(currentPuzzle, currentTrackId);
+    const c = track?.caseById?.get(currentCaseId) || caseById.get(currentCaseId);
     if (c) {
       simLoadCaseWithSolution(c, 0);
       return;
@@ -5404,6 +5403,8 @@ function simTeardown() {
       el.player.jumpToEnd();
     } catch {}
   }
+  userFreeMoves = [];
+  updateFreeMovesUI();
   if (scramble) {
     applyScrambleToDisplay(scramble);
     applyReflection();
@@ -5707,6 +5708,12 @@ function simLoadScramble(raw, { expectedCase = null, isAppended = false, activeP
     simAppendSolutionBtn.classList.add("active");
   }
 
+  const origBase = (isAppended || simHasSolutionAppended) ? (originalScramble || simOriginalScramble) : raw;
+  freeMoveBaseScramble = origBase;
+  currentBaseDisplayScramble = origBase;
+  userFreeMoves = [];
+  updateFreeMovesUI();
+
   simMoves = parsed.moves;
   simOrientation = parsed.orientation;
   simExpectedCaseObj = expectedCase || findCaseByScrambleMoves(simMoves);
@@ -5981,6 +5988,7 @@ function attachSimPlayerListeners() {
       if (mode !== "simulate" || simMoves.length === 0) return;
       if (simPendingStartAtSolution) return;
       if (!simIndexer) return;
+      if (userFreeMoves.length > 0) return;
       try {
         if (info.atStart || info.timestamp <= 0) {
           updateSimProgress(0, true, false);
@@ -5999,6 +6007,7 @@ function attachSimPlayerListeners() {
 
     el.player.experimentalModel.coarseTimelineInfo.addFreshListener((info) => {
       if (mode !== "simulate") return;
+      if (userFreeMoves.length > 0) return;
       updateSimPlayingState(info.playing, info.atStart, info.atEnd);
     });
   } catch (err) {
@@ -6006,8 +6015,21 @@ function attachSimPlayerListeners() {
   }
 }
 
+function simEnsureScrambleSynced() {
+  if (userFreeMoves.length > 0) {
+    userFreeMoves = [];
+    updateFreeMovesUI();
+    if (el) {
+      el.scramble = simMoves.join(" ");
+      applyReflection();
+      applyColorsTo3DCube(el);
+    }
+  }
+}
+
 function simStepForward() {
   if (!el || !el.player || !el.player.controller) return;
+  simEnsureScrambleSynced();
   try {
     el.player.pause();
     el.player.controller.animationController.play({
@@ -6021,6 +6043,7 @@ function simStepForward() {
 
 function simStepBackward() {
   if (!el || !el.player || !el.player.controller) return;
+  simEnsureScrambleSynced();
   try {
     el.player.pause();
     el.player.controller.animationController.play({
@@ -6034,6 +6057,7 @@ function simStepBackward() {
 
 async function simJumpToCaseState() {
   if (!el || !el.player) return;
+  simEnsureScrambleSynced();
   try {
     el.player.pause();
     const origCount = getSimOriginalCount();
@@ -6055,6 +6079,7 @@ async function simJumpToCaseState() {
 
 function simJumpToStart() {
   if (!el || !el.player || !el.player.controller) return;
+  simEnsureScrambleSynced();
   const origCount = getSimOriginalCount();
   const hasSolution = simHasSolutionAppended && origCount > 0 && origCount < simMoves.length;
 
@@ -6093,6 +6118,7 @@ function simJumpToStart() {
 
 function simJumpToEnd() {
   if (!el || !el.player || !el.player.controller) return;
+  simEnsureScrambleSynced();
   try {
     el.player.pause();
     el.player.controller.jumpToEnd({ flash: true });
@@ -6104,6 +6130,7 @@ function simJumpToEnd() {
 
 function simTogglePlay() {
   if (!el || !el.player || !el.player.controller) return;
+  simEnsureScrambleSynced();
   const origCount = getSimOriginalCount();
   const hasSolution = simHasSolutionAppended && origCount > 0 && origCount < simMoves.length;
 
@@ -6128,6 +6155,7 @@ function simTogglePlay() {
 
 async function simJumpToIndex(targetIndex) {
   if (!el || !el.player) return;
+  simEnsureScrambleSynced();
   try {
     el.player.pause();
     if (!simIndexer) {
@@ -6200,7 +6228,8 @@ simClearBtn.addEventListener("click", () => {
 
 simUseCurrentBtn.addEventListener("click", () => {
   if (currentCaseId) {
-    const c = caseById.get(currentCaseId);
+    const track = getTrack(currentPuzzle, currentTrackId);
+    const c = track?.caseById?.get(currentCaseId) || caseById.get(currentCaseId);
     if (c) {
       simLoadCaseWithSolution(c, 0);
       return;
@@ -6295,6 +6324,7 @@ simAppendSolutionBtn.addEventListener("click", () => {
     simHasSolutionAppended = false;
     simAppendSolutionBtn.textContent = "Append Solution";
     simAppendSolutionBtn.classList.remove("active");
+    simScrambleInput.value = simOriginalScramble;
     simLoadScramble(simOriginalScramble, { expectedCase: simExpectedCaseObj });
   } else {
     simHasSolutionAppended = true;
@@ -6303,6 +6333,7 @@ simAppendSolutionBtn.addEventListener("click", () => {
     const solClean = cleanAlg(sol);
     const base = simOriginalScramble || simScrambleText;
     const combined = base + " " + solClean;
+    simScrambleInput.value = combined;
     simLoadScramble(combined, {
       expectedCase: simExpectedCaseObj,
       isAppended: true,
