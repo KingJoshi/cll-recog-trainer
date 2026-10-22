@@ -5047,29 +5047,12 @@ html.overview-open body {
     box-sizing: border-box;
 }
 
-.free-moves-rot .btn-face-turn {
-    background: var(--surface-2);
-    border-color: rgba(0, 123, 255, 0.35);
-    color: var(--primary);
-}
-
-.free-moves-rot .btn-face-turn:hover {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-}
-
-.free-moves-rot .btn-face-turn:active {
-    background: var(--primary-dark, #0056b3);
-    color: #fff;
-}
-
 .free-moves-row-label {
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     font-weight: 700;
     color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: -0.02em;
+    letter-spacing: 0.02em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
