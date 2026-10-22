@@ -24,6 +24,7 @@ import {
   applyColorsTo3DCube,
   ensure3x3FoundationOpaque
 } from './caseVisualizer.js';
+import { MOVE_TOKEN_REGEX, cleanAlg, normalizeAlgForCompare, parseScrambleInput } from './algParser.js';
 import './style.css';
 
 // Register service worker for offline support (production only; the dev
@@ -1510,61 +1511,6 @@ function getRandomCase() {
 function randomU() {
   const choices = ["", " U", " U2", " U'"];
   return choices[Math.floor(Math.random() * choices.length)];
-}
-
-function cleanAlg(algStr) {
-  if (!algStr) return "";
-  const cleaned = algStr.replace(/[‘’ʻʼ`]/g, "'").replace(/[()[\]{}]/g, " ").replace(/,/g, " ");
-  const tokens = cleaned.trim().split(/\s+/).filter(Boolean);
-  const result = [];
-
-  for (const token of tokens) {
-    const match = token.match(/^([RUFBLDxyzMES]|(?:[RUFBLD]w)|[rufbld])(2'|'2|3'|'3|''|2"|[23'])?$/i);
-    if (!match) {
-      result.push(token);
-      continue;
-    }
-    const face = ['x', 'y', 'z'].includes(match[1].toLowerCase()) ? match[1].toLowerCase() : match[1];
-    let mod = match[2] || "";
-    if (mod === "'2" || mod === '2"' || mod === "''") mod = "2'";
-
-    let amount = 1;
-    if (mod === "'" || mod === "3") amount = 3;
-    else if (mod === "2" || mod === "2'") amount = 2;
-    else if (mod === "3'" || mod === "'3") amount = 1;
-
-    if (result.length > 0) {
-      const prev = result[result.length - 1];
-      const prevMatch = prev.match(/^([RUFBLDxyzMES]|(?:[RUFBLD]w)|[rufbld])(2'|'2|3'|'3|''|2"|[23'])?$/i);
-      if (prevMatch && prevMatch[1].toUpperCase() === face.toUpperCase()) {
-        const prevFace = ['x', 'y', 'z'].includes(prevMatch[1].toLowerCase()) ? prevMatch[1].toLowerCase() : prevMatch[1];
-        let prevMod = prevMatch[2] || "";
-        if (prevMod === "'2" || prevMod === '2"' || prevMod === "''") prevMod = "2'";
-        let prevAmount = 1;
-        if (prevMod === "'" || prevMod === "3") prevAmount = 3;
-        else if (prevMod === "2" || prevMod === "2'") prevAmount = 2;
-        else if (prevMod === "3'" || prevMod === "'3") prevAmount = 1;
-
-        const total = (prevAmount + amount) % 4;
-        result.pop();
-        if (total === 1) result.push(prevFace);
-        else if (total === 2) result.push(prevFace + "2");
-        else if (total === 3) result.push(prevFace + "'");
-        continue;
-      }
-    }
-    if (amount === 1) result.push(face);
-    else if (amount === 2) {
-      result.push(mod === "2'" ? face + "2'" : face + "2");
-    }
-    else if (amount === 3) result.push(face + "'");
-  }
-  return result.join(" ");
-}
-
-function normalizeAlgForCompare(algStr) {
-  if (!algStr) return "";
-  return cleanAlg(algStr).replace(/2'/g, "2");
 }
 
 function buildScramble() {
@@ -5564,45 +5510,6 @@ function populateSimCaseSelect() {
   simCaseSelect.appendChild(pblGroup);
 }
 
-function parseScrambleInput(raw) {
-  if (!raw || typeof raw !== "string") {
-    return { ok: false, error: "Please enter a scramble string." };
-  }
-  let cleaned = raw.replace(/[‘’ʻʼ`]/g, "'").replace(/[()[\]{}]/g, " ").replace(/,/g, " ").replace(/\s+/g, " ").trim();
-  if (!cleaned) {
-    return { ok: false, error: "Scramble cannot be empty." };
-  }
-
-  // Detect orientation for metadata tag
-  let orientation = "";
-  const orientMatch = cleaned.match(/^((?:[xyz](?:2'|'2|3'|''|2"|[23'])?\s*)+)/i);
-  if (orientMatch) {
-    orientation = cleanAlg(orientMatch[1]);
-  }
-
-  const tokens = cleaned.split(/\s+/).filter(Boolean);
-  const moves = [];
-  for (const token of tokens) {
-    const match = token.match(/^([RUFBLDxyzMES]|(?:[RUFBLD]w)|[rufbld])(2'|'2|3'|'3|''|2"|[23'])?$/i);
-    if (!match) {
-      return { ok: false, error: `Invalid move token "${token}". Allowed moves: R, U, F, B, L, D, M, E, S, x, y, z, wide moves with optional 2, ', or 2'.` };
-    }
-    const face = ['x', 'y', 'z'].includes(match[1].toLowerCase()) ? match[1].toLowerCase() : match[1];
-    let mod = match[2] || "";
-    if (mod === "3") mod = "'";
-    else if (mod === "3'" || mod === "'3") mod = "";
-    else if (mod === "'2" || mod === '2"' || mod === "''") mod = "2'";
-    moves.push(face + mod);
-  }
-
-  return {
-    ok: true,
-    orientation,
-    moves,
-    error: null
-  };
-}
-
 function findCaseByScrambleMoves(moves) {
   let startIdx = 0;
   while (startIdx < moves.length && /^[xyz]/i.test(moves[startIdx])) {
@@ -5612,6 +5519,42 @@ function findCaseByScrambleMoves(moves) {
   const allMoves = moves.join(" ");
   const normCaseMoves = normalizeAlgForCompare(caseMovesOnly);
   const normAllMoves = normalizeAlgForCompare(allMoves);
+
+  // Search current puzzle tracks first (e.g. 4x4 or 5x5 parity, 3x3 CFOP)
+  const curTrack = getTrack(currentPuzzle, currentTrackId);
+  const tracksToSearch = [];
+  if (curTrack) tracksToSearch.push(curTrack);
+  if (currentPuzzle === "444") {
+    const p4 = getTrack("444", "parity");
+    if (p4 && p4 !== curTrack) tracksToSearch.push(p4);
+  } else if (currentPuzzle === "555") {
+    const p5 = getTrack("555", "parity");
+    if (p5 && p5 !== curTrack) tracksToSearch.push(p5);
+  }
+
+  for (const tr of tracksToSearch) {
+    if (tr && tr.cases) {
+      for (const caseObj of tr.cases) {
+        const list = caseObj.scrambles && caseObj.scrambles.length ? caseObj.scrambles : [caseObj.setup || caseObj.scramble];
+        for (const sc of list) {
+          if (!sc) continue;
+          const normSc = normalizeAlgForCompare(sc);
+          if (normSc === normCaseMoves || normSc === normAllMoves || sc.trim() === caseMovesOnly || sc.trim() === allMoves) {
+            return {
+              id: caseObj.id,
+              displayName: `${tr.shortName || tr.name}: ${caseObj.shortName || caseObj.name}`,
+              name: caseObj.name,
+              shortName: caseObj.shortName,
+              scrambles: caseObj.scrambles || [caseObj.setup || caseObj.scramble],
+              scramble: caseObj.setup || caseObj.scramble,
+              solution: caseObj.algs ? (caseObj.algs[0]?.label || caseObj.algs[0]?.alg) : (caseObj.alg || ""),
+              solutionAlg: caseObj.algs ? (caseObj.algs[0]?.alg || "") : (caseObj.alg || "")
+            };
+          }
+        }
+      }
+    }
+  }
 
   for (const caseObj of caseById.values()) {
     const list = caseObj.scrambles && caseObj.scrambles.length ? caseObj.scrambles : [caseObj.scramble];
@@ -5775,7 +5718,9 @@ function simLoadScramble(raw, { expectedCase = null, isAppended = false, activeP
     simCaseDetails.hidden = false;
     simAppendSolutionBtn.disabled = !(simExpectedCaseObj.solutionAlg || simExpectedCaseObj.solution);
     if (simCaseSelect.value !== simExpectedCaseObj.id) {
-      simCaseSelect.value = simExpectedCaseObj.id;
+      const opt = Array.from(simCaseSelect.options).find(o => o.value === simExpectedCaseObj.id || o.value.endsWith(`:${simExpectedCaseObj.id}`));
+      if (opt) simCaseSelect.value = opt.value;
+      else simCaseSelect.value = simExpectedCaseObj.id;
     }
     renderSimPresetButtons(simExpectedCaseObj, activePresetIndex);
   } else {
@@ -6271,6 +6216,28 @@ simCaseSelect.addEventListener("change", () => {
   const caseId = simCaseSelect.value;
   if (!caseId) {
     if (simScrambleSelectWrap) simScrambleSelectWrap.hidden = true;
+    return;
+  }
+  if (caseId.startsWith("444:") || caseId.startsWith("555:")) {
+    const parts = caseId.split(":");
+    const puz = parts[0];
+    const trackId = parts[1];
+    const cId = parts[2];
+    const track = getTrack(puz, trackId);
+    const c = track?.caseById.get(cId);
+    if (c) {
+      const caseObj = {
+        id: c.id,
+        displayName: `${track.shortName || track.name}: ${c.shortName || c.name}`,
+        name: c.name,
+        shortName: c.shortName,
+        scrambles: c.scrambles && c.scrambles.length ? c.scrambles : [c.setup || c.scramble],
+        scramble: c.setup || c.scramble,
+        solution: c.algs ? (c.algs[0]?.label || c.algs[0]?.alg) : (c.alg || ""),
+        solutionAlg: c.algs ? (c.algs[0]?.alg || "") : (c.alg || "")
+      };
+      simLoadCaseWithSolution(caseObj, 0);
+    }
     return;
   }
   if (caseId.startsWith("333:")) {
