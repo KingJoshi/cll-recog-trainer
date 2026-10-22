@@ -3491,74 +3491,12 @@ html.overview-open body {
 .cube-card-controls {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 8px;
     width: 100%;
     max-width: 440px;
     margin-top: 6px;
     flex-wrap: wrap;
-}
-
-.cube-rot-bar {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    user-select: none;
-}
-
-.cube-rot-label {
-    font-size: 0.72rem;
-    color: var(--muted);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-}
-
-.cube-rot-buttons {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.cube-rot-pair {
-    display: inline-flex;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    background: var(--surface-2);
-}
-
-.btn-rot {
-    background: transparent;
-    border: none;
-    padding: 3px 7px;
-    font-size: 0.74rem;
-    font-weight: 700;
-    font-family: inherit;
-    color: var(--text);
-    cursor: pointer;
-    min-height: 28px;
-    min-width: 25px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.15s, color 0.15s;
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-}
-
-.btn-rot:not(:last-child) {
-    border-right: 1px solid var(--border);
-}
-
-.btn-rot:hover {
-    background: var(--primary-soft);
-    color: var(--primary);
-}
-
-.btn-rot:active {
-    background: var(--primary);
-    color: #fff;
 }
 
 /* --------------------------------------------------------------------------
@@ -4055,17 +3993,6 @@ html.overview-open body {
     }
 }
 
-@media (max-width: 380px) {
-    .cube-rot-label {
-        display: none;
-    }
-
-    .btn-rot {
-        padding: 2px 4px;
-        font-size: 0.7rem;
-        min-width: 22px;
-    }
-}
 
 @media (max-width: 360px) {
     .app {
@@ -5102,6 +5029,18 @@ html.overview-open body {
     align-items: center;
     gap: 5px;
     flex-wrap: wrap;
+}
+
+.free-moves-rot .btn-face-turn {
+    background: var(--surface-2);
+    border-color: rgba(0, 123, 255, 0.35);
+    color: var(--primary);
+}
+
+.free-moves-rot .btn-face-turn:hover {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
 }
 
 .free-moves-row-label {

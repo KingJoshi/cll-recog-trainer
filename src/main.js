@@ -21,7 +21,8 @@ import {
   applyCubeColorsToCss,
   clearSvgCache,
   renderCaseSvg,
-  applyColorsTo3DCube
+  applyColorsTo3DCube,
+  ensure3x3FoundationOpaque
 } from './caseVisualizer.js';
 import './style.css';
 
@@ -605,42 +606,24 @@ const simTimelineResetBtn = document.getElementById("simTimelineResetBtn");
 const simSpeedButtons = Array.from(document.querySelectorAll(".sim-speed-btn"));
 
 // Create scramble display element
-const el = new ScrambleDisplay();
-el.player.hintFacelets = showReflection ? "floating" : "none";
-el.event = currentPuzzle === "333oh" ? "333" : currentPuzzle;
-el.visualization = "3D";
-applyReflection();
-displayContainer.appendChild(el);
-applyColorsTo3DCube(el);
+let el = null;
+
+function mountScrambleDisplay(puzzleId = currentPuzzle) {
+  displayContainer.innerHTML = "";
+  el = new ScrambleDisplay();
+  el.player.hintFacelets = showReflection ? "floating" : "none";
+  el.event = puzzleId === "333oh" ? "333" : puzzleId;
+  el.visualization = "3D";
+  applyReflection();
+  displayContainer.appendChild(el);
+  applyColorsTo3DCube(el);
+  return el;
+}
+
+mountScrambleDisplay(currentPuzzle);
+void ensure3x3FoundationOpaque();
 
 let currentBaseDisplayScramble = "";
-
-const CUBE_ROT_AXES = {
-  x: { x: 1, y: 0, z: 0 },
-  y: { x: 0, y: 1, z: 0 },
-  z: { x: 0, y: 0, z: 1 }
-};
-
-async function rotateCubeIn3D(move) {
-  if (!el || !el.player) return;
-  try {
-    const p = await el.player.experimentalCurrentThreeJSPuzzleObject?.();
-    if (!p) return;
-    const axis = move[0].toLowerCase();
-    const isPrime = move.includes("'");
-    const axisVec = CUBE_ROT_AXES[axis];
-    if (!axisVec) return;
-    const angle = isPrime ? Math.PI / 2 : -Math.PI / 2;
-    p.rotateOnWorldAxis(axisVec, angle);
-    p.scheduleRenderCallback?.();
-  } catch (err) {
-    console.warn("Could not rotate 3D cube model:", err);
-  }
-}
-
-function addViewRotation(move) {
-  rotateCubeIn3D(move);
-}
 
 function clearViewRotations() {
   resetCubeOrientation();
@@ -692,17 +675,6 @@ async function resetCubeOrientation() {
 if (resetOrientationBtn) {
   resetOrientationBtn.addEventListener("click", resetCubeOrientation);
 }
-
-document.querySelectorAll(".btn-rot").forEach(btn => {
-  btn.addEventListener("click", e => {
-    let move = btn.dataset.rot;
-    if (e.shiftKey) {
-      move = move.includes("'") ? move.replace("'", "") : move + "'";
-    }
-    addViewRotation(move);
-    btn.blur();
-  });
-});
 
 // ---------------------------------------------------------------------------
 // Free Face Rotations & Move Tracking Controller
@@ -994,8 +966,7 @@ function populateSolveTargetSelect() {
 function setPuzzle(puzzleId) {
   if (!VALID_PUZZLES.includes(puzzleId)) return;
   currentPuzzle = puzzleId;
-  el.event = currentPuzzle === "333oh" ? "333" : currentPuzzle;
-  applyColorsTo3DCube(el);
+  mountScrambleDisplay(currentPuzzle);
 
   puzzleButtons.forEach(btn => {
     const active = btn.dataset.puzzle === currentPuzzle;
@@ -2256,7 +2227,7 @@ document.addEventListener("keydown", e => {
   if (["x", "y", "z"].includes(keyLower) && !cubeCard.hidden && solveState === "idle") {
     const isShift = e.shiftKey;
     const move = isShift ? `${keyLower}'` : keyLower;
-    addViewRotation(move);
+    applyFreeMove(move);
     e.preventDefault();
     return;
   }

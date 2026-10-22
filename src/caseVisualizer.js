@@ -86,14 +86,36 @@ export function applyColorsToThreeJSPuzzle(p, colors = CUBE_COLORS) {
   };
 
   let needsRender = false;
+
+  // 1. Force 100% black opacity on 3x3 Cube3D foundation meshes
+  if (p.experimentalFoundationMeshes && p.experimentalFoundationMeshes.length > 0) {
+    try {
+      p.experimentalSetFoundationOpacity?.(1.0);
+    } catch {}
+    for (const mesh of p.experimentalFoundationMeshes) {
+      if (mesh.material) {
+        mesh.material.opacity = 1.0;
+        mesh.material.transparent = false;
+        mesh.material.depthWrite = true;
+        mesh.material.needsUpdate = true;
+      }
+    }
+    needsRender = true;
+  }
+
+  // 2. Traverse all nodes to enforce full black opacity on foundation/border materials & sync colors
   p.traverse(node => {
-    // Ensure all moves use black opacity and not transparency for the cube
     if (node.material) {
       const mats = Array.isArray(node.material) ? node.material : [node.material];
       mats.forEach(m => {
-        m.transparent = false;
-        m.opacity = 1.0;
-        m.depthWrite = true;
+        const isBlack = m.color && (m.color.r < 0.05 && m.color.g < 0.05 && m.color.b < 0.05);
+        if (isBlack || !m.color) {
+          m.transparent = false;
+          m.opacity = 1.0;
+          m.depthWrite = true;
+          m.needsUpdate = true;
+          needsRender = true;
+        }
       });
     }
 
@@ -127,19 +149,52 @@ export function applyColorsToThreeJSPuzzle(p, colors = CUBE_COLORS) {
   return needsRender;
 }
 
+let _foundationOpaquePromise = null;
+export async function ensure3x3FoundationOpaque() {
+  if (typeof window === 'undefined') return;
+  if (_foundationOpaquePromise) return _foundationOpaquePromise;
+
+  _foundationOpaquePromise = (async () => {
+    try {
+      const sdClass = customElements.get('scramble-display');
+      if (sdClass) {
+        const temp = new sdClass();
+        temp.event = '333';
+        temp.visualization = '3D';
+        temp.style.position = 'fixed';
+        temp.style.opacity = '0';
+        temp.style.pointerEvents = 'none';
+        temp.style.top = '-9999px';
+        temp.style.left = '-9999px';
+        document.body.appendChild(temp);
+        const p = await temp.player.experimentalCurrentThreeJSPuzzleObject();
+        if (p) {
+          applyColorsToThreeJSPuzzle(p);
+        }
+        temp.remove();
+      }
+    } catch (err) {
+      // Non-critical background patch
+    }
+  })();
+  return _foundationOpaquePromise;
+}
+
 export async function applyColorsTo3DCube(scrambleDisplayEl, colors = CUBE_COLORS) {
   if (typeof window === 'undefined' || !scrambleDisplayEl) return;
-  for (let attempt = 0; attempt < 6; attempt++) {
+  void ensure3x3FoundationOpaque();
+
+  for (let attempt = 0; attempt < 20; attempt++) {
     try {
       if (scrambleDisplayEl.player) {
         const p = await scrambleDisplayEl.player.experimentalCurrentThreeJSPuzzleObject?.();
         if (p) {
           applyColorsToThreeJSPuzzle(p, colors);
-          return;
+          return p;
         }
       }
     } catch (e) {}
-    await new Promise(r => setTimeout(r, 60));
+    await new Promise(r => setTimeout(r, 80));
   }
 }
 
