@@ -1064,7 +1064,7 @@ function buildCasePicker() {
   casePicker.innerHTML = "";
   ensureTrackSelection();
 
-  if (currentPuzzle !== "222") {
+  if (currentPuzzle !== "222" || currentTrackId !== "cll") {
     const track = getTrack(currentPuzzle, currentTrackId);
     if (!track || !track.cases || track.cases.length === 0) {
       casePicker.innerHTML = `<p class="hint" style="padding: 10px 0;">This track (${track ? track.name : ''}) focuses on cross planning &amp; EO rather than discrete case recognition.</p>`;
@@ -1181,8 +1181,20 @@ document.querySelectorAll(".tag-filter-btn").forEach(btn => {
     currentTagFilter = btn.dataset.tagFilter;
     document.querySelectorAll(".tag-filter-btn").forEach(b => b.classList.toggle("active", b === btn));
     updateCasePickerFilter();
+    renderSelection();
   });
 });
+
+function getCasesInGroup(group) {
+  if (currentPuzzle === "222" && currentTrackId === "cll") {
+    if (casesByGroup[group]) return casesByGroup[group];
+    const track = getTrack("222", "cll");
+    return track?.cases?.filter(c => c.group === group || c.group === `${group}-Group` || c.id.startsWith(group)) || [];
+  }
+  const track = getTrack(currentPuzzle, currentTrackId);
+  if (!track || !track.cases) return casesByGroup[group] || [];
+  return track.cases.filter(c => c.group === group || c.group === `${group}-Group` || (group && group.length === 1 && c.group && c.group.startsWith(group)));
+}
 
 function renderSelection() {
   const track = getTrack(currentPuzzle, currentTrackId);
@@ -1195,10 +1207,12 @@ function renderSelection() {
 
   casePicker.querySelectorAll(".group-toggle").forEach(btn => {
     const group = btn.dataset.group;
-    const casesInGroup = track && track.cases.length > 0
-      ? track.cases.filter(c => c.group === group)
-      : (casesByGroup[group] || []);
-    const ids = casesInGroup.map(c => c.id);
+    const casesInGroup = getCasesInGroup(group);
+    let ids = casesInGroup.map(c => c.id);
+    if (currentTagFilter !== "all") {
+      const matching = ids.filter(id => getCaseTag(id) === currentTagFilter);
+      if (matching.length > 0) ids = matching;
+    }
     const selected = ids.filter(id => selectedCases.has(id)).length;
     const state = selected === 0 ? "none" : selected === ids.length ? "all" : "some";
     btn.dataset.state = state;
@@ -1220,11 +1234,15 @@ function setSelection(next) {
 }
 
 function toggleGroup(group) {
-  const track = getTrack(currentPuzzle, currentTrackId);
-  const casesInGroup = track && track.cases.length > 0
-    ? track.cases.filter(c => c.group === group)
-    : (casesByGroup[group] || []);
-  const ids = casesInGroup.map(c => c.id);
+  const casesInGroup = getCasesInGroup(group);
+  let ids = casesInGroup.map(c => c.id);
+  if (ids.length === 0) return;
+
+  if (currentTagFilter !== "all") {
+    const matching = ids.filter(id => getCaseTag(id) === currentTagFilter);
+    if (matching.length > 0) ids = matching;
+  }
+
   const allSelected = ids.every(id => selectedCases.has(id));
   const next = new Set(selectedCases);
   ids.forEach(id => (allSelected ? next.delete(id) : next.add(id)));
