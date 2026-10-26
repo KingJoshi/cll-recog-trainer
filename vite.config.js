@@ -3,7 +3,18 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   optimizeDeps: {
-    exclude: ['cubing/search']
+    exclude: [
+      'cubing',
+      'cubing/alg',
+      'cubing/puzzles',
+      'cubing/scramble',
+      'cubing/search',
+      'cubing/twisty',
+      'scramble-display'
+    ]
+  },
+  worker: {
+    format: 'es'
   },
   plugins: [
     VitePWA({
