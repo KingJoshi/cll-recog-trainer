@@ -25,6 +25,8 @@ import {
   ensure3x3FoundationOpaque
 } from './caseVisualizer.js';
 import { MOVE_TOKEN_REGEX, cleanAlg, normalizeAlgForCompare, parseScrambleInput } from './algParser.js';
+import { smartCube } from './smartCube.js';
+import { solveReplayViewer } from './replayView.js';
 import './style.css';
 
 // Register service worker for offline support (production only; the dev
@@ -510,6 +512,48 @@ const solveModalCopyScrambleBtn = document.getElementById("solveModalCopyScrambl
 const solveModalReattemptBtn = document.getElementById("solveModalReattemptBtn");
 const solveModalSimBtn = document.getElementById("solveModalSimBtn");
 
+// Solve Modal Replay Elements
+const solveModalMovesField = document.getElementById("solveModalMovesField");
+const solveModalMovesCount = document.getElementById("solveModalMovesCount");
+const solveModalTps = document.getElementById("solveModalTps");
+const solveModalDevice = document.getElementById("solveModalDevice");
+const solveModalMovesTape = document.getElementById("solveModalMovesTape");
+const solveModalReplayBtn = document.getElementById("solveModalReplayBtn");
+
+// Smart Cube & Bluetooth Elements
+const bluetoothBtn = document.getElementById("bluetoothBtn");
+const bluetoothHeaderDot = document.getElementById("bluetoothHeaderDot");
+const bluetoothModal = document.getElementById("bluetoothModal");
+const bluetoothModalStatusBadge = document.getElementById("bluetoothModalStatusBadge");
+const bluetoothModalCloseBtn = document.getElementById("bluetoothModalCloseBtn");
+const btModalDismissBtn = document.getElementById("btModalDismissBtn");
+const btStatusCard = document.getElementById("btStatusCard");
+const btLargeIcon = document.getElementById("btLargeIcon");
+const btDeviceName = document.getElementById("btDeviceName");
+const btStatusDesc = document.getElementById("btStatusDesc");
+const btBatteryWrap = document.getElementById("btBatteryWrap");
+const btBatteryLevel = document.getElementById("btBatteryLevel");
+const btConnectBtn = document.getElementById("btConnectBtn");
+const btDisconnectBtn = document.getElementById("btDisconnectBtn");
+const btVirtualBtn = document.getElementById("btVirtualBtn");
+const btDemoSolveBtn = document.getElementById("btDemoSolveBtn");
+const btLiveStreamWrap = document.getElementById("btLiveStreamWrap");
+const btTurnCounter = document.getElementById("btTurnCounter");
+const btMoveChipsList = document.getElementById("btMoveChipsList");
+const btVirtualKeypad = document.getElementById("btVirtualKeypad");
+
+// Solve Mode Live Smart Cube Elements
+const smartCubeSolveIndicator = document.getElementById("smartCubeSolveIndicator");
+const smartCubeSolveText = document.getElementById("smartCubeSolveText");
+const solveLiveStats = document.getElementById("solveLiveStats");
+const solveLiveMovesCount = document.getElementById("solveLiveMovesCount");
+const solveLiveTps = document.getElementById("solveLiveTps");
+const solvePostSummary = document.getElementById("solvePostSummary");
+const solvePostReplayBtn = document.getElementById("solvePostReplayBtn");
+
+// Tracked moves for active solve
+let trackedSolveMoves = [];
+
 // New Modals & Controls
 const guideBtn = document.getElementById("guideBtn");
 const guideModal = document.getElementById("guideModal");
@@ -635,6 +679,9 @@ function applyScrambleToDisplay(scrambleString) {
   freeMoveBaseScramble = currentBaseDisplayScramble;
   userFreeMoves = [];
   updateFreeMovesUI();
+  if (smartCube) {
+    smartCube.setScramble(currentBaseDisplayScramble, currentPuzzle);
+  }
   if (!el) return;
   el.scramble = currentBaseDisplayScramble;
   if (el.player) {
@@ -1017,6 +1064,7 @@ function setPuzzle(puzzleId) {
   saveSettings();
   renderStage();
   renderSolvePanel();
+  updateBluetoothUI();
   regenerateScramble();
 }
 
@@ -1890,6 +1938,7 @@ function setMode(next, { skipSimInit = false } = {}) {
   renderStage();
   renderStatsToggle();
   updateStatsTable();
+  updateBluetoothUI();
 
   if (mode === "simulate") {
     if (!skipSimInit) {
@@ -2218,6 +2267,8 @@ document.addEventListener("keydown", e => {
     (pblModal && !pblModal.hidden) ||
     (customLabelModal && !customLabelModal.hidden) ||
     (sessionModal && !sessionModal.hidden) ||
+    (bluetoothModal && !bluetoothModal.hidden) ||
+    (solveReplayModal && !solveReplayModal.hidden) ||
     (solveDetailModal && !solveDetailModal.hidden);
   if (isAnyModalOpen) return;
   const target = e.target;
@@ -3106,11 +3157,23 @@ function renderSolvePanel() {
       const targetLabel = lastSolve.target === "layer" ? "1st Layer" : (lastSolve.target === "face" ? "1st Face" : "Full Solve");
       solveCaseEl.innerHTML = `<strong>${targetLabel}</strong> · ${formatSolveDisplay(lastSolve)}`;
     }
+    if (lastSolve.moves && lastSolve.moves.length > 0) {
+      solveCaseEl.innerHTML += ` · <strong>${lastSolve.moveCount} moves</strong> (${lastSolve.tps} TPS)`;
+      if (solvePostSummary && solvePostReplayBtn) {
+        solvePostSummary.hidden = false;
+        solvePostReplayBtn.onclick = () => {
+          solveReplayViewer.open(lastSolve, "Latest Solve Replay");
+        };
+      }
+    } else {
+      if (solvePostSummary) solvePostSummary.hidden = true;
+    }
   } else {
     solveTimeEl.textContent = "0.00";
     solveCaseEl.textContent = solveInspection
       ? "Scramble cube, then inspect & start timer."
       : "Scramble cube, then hold to arm & start timer.";
+    if (solvePostSummary) solvePostSummary.hidden = true;
   }
 
   const keyHint = solveSurface.querySelector(".solve-hint-key");
@@ -3141,9 +3204,10 @@ function renderSolvePanel() {
   const recent = solves.map((solve, index) => ({ solve, index })).slice(-15).reverse();
   solveList.innerHTML = recent
     .map(({ solve, index }) => `
-      <button type="button" class="solve-chip" data-index="${index}" title="Solve #${index + 1}: ${formatSolveDisplay(solve)} ${solve.id ? `(${solve.id})` : ''} (Click to view details, × to delete)">
+      <button type="button" class="solve-chip ${solve.moves ? 'has-replay' : ''}" data-index="${index}" title="Solve #${index + 1}: ${formatSolveDisplay(solve)} ${solve.id ? `(${solve.id})` : ''} ${solve.moves ? `· ${solve.moveCount} moves (${solve.tps} TPS) · Click to replay` : ''} (Click to view details, × to delete)">
         <span class="solve-chip-time">${formatSolveDisplay(solve)}</span>
         ${solve.id ? `<span class="solve-chip-id">${solve.id}</span>` : ''}
+        ${solve.moves ? `<span class="solve-chip-replay-tag" title="Replay available">▶</span>` : ''}
         <span class="solve-chip-del" aria-label="Delete solve">&times;</span>
       </button>
     `.trim())
@@ -3237,18 +3301,26 @@ function armSolve() {
   solveOverlayHint.textContent = "Release to start";
 }
 
-function startSolve() {
-  if (solveState !== "armed") return;
+function startSolve(fromSmartCube = false) {
+  if (!fromSmartCube && solveState !== "armed") return;
+  if (fromSmartCube && solveState !== "inspecting" && solveState !== "idle" && solveState !== "armed") return;
   solveState = "running";
   clearInterval(solveInspectionInterval);
 
   solveOverlay.className = "solve-overlay";
+  solveOverlay.hidden = false;
   if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = true;
   solveOverlayHint.textContent = solvePenalty === "+2"
-    ? "Running (+2 penalty) · Any key or tap to stop"
-    : (solvePenalty === "DNF" ? "Running (DNF) · Any key or tap to stop" : "Any key or tap to stop");
+    ? "Running (+2 penalty) · Any key, tap, or solve cube to stop"
+    : (solvePenalty === "DNF" ? "Running (DNF) · Any key, tap, or solve cube to stop" : "Any key, tap, or solve cube to stop");
 
   solveStart = performance.now();
+  trackedSolveMoves = [];
+  if (solveLiveStats) solveLiveStats.hidden = false;
+  if (solveLiveMovesCount) solveLiveMovesCount.textContent = "0 moves";
+  if (solveLiveTps) solveLiveTps.textContent = "0.00 TPS";
+  if (solvePostSummary) solvePostSummary.hidden = true;
+
   const tick = () => {
     if (solveState !== "running") return;
     solveOverlayTime.textContent = formatSolveTime(performance.now() - solveStart);
@@ -3271,6 +3343,12 @@ function stopSolve(byPointer) {
 
   const scr = scrambleMoves || currentSolveScramble || scramble;
   const isCaseTarget = ["cll", "pll", "oll", "f2l", "ortega"].includes(solveTarget);
+
+  const hasMoves = trackedSolveMoves && trackedSolveMoves.length > 0;
+  const moveCount = hasMoves ? trackedSolveMoves.length : null;
+  const tps = hasMoves && rawMs > 0 ? Number((moveCount / (rawMs / 1000)).toFixed(2)) : null;
+  const smartCubeName = hasMoves ? (smartCube.deviceName || (smartCube.isVirtual ? "Virtual Keyboard Cube" : "Smart Cube")) : null;
+
   lastSolve = {
     puzzle: currentPuzzle,
     track: currentTrackId,
@@ -3280,13 +3358,25 @@ function stopSolve(byPointer) {
     rawMs: Math.round(rawMs),
     penalty: solvePenalty,
     at: Date.now(),
-    scramble: scr
+    scramble: scr,
+    moves: hasMoves ? [...trackedSolveMoves] : null,
+    moveCount,
+    tps,
+    smartCube: smartCubeName
   };
   solves.push(lastSolve);
   if (solves.length > MAX_SOLVES) solves.splice(0, solves.length - MAX_SOLVES);
   saveSolves();
 
   solveOverlayTime.textContent = formatSolveDisplay(lastSolve);
+
+  if (solveLiveStats) solveLiveStats.hidden = true;
+  if (hasMoves && solvePostSummary && solvePostReplayBtn) {
+    solvePostSummary.hidden = false;
+    solvePostReplayBtn.onclick = () => {
+      solveReplayViewer.open(lastSolve, "Latest Solve Replay");
+    };
+  }
 
   if (byPointer) {
     overlayHideOnPointerUp = true;
@@ -3313,6 +3403,8 @@ function cancelSolve() {
   clearInterval(solveInspectionInterval);
   clearTimeout(solveArmTimeout);
   solvePenalty = null;
+  trackedSolveMoves = [];
+  if (solveLiveStats) solveLiveStats.hidden = true;
   hideSolveOverlay();
   renderSolvePanel();
 }
@@ -5123,6 +5215,36 @@ function openSolveDetailModal(solve, solveNum) {
   if (solveModalDate) solveModalDate.textContent = formatFullSolveDate(solve.at);
   if (solveModalCopyScrambleBtn) solveModalCopyScrambleBtn.textContent = "Copy";
 
+  if (solveModalMovesField) {
+    if (solve.moves && solve.moves.length > 0) {
+      solveModalMovesField.hidden = false;
+      if (solveModalMovesCount) solveModalMovesCount.textContent = `${solve.moveCount || solve.moves.length} moves (ETM)`;
+      if (solveModalTps) solveModalTps.textContent = `${solve.tps || 0} TPS`;
+      if (solveModalDevice) solveModalDevice.textContent = solve.smartCube || "Smart Cube";
+      if (solveModalMovesTape) {
+        solveModalMovesTape.innerHTML = solve.moves.map((m, i) => `
+          <span class="solve-tape-item" title="Move ${i + 1}: ${m.move} (+${(m.split / 1000).toFixed(2)}s, total ${(m.t / 1000).toFixed(2)}s)">
+            ${i + 1}. ${m.move}
+          </span>
+        `).join("");
+      }
+    } else {
+      solveModalMovesField.hidden = true;
+    }
+  }
+
+  if (solveModalReplayBtn) {
+    if (solve.moves && solve.moves.length > 0) {
+      solveModalReplayBtn.hidden = false;
+      solveModalReplayBtn.onclick = () => {
+        closeSolveDetailModal();
+        solveReplayViewer.open(solve, `Solve #${solveNum} (${sess.name})`);
+      };
+    } else {
+      solveModalReplayBtn.hidden = true;
+    }
+  }
+
   solveDetailModal.hidden = false;
   document.body.style.overflow = "hidden";
 }
@@ -5180,6 +5302,275 @@ if (solveModalSimBtn) {
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && solveDetailModal && !solveDetailModal.hidden) {
     closeSolveDetailModal();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Bluetooth Smart Cube & Solve Replay Integration
+// ---------------------------------------------------------------------------
+
+function openBluetoothModal() {
+  if (!bluetoothModal) return;
+  updateBluetoothUI();
+  bluetoothModal.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function closeBluetoothModal() {
+  if (!bluetoothModal) return;
+  bluetoothModal.hidden = true;
+  document.body.style.overflow = "";
+}
+
+function updateBluetoothUI() {
+  const st = smartCube.getStatus();
+  if (bluetoothHeaderDot) {
+    bluetoothHeaderDot.className = `bt-dot ${st.status}`;
+  }
+  if (bluetoothModalStatusBadge) {
+    const badgeClass = st.status === 'connected' ? 'badge-success' : (st.status === 'connecting' ? 'badge-warning' : 'badge-disconnected');
+    bluetoothModalStatusBadge.className = `badge ${badgeClass}`;
+    bluetoothModalStatusBadge.textContent = st.status === 'connected' ? 'Connected' : (st.status === 'connecting' ? 'Connecting...' : 'Disconnected');
+  }
+  if (btStatusCard) {
+    btStatusCard.className = `bt-status-card ${st.status}`;
+  }
+  if (btDeviceName) {
+    btDeviceName.textContent = st.connected ? (st.deviceName || "Smart Cube") : "No Cube Connected";
+  }
+  if (btStatusDesc) {
+    btStatusDesc.textContent = st.connected
+      ? (st.isVirtual ? "Virtual keyboard cube active. You can press move keys (I, K, J, F, etc.) or click virtual buttons below." : "Smart cube connected via Web Bluetooth. Ready to track turns in real time!")
+      : "Connect a Bluetooth smart cube to track every turn with millisecond timestamps and replay your solves in 3D.";
+  }
+  if (btBatteryWrap) {
+    btBatteryWrap.hidden = !st.connected || st.battery == null;
+    if (btBatteryLevel && st.battery != null) {
+      btBatteryLevel.textContent = `${st.battery}%`;
+    }
+  }
+  if (btConnectBtn) btConnectBtn.hidden = st.connected;
+  if (btDisconnectBtn) btDisconnectBtn.hidden = !st.connected;
+  if (btLiveStreamWrap) btLiveStreamWrap.hidden = !st.connected;
+  if (btVirtualKeypad) btVirtualKeypad.hidden = !st.connected || !st.isVirtual;
+
+  // Solve mode indicator
+  if (smartCubeSolveIndicator) {
+    smartCubeSolveIndicator.hidden = !st.connected || mode !== "solve";
+    if (smartCubeSolveText) {
+      smartCubeSolveText.textContent = `ᛒ ${st.deviceName || "Smart Cube"} Connected · Turn cube to start timer`;
+    }
+  }
+}
+
+// Sample demonstration solve with realistic turns and splits for instant replay testing
+const DEMO_SOLVE = {
+  puzzle: "333",
+  target: "full",
+  ms: 8420,
+  rawMs: 8420,
+  penalty: null,
+  at: Date.now() - 3600000,
+  scramble: "D' R2 U B2 R2 B2 D F2 U2 F2 L' B D' B2 L2 B' D B2",
+  moves: [
+    { move: "R", t: 340, split: 340 },
+    { move: "U", t: 550, split: 210 },
+    { move: "R'", t: 730, split: 180 },
+    { move: "U'", t: 980, split: 250 },
+    { move: "F'", t: 1240, split: 260 },
+    { move: "U", t: 1460, split: 220 },
+    { move: "F", t: 1690, split: 230 },
+    { move: "U2", t: 2020, split: 330 },
+    { move: "R", t: 2310, split: 290 },
+    { move: "U'", t: 2540, split: 230 },
+    { move: "R'", t: 2750, split: 210 },
+    { move: "U", t: 3040, split: 290 },
+    { move: "R", t: 3260, split: 220 },
+    { move: "U2", t: 3580, split: 320 },
+    { move: "R'", t: 3790, split: 210 },
+    { move: "F", t: 4120, split: 330 },
+    { move: "R", t: 4340, split: 220 },
+    { move: "U", t: 4560, split: 220 },
+    { move: "R'", t: 4770, split: 210 },
+    { move: "U'", t: 5010, split: 240 },
+    { move: "F'", t: 5280, split: 270 },
+    { move: "R", t: 5610, split: 330 },
+    { move: "U", t: 5820, split: 210 },
+    { move: "R'", t: 6040, split: 220 },
+    { move: "U'", t: 6280, split: 240 },
+    { move: "R'", t: 6510, split: 230 },
+    { move: "F", t: 6790, split: 280 },
+    { move: "R2", t: 7120, split: 330 },
+    { move: "U'", t: 7350, split: 230 },
+    { move: "R'", t: 7570, split: 220 },
+    { move: "U'", t: 7790, split: 220 },
+    { move: "R", t: 8010, split: 220 },
+    { move: "U", t: 8220, split: 210 },
+    { move: "R'", t: 8340, split: 120 },
+    { move: "F'", t: 8420, split: 80 }
+  ],
+  moveCount: 35,
+  tps: 4.16,
+  smartCube: "Smart Cube (Demo)"
+};
+
+// Wire Bluetooth Header Button & Modal
+if (bluetoothBtn) {
+  bluetoothBtn.addEventListener("click", openBluetoothModal);
+}
+if (bluetoothModalCloseBtn) {
+  bluetoothModalCloseBtn.addEventListener("click", closeBluetoothModal);
+}
+if (btModalDismissBtn) {
+  btModalDismissBtn.addEventListener("click", closeBluetoothModal);
+}
+if (bluetoothModal) {
+  bluetoothModal.addEventListener("click", (e) => {
+    if (e.target === bluetoothModal) closeBluetoothModal();
+  });
+}
+
+// Connect Physical Smart Cube via Web Bluetooth
+if (btConnectBtn) {
+  btConnectBtn.addEventListener("click", async () => {
+    try {
+      await smartCube.connect();
+    } catch (err) {
+      if (err.name !== "NotFoundError" && err.name !== "AbortError") {
+        alert(err.message || "Failed to connect to smart cube.");
+      }
+    }
+  });
+}
+
+// Connect Virtual / Keyboard Cube
+if (btVirtualBtn) {
+  btVirtualBtn.addEventListener("click", async () => {
+    try {
+      await smartCube.connectVirtual(document.body, currentPuzzle);
+    } catch (err) {
+      alert("Failed to activate virtual smart cube: " + err.message);
+    }
+  });
+}
+
+// Disconnect Cube
+if (btDisconnectBtn) {
+  btDisconnectBtn.addEventListener("click", () => {
+    smartCube.disconnect();
+  });
+}
+
+// Demo Solve Replay Button
+if (btDemoSolveBtn) {
+  btDemoSolveBtn.addEventListener("click", () => {
+    closeBluetoothModal();
+    solveReplayViewer.open(DEMO_SOLVE, "Demo Solve Replay");
+  });
+}
+
+// Virtual Keypad Turn Buttons
+if (btVirtualKeypad) {
+  btVirtualKeypad.querySelectorAll(".bt-virtual-turn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const move = btn.dataset.move;
+      if (move) {
+        smartCube.handleMove(move, performance.now());
+      }
+    });
+  });
+}
+
+// Listen for Smart Cube Status Changes
+smartCube.addEventListener("statuschange", () => {
+  updateBluetoothUI();
+});
+
+// Listen for Live Turns from Smart Cube
+smartCube.addEventListener("move", (e) => {
+  const { move, isSolved } = e.detail;
+  if (!move) return;
+
+  // Append chip to BT modal live stream
+  if (btMoveChipsList) {
+    const hint = btMoveChipsList.querySelector(".bt-empty-hint");
+    if (hint) hint.remove();
+    const chip = document.createElement("span");
+    chip.className = "bt-stream-chip";
+    chip.textContent = move;
+    btMoveChipsList.appendChild(chip);
+    if (btMoveChipsList.children.length > 25) {
+      btMoveChipsList.removeChild(btMoveChipsList.firstChild);
+    }
+    chip.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "end" });
+  }
+  if (btTurnCounter) {
+    const total = smartCube.recentMoves.length;
+    btTurnCounter.textContent = `${total} turn${total === 1 ? '' : 's'}`;
+  }
+
+  // Handle Solve Mode Integration
+  if (mode === "solve") {
+    if (solveState === "idle" || solveState === "inspecting") {
+      // First physical turn automatically starts the timer!
+      startSolve(true);
+      trackedSolveMoves = [{ move, t: 0, split: 0 }];
+      if (solveShowCube && el) {
+        try {
+          const fullSeq = [currentBaseDisplayScramble, move].filter(Boolean).join(" ");
+          el.scramble = fullSeq;
+          el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
+          applyColorsTo3DCube(el);
+        } catch {}
+      }
+      if (solveLiveMovesCount) solveLiveMovesCount.textContent = "1 move";
+      if (solveLiveTps) solveLiveTps.textContent = "0.00 TPS";
+      return;
+    } else if (solveState === "running") {
+      const elapsed = Math.round(performance.now() - solveStart);
+      const prevT = trackedSolveMoves.length > 0 ? trackedSolveMoves[trackedSolveMoves.length - 1].t : 0;
+      const split = Math.max(10, elapsed - prevT);
+      trackedSolveMoves.push({ move, t: elapsed, split });
+
+      if (solveShowCube && el) {
+        try {
+          const moveTokens = trackedSolveMoves.map(m => m.move);
+          const fullSeq = [currentBaseDisplayScramble, ...moveTokens].filter(Boolean).join(" ");
+          el.scramble = fullSeq;
+          el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
+          applyColorsTo3DCube(el);
+        } catch {}
+      }
+
+      if (solveLiveMovesCount) {
+        solveLiveMovesCount.textContent = `${trackedSolveMoves.length} moves`;
+      }
+      if (solveLiveTps) {
+        const liveTpsVal = elapsed > 0 ? (trackedSolveMoves.length / (elapsed / 1000)).toFixed(2) : "0.00";
+        solveLiveTps.textContent = `${liveTpsVal} TPS`;
+      }
+
+      // Check if cube reached solved state!
+      if (isSolved) {
+        stopSolve(false);
+      }
+      return;
+    }
+  }
+
+  // Other modes: Free Face Turns / Study / Simulate / Practice
+  if (!cubeCard.hidden) {
+    applyFreeMove(move);
+  }
+});
+
+// Initialize Solve Replay Viewer
+solveReplayViewer.init({}, reattemptScramble);
+
+// Wire Escape key for Bluetooth Modal
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && bluetoothModal && !bluetoothModal.hidden) {
+    closeBluetoothModal();
   }
 });
 

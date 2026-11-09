@@ -27,6 +27,11 @@
     </div>
   </div>
   <div class="header-actions">
+    <button type="button" id="bluetoothBtn" class="header-btn bluetooth-header-btn" title="Smart Cube (Bluetooth)">
+      <span class="bt-dot disconnected" id="bluetoothHeaderDot" aria-hidden="true"></span>
+      <span class="bt-icon" aria-hidden="true">ᛒ</span>
+      <span class="bt-label">Smart Cube</span>
+    </button>
     <button type="button" id="themeToggleBtn" class="header-btn" title="Toggle Dark/Light Theme">🌙 Dark</button>
     <button type="button" id="settingsBtn" class="header-btn" title="Trainer Settings">⚙️ Settings</button>
     <button type="button" id="guideBtn" class="header-btn">Tips &amp; Guide</button>
@@ -390,8 +395,21 @@
 
     <!-- Solve mode: timer area (hold here on touch devices) and recorded times -->
     <div id="solveSurface" class="solve-surface" hidden>
+      <div id="smartCubeSolveIndicator" class="smart-cube-solve-indicator" hidden>
+        <span class="smart-cube-solve-dot"></span>
+        <span id="smartCubeSolveText">ᛒ Smart Cube Connected · Turn cube to start timer</span>
+      </div>
       <div id="solveTime" class="solve-time">0.00</div>
       <div id="solveCase" class="solve-case"></div>
+      <div id="solveLiveStats" class="solve-live-stats" hidden>
+        <span id="solveLiveMovesCount" class="badge">0 moves</span>
+        <span id="solveLiveTps" class="badge">0.00 TPS</span>
+      </div>
+      <div id="solvePostSummary" class="solve-post-summary" hidden>
+        <button type="button" id="solvePostReplayBtn" class="btn btn-primary btn-small">
+          <span aria-hidden="true">&#x25B6;</span> Replay Solve (3D)
+        </button>
+      </div>
       <p class="solve-hint solve-hint-key">Hold <kbd>Space</kbd>, release to start. Any key stops.</p>
       <p class="solve-hint solve-hint-touch">Touch and hold here, release to start. Tap anywhere to stop.</p>
     </div>
@@ -545,15 +563,208 @@
         <span class="solve-modal-label">Date &amp; Time</span>
         <p id="solveModalDate" class="solve-modal-date"></p>
       </div>
+      <div class="solve-modal-field" id="solveModalMovesField" hidden>
+        <span class="solve-modal-label">Tracked Moves</span>
+        <div class="solve-modal-moves-stats">
+          <span id="solveModalMovesCount" class="badge">0 moves</span>
+          <span id="solveModalTps" class="badge">0.00 TPS</span>
+          <span id="solveModalDevice" class="badge badge-subtle">Smart Cube</span>
+        </div>
+        <div id="solveModalMovesTape" class="solve-modal-moves-tape"></div>
+      </div>
     </div>
     <div class="solve-modal-actions">
-      <button type="button" id="solveModalReattemptBtn" class="btn btn-primary btn-small">
+      <button type="button" id="solveModalReplayBtn" class="btn btn-primary btn-small" hidden>
+        <span aria-hidden="true">&#x25B6;</span> Replay Solve (3D)
+      </button>
+      <button type="button" id="solveModalReattemptBtn" class="btn btn-small">
         <span aria-hidden="true">&#x21ba;</span> Reattempt solve
       </button>
       <button type="button" id="solveModalSimBtn" class="btn btn-small">
         <span aria-hidden="true">&#x25B6;</span> Simulate in 3D
       </button>
       <button type="button" id="solveModalDismissBtn" class="btn btn-small">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Smart Cube (Bluetooth) Modal -->
+<div id="bluetoothModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bluetoothModalTitle" hidden>
+  <div class="solve-modal-card bluetooth-modal-card">
+    <div class="solve-modal-header">
+      <div class="solve-modal-title-wrap">
+        <h3 id="bluetoothModalTitle" class="solve-modal-title">ᛒ Smart Cube (Bluetooth)</h3>
+        <span id="bluetoothModalStatusBadge" class="badge badge-disconnected">Disconnected</span>
+      </div>
+      <button type="button" id="bluetoothModalCloseBtn" class="solve-modal-close" aria-label="Close dialog">&times;</button>
+    </div>
+
+    <div class="solve-modal-body">
+      <!-- Status Card -->
+      <div class="bt-status-card" id="btStatusCard">
+        <div class="bt-status-icon-wrap">
+          <span class="bt-large-icon" id="btLargeIcon">ᛒ</span>
+        </div>
+        <div class="bt-status-info">
+          <h4 id="btDeviceName" class="bt-device-name">No Cube Connected</h4>
+          <p id="btStatusDesc" class="bt-status-desc">Connect a Bluetooth smart cube to track every turn with millisecond timestamps and replay your solves in 3D.</p>
+          <div id="btBatteryWrap" class="bt-battery-wrap" hidden>
+            <span class="bt-battery-icon" aria-hidden="true">🔋</span>
+            <span id="btBatteryLevel" class="bt-battery-level">100%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="bt-actions-row">
+        <button type="button" id="btConnectBtn" class="btn btn-primary">
+          <span class="bt-btn-icon" aria-hidden="true">ᛒ</span> Connect Smart Cube
+        </button>
+        <button type="button" id="btDisconnectBtn" class="btn btn-danger" hidden>
+          Disconnect
+        </button>
+        <button type="button" id="btVirtualBtn" class="btn btn-secondary" title="Simulate turns with keyboard without physical hardware">
+          ⌨️ Virtual / Keyboard Cube
+        </button>
+        <button type="button" id="btDemoSolveBtn" class="btn btn-small" title="Load sample solve with tracked turns">
+          ▶ Load Demo Replay
+        </button>
+      </div>
+
+      <!-- Live Stream Preview -->
+      <div id="btLiveStreamWrap" class="bt-live-stream-wrap" hidden>
+        <div class="bt-stream-header">
+          <span class="bt-stream-title">Live Turns Stream</span>
+          <span id="btTurnCounter" class="badge">0 turns</span>
+        </div>
+        <div id="btMoveChipsList" class="bt-move-chips-list">
+          <span class="bt-empty-hint">Turn your smart cube to see moves live...</span>
+        </div>
+      </div>
+
+      <!-- Virtual Cube Keypad for Testing -->
+      <div id="btVirtualKeypad" class="bt-virtual-keypad" hidden>
+        <div class="bt-keypad-title">Virtual Face Turns:</div>
+        <div class="bt-keypad-grid">
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="U">U</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="U'">U'</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="U2">U2</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="R">R</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="R'">R'</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="R2">R2</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="F">F</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="F'">F'</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="F2">F2</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="D">D</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="D'">D'</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="D2">D2</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="L">L</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="L'">L'</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="L2">L2</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="B">B</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="B'">B'</button>
+          <button type="button" class="btn btn-xs bt-virtual-turn" data-move="B2">B2</button>
+        </div>
+      </div>
+
+      <!-- Supported Cubes & Compatibility -->
+      <div class="bt-info-section">
+        <h4 class="bt-info-title">Supported Smart Cubes</h4>
+        <div class="bt-cubes-grid">
+          <span class="bt-cube-pill">GAN (356i, Carry, 12 ui, MonsterGo)</span>
+          <span class="bt-cube-pill">QiYi Smart Cube (3x3)</span>
+          <span class="bt-cube-pill">GoCube &amp; Rubik's Connected</span>
+          <span class="bt-cube-pill">GiiKER Supercube (i2, i3, i3s)</span>
+          <span class="bt-cube-pill">HeyKube</span>
+        </div>
+        <p class="bt-browser-note">
+          <strong>Browser support:</strong> Web Bluetooth is supported in Google Chrome, Microsoft Edge, Opera, and Bluefy (iOS).
+        </p>
+      </div>
+    </div>
+
+    <div class="solve-modal-actions">
+      <button type="button" id="btModalDismissBtn" class="btn btn-small">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Solve Replay Viewer Modal -->
+<div id="solveReplayModal" class="solve-modal-overlay replay-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="replayModalTitle" hidden>
+  <div class="solve-modal-card replay-modal-card">
+    <div class="solve-modal-header">
+      <div class="solve-modal-title-wrap">
+        <h3 id="replayModalTitle" class="solve-modal-title">Solve Replay</h3>
+        <span id="replayModalTime" class="solve-modal-time">0.00s</span>
+        <span id="replayModalMeta" class="replay-modal-meta">0 moves · 0.00 TPS</span>
+      </div>
+      <button type="button" id="replayModalCloseBtn" class="solve-modal-close" aria-label="Close dialog">&times;</button>
+    </div>
+
+    <div class="replay-modal-body">
+      <!-- 3D Cube Replay Stage -->
+      <div class="replay-stage-wrap">
+        <div id="replayCubeContainer" class="replay-cube-container"></div>
+      </div>
+
+      <!-- Scrubber & Time Bar -->
+      <div class="replay-timeline-card">
+        <div class="replay-scrubber-row">
+          <input type="range" id="replayScrubber" class="replay-scrubber" min="0" max="0" value="0" step="1" aria-label="Solve timeline scrubber" />
+        </div>
+        <div class="replay-time-info-row">
+          <span id="replayTimeDisplay" class="replay-time-display">0.00s / 0.00s</span>
+          <span id="replayMoveCounter" class="replay-move-counter">Move 0 / 0</span>
+          <span id="replayLiveTps" class="replay-live-tps">0.00 TPS</span>
+        </div>
+      </div>
+
+      <!-- Playback Controls Bar -->
+      <div class="replay-controls-bar">
+        <div class="replay-btn-group">
+          <button type="button" id="replayBtnStart" class="btn btn-ctrl" title="Jump to start (|◀)">
+            <span class="ctrl-icon" aria-hidden="true">&#x23EE;</span>
+          </button>
+          <button type="button" id="replayBtnPrev" class="btn btn-ctrl" title="Previous move (Left arrow)">
+            <span class="ctrl-icon" aria-hidden="true">&#x25C0;</span>
+          </button>
+          <button type="button" id="replayBtnPlay" class="btn btn-primary btn-play" title="Play / Pause (Space)">
+            <span id="replayPlayIcon" class="ctrl-icon" aria-hidden="true">&#x25B6;</span>
+            <span id="replayPlayText">Play</span>
+          </button>
+          <button type="button" id="replayBtnNext" class="btn btn-ctrl" title="Next move (Right arrow)">
+            <span class="ctrl-icon" aria-hidden="true">&#x25B6;</span>
+          </button>
+          <button type="button" id="replayBtnEnd" class="btn btn-ctrl" title="Jump to end (▶|)">
+            <span class="ctrl-icon" aria-hidden="true">&#x23ED;</span>
+          </button>
+        </div>
+
+        <div class="replay-speed-group" role="group" aria-label="Playback speed">
+          <span class="replay-speed-label">Speed:</span>
+          <button type="button" class="replay-speed-btn" data-speed="0.25">0.25x</button>
+          <button type="button" class="replay-speed-btn" data-speed="0.5">0.5x</button>
+          <button type="button" class="replay-speed-btn active" data-speed="1">1x</button>
+          <button type="button" class="replay-speed-btn" data-speed="1.5">1.5x</button>
+          <button type="button" class="replay-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+
+      <!-- Move Tape / Reconstruction Timeline -->
+      <div class="replay-tape-section">
+        <div class="replay-tape-header">
+          <span class="replay-tape-title">Move Reconstruction</span>
+          <button type="button" id="replayCopyBtn" class="btn btn-xs">Copy Reconstruction</button>
+        </div>
+        <div id="replayMoveTape" class="replay-move-tape" role="list" aria-label="Solve moves timeline">
+          <!-- Move chips populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <div class="solve-modal-actions">
+      <button type="button" id="replayModalReattemptBtn" class="btn btn-small">Reattempt Scramble</button>
+      <button type="button" id="replayModalDismissBtn" class="btn btn-small">Close</button>
     </div>
   </div>
 </div>

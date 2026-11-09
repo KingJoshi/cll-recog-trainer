@@ -6,6 +6,7 @@ export default defineConfig({
     exclude: [
       'cubing',
       'cubing/alg',
+      'cubing/bluetooth',
       'cubing/puzzles',
       'cubing/scramble',
       'cubing/search',
