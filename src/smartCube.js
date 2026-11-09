@@ -4,15 +4,48 @@ import { puzzles } from 'cubing/puzzles';
 import { Alg } from 'cubing/alg';
 
 let connectSmartCubeFn = null;
+let preloadPromise = null;
+
+export function formatMacAddress(str) {
+  if (!str || typeof str !== "string") return null;
+  const hex = str.trim().replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+  if (hex.length === 12) {
+    const parts = [];
+    for (let i = 0; i < 12; i += 2) {
+      parts.push(hex.slice(i, i + 2));
+    }
+    return parts.join(':');
+  }
+  return null;
+}
+
+export function preloadSmartCube() {
+  if (connectSmartCubeFn) return Promise.resolve(connectSmartCubeFn);
+  if (preloadPromise) return preloadPromise;
+  if (typeof window !== "undefined") {
+    preloadPromise = import('smartcube-web-bluetooth')
+      .then(mod => {
+        connectSmartCubeFn = mod.connectSmartCube;
+        return connectSmartCubeFn;
+      })
+      .catch(e => {
+        console.warn("Could not preload smartcube-web-bluetooth:", e);
+        return null;
+      });
+    return preloadPromise;
+  }
+  return Promise.resolve(null);
+}
+
+// Eagerly initiate preload in browser environments
+if (typeof window !== "undefined") {
+  preloadSmartCube().catch(() => {});
+}
+
 export async function getConnectSmartCube() {
   if (connectSmartCubeFn) return connectSmartCubeFn;
   if (typeof window !== "undefined") {
-    try {
-      const mod = await import('smartcube-web-bluetooth');
-      connectSmartCubeFn = mod.connectSmartCube;
-    } catch (e) {
-      console.warn("Could not load smartcube-web-bluetooth:", e);
-    }
+    return preloadSmartCube();
   } else if (typeof process !== "undefined" && process.versions?.node) {
     try {
       const moduleName = 'node' + ':module';
@@ -78,6 +111,7 @@ export class SmartCubeManager extends EventTarget {
     this.solvedPatterns = [];
     this.lastMoveTimeStamp = 0;
     this.recentMoves = []; // { move, timeStamp }
+    this.manualMac = "";
 
     // Bind event handlers
     this._onAlgLeaf = this._onAlgLeaf.bind(this);
@@ -87,6 +121,92 @@ export class SmartCubeManager extends EventTarget {
 
   isBluetoothSupported() {
     return typeof navigator !== "undefined" && typeof navigator.bluetooth !== "undefined";
+  }
+
+  setManualMac(macStr) {
+    const formatted = formatMacAddress(macStr);
+    this.manualMac = formatted || (macStr ? macStr.trim() : "");
+    return this.manualMac;
+  }
+
+  cacheMacAddress(device, mac) {
+    if (!mac) return;
+    const clean = formatMacAddress(mac) || mac.toUpperCase();
+    if (typeof localStorage !== "undefined") {
+      try {
+        if (device?.id) {
+          localStorage.setItem(`smartcube-ble-mac:${device.id}`, clean);
+        }
+        if (device?.name) {
+          localStorage.setItem(`cll_cube_mac_${device.name}`, clean);
+          const suffixMatch = /_([0-9A-Fa-f]{4})$/.exec(device.name);
+          if (suffixMatch) {
+            localStorage.setItem(`cll_cube_mac_suffix_${suffixMatch[1].toUpperCase()}`, clean);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not cache MAC to localStorage:", e);
+      }
+    }
+  }
+
+  async resolveMacAddress(device, isFallbackCall = false) {
+    const devId = device?.id || "";
+    const devName = device?.name || "";
+
+    // 1. Check smartcube-web-bluetooth standard key in localStorage
+    if (typeof localStorage !== "undefined" && devId) {
+      try {
+        const stored = localStorage.getItem(`smartcube-ble-mac:${devId}`);
+        if (stored) return stored;
+      } catch {}
+    }
+
+    // 2. Check trainer custom MAC keys for this device name or suffix
+    if (typeof localStorage !== "undefined" && devName) {
+      try {
+        const storedNameMac = localStorage.getItem(`cll_cube_mac_${devName}`);
+        if (storedNameMac) {
+          this.cacheMacAddress(device, storedNameMac);
+          return storedNameMac;
+        }
+
+        const suffixMatch = /_([0-9A-Fa-f]{4})$/.exec(devName);
+        if (suffixMatch) {
+          const suffixKey = `cll_cube_mac_suffix_${suffixMatch[1].toUpperCase()}`;
+          const storedSuffixMac = localStorage.getItem(suffixKey);
+          if (storedSuffixMac) {
+            this.cacheMacAddress(device, storedSuffixMac);
+            return storedSuffixMac;
+          }
+        }
+      } catch {}
+    }
+
+    // 3. Check if user configured manual MAC in UI
+    if (this.manualMac && this.manualMac.trim()) {
+      const clean = formatMacAddress(this.manualMac) || this.manualMac.trim();
+      this.cacheMacAddress(device, clean);
+      return clean;
+    }
+
+    // 4. If fallback call (meaning advertisement manufacturer data was empty/filtered by macOS):
+    if (isFallbackCall) {
+      if (typeof window !== "undefined" && typeof window.prompt === "function") {
+        const hint = devName.includes("GAN") ? " (printed on GAN box / barcode / Bluetooth settings)" : "";
+        const entered = window.prompt(
+          `Unable to auto-detect MAC address for "${devName}"${hint}.\nPlease enter the 6-byte Bluetooth MAC address (e.g. AA:BB:CC:DD:EE:FF or 12 hex digits):`,
+          ""
+        );
+        if (entered && entered.trim()) {
+          const clean = formatMacAddress(entered.trim()) || entered.trim().toUpperCase();
+          this.cacheMacAddress(device, clean);
+          return clean;
+        }
+      }
+    }
+
+    return null;
   }
 
   getStatus() {
@@ -117,79 +237,77 @@ export class SmartCubeManager extends EventTarget {
     this._emitStatusChange();
 
     try {
-      const connectSmartCube = await getConnectSmartCube();
-      if (typeof connectSmartCube === "function") {
-        try {
-          const conn = await connectSmartCube(options);
-          this.smartCubeConn = conn;
-          this.deviceName = conn.deviceName || (conn.protocol?.name ? `${conn.protocol.name} Cube` : "Smart Cube");
-          this.isVirtual = false;
-          this.status = "connected";
-
-          if (conn.events$) {
-            this.connSubscription = conn.events$.subscribe((event) => {
-              if (!event) return;
-              if (event.type === "MOVE") {
-                const timeStamp = event.localTimestamp || event.timestamp || performance.now();
-                this.handleMove(event.move, timeStamp);
-              } else if (event.type === "BATTERY") {
-                this.battery = event.batteryLevel;
-                this._emitStatusChange();
-              } else if (event.type === "GYRO" && event.quaternion) {
-                this.dispatchEvent(new CustomEvent("orientation", { detail: { quaternion: event.quaternion } }));
-              } else if (event.type === "DISCONNECT") {
-                this._onDisconnect();
-              }
-            });
-          }
-
-          if (conn.capabilities?.battery && typeof conn.sendCommand === "function") {
-            conn.sendCommand({ type: "REQUEST_BATTERY" }).catch(() => {});
-          }
-
-          this._emitStatusChange();
-          this.dispatchEvent(new CustomEvent("connected", { detail: this.getStatus() }));
-          return this.getStatus();
-        } catch (innerErr) {
-          // If the user cancelled the dialog (NotFoundError), don't trigger secondary dialog
-          if (innerErr && (innerErr.name === "NotFoundError" || innerErr.code === "NotFoundError")) {
-            throw innerErr;
-          }
-          console.warn("smartcube-web-bluetooth connection attempt failed, trying cubing fallback:", innerErr);
-        }
+      if (options.manualMac) {
+        this.setManualMac(options.manualMac);
       }
 
-      // Fallback to cubing/bluetooth
-      const puzzle = await connectSmartPuzzle(options);
-      this.connectedPuzzle = puzzle;
-      this.deviceName = puzzle.name() || "Smart Cube";
+      // Check if user specifically requested cubing/bluetooth legacy engine
+      if (options.engine === "cubing") {
+        const puzzle = await connectSmartPuzzle(options);
+        this.connectedPuzzle = puzzle;
+        this.deviceName = puzzle.name() || "Smart Cube";
+        this.isVirtual = false;
+        this.status = "connected";
+
+        if (typeof puzzle.addAlgLeafListener === "function") {
+          puzzle.addAlgLeafListener(this._onAlgLeaf);
+        }
+        if (typeof puzzle.addOrientationListener === "function") {
+          puzzle.addOrientationListener(this._onOrientation);
+        }
+        if (typeof puzzle.getBattery === "function") {
+          try { this.battery = await puzzle.getBattery(); } catch { this.battery = null; }
+        }
+        puzzle.addEventListener("disconnect", this._onDisconnect);
+        if (puzzle.server?.device) {
+          puzzle.server.device.addEventListener("gattserverdisconnected", this._onDisconnect);
+        }
+        this._emitStatusChange();
+        this.dispatchEvent(new CustomEvent("connected", { detail: this.getStatus() }));
+        return this.getStatus();
+      }
+
+      // Standard modern driver via smartcube-web-bluetooth (GAN Gen1-Gen4, MoYu V10 AI/MY32, QiYi, etc.)
+      const connectSmartCube = await getConnectSmartCube();
+      if (typeof connectSmartCube !== "function") {
+        throw new Error("Smart cube connection library is not loaded. Please try again.");
+      }
+
+      const connectOptions = {
+        enableAddressSearch: true, // Enables candidate probing for MoYu WeiLong V10 AI (WCU_MY32_xxxx)
+        deviceSelection: options.deviceSelection || "filtered",
+        onStatus: (msg) => {
+          this.dispatchEvent(new CustomEvent("progress", { detail: { message: msg } }));
+        },
+        macAddressProvider: (dev, isFallback) => this.resolveMacAddress(dev, isFallback),
+        ...options
+      };
+
+      const conn = await connectSmartCube(connectOptions);
+      this.smartCubeConn = conn;
+      this.deviceName = conn.deviceName || (conn.protocol?.name ? `${conn.protocol.name} Cube` : "Smart Cube");
       this.isVirtual = false;
       this.status = "connected";
 
-      // Listen to moves
-      if (typeof puzzle.addAlgLeafListener === "function") {
-        puzzle.addAlgLeafListener(this._onAlgLeaf);
-      }
-      // Listen to orientation if available
-      if (typeof puzzle.addOrientationListener === "function") {
-        puzzle.addOrientationListener(this._onOrientation);
-      }
-
-      // Check battery if available
-      if (typeof puzzle.getBattery === "function") {
-        try {
-          this.battery = await puzzle.getBattery();
-        } catch {
-          this.battery = null;
-        }
-      } else {
-        this.battery = null;
+      if (conn.events$) {
+        this.connSubscription = conn.events$.subscribe((event) => {
+          if (!event) return;
+          if (event.type === "MOVE") {
+            const timeStamp = event.localTimestamp || event.timestamp || performance.now();
+            this.handleMove(event.move, timeStamp);
+          } else if (event.type === "BATTERY") {
+            this.battery = event.batteryLevel;
+            this._emitStatusChange();
+          } else if (event.type === "GYRO" && event.quaternion) {
+            this.dispatchEvent(new CustomEvent("orientation", { detail: { quaternion: event.quaternion } }));
+          } else if (event.type === "DISCONNECT") {
+            this._onDisconnect();
+          }
+        });
       }
 
-      // Disconnect listener
-      puzzle.addEventListener("disconnect", this._onDisconnect);
-      if (puzzle.server?.device) {
-        puzzle.server.device.addEventListener("gattserverdisconnected", this._onDisconnect);
+      if (conn.capabilities?.battery && typeof conn.sendCommand === "function") {
+        conn.sendCommand({ type: "REQUEST_BATTERY" }).catch(() => {});
       }
 
       this._emitStatusChange();
@@ -201,6 +319,8 @@ export class SmartCubeManager extends EventTarget {
       this.smartCubeConn = null;
       this.deviceName = "";
       this._emitStatusChange();
+      // Important: do not chain a secondary requestDevice call here, as that triggers
+      // "Must be handling a user gesture to show a permission request" in Web Bluetooth
       throw err;
     }
   }
@@ -279,6 +399,45 @@ export class SmartCubeManager extends EventTarget {
     }
 
     this._onDisconnect();
+  }
+
+  hardReset() {
+    this.disconnect();
+
+    // Clear all MAC caches and Bluetooth hints from localStorage
+    if (typeof localStorage !== "undefined") {
+      try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith("smartcube-ble-mac:") || key.startsWith("cll_cube_mac_"))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => {
+          try { localStorage.removeItem(k); } catch {}
+        });
+      } catch (e) {
+        console.warn("Could not clear MAC storage cache:", e);
+      }
+    }
+
+    this.manualMac = "";
+    this.recentMoves = [];
+    this.currentPattern = null;
+    this.status = "disconnected";
+    this.deviceName = "";
+    this.battery = null;
+    this.isVirtual = false;
+
+    if (typeof document !== "undefined") {
+      document.body.style.overflow = "";
+    }
+
+    this._emitStatusChange();
+    this.dispatchEvent(new CustomEvent("disconnected"));
+    this.dispatchEvent(new CustomEvent("hardreset"));
+    return true;
   }
 
   _onDisconnect() {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { SmartCubeManager, getSolvedPatterns } from '../src/smartCube.js';
+import { SmartCubeManager, getSolvedPatterns, formatMacAddress } from '../src/smartCube.js';
 
 test('getSolvedPatterns generates all 24 orientations for 3x3 and 2x2', async () => {
   const p3 = await getSolvedPatterns('333');
@@ -142,4 +142,39 @@ test('SmartCubeManager handles multi-vendor connection events (MoYu V10 AI & GAN
   sc.disconnect();
   assert.strictEqual(sc.getStatus().connected, false);
   assert.strictEqual(subscribers.length, 0);
+});
+
+test('formatMacAddress standardizes various MAC formats into canonical XX:XX:XX:XX:XX:XX', () => {
+  assert.strictEqual(formatMacAddress("d481ca125927"), "D4:81:CA:12:59:27");
+  assert.strictEqual(formatMacAddress("d4:81:ca:12:59:27"), "D4:81:CA:12:59:27");
+  assert.strictEqual(formatMacAddress("D4-81-CA-12-59-27"), "D4:81:CA:12:59:27");
+  assert.strictEqual(formatMacAddress("  cf:30:16:00:a6:a7  "), "CF:30:16:00:A6:A7");
+  assert.strictEqual(formatMacAddress("invalid"), null);
+  assert.strictEqual(formatMacAddress(""), null);
+  assert.strictEqual(formatMacAddress(null), null);
+});
+
+test('SmartCubeManager.hardReset() clears all cached connections, moves, and state', () => {
+  const sc = new SmartCubeManager();
+  sc.status = "connected";
+  sc.deviceName = "GANic4_5927";
+  sc.battery = 85;
+  sc.manualMac = "D4:81:CA:12:59:27";
+  sc.handleMove("R", 100);
+  sc.handleMove("U", 200);
+
+  let resetEventFired = false;
+  let disconnectEventFired = false;
+  sc.addEventListener("hardreset", () => { resetEventFired = true; });
+  sc.addEventListener("disconnected", () => { disconnectEventFired = true; });
+
+  const result = sc.hardReset();
+  assert.strictEqual(result, true);
+  assert.strictEqual(sc.status, "disconnected");
+  assert.strictEqual(sc.deviceName, "");
+  assert.strictEqual(sc.battery, null);
+  assert.strictEqual(sc.manualMac, "");
+  assert.strictEqual(sc.recentMoves.length, 0);
+  assert.strictEqual(resetEventFired, true);
+  assert.strictEqual(disconnectEventFired, true);
 });

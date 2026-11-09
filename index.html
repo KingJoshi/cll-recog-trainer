@@ -615,6 +615,15 @@
         </div>
       </div>
 
+      <!-- Non-blocking Inline Error Alert Banner -->
+      <div id="btErrorAlert" class="bt-error-alert" hidden>
+        <div class="bt-error-content">
+          <span class="bt-error-icon" aria-hidden="true">⚠️</span>
+          <span id="btErrorText" class="bt-error-text"></span>
+        </div>
+        <button type="button" id="btErrorDismissBtn" class="bt-error-dismiss" aria-label="Dismiss">&times;</button>
+      </div>
+
       <!-- Action Buttons -->
       <div class="bt-actions-row">
         <button type="button" id="btConnectBtn" class="btn btn-primary">
@@ -623,6 +632,9 @@
         <button type="button" id="btDisconnectBtn" class="btn btn-danger" hidden>
           Disconnect
         </button>
+        <button type="button" id="btResetBtn" class="btn btn-outline btn-danger" title="Disconnect cube and clear saved Bluetooth/MAC cache">
+          🔄 Hard Reset Bluetooth
+        </button>
         <button type="button" id="btVirtualBtn" class="btn btn-secondary" title="Simulate turns with keyboard without physical hardware">
           ⌨️ Virtual / Keyboard Cube
         </button>
@@ -630,6 +642,27 @@
           ▶ Load Demo Replay
         </button>
       </div>
+
+      <!-- Advanced & Cube Settings (Manual MAC entry for GAN / MoYu) -->
+      <details class="bt-advanced-details" id="btAdvancedDetails">
+        <summary class="bt-advanced-summary">Advanced Settings (MAC Address &amp; Scan Options)</summary>
+        <div class="bt-advanced-body">
+          <div class="bt-field-group">
+            <label for="btCustomMacInput" class="bt-field-label">Cube Bluetooth MAC Address (optional, for GAN &amp; MoYu if auto-detect fails):</label>
+            <div class="bt-input-row">
+              <input type="text" id="btCustomMacInput" class="bt-mac-input" placeholder="e.g. AA:BB:CC:DD:EE:FF or 12 hex digits" spellcheck="false" autocomplete="off" />
+              <button type="button" id="btSaveMacBtn" class="btn btn-small btn-primary">Save MAC</button>
+            </div>
+            <p class="bt-field-hint">For GAN cubes (e.g. <code>GANic4_5927</code>), the MAC address is printed on the barcode/box sticker. The last digits usually match your device name.</p>
+          </div>
+          <div class="bt-field-group">
+            <label class="bt-checkbox-label">
+              <input type="checkbox" id="btUnfilteredCheckbox" />
+              Show all Bluetooth devices in picker (unfiltered scan)
+            </label>
+          </div>
+        </div>
+      </details>
 
       <!-- Live Stream Preview -->
       <div id="btLiveStreamWrap" class="bt-live-stream-wrap" hidden>
@@ -968,6 +1001,19 @@
             <input type="checkbox" id="settingsShowReflection">
             <span>Show reflection facelets (backs &amp; bottom)</span>
           </label>
+        </div>
+      </div>
+
+      <!-- Smart Cube Diagnostics & Reset -->
+      <div class="settings-section">
+        <div class="settings-section-head">
+          <h4 class="settings-section-title">ᛒ Smart Cube &amp; Bluetooth</h4>
+          <span class="settings-section-desc">Manage connection cache and hardware state</span>
+        </div>
+        <div style="margin-top: 8px;">
+          <button type="button" id="settingsResetBtBtn" class="btn btn-small btn-outline btn-danger" title="Disconnect and wipe Bluetooth MAC address cache">
+            🔄 Hard Reset Bluetooth &amp; Clear MAC Cache
+          </button>
         </div>
       </div>
     </div>

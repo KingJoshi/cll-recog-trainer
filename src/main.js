@@ -25,7 +25,7 @@ import {
   ensure3x3FoundationOpaque
 } from './caseVisualizer.js';
 import { MOVE_TOKEN_REGEX, cleanAlg, normalizeAlgForCompare, parseScrambleInput } from './algParser.js';
-import { smartCube } from './smartCube.js';
+import { smartCube, preloadSmartCube, formatMacAddress } from './smartCube.js';
 import { solveReplayViewer } from './replayView.js';
 import './style.css';
 
@@ -541,6 +541,14 @@ const btLiveStreamWrap = document.getElementById("btLiveStreamWrap");
 const btTurnCounter = document.getElementById("btTurnCounter");
 const btMoveChipsList = document.getElementById("btMoveChipsList");
 const btVirtualKeypad = document.getElementById("btVirtualKeypad");
+const btResetBtn = document.getElementById("btResetBtn");
+const btErrorAlert = document.getElementById("btErrorAlert");
+const btErrorText = document.getElementById("btErrorText");
+const btErrorDismissBtn = document.getElementById("btErrorDismissBtn");
+const btCustomMacInput = document.getElementById("btCustomMacInput");
+const btSaveMacBtn = document.getElementById("btSaveMacBtn");
+const btUnfilteredCheckbox = document.getElementById("btUnfilteredCheckbox");
+const settingsResetBtBtn = document.getElementById("settingsResetBtBtn");
 
 // Solve Mode Live Smart Cube Elements
 const smartCubeSolveIndicator = document.getElementById("smartCubeSolveIndicator");
@@ -5311,6 +5319,13 @@ window.addEventListener("keydown", (e) => {
 
 function openBluetoothModal() {
   if (!bluetoothModal) return;
+  preloadSmartCube().catch(() => {});
+  if (btErrorAlert) btErrorAlert.hidden = true;
+  if (btCustomMacInput) {
+    try {
+      btCustomMacInput.value = smartCube.manualMac || localStorage.getItem("cll_smartcube_last_mac") || "";
+    } catch {}
+  }
   updateBluetoothUI();
   bluetoothModal.hidden = false;
   document.body.style.overflow = "hidden";
@@ -5320,6 +5335,12 @@ function closeBluetoothModal() {
   if (!bluetoothModal) return;
   bluetoothModal.hidden = true;
   document.body.style.overflow = "";
+}
+
+function showBluetoothError(msg) {
+  if (btErrorText) btErrorText.textContent = msg;
+  if (btErrorAlert) btErrorAlert.hidden = false;
+  if (btStatusDesc) btStatusDesc.textContent = msg;
 }
 
 function updateBluetoothUI() {
@@ -5433,23 +5454,94 @@ if (bluetoothModal) {
 // Connect Physical Smart Cube via Web Bluetooth
 if (btConnectBtn) {
   btConnectBtn.addEventListener("click", async () => {
+    if (btErrorAlert) btErrorAlert.hidden = true;
+    if (btStatusDesc) btStatusDesc.textContent = "Opening Bluetooth device picker…";
     try {
-      await smartCube.connect();
+      const deviceSelection = (btUnfilteredCheckbox && btUnfilteredCheckbox.checked) ? "any" : "filtered";
+      const manualMac = btCustomMacInput?.value?.trim() || "";
+      await smartCube.connect({ deviceSelection, manualMac });
+      if (btErrorAlert) btErrorAlert.hidden = true;
     } catch (err) {
-      if (err.name !== "NotFoundError" && err.name !== "AbortError") {
-        alert(err.message || "Failed to connect to smart cube.");
+      if (err && (err.name === "NotFoundError" || err.code === "NotFoundError")) {
+        if (btStatusDesc) btStatusDesc.textContent = "Bluetooth device selection cancelled.";
+        return;
       }
+      console.warn("Bluetooth connection error:", err);
+      const userMsg = err?.message || "Failed to connect to smart cube.";
+      showBluetoothError(userMsg);
     }
   });
 }
 
+// Hard Reset Bluetooth & Clear Cache Handlers
+function handleBluetoothReset() {
+  smartCube.hardReset();
+  if (btCustomMacInput) btCustomMacInput.value = "";
+  try { localStorage.removeItem("cll_smartcube_last_mac"); } catch {}
+  if (btErrorAlert) btErrorAlert.hidden = true;
+  if (btStatusDesc) {
+    btStatusDesc.textContent = "Bluetooth state and saved MAC cache cleared. Ready to connect fresh.";
+  }
+  updateBluetoothUI();
+}
+
+if (btResetBtn) {
+  btResetBtn.addEventListener("click", handleBluetoothReset);
+}
+if (settingsResetBtBtn) {
+  settingsResetBtBtn.addEventListener("click", () => {
+    handleBluetoothReset();
+    if (btStatusDesc) {
+      btStatusDesc.textContent = "Bluetooth state and saved MAC cache cleared.";
+    }
+  });
+}
+
+// Save Custom MAC Button
+if (btSaveMacBtn && btCustomMacInput) {
+  btSaveMacBtn.addEventListener("click", () => {
+    const raw = btCustomMacInput.value.trim();
+    if (!raw) {
+      smartCube.setManualMac("");
+      try { localStorage.removeItem("cll_smartcube_last_mac"); } catch {}
+      if (btStatusDesc) btStatusDesc.textContent = "MAC address cleared.";
+      return;
+    }
+    const formatted = formatMacAddress(raw);
+    if (!formatted) {
+      showBluetoothError("Invalid MAC format. Please enter 12 hex digits (e.g. AA:BB:CC:DD:EE:FF or AABBCCDDEEFF).");
+      return;
+    }
+    btCustomMacInput.value = formatted;
+    smartCube.setManualMac(formatted);
+    try { localStorage.setItem("cll_smartcube_last_mac", formatted); } catch {}
+    if (btErrorAlert) btErrorAlert.hidden = true;
+    if (btStatusDesc) btStatusDesc.textContent = `MAC ${formatted} saved for cube connection.`;
+  });
+}
+
+// Error Banner Dismiss Button
+if (btErrorDismissBtn) {
+  btErrorDismissBtn.addEventListener("click", () => {
+    if (btErrorAlert) btErrorAlert.hidden = true;
+  });
+}
+
+// Listen for progress messages during connection setup
+smartCube.addEventListener("progress", (e) => {
+  if (btStatusDesc && e.detail?.message) {
+    btStatusDesc.textContent = e.detail.message;
+  }
+});
+
 // Connect Virtual / Keyboard Cube
 if (btVirtualBtn) {
   btVirtualBtn.addEventListener("click", async () => {
+    if (btErrorAlert) btErrorAlert.hidden = true;
     try {
       await smartCube.connectVirtual(document.body, currentPuzzle);
     } catch (err) {
-      alert("Failed to activate virtual smart cube: " + err.message);
+      showBluetoothError("Failed to activate virtual smart cube: " + err.message);
     }
   });
 }
