@@ -813,14 +813,19 @@ export class PracticeView {
     this.solutionRevealed = true;
 
     if (this.currentPuzzle === "333") {
-      const res = findCrossSolutions(this.inspectionScramble, 5);
-      this.inspectionSolutions = (res?.solutions || []).map(s => ({
-        moves: s.moves,
-        moveCount: s.length,
-        insp: s.inspectionRot && s.inspectionRot !== "none" ? s.inspectionRot : "none",
-        crossPlus1: s.crossPlusOne?.[0] ? { hasPair: true, description: `Cross+1: ${s.crossPlusOne[0].slot} (${s.crossPlusOne[0].description})` } : null,
-        eoSummary: res.eo ? { note: res.eo.badCrossEdgesCount === 0 ? 'EO: All 4 edges oriented' : `EO: ${res.eo.goodCrossEdgesCount}/4 cross edges oriented` } : null
-      }));
+      try {
+        const res = await findCrossSolutions(this.inspectionScramble, 5);
+        const list = Array.isArray(res) ? res : (res?.solutions || []);
+        this.inspectionSolutions = list.map(s => ({
+          moves: s.moves,
+          moveCount: s.moveCount || s.length,
+          insp: s.insp && s.insp !== "none" ? s.insp : (s.inspectionRot && s.inspectionRot !== "none" ? s.inspectionRot : "none"),
+          crossPlus1: s.crossPlus1?.hasPair ? s.crossPlus1 : (s.crossPlusOne?.[0] ? { hasPair: true, description: `Cross+1: ${s.crossPlusOne[0].slot} (${s.crossPlusOne[0].description})` } : null),
+          eoSummary: s.eoSummary || (res.eo ? { note: res.eo.badCrossEdgesCount === 0 ? 'EO: All 4 edges oriented' : `EO: ${res.eo.goodCrossEdgesCount}/4 cross edges oriented` } : null)
+        }));
+      } catch (e) {
+        this.inspectionSolutions = [];
+      }
     } else {
       try {
         const sols = await findLayerSolutions(this.inspectionScramble, ['white'], 5);

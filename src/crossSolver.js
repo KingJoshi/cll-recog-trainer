@@ -10,6 +10,13 @@ let moveList = null;
 
 const faces = ['U', 'D', 'R', 'L', 'F', 'B'];
 
+// Map side center piece index to corresponding White edge piece index:
+// Center 2 (Green) -> Edge 0 (White-Green)
+// Center 3 (Red)   -> Edge 1 (White-Red)
+// Center 4 (Blue)  -> Edge 2 (White-Blue)
+// Center 1 (Orange)-> Edge 3 (White-Orange)
+export const centerToWhiteEdge = { 2: 0, 3: 1, 4: 2, 1: 3 };
+
 async function initSolver() {
   if (distTable) return;
   kp333 = await puzzles['3x3x3'].kpuzzle();
@@ -37,7 +44,7 @@ async function initSolver() {
   const queue = new Int32Array(N);
   let qHead = 0, qTail = 0;
 
-  // Solved target: pieces 4, 5, 6, 7 in slots 4, 5, 6, 7 (including 4 D AUF rotations)
+  // Solved target: pieces p0, p1, p2, p3 in slots 4, 5, 6, 7 (including 4 D AUF rotations)
   for (let d = 0; d < 4; d++) {
     const s0 = 4 + d;
     const s1 = 4 + ((1 + d) % 4);
@@ -148,15 +155,65 @@ function searchPaths(s0, s1, s2, s3, o0, o1, o2, o3, depth, maxDepth, lastFace, 
   }
 }
 
-// 4 F2L pairs: [cornerPiece, edgePiece, cornerSlot, edgeSlot, slotName]
-const F2L_PAIRS = [
-  { name: "FR", corner: 4, edge: 8 },
-  { name: "FL", corner: 5, edge: 9 },
-  { name: "BL", corner: 6, edge: 11 },
-  { name: "BR", corner: 7, edge: 10 }
-];
+function getInspectionRotationsForWhiteBottom(initialPat) {
+  const whiteCenterSlot = initialPat.patternData.CENTERS.pieces.indexOf(0);
+  // If White center is already on D (slot 5):
+  if (whiteCenterSlot === 5) {
+    return [
+      { name: "none", alg: "" },
+      { name: "y", alg: "y" },
+      { name: "y2", alg: "y2" },
+      { name: "y'", alg: "y'" }
+    ];
+  }
+  // If White center is on U (slot 0, standard WCA orientation):
+  if (whiteCenterSlot === 0) {
+    return [
+      { name: "z2", alg: "z2" },       // Green front
+      { name: "z2 y", alg: "z2 y" },   // Orange front
+      { name: "x2", alg: "x2" },       // Blue front
+      { name: "x2 y", alg: "x2 y" }    // Red front
+    ];
+  }
+  // Generic fallback for any other non-standard orientation:
+  const candidates = [
+    { name: "z2", alg: "z2" },
+    { name: "z2 y", alg: "z2 y" },
+    { name: "x2", alg: "x2" },
+    { name: "x2 y", alg: "x2 y" },
+    { name: "x", alg: "x" },
+    { name: "x y", alg: "x y" },
+    { name: "x y2", alg: "x y2" },
+    { name: "x y'", alg: "x y'" },
+    { name: "x'", alg: "x'" },
+    { name: "x' y", alg: "x' y" },
+    { name: "x' y2", alg: "x' y2" },
+    { name: "x' y'", alg: "x' y'" },
+    { name: "z", alg: "z" },
+    { name: "z y", alg: "z y" },
+    { name: "z y2", alg: "z y2" },
+    { name: "z y'", alg: "z y'" },
+    { name: "z'", alg: "z'" },
+    { name: "z' y", alg: "z' y" },
+    { name: "z' y2", alg: "z' y2" },
+    { name: "z' y'", alg: "z' y'" }
+  ];
+  const res = [];
+  const seen = new Set();
+  for (const c of candidates) {
+    const p = initialPat.applyAlg(new Alg(c.alg));
+    if (p.patternData.CENTERS.pieces[5] === 0) {
+      const key = JSON.stringify(p.patternData.CENTERS.pieces);
+      if (!seen.has(key)) {
+        seen.add(key);
+        res.push(c);
+      }
+    }
+  }
+  return res.length ? res : [{ name: "z2", alg: "z2" }];
+}
 
-export async function findCrossSolutions(scrambleStr, maxSolutions = 6) {
+export async function findCrossSolutions(scrambleStr, maxSolutions = 8) {
   if (!scrambleStr || !scrambleStr.trim()) return [];
   await initSolver();
 
@@ -167,23 +224,20 @@ export async function findCrossSolutions(scrambleStr, maxSolutions = 6) {
     return [];
   }
 
+  let initialPat;
+  try {
+    initialPat = kp333.defaultPattern().applyAlg(scrambleAlg);
+  } catch (e) {
+    return [];
+  }
+
   const rawSolutions = [];
-  const inspectionRotations = [
-    { name: "none", alg: "" },
-    { name: "y", alg: "y" },
-    { name: "y'", alg: "y'" },
-    { name: "y2", alg: "y2" }
-  ];
+  const inspectionRotations = getInspectionRotationsForWhiteBottom(initialPat);
 
   for (const insp of inspectionRotations) {
-    let combinedAlgStr = scrambleStr;
-    if (insp.alg) {
-      combinedAlgStr += ' ' + insp.alg;
-    }
-
     let pat;
     try {
-      pat = kp333.defaultPattern().applyAlg(new Alg(combinedAlgStr));
+      pat = insp.alg ? initialPat.applyAlg(new Alg(insp.alg)) : initialPat;
     } catch (e) {
       continue;
     }
@@ -195,11 +249,26 @@ export async function findCrossSolutions(scrambleStr, maxSolutions = 6) {
     const goodEdges = ori.filter(o => o === 0).length;
     const badEdges = ori.filter(o => o === 1).length;
 
-    // Cross pieces: 4 (DF), 5 (DR), 6 (DB), 7 (DL)
-    const s0 = pieces.indexOf(4);
-    const s1 = pieces.indexOf(5);
-    const s2 = pieces.indexOf(6);
-    const s3 = pieces.indexOf(7);
+    // Centers after inspection rotation:
+    const fc = pat.patternData.CENTERS.pieces[2];
+    const rc = pat.patternData.CENTERS.pieces[3];
+    const bc = pat.patternData.CENTERS.pieces[4];
+    const lc = pat.patternData.CENTERS.pieces[1];
+
+    // The 4 White cross pieces corresponding to the 4 side faces (DF, DR, DB, DL):
+    const pA = centerToWhiteEdge[fc];
+    const pB = centerToWhiteEdge[rc];
+    const pC = centerToWhiteEdge[bc];
+    const pD = centerToWhiteEdge[lc];
+
+    if (pA === undefined || pB === undefined || pC === undefined || pD === undefined) {
+      continue;
+    }
+
+    const s0 = pieces.indexOf(pA);
+    const s1 = pieces.indexOf(pB);
+    const s2 = pieces.indexOf(pC);
+    const s3 = pieces.indexOf(pD);
 
     const o0 = ori[s0];
     const o1 = ori[s1];
@@ -214,18 +283,33 @@ export async function findCrossSolutions(scrambleStr, maxSolutions = 6) {
     const rawPaths = [];
     searchPaths(s0, s1, s2, s3, o0, o1, o2, o3, 0, optimalMoves, -1, [], rawPaths);
 
+    // Reference solved pattern for this inspection orientation:
+    let solvedPat;
+    try {
+      solvedPat = insp.alg ? kp333.defaultPattern().applyAlg(new Alg(insp.alg)) : kp333.defaultPattern();
+    } catch (e) {
+      solvedPat = kp333.defaultPattern();
+    }
+
+    const f2lSlots = [
+      { name: "FR", cSlot: 4, eSlot: 8 },
+      { name: "FL", cSlot: 5, eSlot: 9 },
+      { name: "BL", cSlot: 6, eSlot: 11 },
+      { name: "BR", cSlot: 7, eSlot: 10 }
+    ];
+
     for (const p of rawPaths) {
       let solStr = p.join(' ');
       let fullPat = pat.applyAlg(new Alg(solStr));
 
       // Check D alignment AUF:
       const curP = fullPat.patternData.EDGES.pieces.slice(4, 8);
-      if (curP[0] !== 4 || curP[1] !== 5 || curP[2] !== 6 || curP[3] !== 7) {
+      if (curP[0] !== pA || curP[1] !== pB || curP[2] !== pC || curP[3] !== pD) {
         for (const dMove of ["D", "D2", "D'"]) {
           const testPat = fullPat.applyAlg(new Alg(dMove));
           const testP = testPat.patternData.EDGES.pieces.slice(4, 8);
-          if (testP[0] === 4 && testP[1] === 5 && testP[2] === 6 && testP[3] === 7) {
-            solStr = solStr + ' ' + dMove;
+          if (testP[0] === pA && testP[1] === pB && testP[2] === pC && testP[3] === pD) {
+            solStr = (solStr ? solStr + ' ' : '') + dMove;
             fullPat = testPat;
             break;
           }
@@ -246,48 +330,56 @@ export async function findCrossSolutions(scrambleStr, maxSolutions = 6) {
         description: ""
       };
 
-      for (const pair of F2L_PAIRS) {
-        // Solved in slot:
-        const cSlot = cornerPiecesAfter.indexOf(pair.corner);
-        const eSlot = edgePiecesAfter.indexOf(pair.edge);
-        const cOri = cornerOriAfter[cSlot];
-        const eOri = edgeOriAfter[eSlot];
+      for (const slot of f2lSlots) {
+        const targetCorner = solvedPat.patternData.CORNERS.pieces[slot.cSlot];
+        const targetCornerOri = solvedPat.patternData.CORNERS.orientation[slot.cSlot];
+        const targetEdge = solvedPat.patternData.EDGES.pieces[slot.eSlot];
+        const targetEdgeOri = solvedPat.patternData.EDGES.orientation[slot.eSlot];
 
-        if (cSlot === pair.corner && eSlot === pair.edge && cOri === 0 && eOri === 0) {
+        const actualCornerSlot = cornerPiecesAfter.indexOf(targetCorner);
+        const actualEdgeSlot = edgePiecesAfter.indexOf(targetEdge);
+        const cOri = cornerOriAfter[actualCornerSlot];
+        const eOri = edgeOriAfter[actualEdgeSlot];
+
+        if (actualCornerSlot === slot.cSlot && actualEdgeSlot === slot.eSlot && cOri === targetCornerOri && eOri === targetEdgeOri) {
           crossPlus1 = {
             hasPair: true,
             score: 3,
             type: "solved",
-            slot: pair.name,
-            description: `Free Pair Solved in ${pair.name} slot!`
+            slot: slot.name,
+            description: `Free Pair Solved in ${slot.name} slot!`
           };
           break;
         }
 
         // Pair in U layer (slots 0..3)
-        if (cSlot < 4 && eSlot < 4) {
-          // If corner and edge are adjacent in U layer
+        if (actualCornerSlot < 4 && actualEdgeSlot < 4) {
           crossPlus1 = {
             hasPair: true,
             score: 2,
             type: "connected",
-            slot: pair.name,
-            description: `Pair in U layer for ${pair.name}`
+            slot: slot.name,
+            description: `Pair in U layer for ${slot.name}`
           };
         }
       }
 
+      const moveTokens = solStr.trim().split(/\s+/).filter(Boolean);
+
       rawSolutions.push({
-        moves: solStr,
-        moveCount: solStr.split(' ').length,
+        moves: solStr.trim(),
+        moveCount: moveTokens.length,
+        length: moveTokens.length,
         insp: insp.name,
+        inspectionRot: insp.name,
         eoSummary: {
           goodEdges,
           badEdges,
           crossOriented,
           note: `${crossOriented}/4 cross edges oriented, ${goodEdges}/12 overall good EO`
         },
-        crossPlus1
+        crossPlus1,
+        crossPlusOne: crossPlus1.hasPair ? [crossPlus1] : []
       });
     }
   }
@@ -297,21 +389,19 @@ export async function findCrossSolutions(scrambleStr, maxSolutions = 6) {
   const seenMoves = new Set();
 
   rawSolutions.sort((a, b) => {
-    // 1. Cross+1 score
-    if (b.crossPlus1.score !== a.crossPlus1.score) {
-      return b.crossPlus1.score - a.crossPlus1.score;
+    // 1. Cross+1 score (higher is better)
+    if ((b.crossPlus1?.score || 0) !== (a.crossPlus1?.score || 0)) {
+      return (b.crossPlus1?.score || 0) - (a.crossPlus1?.score || 0);
     }
-    // 2. Move count
+    // 2. Move count (shorter is better)
     if (a.moveCount !== b.moveCount) {
       return a.moveCount - b.moveCount;
     }
-    // 3. Inspection complexity (none preferred over y/y2)
-    const inspScore = (i) => i === 'none' ? 0 : i === 'y' ? 1 : i === "y'" ? 2 : 3;
-    return inspScore(a.insp) - inspScore(b.insp);
+    return 0;
   });
 
   for (const sol of rawSolutions) {
-    const key = `${sol.insp}|${sol.moves}`;
+    const key = `${sol.insp}:${sol.moves}`;
     if (!seenMoves.has(key)) {
       seenMoves.add(key);
       unique.push(sol);
@@ -319,5 +409,6 @@ export async function findCrossSolutions(scrambleStr, maxSolutions = 6) {
     }
   }
 
+  unique.solutions = unique;
   return unique;
 }
