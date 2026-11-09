@@ -19,6 +19,35 @@ export function formatMacAddress(str) {
   return null;
 }
 
+export function checkFaceletsSolved(facelets) {
+  if (!facelets || typeof facelets !== "string") return false;
+  const str = facelets.trim();
+  if (str.length === 54) { // 3x3 (9 stickers * 6 faces: U, R, F, D, L, B)
+    const centers = new Set();
+    for (let f = 0; f < 6; f++) {
+      const center = str[f * 9 + 4];
+      if (centers.has(center)) return false;
+      centers.add(center);
+      for (let i = 0; i < 9; i++) {
+        if (str[f * 9 + i] !== center) return false;
+      }
+    }
+    return centers.size === 6;
+  } else if (str.length === 24) { // 2x2 (4 stickers * 6 faces)
+    const faces = new Set();
+    for (let f = 0; f < 6; f++) {
+      const first = str[f * 4];
+      if (faces.has(first)) return false;
+      faces.add(first);
+      for (let i = 1; i < 4; i++) {
+        if (str[f * 4 + i] !== first) return false;
+      }
+    }
+    return faces.size === 6;
+  }
+  return false;
+}
+
 export function preloadSmartCube() {
   if (connectSmartCubeFn) return Promise.resolve(connectSmartCubeFn);
   if (preloadPromise) return preloadPromise;
@@ -112,6 +141,7 @@ export class SmartCubeManager extends EventTarget {
     this.lastMoveTimeStamp = 0;
     this.recentMoves = []; // { move, timeStamp }
     this.manualMac = "";
+    this.latestFacelets = "";
 
     // Bind event handlers
     this._onAlgLeaf = this._onAlgLeaf.bind(this);
@@ -295,6 +325,8 @@ export class SmartCubeManager extends EventTarget {
           if (event.type === "MOVE") {
             const timeStamp = event.localTimestamp || event.timestamp || performance.now();
             this.handleMove(event.move, timeStamp);
+          } else if (event.type === "FACELETS" && event.facelets) {
+            this.handleFacelets(event.facelets);
           } else if (event.type === "BATTERY") {
             this.battery = event.batteryLevel;
             this._emitStatusChange();
@@ -423,6 +455,7 @@ export class SmartCubeManager extends EventTarget {
     }
 
     this.manualMac = "";
+    this.latestFacelets = "";
     this.recentMoves = [];
     this.currentPattern = null;
     this.status = "disconnected";
@@ -452,6 +485,7 @@ export class SmartCubeManager extends EventTarget {
     this.smartCubeConn = null;
     this.connectedPuzzle = null;
     this.deviceName = "";
+    this.latestFacelets = "";
     this.battery = null;
     this.isVirtual = false;
     this._emitStatusChange();
@@ -469,6 +503,25 @@ export class SmartCubeManager extends EventTarget {
   _onOrientation(event) {
     if (!event || !event.quaternion) return;
     this.dispatchEvent(new CustomEvent("orientation", { detail: { quaternion: event.quaternion } }));
+  }
+
+  handleFacelets(facelets) {
+    if (!facelets || typeof facelets !== "string") return;
+    this.latestFacelets = facelets;
+    const isSolved = checkFaceletsSolved(facelets);
+    if (isSolved) {
+      if (this.currentPattern && this.solvedPatterns && this.solvedPatterns.length > 0) {
+        if (!this.solvedPatterns.some(p => p.isIdentical(this.currentPattern))) {
+          this.currentPattern = this.solvedPatterns[0];
+        }
+      }
+      this.dispatchEvent(new CustomEvent("solved", { detail: { facelets, isSolved: true } }));
+      this.dispatchEvent(new CustomEvent("move", { detail: { move: null, isSolved: true, facelets } }));
+    }
+  }
+
+  checkFaceletsSolved(facelets) {
+    return checkFaceletsSolved(facelets);
   }
 
   handleMove(moveStr, timeStamp = performance.now()) {
@@ -495,6 +548,11 @@ export class SmartCubeManager extends EventTarget {
       }
     }
 
+    // Also verify with latest hardware facelets if available
+    if (!isSolved && this.latestFacelets) {
+      isSolved = this.checkFaceletsSolved(this.latestFacelets);
+    }
+
     const detail = {
       move: moveStr,
       timeStamp,
@@ -503,6 +561,9 @@ export class SmartCubeManager extends EventTarget {
     };
 
     this.dispatchEvent(new CustomEvent("move", { detail }));
+    if (isSolved) {
+      this.dispatchEvent(new CustomEvent("solved", { detail }));
+    }
     return detail;
   }
 

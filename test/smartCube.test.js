@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { SmartCubeManager, getSolvedPatterns, formatMacAddress } from '../src/smartCube.js';
+import { SmartCubeManager, getSolvedPatterns, formatMacAddress, checkFaceletsSolved } from '../src/smartCube.js';
 
 test('getSolvedPatterns generates all 24 orientations for 3x3 and 2x2', async () => {
   const p3 = await getSolvedPatterns('333');
@@ -178,3 +178,50 @@ test('SmartCubeManager.hardReset() clears all cached connections, moves, and sta
   assert.strictEqual(resetEventFired, true);
   assert.strictEqual(disconnectEventFired, true);
 });
+
+test('checkFaceletsSolved accurately recognizes solved state for 3x3 and 2x2', () => {
+  const solved333 = 'UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB';
+  assert.strictEqual(checkFaceletsSolved(solved333), true);
+
+  const scrambled333 = 'UFRUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB';
+  assert.strictEqual(checkFaceletsSolved(scrambled333), false);
+
+  const solved222 = 'UUUURRRRFFFFDDDDLLLLBBBB';
+  assert.strictEqual(checkFaceletsSolved(solved222), true);
+
+  const scrambled222 = 'UFRURRRRFFFFDDDDLLLLBBBB';
+  assert.strictEqual(checkFaceletsSolved(scrambled222), false);
+
+  assert.strictEqual(checkFaceletsSolved(null), false);
+  assert.strictEqual(checkFaceletsSolved(''), false);
+});
+
+test('SmartCubeManager handles double flick rapid moves and detects hardware solved state', async () => {
+  const sc = new SmartCubeManager();
+  await sc.setScramble("U2", "333");
+
+  let solvedFired = false;
+  sc.addEventListener("solved", () => {
+    solvedFired = true;
+  });
+
+  // Rapid double flick U then U (within 25ms)
+  const d1 = sc.handleMove("U", 1000);
+  assert.strictEqual(d1.isSolved, false);
+  assert.strictEqual(sc.recentMoves.length, 1);
+
+  const d2 = sc.handleMove("U", 1025);
+  // After U2 (or U then U), U2 scramble is undone -> solved!
+  assert.strictEqual(d2.isSolved, true);
+  assert.strictEqual(sc.recentMoves.length, 2);
+  assert.strictEqual(solvedFired, true);
+
+  // Hardware facelets emission triggers solved event even if pattern was desynced
+  let faceletsSolvedFired = false;
+  sc.addEventListener("solved", () => {
+    faceletsSolvedFired = true;
+  });
+  sc.handleFacelets('UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB');
+  assert.strictEqual(faceletsSolvedFired, true);
+});
+

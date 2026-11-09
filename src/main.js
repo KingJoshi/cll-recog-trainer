@@ -5701,10 +5701,42 @@ smartCube.addEventListener("statuschange", () => {
   updateBluetoothUI();
 });
 
+// Batch 3D cube updates during live solve to prevent WebGL blocking on rapid double-flicks
+let pendingSolveCubeUpdateRaf = null;
+function request3DCubeUpdate() {
+  if (!solveShowCube || !el) return;
+  if (pendingSolveCubeUpdateRaf) return;
+  pendingSolveCubeUpdateRaf = requestAnimationFrame(() => {
+    pendingSolveCubeUpdateRaf = null;
+    try {
+      const moveTokens = trackedSolveMoves.map(m => m.move);
+      const fullSeq = [currentBaseDisplayScramble, ...moveTokens].filter(Boolean).join(" ");
+      el.scramble = fullSeq;
+      el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
+    } catch {}
+  });
+}
+
+// Listen for Solved State from Smart Cube Hardware / Facelets
+smartCube.addEventListener("solved", () => {
+  if (mode === "solve" && solveState === "running") {
+    stopSolve(false);
+    smartCubeStage = "scrambling";
+    updateSmartCubeIndicator();
+  }
+});
+
 // Listen for Live Turns from Smart Cube
 smartCube.addEventListener("move", (e) => {
   const { move, isSolved } = e.detail;
-  if (!move) return;
+  if (!move) {
+    if (isSolved && mode === "solve" && solveState === "running") {
+      stopSolve(false);
+      smartCubeStage = "scrambling";
+      updateSmartCubeIndicator();
+    }
+    return;
+  }
 
   // Append chip to BT modal live stream
   if (btMoveChipsList) {
@@ -5761,14 +5793,7 @@ smartCube.addEventListener("move", (e) => {
       smartCubeStage = "solving";
       startSolve(true);
       trackedSolveMoves = [{ move, t: 0, split: 0 }];
-      if (solveShowCube && el) {
-        try {
-          const fullSeq = [currentBaseDisplayScramble, move].filter(Boolean).join(" ");
-          el.scramble = fullSeq;
-          el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
-          applyColorsTo3DCube(el);
-        } catch {}
-      }
+      request3DCubeUpdate();
       if (solveLiveMovesCount) solveLiveMovesCount.textContent = "1 move";
       if (solveLiveTps) solveLiveTps.textContent = "0.00 TPS";
       updateSmartCubeIndicator();
@@ -5785,14 +5810,7 @@ smartCube.addEventListener("move", (e) => {
       smartCubeStage = "solving";
       startSolve(true);
       trackedSolveMoves = [{ move, t: 0, split: 0 }];
-      if (solveShowCube && el) {
-        try {
-          const fullSeq = [currentBaseDisplayScramble, move].filter(Boolean).join(" ");
-          el.scramble = fullSeq;
-          el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
-          applyColorsTo3DCube(el);
-        } catch {}
-      }
+      request3DCubeUpdate();
       if (solveLiveMovesCount) solveLiveMovesCount.textContent = "1 move";
       if (solveLiveTps) solveLiveTps.textContent = "0.00 TPS";
       updateSmartCubeIndicator();
@@ -5806,15 +5824,7 @@ smartCube.addEventListener("move", (e) => {
       const split = Math.max(10, elapsed - prevT);
       trackedSolveMoves.push({ move, t: elapsed, split });
 
-      if (solveShowCube && el) {
-        try {
-          const moveTokens = trackedSolveMoves.map(m => m.move);
-          const fullSeq = [currentBaseDisplayScramble, ...moveTokens].filter(Boolean).join(" ");
-          el.scramble = fullSeq;
-          el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
-          applyColorsTo3DCube(el);
-        } catch {}
-      }
+      request3DCubeUpdate();
 
       if (solveLiveMovesCount) {
         solveLiveMovesCount.textContent = `${trackedSolveMoves.length} moves`;
