@@ -3,6 +3,30 @@ import { connectSmartPuzzle, KeyboardPuzzle } from 'cubing/bluetooth';
 import { puzzles } from 'cubing/puzzles';
 import { Alg } from 'cubing/alg';
 
+let connectSmartCubeFn = null;
+export async function getConnectSmartCube() {
+  if (connectSmartCubeFn) return connectSmartCubeFn;
+  if (typeof window !== "undefined") {
+    try {
+      const mod = await import('smartcube-web-bluetooth');
+      connectSmartCubeFn = mod.connectSmartCube;
+    } catch (e) {
+      console.warn("Could not load smartcube-web-bluetooth:", e);
+    }
+  } else if (typeof process !== "undefined" && process.versions?.node) {
+    try {
+      const moduleName = 'node' + ':module';
+      const nodeModule = await import(/* @vite-ignore */ moduleName);
+      const req = nodeModule.createRequire(import.meta.url);
+      const mod = req('smartcube-web-bluetooth');
+      connectSmartCubeFn = mod.connectSmartCube;
+    } catch (e) {
+      // Node test environment
+    }
+  }
+  return connectSmartCubeFn;
+}
+
 // Precomputed solved patterns cache for 3x3 and 2x2 in all 24 orientations
 const solvedPatternsCache = new Map();
 
@@ -44,6 +68,8 @@ export class SmartCubeManager extends EventTarget {
     super();
     this.status = "disconnected"; // "disconnected" | "connecting" | "connected"
     this.connectedPuzzle = null;
+    this.smartCubeConn = null;
+    this.connSubscription = null;
     this.deviceName = "";
     this.battery = null;
     this.isVirtual = false;
@@ -91,6 +117,49 @@ export class SmartCubeManager extends EventTarget {
     this._emitStatusChange();
 
     try {
+      const connectSmartCube = await getConnectSmartCube();
+      if (typeof connectSmartCube === "function") {
+        try {
+          const conn = await connectSmartCube(options);
+          this.smartCubeConn = conn;
+          this.deviceName = conn.deviceName || (conn.protocol?.name ? `${conn.protocol.name} Cube` : "Smart Cube");
+          this.isVirtual = false;
+          this.status = "connected";
+
+          if (conn.events$) {
+            this.connSubscription = conn.events$.subscribe((event) => {
+              if (!event) return;
+              if (event.type === "MOVE") {
+                const timeStamp = event.localTimestamp || event.timestamp || performance.now();
+                this.handleMove(event.move, timeStamp);
+              } else if (event.type === "BATTERY") {
+                this.battery = event.batteryLevel;
+                this._emitStatusChange();
+              } else if (event.type === "GYRO" && event.quaternion) {
+                this.dispatchEvent(new CustomEvent("orientation", { detail: { quaternion: event.quaternion } }));
+              } else if (event.type === "DISCONNECT") {
+                this._onDisconnect();
+              }
+            });
+          }
+
+          if (conn.capabilities?.battery && typeof conn.sendCommand === "function") {
+            conn.sendCommand({ type: "REQUEST_BATTERY" }).catch(() => {});
+          }
+
+          this._emitStatusChange();
+          this.dispatchEvent(new CustomEvent("connected", { detail: this.getStatus() }));
+          return this.getStatus();
+        } catch (innerErr) {
+          // If the user cancelled the dialog (NotFoundError), don't trigger secondary dialog
+          if (innerErr && (innerErr.name === "NotFoundError" || innerErr.code === "NotFoundError")) {
+            throw innerErr;
+          }
+          console.warn("smartcube-web-bluetooth connection attempt failed, trying cubing fallback:", innerErr);
+        }
+      }
+
+      // Fallback to cubing/bluetooth
       const puzzle = await connectSmartPuzzle(options);
       this.connectedPuzzle = puzzle;
       this.deviceName = puzzle.name() || "Smart Cube";
@@ -129,6 +198,7 @@ export class SmartCubeManager extends EventTarget {
     } catch (err) {
       this.status = "disconnected";
       this.connectedPuzzle = null;
+      this.smartCubeConn = null;
       this.deviceName = "";
       this._emitStatusChange();
       throw err;
@@ -179,6 +249,24 @@ export class SmartCubeManager extends EventTarget {
   }
 
   disconnect() {
+    if (this.connSubscription) {
+      try {
+        this.connSubscription.unsubscribe();
+      } catch (e) {}
+      this.connSubscription = null;
+    }
+
+    if (this.smartCubeConn) {
+      try {
+        if (typeof this.smartCubeConn.disconnect === "function") {
+          this.smartCubeConn.disconnect().catch(() => {});
+        }
+      } catch (e) {
+        console.warn("Error disconnecting smart cube connection:", e);
+      }
+      this.smartCubeConn = null;
+    }
+
     if (this.connectedPuzzle) {
       try {
         if (typeof this.connectedPuzzle.disconnect === "function") {
@@ -187,6 +275,7 @@ export class SmartCubeManager extends EventTarget {
       } catch (e) {
         console.warn("Error disconnecting smart puzzle:", e);
       }
+      this.connectedPuzzle = null;
     }
 
     this._onDisconnect();
@@ -195,6 +284,13 @@ export class SmartCubeManager extends EventTarget {
   _onDisconnect() {
     if (this.status === "disconnected") return;
     this.status = "disconnected";
+    if (this.connSubscription) {
+      try {
+        this.connSubscription.unsubscribe();
+      } catch (e) {}
+      this.connSubscription = null;
+    }
+    this.smartCubeConn = null;
     this.connectedPuzzle = null;
     this.deviceName = "";
     this.battery = null;

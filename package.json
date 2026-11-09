@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "cubing": "^0.63.4",
-    "scramble-display": "^0.59.1"
+    "scramble-display": "^0.59.1",
+    "smartcube-web-bluetooth": "github:poliva/smartcube-web-bluetooth"
   }
 }

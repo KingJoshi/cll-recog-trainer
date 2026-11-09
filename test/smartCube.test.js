@@ -76,3 +76,70 @@ test('SmartCubeManager event listeners for move and statuschange', async () => {
   assert.strictEqual(lastMove, "R");
   assert.strictEqual(sc.getStatus().recentMoves.length, 2);
 });
+
+test('SmartCubeManager handles multi-vendor connection events (MoYu V10 AI & GAN i Carry 4)', async () => {
+  const sc = new SmartCubeManager();
+  
+  // Simulate connection object from smartcube-web-bluetooth for MoYu WeiLong V10 AI
+  const mockEvents = [];
+  const subscribers = [];
+  const mockConn = {
+    deviceName: "WCU_MY32_A6A7",
+    protocol: { id: "moyu-my32", name: "MoYu MY32" },
+    capabilities: { battery: true, facelets: true, gyroscope: true, hardware: true, reset: false },
+    events$: {
+      subscribe(cb) {
+        subscribers.push(cb);
+        return { unsubscribe: () => { const i = subscribers.indexOf(cb); if (i >= 0) subscribers.splice(i, 1); } };
+      }
+    },
+    sendCommand: async (cmd) => {
+      mockEvents.push(cmd);
+    },
+    disconnect: async () => {}
+  };
+
+  sc.smartCubeConn = mockConn;
+  sc.deviceName = mockConn.deviceName;
+  sc.status = "connected";
+
+  // Wire up subscriber
+  sc.connSubscription = mockConn.events$.subscribe((event) => {
+    if (event.type === "MOVE") {
+      sc.handleMove(event.move, event.timestamp || 1000);
+    } else if (event.type === "BATTERY") {
+      sc.battery = event.batteryLevel;
+      sc._emitStatusChange();
+    } else if (event.type === "GYRO") {
+      sc.dispatchEvent(new CustomEvent("orientation", { detail: { quaternion: event.quaternion } }));
+    } else if (event.type === "DISCONNECT") {
+      sc._onDisconnect();
+    }
+  });
+
+  assert.strictEqual(sc.getStatus().connected, true);
+  assert.strictEqual(sc.getStatus().deviceName, "WCU_MY32_A6A7");
+
+  // Dispatch MoYu turns
+  subscribers.forEach(cb => cb({ type: "MOVE", move: "R", timestamp: 1200 }));
+  subscribers.forEach(cb => cb({ type: "MOVE", move: "U", timestamp: 1500 }));
+  assert.strictEqual(sc.getStatus().recentMoves.length, 2);
+  assert.strictEqual(sc.getStatus().recentMoves[1].move, "U");
+
+  // Dispatch Battery update
+  subscribers.forEach(cb => cb({ type: "BATTERY", batteryLevel: 92 }));
+  assert.strictEqual(sc.getStatus().battery, 92);
+
+  // Dispatch Gyro orientation
+  let receivedQuat = null;
+  sc.addEventListener("orientation", (e) => {
+    receivedQuat = e.detail.quaternion;
+  });
+  subscribers.forEach(cb => cb({ type: "GYRO", quaternion: { x: 0, y: 1, z: 0, w: 0 } }));
+  assert.deepStrictEqual(receivedQuat, { x: 0, y: 1, z: 0, w: 0 });
+
+  // Disconnect
+  sc.disconnect();
+  assert.strictEqual(sc.getStatus().connected, false);
+  assert.strictEqual(subscribers.length, 0);
+});
