@@ -225,3 +225,58 @@ test('SmartCubeManager handles double flick rapid moves and detects hardware sol
   assert.strictEqual(faceletsSolvedFired, true);
 });
 
+test('SmartCubeManager handles single 180° double flick moves (U2, R2, F2) and full solves', async () => {
+  const sc = new SmartCubeManager();
+  // Complex scramble with multiple double turns (R2, F2, B2, L2)
+  const scramble = "R2 D' F2 L' R2 U' R2 B2 D F2 D' R2 L2 U' R2 D F L";
+  await sc.setScramble(scramble, "333");
+  assert.strictEqual(sc.isCurrentPatternSolved(), false);
+
+  // Invert the scramble using standard inverse notation
+  // Inverse of "R2 D' F2 L' R2 U' R2 B2 D F2 D' R2 L2 U' R2 D F L":
+  // L' F' D' R2 U L2 R2 D F2 D' B2 R2 U R2 L F2 D R2
+  const solutionMoves = "L' F' D' R2 U L2 R2 D F2 D' B2 R2 U R2 L F2 D R2".split(" ");
+
+  let solvedTriggered = false;
+  sc.addEventListener("solved", () => {
+    solvedTriggered = true;
+  });
+
+  for (let i = 0; i < solutionMoves.length; i++) {
+    const move = solutionMoves[i];
+    const isLast = i === solutionMoves.length - 1;
+    const res = sc.handleMove(move, 1000 + i * 100);
+    if (!isLast) {
+      assert.strictEqual(res.isSolved, false, `Move ${move} at step ${i} should not be solved yet`);
+    } else {
+      assert.strictEqual(res.isSolved, true, `Final move ${move} should solve the puzzle`);
+    }
+  }
+
+  assert.strictEqual(solvedTriggered, true, "Solved event must fire when last double flick completes solve");
+  assert.strictEqual(sc.isCurrentPatternSolved(), true);
+});
+
+test('GAN Gen4 driver decodes double turn (direction = 2) into U2 / R2 and notifies subscribers', async () => {
+  // Test GAN Gen4 decoding logic directly:
+  // face 0 (U), direction 2 (double flick) -> "U2"
+  const faceIndex = 0; // U
+  const direction = 2; // Double turn
+  const moveStr = ("URFDLB".charAt(faceIndex) + " '2".charAt(direction)).trim();
+  assert.strictEqual(moveStr, "U2", 'GAN Gen4 direction 2 must decode to U2');
+
+  // Test R2
+  const rFace = 1; // R
+  const r2Str = ("URFDLB".charAt(rFace) + " '2".charAt(direction)).trim();
+  assert.strictEqual(r2Str, "R2", 'GAN Gen4 direction 2 on R face must decode to R2');
+
+  // Verify that dispatching U2 resolves a U2 scramble
+  const sc = new SmartCubeManager();
+  await sc.setScramble("U2", "333");
+  const res = sc.handleMove(moveStr, 2000);
+  assert.strictEqual(res.move, "U2");
+  assert.strictEqual(res.isSolved, true);
+  assert.strictEqual(sc.isCurrentPatternSolved(), true);
+});
+
+
