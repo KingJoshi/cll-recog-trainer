@@ -26,6 +26,7 @@ import {
 } from './caseVisualizer.js';
 import { MOVE_TOKEN_REGEX, cleanAlg, normalizeAlgForCompare, parseScrambleInput } from './algParser.js';
 import { smartCube, preloadSmartCube, formatMacAddress } from './smartCube.js';
+import { ScrambleTracker } from './scrambleTracker.js';
 import { solveReplayViewer } from './replayView.js';
 import './style.css';
 
@@ -553,11 +554,17 @@ const settingsResetBtBtn = document.getElementById("settingsResetBtBtn");
 // Solve Mode Live Smart Cube Elements
 const smartCubeSolveIndicator = document.getElementById("smartCubeSolveIndicator");
 const smartCubeSolveText = document.getElementById("smartCubeSolveText");
+const smartCubeReadyBtn = document.getElementById("smartCubeReadyBtn");
+const smartCubeResetSolvedBtn = document.getElementById("smartCubeResetSolvedBtn");
 const solveLiveStats = document.getElementById("solveLiveStats");
 const solveLiveMovesCount = document.getElementById("solveLiveMovesCount");
 const solveLiveTps = document.getElementById("solveLiveTps");
 const solvePostSummary = document.getElementById("solvePostSummary");
 const solvePostReplayBtn = document.getElementById("solvePostReplayBtn");
+
+// Scramble assistant & smart cube state
+const scrambleTracker = new ScrambleTracker("");
+let smartCubeStage = "scrambling"; // "scrambling" | "ready" | "inspecting" | "solving"
 
 // Tracked moves for active solve
 let trackedSolveMoves = [];
@@ -1633,6 +1640,97 @@ function buildScramble() {
   return scramble;
 }
 
+// ---------------------------------------------------------------------------
+// Smart Cube Scramble Assistant & Flow Management
+// ---------------------------------------------------------------------------
+
+function updateSolveScrambleDisplay(scrambleStr) {
+  currentSolveScramble = scrambleStr || "";
+  scrambleMoves = currentSolveScramble;
+  scramble = currentSolveScramble;
+
+  const st = smartCube.getStatus();
+  if (st.connected) {
+    smartCubeStage = "scrambling";
+    scrambleTracker.reset(currentSolveScramble);
+    if (solveScrambleText) {
+      solveScrambleText.innerHTML = scrambleTracker.getHtml();
+    }
+    updateSmartCubeIndicator();
+  } else {
+    if (solveScrambleText) {
+      solveScrambleText.textContent = currentSolveScramble;
+    }
+  }
+}
+
+function renderSmartScrambleAssistant() {
+  const st = smartCube.getStatus();
+  if (!st.connected) return;
+
+  if (solveScrambleText) {
+    solveScrambleText.innerHTML = scrambleTracker.getHtml();
+  }
+  updateSmartCubeIndicator();
+}
+
+function onSmartScrambleCompleted() {
+  scrambleTracker.markComplete();
+  smartCube.setScramble(currentSolveScramble, currentPuzzle);
+  playScrambleCompleteChime();
+  renderSmartScrambleAssistant();
+
+  if (solveInspection) {
+    smartCubeStage = "inspecting";
+    startSolveInspection();
+  } else {
+    smartCubeStage = "ready";
+    solveState = "idle";
+    updateSmartCubeIndicator();
+  }
+}
+
+function updateSmartCubeIndicator() {
+  if (!smartCubeSolveIndicator) return;
+  const st = smartCube.getStatus();
+  smartCubeSolveIndicator.hidden = !st.connected || mode !== "solve";
+  if (!st.connected) return;
+
+  const trackerStatus = scrambleTracker.getStatus();
+  const devName = st.deviceName || "Smart Cube";
+
+  if (smartCubeStage === "scrambling" && !trackerStatus.isComplete) {
+    if (trackerStatus.hasError) {
+      smartCubeSolveText.innerHTML = `⚠️ <strong>${devName}</strong> · Scramble off-track! Undo: <span class="indicator-correction">${trackerStatus.corrections.join(" ")}</span>`;
+    } else {
+      const nextTxt = trackerStatus.nextRequired ? ` · Next: <strong>${trackerStatus.nextRequired}</strong>` : "";
+      smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · Scrambling (${trackerStatus.currentIndex}/${trackerStatus.totalMoves})${nextTxt}`;
+    }
+  } else if (smartCubeStage === "inspecting" || solveState === "inspecting") {
+    smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · ✓ Scrambled · <strong>Inspecting (15s)</strong> · Turn cube to start`;
+  } else if (smartCubeStage === "ready") {
+    smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · ✓ Scramble Verified · <strong>READY</strong> · Turn cube to start`;
+  } else if (smartCubeStage === "solving" || solveState === "running") {
+    smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · Solving in progress… (Solve cube to stop)`;
+  } else {
+    smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> Connected`;
+  }
+}
+
+// Wire Scramble Assistant Quick Action Buttons
+if (smartCubeReadyBtn) {
+  smartCubeReadyBtn.addEventListener("click", () => {
+    onSmartScrambleCompleted();
+  });
+}
+if (smartCubeResetSolvedBtn) {
+  smartCubeResetSolvedBtn.addEventListener("click", () => {
+    smartCube.setScramble("", currentPuzzle);
+    scrambleTracker.reset(currentSolveScramble);
+    renderSmartScrambleAssistant();
+  });
+}
+
 function regenerateScramble() {
   if (mode === "practice" && practiceView) {
     practiceView.advanceCasualScramble();
@@ -1654,12 +1752,8 @@ function regenerateScramble() {
     if (mode === "solve") {
       if (solveTarget === "full" || solveTarget === "cross") {
         gen333().then(wcaScr => {
-          currentSolveScramble = wcaScr;
-          scrambleMoves = wcaScr;
-          scramble = wcaScr;
-          currentCaseId = null;
           applyScrambleToDisplay(wcaScr);
-          if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+          updateSolveScrambleDisplay(wcaScr);
           updateCrossSolutions(wcaScr);
         });
         resetGuessingUI();
@@ -1671,13 +1765,10 @@ function regenerateScramble() {
         const pool = active.length > 0 ? active : track.cases;
         const c = pool[Math.floor(Math.random() * pool.length)];
         const scr = c.setup;
-        currentSolveScramble = scr;
-        scrambleMoves = scr;
-        scramble = scr;
         currentCaseId = c.id;
         const displayScr = alwaysWhiteBottom ? `z2 ${scr}` : scr;
         applyScrambleToDisplay(displayScr);
-        if (solveScrambleText) solveScrambleText.textContent = scr;
+        updateSolveScrambleDisplay(scr);
         if (solveScrambleSubtext) {
           solveScrambleSubtext.hidden = false;
           solveScrambleSubtext.textContent = `PLL Case: ${c.name} (${c.group})`;
@@ -1693,13 +1784,10 @@ function regenerateScramble() {
         const pool = active.length > 0 ? active : track.cases;
         const c = pool[Math.floor(Math.random() * pool.length)];
         const scr = c.setup;
-        currentSolveScramble = scr;
-        scrambleMoves = scr;
-        scramble = scr;
         currentCaseId = c.id;
         const displayScr = alwaysWhiteBottom ? `z2 ${scr}` : scr;
         applyScrambleToDisplay(displayScr);
-        if (solveScrambleText) solveScrambleText.textContent = scr;
+        updateSolveScrambleDisplay(scr);
         if (solveScrambleSubtext) {
           solveScrambleSubtext.hidden = false;
           solveScrambleSubtext.textContent = `OLL Case: ${c.id} (${c.group})`;
@@ -1715,13 +1803,10 @@ function regenerateScramble() {
         const pool = active.length > 0 ? active : track.cases;
         const c = pool[Math.floor(Math.random() * pool.length)];
         const scr = c.setup;
-        currentSolveScramble = scr;
-        scrambleMoves = scr;
-        scramble = scr;
         currentCaseId = c.id;
         const displayScr = alwaysWhiteBottom ? `z2 ${scr}` : scr;
         applyScrambleToDisplay(displayScr);
-        if (solveScrambleText) solveScrambleText.textContent = scr;
+        updateSolveScrambleDisplay(scr);
         if (solveScrambleSubtext) {
           solveScrambleSubtext.hidden = false;
           solveScrambleSubtext.textContent = `F2L Case: ${c.id} (${c.group})`;
@@ -1748,19 +1833,22 @@ function regenerateScramble() {
       const displayScr = (alwaysWhiteBottom && is333Case) ? `z2 ${scr}` : scr;
       applyScrambleToDisplay(displayScr);
       if (mode === "solve") {
-        currentSolveScramble = scr;
-        if (solveScrambleText) solveScrambleText.textContent = scr;
+        updateSolveScrambleDisplay(scr);
         if (solveScrambleOrient) solveScrambleOrient.textContent = is333Case ? "(white on bottom)" : "(WCA orientation)";
         updateCrossSolutions(scr);
       }
     } else {
       gen333().then(wcaScr => {
-        scramble = wcaScr;
-        scrambleMoves = wcaScr;
-        currentSolveScramble = wcaScr;
         applyScrambleToDisplay(wcaScr);
-        if (solveScrambleText) solveScrambleText.textContent = wcaScr;
-        if (mode === "solve") updateCrossSolutions(wcaScr);
+        if (mode === "solve") {
+          updateSolveScrambleDisplay(wcaScr);
+          updateCrossSolutions(wcaScr);
+        } else {
+          scramble = wcaScr;
+          scrambleMoves = wcaScr;
+          currentSolveScramble = wcaScr;
+          if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+        }
       });
     }
     resetGuessingUI();
@@ -1775,12 +1863,9 @@ function regenerateScramble() {
       const pool = active.length > 0 ? active : track.cases;
       const c = pool[Math.floor(Math.random() * pool.length)];
       const scr = c.setup || c.scramble;
-      currentSolveScramble = scr;
-      scrambleMoves = scr;
-      scramble = scr;
       currentCaseId = c.id;
       applyScrambleToDisplay(scr);
-      if (solveScrambleText) solveScrambleText.textContent = scr;
+      updateSolveScrambleDisplay(scr);
       if (solveScrambleSubtext) {
         solveScrambleSubtext.hidden = false;
         solveScrambleSubtext.textContent = `4x4 Parity Case: ${c.name} (${c.group})`;
@@ -1806,12 +1891,16 @@ function regenerateScramble() {
       return;
     } else {
       generateWca4x4Scramble().then(wcaScr => {
-        currentSolveScramble = wcaScr;
-        scrambleMoves = wcaScr;
-        scramble = wcaScr;
-        currentCaseId = null;
         applyScrambleToDisplay(wcaScr);
-        if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+        if (mode === "solve") {
+          updateSolveScrambleDisplay(wcaScr);
+        } else {
+          currentSolveScramble = wcaScr;
+          scrambleMoves = wcaScr;
+          scramble = wcaScr;
+          currentCaseId = null;
+          if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+        }
       });
       resetGuessingUI();
       updateStatsTable();
@@ -1828,12 +1917,9 @@ function regenerateScramble() {
       const scr = (c.scrambles && c.scrambles.length > 0)
         ? c.scrambles[Math.floor(Math.random() * c.scrambles.length)]
         : (c.setup || c.scramble);
-      currentSolveScramble = scr;
-      scrambleMoves = scr;
-      scramble = scr;
       currentCaseId = c.id;
       applyScrambleToDisplay(scr);
-      if (solveScrambleText) solveScrambleText.textContent = scr;
+      updateSolveScrambleDisplay(scr);
       if (solveScrambleSubtext) {
         solveScrambleSubtext.hidden = false;
         solveScrambleSubtext.textContent = `5x5 Parity Case: ${c.name} (${c.group})`;
@@ -1859,12 +1945,16 @@ function regenerateScramble() {
       return;
     } else {
       generateWca5x5Scramble().then(wcaScr => {
-        currentSolveScramble = wcaScr;
-        scrambleMoves = wcaScr;
-        scramble = wcaScr;
-        currentCaseId = null;
         applyScrambleToDisplay(wcaScr);
-        if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+        if (mode === "solve") {
+          updateSolveScrambleDisplay(wcaScr);
+        } else {
+          currentSolveScramble = wcaScr;
+          scrambleMoves = wcaScr;
+          scramble = wcaScr;
+          currentCaseId = null;
+          if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+        }
       });
       resetGuessingUI();
       updateStatsTable();
@@ -1874,12 +1964,8 @@ function regenerateScramble() {
 
   if (mode === "solve" && solveTarget !== "cll") {
     generateWca2x2Scramble().then(wcaScr => {
-      currentSolveScramble = wcaScr;
-      scrambleMoves = wcaScr;
-      scramble = wcaScr;
-      currentCaseId = null;
       applyScrambleToDisplay(wcaScr);
-      if (solveScrambleText) solveScrambleText.textContent = wcaScr;
+      updateSolveScrambleDisplay(wcaScr);
       updateLayerSolutions(wcaScr);
     });
     resetGuessingUI();
@@ -1891,8 +1977,7 @@ function regenerateScramble() {
     buildScramble();
     applyScrambleToDisplay(scramble);
     if (mode === "solve") {
-      currentSolveScramble = scrambleMoves;
-      if (solveScrambleText) solveScrambleText.textContent = scrambleMoves;
+      updateSolveScrambleDisplay(scrambleMoves);
       updateLayerSolutions(scrambleMoves);
     }
   } else {
@@ -1902,7 +1987,7 @@ function regenerateScramble() {
     scrambleMoves = "";
     currentSolveScramble = "";
     applyScrambleToDisplay("");
-    if (solveScrambleText) solveScrambleText.textContent = "";
+    updateSolveScrambleDisplay("");
   }
 
   if (mode === "study") {
@@ -1959,6 +2044,7 @@ function setMode(next, { skipSimInit = false } = {}) {
     if (!currentSolveScramble) {
       regenerateScramble();
     } else {
+      updateSolveScrambleDisplay(currentSolveScramble);
       const is333Case = currentPuzzle === "333" && ["f2l", "oll", "pll"].includes(solveTarget);
       const displayScr = (alwaysWhiteBottom && is333Case) ? `z2 ${currentSolveScramble}` : currentSolveScramble;
       applyScrambleToDisplay(displayScr);
@@ -3009,6 +3095,29 @@ function playInspectionBeep(freq = 440, duration = 0.08) {
   } catch {}
 }
 
+function playScrambleCompleteChime() {
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(587.33, now); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.28);
+  } catch {}
+}
+
 async function generateWca2x2Scramble() {
   try {
     const scr = await randomScrambleForEvent('222');
@@ -3142,7 +3251,13 @@ function renderSolvePanel() {
   if (solveInspectionToggle) solveInspectionToggle.checked = solveInspection;
 
   const currentScr = scrambleMoves || currentSolveScramble || scramble;
-  solveScrambleText.textContent = currentScr;
+  const st = smartCube.getStatus();
+  if (st.connected && smartCubeStage === "scrambling" && !scrambleTracker.isComplete()) {
+    renderSmartScrambleAssistant();
+  } else if (solveScrambleText) {
+    solveScrambleText.textContent = currentScr;
+  }
+  updateSmartCubeIndicator();
   if (solveScrambleOrient) {
     const isWhiteBottom = solveTarget === "cll" || (currentPuzzle === "333" && ["f2l", "oll", "pll"].includes(solveTarget));
     solveScrambleOrient.textContent = isWhiteBottom ? "(white on bottom)" : "(WCA orientation)";
@@ -3407,6 +3522,7 @@ function hideSolveOverlay() {
 
 function cancelSolve() {
   solveState = "idle";
+  smartCubeStage = "scrambling";
   cancelAnimationFrame(solveRaf);
   clearInterval(solveInspectionInterval);
   clearTimeout(solveArmTimeout);
@@ -3414,18 +3530,19 @@ function cancelSolve() {
   trackedSolveMoves = [];
   if (solveLiveStats) solveLiveStats.hidden = true;
   hideSolveOverlay();
+  if (smartCube.getStatus().connected) {
+    scrambleTracker.reset(currentSolveScramble);
+    renderSmartScrambleAssistant();
+  }
   renderSolvePanel();
 }
 
 function reattemptScramble(scrambleStr, label = "") {
   if (!scrambleStr) return;
   setMode("solve");
-  currentSolveScramble = scrambleStr;
-  scrambleMoves = scrambleStr;
-  scramble = scrambleStr;
   currentCaseId = null;
   solveScrambleSource = `Loaded scramble from <strong>${escapeHtml(label || 'previous solve')}</strong> · Ready to inspect &amp; start`;
-  if (solveScrambleText) solveScrambleText.textContent = scrambleStr;
+  updateSolveScrambleDisplay(scrambleStr);
   if (solveScrambleSubtext) {
     solveScrambleSubtext.innerHTML = solveScrambleSource;
     solveScrambleSubtext.hidden = false;
@@ -5375,11 +5492,17 @@ function updateBluetoothUI() {
   if (btLiveStreamWrap) btLiveStreamWrap.hidden = !st.connected;
   if (btVirtualKeypad) btVirtualKeypad.hidden = !st.connected || !st.isVirtual;
 
-  // Solve mode indicator
+  // Solve mode indicator & scramble assistant
   if (smartCubeSolveIndicator) {
     smartCubeSolveIndicator.hidden = !st.connected || mode !== "solve";
-    if (smartCubeSolveText) {
-      smartCubeSolveText.textContent = `ᛒ ${st.deviceName || "Smart Cube"} Connected · Turn cube to start timer`;
+  }
+  updateSmartCubeIndicator();
+  if (st.connected && mode === "solve") {
+    if (smartCubeStage === "scrambling" && !scrambleTracker.isComplete()) {
+      if (!scrambleTracker.scrambleString || scrambleTracker.scrambleString !== currentSolveScramble) {
+        scrambleTracker.reset(currentSolveScramble);
+      }
+      renderSmartScrambleAssistant();
     }
   }
 }
@@ -5603,8 +5726,39 @@ smartCube.addEventListener("move", (e) => {
 
   // Handle Solve Mode Integration
   if (mode === "solve") {
-    if (solveState === "idle" || solveState === "inspecting") {
-      // First physical turn automatically starts the timer!
+    const isRotation = /^[xyz]/i.test(move);
+
+    // 1. Scrambling Stage: Verify the scramble before allowing timer to start
+    if (smartCubeStage === "scrambling") {
+      if (!scrambleTracker.isComplete()) {
+        if (!isRotation) {
+          scrambleTracker.applyMove(move);
+          renderSmartScrambleAssistant();
+          if (scrambleTracker.isComplete()) {
+            onSmartScrambleCompleted();
+          }
+        }
+        // Under no circumstances do we start the timer while in scrambling stage!
+        return;
+      } else {
+        // Scramble was marked complete or is already complete, transition
+        if (solveInspection) {
+          smartCubeStage = "inspecting";
+        } else {
+          smartCubeStage = "ready";
+        }
+      }
+    }
+
+    // 2. Inspection Stage
+    if (solveState === "inspecting" || smartCubeStage === "inspecting") {
+      // Whole cube rotations (x, y, z) during inspection do NOT start the timer!
+      // This complies with WCA regulations and lets the cuber inspect the puzzle.
+      if (isRotation) {
+        return;
+      }
+      // First physical face turn ends inspection and starts the solve timer!
+      smartCubeStage = "solving";
       startSolve(true);
       trackedSolveMoves = [{ move, t: 0, split: 0 }];
       if (solveShowCube && el) {
@@ -5617,8 +5771,36 @@ smartCube.addEventListener("move", (e) => {
       }
       if (solveLiveMovesCount) solveLiveMovesCount.textContent = "1 move";
       if (solveLiveTps) solveLiveTps.textContent = "0.00 TPS";
+      updateSmartCubeIndicator();
       return;
-    } else if (solveState === "running") {
+    }
+
+    // 3. Ready Stage (Inspection is off, scramble is complete)
+    if (smartCubeStage === "ready" && solveState === "idle") {
+      // Whole cube rotations (x, y, z) do NOT start the timer
+      if (isRotation) {
+        return;
+      }
+      // First physical face turn starts the solve timer!
+      smartCubeStage = "solving";
+      startSolve(true);
+      trackedSolveMoves = [{ move, t: 0, split: 0 }];
+      if (solveShowCube && el) {
+        try {
+          const fullSeq = [currentBaseDisplayScramble, move].filter(Boolean).join(" ");
+          el.scramble = fullSeq;
+          el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
+          applyColorsTo3DCube(el);
+        } catch {}
+      }
+      if (solveLiveMovesCount) solveLiveMovesCount.textContent = "1 move";
+      if (solveLiveTps) solveLiveTps.textContent = "0.00 TPS";
+      updateSmartCubeIndicator();
+      return;
+    }
+
+    // 4. Solving Stage (Timer is running)
+    if (solveState === "running") {
       const elapsed = Math.round(performance.now() - solveStart);
       const prevT = trackedSolveMoves.length > 0 ? trackedSolveMoves[trackedSolveMoves.length - 1].t : 0;
       const split = Math.max(10, elapsed - prevT);
@@ -5645,6 +5827,8 @@ smartCube.addEventListener("move", (e) => {
       // Check if cube reached solved state!
       if (isSolved) {
         stopSolve(false);
+        smartCubeStage = "scrambling";
+        updateSmartCubeIndicator();
       }
       return;
     }
