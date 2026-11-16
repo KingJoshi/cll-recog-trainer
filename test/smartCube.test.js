@@ -279,4 +279,55 @@ test('GAN Gen4 driver decodes double turn (direction = 2) into U2 / R2 and notif
   assert.strictEqual(sc.isCurrentPatternSolved(), true);
 });
 
+test('SmartCubeManager._isVendorMatch prevents cross-vendor MAC pollution between GAN and MoYu', async () => {
+  const sc = new SmartCubeManager();
+
+  // GAN MAC (AB:12:34:...) vs MoYu WCU_MY32_A6A7 -> must reject!
+  assert.strictEqual(sc._isVendorMatch("AB:12:34:56:78:90", "WCU_MY32_A6A7"), false);
+
+  // Valid MoYu MY32 MAC matching suffix A6:A7 -> must accept!
+  assert.strictEqual(sc._isVendorMatch("CF:30:16:00:A6:A7", "WCU_MY32_A6A7"), true);
+
+  // MoYu MY32 MAC with wrong suffix -> must reject!
+  assert.strictEqual(sc._isVendorMatch("CF:30:16:00:11:22", "WCU_MY32_A6A7"), false);
+
+  // MoYu CF:30:16:... MAC vs GAN cube -> must reject!
+  assert.strictEqual(sc._isVendorMatch("CF:30:16:00:A6:A7", "GANic4_5927"), false);
+
+  // GAN MAC vs GAN cube -> must accept!
+  assert.strictEqual(sc._isVendorMatch("AB:12:34:56:59:27", "GANic4_5927"), true);
+
+  // If manualMac is set to a GAN MAC and user connects a MoYu MY32 cube,
+  // resolveMacAddress(moyuDevice, false) must return null so MoYu auto-discovery runs!
+  sc.manualMac = "AB:12:34:56:59:27";
+  const resolved = await sc.resolveMacAddress({ name: "WCU_MY32_A6A7", id: "moyu-1" }, false);
+  assert.strictEqual(resolved, null, "Must not return GAN manualMac for MoYu cube on non-fallback call");
+});
+
+test('smartcube-web-bluetooth exports connectSmartCube & connectGanTimer and has all BLE patches applied', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const esmPath = path.resolve('node_modules/smartcube-web-bluetooth/dist/esm/index.mjs');
+  const content = fs.readFileSync(esmPath, 'utf8');
+
+  // 1. Verify GAN move buffer duplicate filter and 12-move window
+  assert.ok(content.includes('if (diff === 0 || diff > 200)'), 'GAN evictMoveBuffer must discard duplicate/stale serials');
+  assert.ok(content.includes('if (diff > 1 && this.moveBuffer.length <= 12)'), 'GAN evictMoveBuffer must wait for history up to 12 moves');
+
+  // 2. Verify GAN Gen4 0x01 trailing chunk validation
+  assert.ok(
+    content.includes('if (face < 0 || direction > 1 || (off > 0 && (msg.getBitWord(off + 8, 8) !== 7 || serial !== ((this.serial + 1) & 0xFFFF))))'),
+    'GAN Gen4 0x01 handler must validate trailing chunk before assigning this.serial'
+  );
+
+  // 3. Verify MoYu32 MAC proof event check accepts HARDWARE and BATTERY
+  assert.ok(content.includes("if (e.type === 'HARDWARE')"), 'isMacCacheProofEvent must accept valid HARDWARE packets');
+  assert.ok(content.includes("if (e.type === 'BATTERY')"), 'isMacCacheProofEvent must accept valid BATTERY packets');
+
+  // 4. Verify synchronous DISCONNECT emission for GAN timer
+  assert.ok(content.includes('var disconnectedOnce = false;'), 'connectGanTimer must emit DISCONNECT synchronously');
+});
+
+
+
 

@@ -29,6 +29,8 @@ export const FACE_COLORS = {
 
 export function clearSvgCache() {
   svgCache.clear();
+  prewarmPromise = null;
+  ollPllPrewarmed = false;
 }
 
 export function setCustomCubeColors(custom) {
@@ -475,6 +477,45 @@ const PLL_ARROWS = {
 };
 
 const svgCache = new Map();
+let prewarmPromise = null;
+let ollPllPrewarmed = false;
+
+export function isOllPllSvgsPrewarmed() {
+  return ollPllPrewarmed;
+}
+
+export function getCachedCaseSvg(puzzleId, trackId, caseId) {
+  if (!caseId) return "";
+  const cacheKey = `${puzzleId}-${trackId}-${caseId}`;
+  return svgCache.get(cacheKey) || "";
+}
+
+export async function prewarmOllPllSvgs(ollList = [], pllList = []) {
+  if (ollPllPrewarmed) return;
+  if (prewarmPromise) return prewarmPromise;
+  const ollArr = Array.isArray(ollList) ? ollList : (ollList?.cases || []);
+  const pllArr = Array.isArray(pllList) ? pllList : (pllList?.cases || []);
+  prewarmPromise = (async () => {
+    try {
+      for (const c of ollArr) {
+        const svg = await renderCaseSvg("333", "oll", c);
+        if (c.number != null) {
+          svgCache.set(`333-oll-OLL ${c.number}`, svg);
+        }
+      }
+      await renderCaseSvg("333", "oll", { id: "OLL Skip", setup: "" });
+      for (const c of pllArr) {
+        await renderCaseSvg("333", "pll", c);
+      }
+      await renderCaseSvg("333", "pll", { id: "PLL Skip", setup: "" });
+    } catch (e) {
+      console.warn("Could not prewarm OLL/PLL SVGs:", e);
+    } finally {
+      ollPllPrewarmed = true;
+    }
+  })();
+  return prewarmPromise;
+}
 
 export async function renderCaseSvg(puzzleId, trackId, caseObj) {
   if (!caseObj) return "";

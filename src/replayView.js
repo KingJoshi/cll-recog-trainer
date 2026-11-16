@@ -1,5 +1,6 @@
 // Solve Replay Viewer - Interactive 3D replay, scrubber timeline, move tape, and reconstruction
 import { parseScrambleInput } from './algParser.js';
+import { ensureSolveCfop, DEFAULT_PAUSE_THRESHOLD_MS } from './cfopAnalyzer.js';
 
 let ScrambleDisplayClass = null;
 async function getScrambleDisplay() {
@@ -140,7 +141,7 @@ export class SolveReplayViewer {
     this.moves = Array.isArray(solve.moves) ? [...solve.moves] : [];
     this.currentMoveIndex = 0;
     this.isPlaying = false;
-    this.totalDurationMs = solve.rawMs || solve.ms || (this.moves.length > 0 ? this.moves[this.moves.length - 1].t : 0);
+    this.totalDurationMs = solve.cubeMs || solve.rawMs || solve.ms || (this.moves.length > 0 ? this.moves[this.moves.length - 1].t : 0);
 
     // Update Header
     if (this.titleEl) this.titleEl.textContent = title;
@@ -231,6 +232,16 @@ export class SolveReplayViewer {
       return;
     }
 
+    const cfop = this.activeSolve ? ensureSolveCfop(this.activeSolve) : null;
+    const movePhaseMap = new Map();
+    if (cfop && Array.isArray(cfop.steps)) {
+      for (const st of cfop.steps) {
+        for (let i = st.startMoveIdx; i < st.endMoveIdx; i++) {
+          movePhaseMap.set(i, st);
+        }
+      }
+    }
+
     // Scramble chip / start chip
     const startChip = document.createElement("button");
     startChip.type = "button";
@@ -248,16 +259,25 @@ export class SolveReplayViewer {
     this.moves.forEach((m, idx) => {
       const chip = document.createElement("button");
       chip.type = "button";
-      chip.className = "replay-move-chip";
+      const isPause = (m.split || 0) >= DEFAULT_PAUSE_THRESHOLD_MS;
+      const stepObj = movePhaseMap.get(idx);
+      const phaseClass = stepObj ? ` phase-${stepObj.phase}` : "";
+      chip.className = `replay-move-chip${isPause ? " is-pause-move" : ""}${phaseClass}`;
       chip.dataset.index = String(idx + 1);
       const tSec = (m.t / 1000).toFixed(2);
       const splitSec = (m.split / 1000).toFixed(2);
+      const phaseBadge = stepObj && idx === stepObj.startMoveIdx
+        ? `<span class="chip-phase-tag">${stepObj.label}</span>`
+        : "";
       chip.innerHTML = `
+        ${phaseBadge}
         <span class="chip-num">${idx + 1}</span>
         <span class="chip-move">${m.move}</span>
-        <span class="chip-split">+${splitSec}s</span>
+        <span class="chip-split">${isPause ? "⏸ " : ""}+${splitSec}s</span>
       `;
-      chip.title = `Move ${idx + 1}: ${m.move} at ${tSec}s (+${splitSec}s)`;
+      const phaseNote = stepObj ? ` [${stepObj.label}]` : "";
+      const pauseNote = isPause ? " (PAUSE)" : "";
+      chip.title = `Move ${idx + 1}${phaseNote}: ${m.move} at ${tSec}s (+${splitSec}s)${pauseNote}`;
       chip.addEventListener("click", () => {
         this.pause();
         this.jumpToMove(idx + 1);

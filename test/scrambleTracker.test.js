@@ -132,3 +132,61 @@ test('ScrambleTracker reset updates sequence and resets all tracking state', () 
   assert.strictEqual(tracker.isComplete(), false);
 });
 
+test('ScrambleTracker supports suppressError and suppressSubAmount in getHtml() for double-flick anti-flicker delay', () => {
+  const tracker = new ScrambleTracker("R2 U2");
+  // First 90-deg turn of R2
+  tracker.applyMove('R');
+  assert.strictEqual(tracker.getStatus().currentSubAmount, 1);
+  assert.strictEqual(tracker.getStatus().hasError, false);
+
+  // With suppressSubAmount: true, "(R needed)" does not flicker immediately
+  const suppressedHtml = tracker.getHtml({ suppressSubAmount: true });
+  assert.strictEqual(suppressedHtml.includes('needed)'), false);
+
+  // Without suppression, "(R needed)" is shown
+  const unsuppressedHtml = tracker.getHtml({ suppressSubAmount: false });
+  assert.strictEqual(unsuppressedHtml.includes('(R needed)'), true);
+
+  // Complete R2 with second R flick
+  tracker.applyMove('R');
+  assert.strictEqual(tracker.getStatus().currentIndex, 1);
+  assert.strictEqual(tracker.getStatus().currentSubAmount, 0);
+
+  // Now simulate a temporary off-track turn before a second flick or correction delay expires
+  tracker.applyMove('F');
+  assert.strictEqual(tracker.getStatus().hasError, true);
+
+  const errSuppressedHtml = tracker.getHtml({ suppressError: true });
+  assert.strictEqual(errSuppressedHtml.includes('scramble-correction-box'), false);
+  assert.strictEqual(errSuppressedHtml.includes('token-error-target'), false);
+
+  const errShownHtml = tracker.getHtml({ suppressError: false });
+  assert.strictEqual(errShownHtml.includes('scramble-correction-box'), true);
+});
+
+test('ScrambleTracker includes remaining double-turn half in corrections if user moves to next face prematurely', () => {
+  const tracker = new ScrambleTracker("R2 F U'");
+  // User only registers R (90 deg of R2) and then turns F
+  tracker.applyMove('R');
+  tracker.applyMove('F');
+  const status1 = tracker.getStatus();
+  assert.strictEqual(status1.hasError, true);
+  // Must tell user both F' (undo premature F) AND R (finish R2)
+  assert.deepStrictEqual(status1.corrections, ["F'", "R"]);
+
+  // User follows instructions: F' then R
+  tracker.applyMove("F'");
+  tracker.applyMove('R');
+  const status2 = tracker.getStatus();
+  assert.strictEqual(status2.hasError, false);
+  assert.strictEqual(status2.currentIndex, 1);
+  assert.strictEqual(status2.nextRequired, 'F');
+
+  // Now F and U' complete the scramble cleanly
+  tracker.applyMove('F');
+  tracker.applyMove("U'");
+  assert.strictEqual(tracker.isComplete(), true);
+});
+
+
+

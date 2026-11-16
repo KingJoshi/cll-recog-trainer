@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { renderCaseSvg, CUBE_COLORS } from '../src/caseVisualizer.js';
+import { renderCaseSvg, getCachedCaseSvg, prewarmOllPllSvgs, isOllPllSvgsPrewarmed, CUBE_COLORS } from '../src/caseVisualizer.js';
 import { pllCases } from '../src/data/pllData.js';
 import { ollCases } from '../src/data/ollData.js';
 import { f2lCases } from '../src/data/f2lData.js';
@@ -55,3 +55,12 @@ test('renderCaseSvg generates valid SVG for 2x2 Ortega cases', async () => {
     assert.ok(svg.includes('case-svg'), `Ortega ${c.id} should have case-svg class`);
   }
 });
+
+test('prewarmOllPllSvgs populates synchronous cache for OLL and PLL tables without recursion', async () => {
+  await prewarmOllPllSvgs(ollCases, pllCases);
+  assert.strictEqual(isOllPllSvgsPrewarmed(), true);
+  assert.ok(getCachedCaseSvg('333', 'oll', 'oll-01').startsWith('<svg'));
+  assert.ok(getCachedCaseSvg('333', 'oll', 'OLL 1').startsWith('<svg'));
+  assert.ok(getCachedCaseSvg('333', 'pll', 'T').startsWith('<svg'));
+});
+

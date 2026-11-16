@@ -2,7 +2,14 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Pre-bundle smartcube-web-bluetooth and its CommonJS dependencies (aes-js, lz-string, rxjs)
   optimizeDeps: {
+    include: [
+      'smartcube-web-bluetooth',
+      'aes-js',
+      'lz-string',
+      'rxjs'
+    ],
     exclude: [
       'cubing',
       'cubing/alg',

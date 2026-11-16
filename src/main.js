@@ -21,13 +21,27 @@ import {
   applyCubeColorsToCss,
   clearSvgCache,
   renderCaseSvg,
+  getCachedCaseSvg,
+  prewarmOllPllSvgs,
+  isOllPllSvgsPrewarmed,
   applyColorsTo3DCube,
   ensure3x3FoundationOpaque
 } from './caseVisualizer.js';
 import { MOVE_TOKEN_REGEX, cleanAlg, normalizeAlgForCompare, parseScrambleInput } from './algParser.js';
 import { smartCube, preloadSmartCube, formatMacAddress } from './smartCube.js';
+import { ganTimer, computeSolvePhaseSplits, averagePhase, shouldIgnorePrematureTimerStop } from './ganTimer.js';
 import { ScrambleTracker } from './scrambleTracker.js';
 import { solveReplayViewer } from './replayView.js';
+import {
+  initCfopAnalyzer,
+  analyzeCfopSolveSync,
+  ensureSolveCfop,
+  computeCfopAverages,
+  computeOllPllCaseStats,
+  computeMedian,
+  computeTrimmedMean,
+  isCfopAnalyzerReady
+} from './cfopAnalyzer.js';
 import './style.css';
 
 // Register service worker for offline support (production only; the dev
@@ -190,6 +204,12 @@ let overlayHideOnPointerUp = false;
 let swallowNextClick = false;
 let lastSolve = null;
 
+// GAN Smart Timer driven solves (pick-up / put-down tracking with a smart cube)
+let solveTimerDriven = false; // current solve was started by the GAN timer
+let solveTimerStartTs = 0;    // performance.now() when timer reported RUNNING
+let solveFirstMoveTs = 0;     // performance.now() of first smart cube face turn
+let solveCubeSolvedTs = 0;    // performance.now() when smart cube reached solved
+let solveMoveOrigin = 0;      // timestamp that tracked move `t` values are relative to
 // Multi-session management & storage
 const DEFAULT_SESSIONS = [
   { id: "default", name: "Session 1 (Full Solve)", target: "full", inspection: true, showCube: true, solves: [] },
@@ -243,7 +263,8 @@ let solveShowCube = getActiveSession().showCube ?? true;
 let solveInspection = getActiveSession().inspection ?? true;
 let solveWidgetSize = "large";
 
-let solves = getActiveSession().solves;
+let solves = getActiveSession().solves || [];
+lastSolve = solves.length ? solves[solves.length - 1] : null;
 
 function saveSolves() {
   const sess = getActiveSession();
@@ -407,6 +428,12 @@ function resetRecognitionStats(puzzle = currentPuzzle, trackId = currentTrackId)
   saveStats();
 }
 
+const LOG_PAGE_SIZE_OPTIONS = [5, 12, 25, 50, 100];
+let sessionLogPageSize = LOG_PAGE_SIZE_OPTIONS.includes(Number(savedSettings.sessionLogPageSize))
+  ? Number(savedSettings.sessionLogPageSize)
+  : 12;
+let sessionLogPage = 1;
+
 function saveSettings() {
   writeJSON(SETTINGS_KEY, {
     currentPuzzle,
@@ -426,6 +453,7 @@ function saveSettings() {
     solveShowCube,
     solveInspection,
     solveWidgetSize,
+    sessionLogPageSize,
     customColors: { ...CUBE_COLORS }
   });
 }
@@ -503,6 +531,7 @@ const layerPresetOppositeBtn = document.getElementById("layerPresetOppositeBtn")
 const layerPresetAllBtn = document.getElementById("layerPresetAllBtn");
 const resetOrientationBtn = document.getElementById("resetOrientationBtn");
 const solveDetailModal = document.getElementById("solveDetailModal");
+const solveReplayModal = document.getElementById("solveReplayModal");
 const solveModalTitle = document.getElementById("solveModalTitle");
 const solveModalTime = document.getElementById("solveModalTime");
 const solveModalScramble = document.getElementById("solveModalScramble");
@@ -513,7 +542,9 @@ const solveModalCopyScrambleBtn = document.getElementById("solveModalCopyScrambl
 const solveModalReattemptBtn = document.getElementById("solveModalReattemptBtn");
 const solveModalSimBtn = document.getElementById("solveModalSimBtn");
 
-// Solve Modal Replay Elements
+// Solve Modal Replay & CFOP Elements
+const solveModalCfopField = document.getElementById("solveModalCfopField");
+const solveModalCfopContent = document.getElementById("solveModalCfopContent");
 const solveModalMovesField = document.getElementById("solveModalMovesField");
 const solveModalMovesCount = document.getElementById("solveModalMovesCount");
 const solveModalTps = document.getElementById("solveModalTps");
@@ -524,6 +555,11 @@ const solveModalReplayBtn = document.getElementById("solveModalReplayBtn");
 // Smart Cube & Bluetooth Elements
 const bluetoothBtn = document.getElementById("bluetoothBtn");
 const bluetoothHeaderDot = document.getElementById("bluetoothHeaderDot");
+const ganTimerBtn = document.getElementById("ganTimerBtn");
+const ganTimerHeaderDot = document.getElementById("ganTimerHeaderDot");
+const ganTimerLabel = document.getElementById("ganTimerLabel");
+const solveModalPhasesField = document.getElementById("solveModalPhasesField");
+const solveModalPhasesContent = document.getElementById("solveModalPhasesContent");
 const bluetoothModal = document.getElementById("bluetoothModal");
 const bluetoothModalStatusBadge = document.getElementById("bluetoothModalStatusBadge");
 const bluetoothModalCloseBtn = document.getElementById("bluetoothModalCloseBtn");
@@ -550,12 +586,21 @@ const btCustomMacInput = document.getElementById("btCustomMacInput");
 const btSaveMacBtn = document.getElementById("btSaveMacBtn");
 const btUnfilteredCheckbox = document.getElementById("btUnfilteredCheckbox");
 const settingsResetBtBtn = document.getElementById("settingsResetBtBtn");
+const btDiagCountBadge = document.getElementById("btDiagCountBadge");
+const btDiagToggleBtn = document.getElementById("btDiagToggleBtn");
+const btDiagCopyBtn = document.getElementById("btDiagCopyBtn");
+const btDiagDownloadBtn = document.getElementById("btDiagDownloadBtn");
+const btDiagClearBtn = document.getElementById("btDiagClearBtn");
+const btSavedCubesSection = document.getElementById("btSavedCubesSection");
+const btSavedCubesList = document.getElementById("btSavedCubesList");
 
 // Solve Mode Live Smart Cube Elements
 const smartCubeSolveIndicator = document.getElementById("smartCubeSolveIndicator");
 const smartCubeSolveText = document.getElementById("smartCubeSolveText");
 const smartCubeReadyBtn = document.getElementById("smartCubeReadyBtn");
 const smartCubeResetSolvedBtn = document.getElementById("smartCubeResetSolvedBtn");
+const smartCubeDiagToggleBtn = document.getElementById("smartCubeDiagToggleBtn");
+const smartCubeDiagCopyBtn = document.getElementById("smartCubeDiagCopyBtn");
 const solveLiveStats = document.getElementById("solveLiveStats");
 const solveLiveMovesCount = document.getElementById("solveLiveMovesCount");
 const solveLiveTps = document.getElementById("solveLiveTps");
@@ -565,6 +610,10 @@ const solvePostReplayBtn = document.getElementById("solvePostReplayBtn");
 // Scramble assistant & smart cube state
 const scrambleTracker = new ScrambleTracker("");
 let smartCubeStage = "scrambling"; // "scrambling" | "ready" | "inspecting" | "solving"
+const SCRAMBLE_CORRECTION_DELAY_MS = 400;
+let scrambleCorrectionDelayTimer = null;
+let scrambleSuppressTransient = false;
+let scrambleErrorVisible = false;
 
 // Tracked moves for active solve
 let trackedSolveMoves = [];
@@ -1062,6 +1111,7 @@ function setPuzzle(puzzleId) {
   }
   activeSessionId = matchingSessions[0].id;
   solves = getActiveSession().solves || [];
+  lastSolve = solves.length ? solves[solves.length - 1] : null;
   solveTarget = getActiveSession().target || "full";
   solveShowCube = getActiveSession().showCube ?? true;
   solveInspection = getActiveSession().inspection ?? true;
@@ -1349,28 +1399,19 @@ document.getElementById("clearAllBtn").addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Collapsible settings (narrow screens); always open in the wide sidebar
+// Collapsible settings (all screen sizes)
 // ---------------------------------------------------------------------------
 
-const wideLayout = window.matchMedia("(min-width: 900px)");
-
 function syncSettingsPanel() {
-  const collapsed = settingsCollapsed && !wideLayout.matches;
-  settingsPanel.classList.toggle("collapsed", collapsed);
-  settingsToggle.setAttribute("aria-expanded", String(!collapsed));
-  settingsToggle.tabIndex = wideLayout.matches ? -1 : 0;
+  settingsPanel.classList.toggle("collapsed", settingsCollapsed);
+  settingsToggle.setAttribute("aria-expanded", String(!settingsCollapsed));
+  settingsToggle.tabIndex = 0;
 }
 
 settingsToggle.addEventListener("click", () => {
   settingsCollapsed = !settingsCollapsed;
   syncSettingsPanel();
 });
-
-if (typeof wideLayout.addEventListener === "function") {
-  wideLayout.addEventListener("change", syncSettingsPanel);
-} else if (typeof wideLayout.addListener === "function") {
-  wideLayout.addListener(syncSettingsPanel);
-}
 
 // ---------------------------------------------------------------------------
 // Options
@@ -1644,15 +1685,27 @@ function buildScramble() {
 // Smart Cube Scramble Assistant & Flow Management
 // ---------------------------------------------------------------------------
 
+function clearScrambleCorrectionDelay() {
+  if (scrambleCorrectionDelayTimer) {
+    clearTimeout(scrambleCorrectionDelayTimer);
+    scrambleCorrectionDelayTimer = null;
+  }
+  scrambleSuppressTransient = false;
+  scrambleErrorVisible = false;
+}
+
 function updateSolveScrambleDisplay(scrambleStr) {
   currentSolveScramble = scrambleStr || "";
   scrambleMoves = currentSolveScramble;
   scramble = currentSolveScramble;
+  clearScrambleCorrectionDelay();
 
   const st = smartCube.getStatus();
   if (st.connected) {
     smartCubeStage = "scrambling";
+    smartCube.setScramble("", currentPuzzle);
     scrambleTracker.reset(currentSolveScramble);
+    smartCube.logDiag("SCRAMBLE_INIT", { scramble: currentSolveScramble });
     if (solveScrambleText) {
       solveScrambleText.innerHTML = scrambleTracker.getHtml();
     }
@@ -1669,13 +1722,20 @@ function renderSmartScrambleAssistant() {
   if (!st.connected) return;
 
   if (solveScrambleText) {
-    solveScrambleText.innerHTML = scrambleTracker.getHtml();
+    solveScrambleText.innerHTML = scrambleTracker.getHtml({
+      suppressError: scrambleSuppressTransient,
+      suppressSubAmount: scrambleSuppressTransient
+    });
   }
   updateSmartCubeIndicator();
 }
 
 function onSmartScrambleCompleted() {
+  clearScrambleCorrectionDelay();
+  resetTimerPhaseTracking();
+  trackedSolveMoves = [];
   scrambleTracker.markComplete();
+  smartCube.logDiag("SCRAMBLE_COMPLETE", { scramble: currentSolveScramble });
   smartCube.setScramble(currentSolveScramble, currentPuzzle);
   playScrambleCompleteChime();
   renderSmartScrambleAssistant();
@@ -1690,7 +1750,66 @@ function onSmartScrambleCompleted() {
   }
 }
 
+function updateDiagnosticsUI() {
+  const isRec = Boolean(smartCube.diagRecording);
+  const count = isRec ? smartCube.diagLogs.length : smartCube.rollingLogs.length;
+  if (btDiagCountBadge) {
+    btDiagCountBadge.textContent = `${count} event${count === 1 ? '' : 's'}${isRec ? ' (recording)' : ' (rolling)'}`;
+  }
+  if (btDiagToggleBtn) {
+    btDiagToggleBtn.textContent = isRec ? "⏹ Stop Recording" : "⏺ Start Recording";
+    btDiagToggleBtn.classList.toggle("btn-danger", isRec);
+    btDiagToggleBtn.classList.toggle("btn-primary", !isRec);
+  }
+  if (smartCubeDiagToggleBtn) {
+    smartCubeDiagToggleBtn.textContent = isRec ? `⏹ Stop Log (${count})` : "⏺ Diag Log";
+    smartCubeDiagToggleBtn.classList.toggle("diag-recording-active", isRec);
+  }
+}
+
+function getDiagnosticsExtraContext() {
+  return {
+    currentPuzzle,
+    solveTarget,
+    smartCubeStage,
+    solveState,
+    currentSolveScramble,
+    scrambleTrackerStatus: scrambleTracker.getStatus()
+  };
+}
+
+function copyDiagnosticsToClipboard(triggerBtn) {
+  const json = smartCube.exportDiagnosticsReport(getDiagnosticsExtraContext());
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(json).then(() => {
+      if (triggerBtn) {
+        const orig = triggerBtn.textContent;
+        triggerBtn.textContent = "✓ Copied!";
+        setTimeout(() => { triggerBtn.textContent = orig; updateDiagnosticsUI(); }, 1800);
+      }
+    }).catch(() => {
+      prompt("Copy Smart Cube Diagnostics JSON:", json);
+    });
+  } else {
+    prompt("Copy Smart Cube Diagnostics JSON:", json);
+  }
+}
+
+function downloadDiagnosticsJson() {
+  const json = smartCube.exportDiagnosticsReport(getDiagnosticsExtraContext());
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `smartcube-diag-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function updateSmartCubeIndicator() {
+  updateDiagnosticsUI();
   if (!smartCubeSolveIndicator) return;
   const st = smartCube.getStatus();
   smartCubeSolveIndicator.hidden = !st.connected || mode !== "solve";
@@ -1700,24 +1819,40 @@ function updateSmartCubeIndicator() {
   const devName = st.deviceName || "Smart Cube";
 
   if (smartCubeStage === "scrambling" && !trackerStatus.isComplete) {
-    if (trackerStatus.hasError) {
+    if (trackerStatus.hasError && !scrambleSuppressTransient) {
       smartCubeSolveText.innerHTML = `⚠️ <strong>${devName}</strong> · Scramble off-track! Undo: <span class="indicator-correction">${trackerStatus.corrections.join(" ")}</span>`;
+    } else if (!scrambleSuppressTransient && trackerStatus.currentSubAmount > 0 && trackerStatus.nextRequired) {
+      smartCubeSolveText.innerHTML = `⚠️ <strong>${devName}</strong> · Incomplete turn! Finish with: <span class="indicator-correction">${trackerStatus.nextRequired}</span>`;
     } else {
-      const nextTxt = trackerStatus.nextRequired ? ` · Next: <strong>${trackerStatus.nextRequired}</strong>` : "";
+      const curMoveObj = scrambleTracker.moves[trackerStatus.currentIndex];
+      const nextMoveDisplay = scrambleSuppressTransient
+        ? (curMoveObj ? curMoveObj.text : trackerStatus.nextRequired)
+        : trackerStatus.nextRequired;
+      const nextTxt = nextMoveDisplay ? ` · Next: <strong>${nextMoveDisplay}</strong>` : "";
       smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · Scrambling (${trackerStatus.currentIndex}/${trackerStatus.totalMoves})${nextTxt}`;
     }
   } else if (smartCubeStage === "inspecting" || solveState === "inspecting") {
-    smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · ✓ Scrambled · <strong>Inspecting (15s)</strong> · Turn cube to start`;
+    smartCubeSolveText.innerHTML = ganTimer.isConnected()
+      ? `ᛒ <strong>${devName}</strong> · ✓ Scrambled · <strong>Inspecting (15s)</strong> · Start the GAN timer`
+      : `ᛒ <strong>${devName}</strong> · ✓ Scrambled · <strong>Inspecting (15s)</strong> · Turn cube to start`;
   } else if (smartCubeStage === "ready") {
-    smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · ✓ Scramble Verified · <strong>READY</strong> · Turn cube to start`;
+    smartCubeSolveText.innerHTML = ganTimer.isConnected()
+      ? `ᛒ <strong>${devName}</strong> · ✓ Scramble Verified · <strong>READY</strong> · Start the GAN timer`
+      : `ᛒ <strong>${devName}</strong> · ✓ Scramble Verified · <strong>READY</strong> · Turn cube to start`;
   } else if (smartCubeStage === "solving" || solveState === "running") {
-    smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · Solving in progress… (Solve cube to stop)`;
+    if (solveTimerDriven && solveCubeSolvedTs) {
+      smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · ✓ Cube solved · Put it down &amp; stop the GAN timer`;
+    } else if (solveTimerDriven) {
+      smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · ⏱ GAN timer running · ${solveFirstMoveTs ? "Solving…" : "Pick up the cube!"}`;
+    } else {
+      smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · Solving in progress… (Solve cube to stop)`;
+    }
   } else {
     smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> Connected`;
   }
 }
 
-// Wire Scramble Assistant Quick Action Buttons
+// Wire Scramble Assistant & Diagnostics Quick Action Buttons
 if (smartCubeReadyBtn) {
   smartCubeReadyBtn.addEventListener("click", () => {
     onSmartScrambleCompleted();
@@ -1725,11 +1860,57 @@ if (smartCubeReadyBtn) {
 }
 if (smartCubeResetSolvedBtn) {
   smartCubeResetSolvedBtn.addEventListener("click", () => {
+    clearScrambleCorrectionDelay();
+    smartCube.logDiag("MANUAL_CALIBRATE_RESET", { scramble: currentSolveScramble });
     smartCube.setScramble("", currentPuzzle);
     scrambleTracker.reset(currentSolveScramble);
     renderSmartScrambleAssistant();
   });
 }
+if (smartCubeDiagToggleBtn) {
+  smartCubeDiagToggleBtn.addEventListener("click", () => {
+    if (smartCube.diagRecording) {
+      smartCube.stopDiagnostics();
+    } else {
+      smartCube.startDiagnostics();
+    }
+    updateDiagnosticsUI();
+  });
+}
+if (smartCubeDiagCopyBtn) {
+  smartCubeDiagCopyBtn.addEventListener("click", () => {
+    copyDiagnosticsToClipboard(smartCubeDiagCopyBtn);
+  });
+}
+if (btDiagToggleBtn) {
+  btDiagToggleBtn.addEventListener("click", () => {
+    if (smartCube.diagRecording) {
+      smartCube.stopDiagnostics();
+    } else {
+      smartCube.startDiagnostics();
+    }
+    updateDiagnosticsUI();
+  });
+}
+if (btDiagCopyBtn) {
+  btDiagCopyBtn.addEventListener("click", () => {
+    copyDiagnosticsToClipboard(btDiagCopyBtn);
+  });
+}
+if (btDiagDownloadBtn) {
+  btDiagDownloadBtn.addEventListener("click", () => {
+    downloadDiagnosticsJson();
+  });
+}
+if (btDiagClearBtn) {
+  btDiagClearBtn.addEventListener("click", () => {
+    smartCube.clearDiagnostics();
+    updateDiagnosticsUI();
+  });
+}
+smartCube.addEventListener("diaglog", () => {
+  updateDiagnosticsUI();
+});
 
 function regenerateScramble() {
   if (mode === "practice" && practiceView) {
@@ -2127,8 +2308,13 @@ function renderStage() {
     stage.classList.toggle("mode-simulate", simulating);
     stage.classList.toggle("mode-timed", false);
     stage.dataset.mode = mode;
+    stage.dataset.puzzle = currentPuzzle;
     stage.classList.toggle("solve-cube-hidden", hideCubeInSolve);
     stage.dataset.solveSize = solveWidgetSize;
+  }
+  if (document.body) {
+    document.body.dataset.puzzle = currentPuzzle;
+    document.body.dataset.mode = mode;
   }
   solveScramble.hidden = !solving;
   solveSurface.hidden = !solving;
@@ -2630,6 +2816,8 @@ function renderSolveStatsBar(container, solvesList) {
   const valid = solvesList.filter(s => s.penalty !== "DNF").map(s => (s.penalty === "+2" ? s.ms + 2000 : s.ms));
   const bestSingle = valid.length ? Math.min(...valid) : null;
   const mean = valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : null;
+  const median = valid.length ? computeMedian(valid) : null;
+  const trimMean = valid.length ? computeTrimmedMean(valid, 0.10) : null;
 
   const curAo5 = calculateAoN(solvesList, 5);
   const bestAo5 = getBestAoN(solvesList, 5);
@@ -2650,6 +2838,18 @@ function renderSolveStatsBar(container, solvesList) {
     <div class="solve-stat-item">
       <span class="solve-stat-val">${fmt(bestSingle)}</span>
       <span class="solve-stat-lbl">Single Best</span>
+    </div>
+    <div class="solve-stat-item">
+      <span class="solve-stat-val">${fmt(mean)}</span>
+      <span class="solve-stat-lbl">Mean (${solvesList.length})</span>
+    </div>
+    <div class="solve-stat-item">
+      <span class="solve-stat-val">${fmt(median)}</span>
+      <span class="solve-stat-lbl">Median</span>
+    </div>
+    <div class="solve-stat-item" title="Trimmed Mean (excludes fastest 10% and slowest 10% of solves)">
+      <span class="solve-stat-val">${fmt(trimMean)}</span>
+      <span class="solve-stat-lbl">TrimMean 10%</span>
     </div>
     <div class="solve-stat-item">
       <span class="solve-stat-val">${fmt(curAo5)}</span>
@@ -2677,10 +2877,6 @@ function renderSolveStatsBar(container, solvesList) {
       <span class="solve-stat-lbl">Best Ao100</span>
     </div>
     ` : ''}
-    <div class="solve-stat-item">
-      <span class="solve-stat-val">${fmt(mean)}</span>
-      <span class="solve-stat-lbl">Mean (${solvesList.length})</span>
-    </div>
   `;
 }
 
@@ -3241,6 +3437,148 @@ function formatSolveDisplay(s) {
   return formatted;
 }
 
+function formatCfopSplitMs(ms) {
+  if (ms == null || !Number.isFinite(ms)) return "-";
+  return `${(ms / 1000).toFixed(2)}s`;
+}
+
+// Short "pick-up 0.45s · put-down 0.38s" summary for GAN-timer solves (empty otherwise).
+function renderSolvePhaseInline(solve) {
+  if (!solve || (solve.pickupMs == null && solve.putdownMs == null)) return "";
+  const parts = [];
+  if (solve.pickupMs != null) parts.push(`pick-up <strong>${formatCfopSplitMs(solve.pickupMs)}</strong>`);
+  if (solve.putdownMs != null) parts.push(`put-down <strong>${formatCfopSplitMs(solve.putdownMs)}</strong>`);
+  return `<span class="solve-phase-inline" title="Measured between GAN timer and smart cube events">⏱ ${parts.join(" · ")}</span>`;
+}
+
+function renderCfopStepTable(solve, { detailed = false } = {}) {
+  const cfop = ensureSolveCfop(solve);
+  if (!cfop || (!cfop.steps?.length && !cfop.splits)) return "";
+
+  const displayRows = [];
+  for (const st of (cfop.steps || [])) {
+    displayRows.push(st);
+    if (st.phase === "f2l4" && cfop.f2lSummary) {
+      displayRows.push(cfop.f2lSummary);
+    }
+  }
+
+  if (displayRows.length === 0) return "";
+
+  const rowsHtml = displayRows.map(row => {
+    const isSummaryRow = row.phase === "f2lTotal";
+    let stepBadgeClass = "cfop-step-badge-default";
+    if (row.phase === "f2lTotal") stepBadgeClass = "cfop-step-badge-f2lsum";
+    else if (row.phase === "oll") stepBadgeClass = "cfop-step-badge-oll";
+    else if (row.phase === "pll") stepBadgeClass = "cfop-step-badge-pll";
+    else if (row.phase === "cross") stepBadgeClass = "cfop-step-badge-cross";
+
+    let caseDisplay = escapeHtml(row.caseId || "-");
+    if (row.phase === "oll" && row.caseId && row.caseId !== "-") {
+      const fullTitle = cfop.ollCase?.name ? ` title="${escapeHtml(cfop.ollCase.name)}"` : "";
+      caseDisplay = `<span class="badge badge-oll-case"${fullTitle}>${escapeHtml(row.caseId)}</span>`;
+    } else if (row.phase === "pll" && row.caseId && row.caseId !== "-") {
+      const fullTitle = cfop.pllCase?.name ? ` title="${escapeHtml(cfop.pllCase.name)}"` : "";
+      caseDisplay = `<span class="badge badge-pll-case"${fullTitle}>${escapeHtml(row.caseId)}</span>`;
+    } else if (row.phase.startsWith("f2l") && row.phase !== "f2lTotal") {
+      caseDisplay = `<span class="cfop-slot-tag">${escapeHtml(row.caseId || "-")}</span>`;
+    }
+
+    const recogTxt = row.phase === "cross"
+      ? `<span class="cfop-muted-dash">-</span>`
+      : formatCfopSplitMs(row.recogMs);
+
+    const setupTxt = row.setupMoves
+      ? `<code class="cfop-setup-code">${escapeHtml(row.setupMoves)}</code>`
+      : `<span class="cfop-muted-dash">-</span>`;
+
+    const execTxt = formatCfopSplitMs(row.execMs);
+    const totalTxt = `<strong>${formatCfopSplitMs(row.ms)}</strong>`;
+    const accumTxt = formatCfopSplitMs(row.accumMs);
+
+    const movesTxt = row.moveCount != null
+      ? `${row.moveCount}${detailed && row.tps ? ` <small class="cfop-sub-meta">(${row.tps} TPS)</small>` : ''}`
+      : "-";
+
+    const pauseTxt = row.pauseCount > 0
+      ? `<span class="pause-cell-warn">${row.pauseCount} <small>(${formatCfopSplitMs(row.pauseMs)})</small></span>`
+      : `<span class="pause-cell-clean">0</span>`;
+
+    const reconStr = row.execMoves || row.moves || "";
+    const reconTxt = isSummaryRow
+      ? `<span class="cfop-muted-dash">-</span>`
+      : (reconStr ? `<code class="cfop-recon-code">${escapeHtml(reconStr)}</code>` : `<span class="cfop-muted-dash">-</span>`);
+
+    return `
+      <tr class="cfop-step-row cfop-row-${row.phase} ${isSummaryRow ? 'cfop-row-f2l-summary' : ''}">
+        <td class="cfop-col-step"><span class="cfop-step-badge ${stepBadgeClass}">${escapeHtml(row.label)}</span></td>
+        <td class="cfop-col-case">${caseDisplay}</td>
+        <td class="cfop-col-recog">${recogTxt}</td>
+        <td class="cfop-col-setup">${setupTxt}</td>
+        <td class="cfop-col-exec">${execTxt}</td>
+        <td class="cfop-col-total">${totalTxt}</td>
+        <td class="cfop-col-accum">${accumTxt}</td>
+        <td class="cfop-col-moves">${movesTxt}</td>
+        <td class="cfop-col-pauses">${pauseTxt}</td>
+        <td class="cfop-col-recon">${reconTxt}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const realSteps = (cfop.steps || []);
+  const totalRecogMs = realSteps.reduce((acc, s) => acc + (s.phase === "cross" ? 0 : (s.recogMs || 0)), 0);
+  const totalExecMs = realSteps.reduce((acc, s) => acc + (s.execMs || 0), 0);
+  const solveMs = solve.rawMs ?? solve.ms ?? realSteps.reduce((acc, s) => acc + (s.ms || 0), 0);
+  const totalMoves = solve.moveCount ?? realSteps.reduce((acc, s) => acc + (s.moveCount || 0), 0);
+  const pCnt = cfop.pauses?.totalCount || 0;
+  const pMs = cfop.pauses?.totalMs || 0;
+
+  return `
+    <div class="cfop-step-table-wrap ${detailed ? 'cfop-step-table-detailed' : 'cfop-step-table-base'}">
+      <table class="cfop-step-breakdown-table">
+        <thead>
+          <tr>
+            <th scope="col">Step</th>
+            <th scope="col">Case</th>
+            <th scope="col" title="Recognition + pre-AUF time">Recog</th>
+            <th scope="col" title="Pre-AUF / rotation setup moves (e.g. U, U', U2)">Setup</th>
+            <th scope="col" title="Execution time after recognition">Exec</th>
+            <th scope="col" title="Total time for this step (Recog + Exec)">Total</th>
+            <th scope="col" title="Total accumulated solve time after this step">Accum</th>
+            <th scope="col">Moves</th>
+            <th scope="col" title="Pauses ≥0.40s during this step">Pauses</th>
+            <th scope="col" class="cfop-th-recon">Recon</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+        <tfoot>
+          <tr class="cfop-step-tfoot-row">
+            <th scope="row" colspan="2">Solve Total</th>
+            <td>${formatCfopSplitMs(totalRecogMs)}</td>
+            <td><span class="cfop-muted-dash">-</span></td>
+            <td>${formatCfopSplitMs(totalExecMs)}</td>
+            <td><strong>${formatCfopSplitMs(solveMs)}</strong></td>
+            <td><strong>${formatCfopSplitMs(solveMs)}</strong></td>
+            <td><strong>${totalMoves}</strong>${solve.tps ? ` <small class="cfop-sub-meta">(${solve.tps} TPS)</small>` : ''}</td>
+            <td>
+              <span class="cfop-step-badge ${pCnt > 0 ? 'cfop-step-badge-pause' : 'cfop-step-badge-default'}">
+                ${pCnt} (${formatCfopSplitMs(pMs)})
+              </span>
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `;
+}
+
+function renderLastSolveCfopInline(solve) {
+  return renderCfopStepTable(solve, { detailed: false });
+}
+
 function renderSolvePanel() {
   populateSessionSelect();
   const currentSess = getActiveSession();
@@ -3272,16 +3610,28 @@ function renderSolvePanel() {
   }
 
   if (lastSolve) {
+    if (!isCfopAnalyzerReady()) {
+      initCfopAnalyzer().then(() => {
+        if (lastSolve) renderSolvePanel();
+      });
+    }
+    ensureSolveCfop(lastSolve);
     solveTimeEl.textContent = formatSolveDisplay(lastSolve);
+    let metaLine = "";
     if (lastSolve.id && caseById.has(lastSolve.id)) {
       const caseObj = caseById.get(lastSolve.id);
-      solveCaseEl.innerHTML = `<strong>${lastSolve.id}</strong> · ${getCllCaseSolutionDisplay(caseObj)} · opposite ${caseObj.opposite}`;
+      metaLine = `<strong>${lastSolve.id}</strong> · ${getCllCaseSolutionDisplay(caseObj)} · opposite ${caseObj.opposite}`;
     } else {
       const targetLabel = lastSolve.target === "layer" ? "1st Layer" : (lastSolve.target === "face" ? "1st Face" : "Full Solve");
-      solveCaseEl.innerHTML = `<strong>${targetLabel}</strong> · ${formatSolveDisplay(lastSolve)}`;
+      metaLine = `<span class="solve-case-target">${targetLabel}</span>`;
     }
     if (lastSolve.moves && lastSolve.moves.length > 0) {
-      solveCaseEl.innerHTML += ` · <strong>${lastSolve.moveCount} moves</strong> (${lastSolve.tps} TPS)`;
+      metaLine += ` · <strong>${lastSolve.moveCount} moves</strong> · <strong>${lastSolve.tps} TPS</strong>`;
+    }
+    const phaseMeta = renderSolvePhaseInline(lastSolve);
+    if (phaseMeta) metaLine += ` · ${phaseMeta}`;
+    if (lastSolve.moves && lastSolve.moves.length > 0) {
+      solveCaseEl.innerHTML = `<div class="solve-case-meta">${metaLine}</div>` + renderLastSolveCfopInline(lastSolve);
       if (solvePostSummary && solvePostReplayBtn) {
         solvePostSummary.hidden = false;
         solvePostReplayBtn.onclick = () => {
@@ -3289,6 +3639,7 @@ function renderSolvePanel() {
         };
       }
     } else {
+      solveCaseEl.innerHTML = `<div class="solve-case-meta">${metaLine}</div>`;
       if (solvePostSummary) solvePostSummary.hidden = true;
     }
   } else {
@@ -3301,13 +3652,22 @@ function renderSolvePanel() {
 
   const keyHint = solveSurface.querySelector(".solve-hint-key");
   const touchHint = solveSurface.querySelector(".solve-hint-touch");
+  const timerConnected = ganTimer.isConnected();
   if (keyHint) {
-    keyHint.innerHTML = solveInspection
+    keyHint.innerHTML = timerConnected
+      ? (solveInspection
+        ? "Space to inspect &bull; Use the GAN timer to start &amp; stop"
+        : "GAN timer connected &bull; Hands on timer, release to start")
+      : solveInspection
       ? "Space to inspect &bull; Hold Space to arm &bull; Release to start"
       : "Hold Space to arm &bull; Release to start &bull; any key to stop";
   }
   if (touchHint) {
-    touchHint.innerHTML = solveInspection
+    touchHint.innerHTML = timerConnected
+      ? (solveInspection
+        ? "Tap to inspect &bull; Use the GAN timer to start &amp; stop"
+        : "GAN timer connected &bull; Hands on timer, release to start")
+      : solveInspection
       ? "Tap to inspect &bull; Hold to arm &bull; Release to start"
       : "Tap and hold to arm &bull; Release to start";
   }
@@ -3316,7 +3676,33 @@ function renderSolvePanel() {
     const valid = solves.filter(s => s.penalty !== "DNF").map(s => (s.penalty === "+2" ? s.ms + 2000 : s.ms));
     const best = valid.length ? Math.min(...valid) : null;
     const mean = valid.length ? Math.round(valid.reduce((sum, x) => sum + x, 0) / valid.length) : null;
-    solveSummaryEl.textContent = `${solves.length} solve${solves.length === 1 ? "" : "s"} · best ${best != null ? formatSolveTime(best) : "-"} · mean ${mean != null ? formatSolveTime(mean) : "-"}`;
+    const median = valid.length ? computeMedian(valid) : null;
+    const trimMean = valid.length ? computeTrimmedMean(valid, 0.10) : null;
+    const avgPickup = averagePhase(solves, "pickupMs");
+    const avgPutdown = averagePhase(solves, "putdownMs");
+    const phaseSummary = (avgPickup != null || avgPutdown != null)
+      ? ` · avg pick-up ${avgPickup != null ? formatCfopSplitMs(avgPickup) : "-"} · avg put-down ${avgPutdown != null ? formatCfopSplitMs(avgPutdown) : "-"}`
+      : "";
+    const pageSizeOptions = LOG_PAGE_SIZE_OPTIONS.map(sz =>
+      `<option value="${sz}" ${sessionLogPageSize === sz ? 'selected' : ''}>${sz}</option>`
+    ).join("");
+    solveSummaryEl.innerHTML = `
+      <span>${solves.length} solve${solves.length === 1 ? "" : "s"} · best ${best != null ? formatSolveTime(best) : "-"} · mean ${mean != null ? formatSolveTime(mean) : "-"} · median ${median != null ? formatSolveTime(median) : "-"} · trim10% ${trimMean != null ? formatSolveTime(trimMean) : "-"}${phaseSummary}</span>
+      <label class="solve-page-size-inline">Show: <select id="solvePanelPageSizeSelect" class="log-page-size-select" aria-label="Solves shown">${pageSizeOptions}</select></label>
+    `;
+    const pageSizeSel = document.getElementById("solvePanelPageSizeSelect");
+    if (pageSizeSel) {
+      pageSizeSel.addEventListener("change", () => {
+        const nextSz = Number(pageSizeSel.value);
+        if (LOG_PAGE_SIZE_OPTIONS.includes(nextSz)) {
+          sessionLogPageSize = nextSz;
+          sessionLogPage = 1;
+          saveSettings();
+          renderSolvePanel();
+          renderSessionLogTable();
+        }
+      });
+    }
   } else {
     solveSummaryEl.textContent = "No times in this session yet";
   }
@@ -3324,16 +3710,29 @@ function renderSolvePanel() {
 
   renderSolveStatsBar(solveStatsBar, solves);
 
-  const recent = solves.map((solve, index) => ({ solve, index })).slice(-15).reverse();
+  const recent = solves
+    .map((solve, index) => ({ solve, index }))
+    .reverse()
+    .slice(0, sessionLogPageSize);
   solveList.innerHTML = recent
-    .map(({ solve, index }) => `
-      <button type="button" class="solve-chip ${solve.moves ? 'has-replay' : ''}" data-index="${index}" title="Solve #${index + 1}: ${formatSolveDisplay(solve)} ${solve.id ? `(${solve.id})` : ''} ${solve.moves ? `· ${solve.moveCount} moves (${solve.tps} TPS) · Click to replay` : ''} (Click to view details, × to delete)">
+    .map(({ solve, index }) => {
+      const cfop = ensureSolveCfop(solve);
+      const caseBadges = [];
+      if (solve.id) caseBadges.push(solve.id);
+      if (cfop?.ollCase?.shortName && cfop.ollCase.id !== "OLL Skip") caseBadges.push(cfop.ollCase.shortName);
+      if (cfop?.pllCase?.shortName && cfop.pllCase.id !== "PLL Skip") caseBadges.push(cfop.pllCase.shortName);
+      const badgeLabel = caseBadges.join(" · ");
+      return `
+      <button type="button" class="solve-chip ${solve.moves ? 'has-replay' : ''}" data-index="${index}" title="Solve #${index + 1}: ${formatSolveDisplay(solve)} ${badgeLabel ? `(${badgeLabel})` : ''} ${solve.moves ? `· ${solve.moveCount} moves (${solve.tps} TPS) · Click to view details` : ''}">
         <span class="solve-chip-time">${formatSolveDisplay(solve)}</span>
-        ${solve.id ? `<span class="solve-chip-id">${solve.id}</span>` : ''}
-        ${solve.moves ? `<span class="solve-chip-replay-tag" title="Replay available">▶</span>` : ''}
-        <span class="solve-chip-del" aria-label="Delete solve">&times;</span>
+        ${badgeLabel ? `<span class="solve-chip-id">${escapeHtml(badgeLabel)}</span>` : ''}
+        <span class="solve-chip-actions">
+          ${solve.moves ? `<span class="solve-chip-replay-tag" title="Replay 3D Solve">&#x25B6;</span>` : ''}
+          <span class="solve-chip-del" title="Delete solve" aria-label="Delete solve">&times;</span>
+        </span>
       </button>
-    `.trim())
+    `.trim();
+    })
     .join("");
 
   if (layerSolutionsWidget) {
@@ -3361,7 +3760,9 @@ function startSolveInspection() {
   solveOverlay.hidden = false;
   if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = false;
   solveOverlayTime.textContent = "15";
-  solveOverlayHint.textContent = "Hold Space when ready · Esc to cancel";
+  solveOverlayHint.textContent = ganTimer.isConnected()
+    ? "Start the GAN timer when ready · Esc to cancel"
+    : "Hold Space when ready · Esc to cancel";
 
   clearInterval(solveInspectionInterval);
   solveInspectionInterval = setInterval(() => {
@@ -3391,7 +3792,9 @@ function startSolveInspection() {
       if (solveState === "inspecting") {
         solveOverlayTime.textContent = "+2";
       }
-      solveOverlayHint.textContent = "+2 penalty · Hold Space when ready";
+      solveOverlayHint.textContent = ganTimer.isConnected()
+        ? "+2 penalty · Start the GAN timer"
+        : "+2 penalty · Hold Space when ready";
     } else {
       solvePenalty = "DNF";
       solveOverlay.classList.remove("warning-8", "warning-12", "penalty-plus2");
@@ -3407,6 +3810,8 @@ function startSolveInspection() {
 function armSolve() {
   if (mode !== "solve" || (solveState !== "idle" && solveState !== "inspecting")) return;
   if (solveTarget === "cll" && !currentCaseId) return;
+  // With a GAN Smart Timer connected, arming/starting is done on the timer itself.
+  if (ganTimer.isConnected()) return;
   solveState = "armed";
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
@@ -3424,23 +3829,59 @@ function armSolve() {
   solveOverlayHint.textContent = "Release to start";
 }
 
-function startSolve(fromSmartCube = false) {
-  if (!fromSmartCube && solveState !== "armed") return;
-  if (fromSmartCube && solveState !== "inspecting" && solveState !== "idle" && solveState !== "armed") return;
+function resetTimerPhaseTracking() {
+  solveTimerDriven = false;
+  solveTimerStartTs = 0;
+  solveFirstMoveTs = 0;
+  solveCubeSolvedTs = 0;
+  solveMoveOrigin = 0;
+}
+
+function getRunningOverlayHint() {
+  if (solveTimerDriven) {
+    if (solveCubeSolvedTs) return "✓ Cube solved · Put it down & stop the GAN timer";
+    const base = "Stop the GAN timer to finish · Esc to cancel";
+    if (solvePenalty === "+2") return `Running (+2 penalty) · ${base}`;
+    if (solvePenalty === "DNF") return `Running (DNF) · ${base}`;
+    return base;
+  }
+  return solvePenalty === "+2"
+    ? "Running (+2 penalty) · Any key, tap, or solve cube to stop"
+    : (solvePenalty === "DNF" ? "Running (DNF) · Any key, tap, or solve cube to stop" : "Any key, tap, or solve cube to stop");
+}
+
+// fromSmartCube: started by the first smart cube turn.
+// options.timerDriven: started by the GAN Smart Timer (startTs = local receipt time of RUNNING).
+function startSolve(fromSmartCube = false, { timerDriven = false, startTs = null } = {}) {
+  const autoStart = fromSmartCube || timerDriven;
+  if (!autoStart && solveState !== "armed") return;
+  if (autoStart && solveState !== "inspecting" && solveState !== "idle" && solveState !== "armed") return;
   solveState = "running";
   clearInterval(solveInspectionInterval);
+  clearTimeout(solveArmTimeout);
+
+  solveStart = startTs != null ? startTs : performance.now();
+  solveTimerDriven = timerDriven;
+  solveTimerStartTs = timerDriven ? solveStart : 0;
+  solveCubeSolvedTs = 0;
+
+  // With a GAN timer, face turns made before the timer started (pre-turns) are kept so the
+  // replay stays consistent; pick-up time is then undefined for this solve.
+  const keepPreTimerMoves = timerDriven && solveFirstMoveTs > 0 && trackedSolveMoves.length > 0;
+  if (!keepPreTimerMoves) {
+    trackedSolveMoves = [];
+    solveFirstMoveTs = 0;
+    solveMoveOrigin = solveStart;
+  }
 
   solveOverlay.className = "solve-overlay";
   solveOverlay.hidden = false;
-  if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = true;
-  solveOverlayHint.textContent = solvePenalty === "+2"
-    ? "Running (+2 penalty) · Any key, tap, or solve cube to stop"
-    : (solvePenalty === "DNF" ? "Running (DNF) · Any key, tap, or solve cube to stop" : "Any key, tap, or solve cube to stop");
+  // Timer-driven solves can only be stopped on the timer, so keep a cancel button available.
+  if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = !timerDriven;
+  solveOverlayHint.textContent = getRunningOverlayHint();
 
-  solveStart = performance.now();
-  trackedSolveMoves = [];
   if (solveLiveStats) solveLiveStats.hidden = false;
-  if (solveLiveMovesCount) solveLiveMovesCount.textContent = "0 moves";
+  if (solveLiveMovesCount) solveLiveMovesCount.textContent = `${trackedSolveMoves.length} moves`;
   if (solveLiveTps) solveLiveTps.textContent = "0.00 TPS";
   if (solvePostSummary) solvePostSummary.hidden = true;
 
@@ -3452,9 +3893,44 @@ function startSolve(fromSmartCube = false) {
   tick();
 }
 
-function stopSolve(byPointer) {
+// Called when the smart cube reports a solved state (during a solve or during scrambling).
+function handleSmartCubeSolved() {
+  if (mode === "solve" && solveState === "idle" && smartCubeStage === "scrambling") {
+    const trackerStatus = scrambleTracker.getStatus();
+    if (!trackerStatus.isComplete && (trackerStatus.hasError || trackerStatus.currentIndex > 0 || trackerStatus.currentSubAmount > 0 || trackerStatus.corrections.length > 0)) {
+      clearScrambleCorrectionDelay();
+      smartCube.setScramble("", currentPuzzle);
+      scrambleTracker.reset(currentSolveScramble);
+      smartCube.logDiag("SCRAMBLE_AUTO_RESET_ON_SOLVED", { scramble: currentSolveScramble });
+      renderSmartScrambleAssistant();
+    }
+    return;
+  }
+  if (mode !== "solve" || solveState !== "running") return;
+  if (solveTimerDriven) {
+    // GAN timer is authoritative: just mark the moment the cube was solved (put-down starts).
+    if (!solveFirstMoveTs || solveCubeSolvedTs) return;
+    solveCubeSolvedTs = performance.now();
+    smartCube.logDiag("TIMER_CUBE_SOLVED", { sinceTimerStart: Math.round(solveCubeSolvedTs - solveTimerStartTs) });
+    solveOverlay.classList.add("cube-solved");
+    solveOverlayHint.textContent = getRunningOverlayHint();
+    updateSmartCubeIndicator();
+    return;
+  }
+  if (solveTimerStartTs > 0 && !solveCubeSolvedTs) {
+    solveCubeSolvedTs = performance.now();
+  }
+  stopSolve(false);
+  smartCubeStage = "scrambling";
+  updateSmartCubeIndicator();
+}
+
+// options.hardwareMs: time recorded by the GAN timer; options.stopTs: local receipt time of STOPPED.
+function stopSolve(byPointer, { hardwareMs = null, stopTs = null } = {}) {
   if (solveState !== "running") return;
-  const rawMs = performance.now() - solveStart;
+  const localStopTs = stopTs != null ? stopTs : performance.now();
+  const localMs = localStopTs - solveStart;
+  const rawMs = Number.isFinite(hardwareMs) && hardwareMs > 0 ? hardwareMs : localMs;
   solveState = "idle";
   cancelAnimationFrame(solveRaf);
   clearInterval(solveInspectionInterval);
@@ -3469,8 +3945,21 @@ function stopSolve(byPointer) {
 
   const hasMoves = trackedSolveMoves && trackedSolveMoves.length > 0;
   const moveCount = hasMoves ? trackedSolveMoves.length : null;
-  const tps = hasMoves && rawMs > 0 ? Number((moveCount / (rawMs / 1000)).toFixed(2)) : null;
   const smartCubeName = hasMoves ? (smartCube.deviceName || (smartCube.isVirtual ? "Virtual Keyboard Cube" : "Smart Cube")) : null;
+
+  const hadGanTimerStart = solveTimerDriven || solveTimerStartTs > 0;
+  let phases = null;
+  if (hadGanTimerStart) {
+    phases = computeSolvePhaseSplits({
+      timerStartTs: solveTimerStartTs,
+      firstMoveTs: hasMoves ? solveFirstMoveTs : 0,
+      solvedTs: hasMoves ? (solveCubeSolvedTs || (!solveTimerDriven ? localStopTs : 0)) : 0,
+      timerStopTs: solveTimerDriven ? localStopTs : 0
+    });
+  }
+  // TPS is based on the actual cube-turning time when known (excludes pick-up / put-down).
+  const tpsBaseMs = phases?.cubeMs != null ? phases.cubeMs : rawMs;
+  const tps = hasMoves && tpsBaseMs > 0 ? Number((moveCount / (tpsBaseMs / 1000)).toFixed(2)) : null;
 
   lastSolve = {
     puzzle: currentPuzzle,
@@ -3487,6 +3976,16 @@ function stopSolve(byPointer) {
     tps,
     smartCube: smartCubeName
   };
+  if (hadGanTimerStart) {
+    lastSolve.timer = "GAN Smart Timer";
+    lastSolve.pickupMs = phases.pickupMs;
+    lastSolve.cubeMs = phases.cubeMs;
+    lastSolve.putdownMs = phases.putdownMs;
+    smartCube.logDiag("TIMER_SOLVE_DONE", { rawMs: lastSolve.rawMs, ...phases });
+  }
+  resetTimerPhaseTracking();
+  ensureSolveCfop(lastSolve);
+  sessionLogPage = 1;
   solves.push(lastSolve);
   if (solves.length > MAX_SOLVES) solves.splice(0, solves.length - MAX_SOLVES);
   saveSolves();
@@ -3508,6 +4007,7 @@ function stopSolve(byPointer) {
     hideSolveOverlay();
   }
 
+  smartCubeStage = "scrambling";
   renderSolvePanel();
   updateStatsTable();
   regenerateScramble();
@@ -3523,11 +4023,13 @@ function hideSolveOverlay() {
 function cancelSolve() {
   solveState = "idle";
   smartCubeStage = "scrambling";
+  clearScrambleCorrectionDelay();
   cancelAnimationFrame(solveRaf);
   clearInterval(solveInspectionInterval);
   clearTimeout(solveArmTimeout);
   solvePenalty = null;
   trackedSolveMoves = [];
+  resetTimerPhaseTracking();
   if (solveLiveStats) solveLiveStats.hidden = true;
   hideSolveOverlay();
   if (smartCube.getStatus().connected) {
@@ -3992,6 +4494,11 @@ document.addEventListener("keydown", e => {
   if (mode === "solve") {
     if (solveState === "running") {
       e.preventDefault();
+      if (solveTimerDriven) {
+        // GAN timer is authoritative; only Escape (cancel attempt) is handled here.
+        if (e.key === "Escape") cancelSolve();
+        return;
+      }
       stopSolve(false);
       return;
     }
@@ -4042,7 +4549,7 @@ document.addEventListener("keyup", e => {
 // Touch / mouse: hold on the timer area, release anywhere to start; tap the
 // full-screen overlay to stop.
 solveSurface.addEventListener("pointerdown", e => {
-  if (e.target.closest("button") || e.target.closest("input") || e.target.closest("label") || e.target.closest("select")) return;
+  if (e.target.closest("button") || e.target.closest("input") || e.target.closest("label") || e.target.closest("select") || e.target.closest(".bt-disconnect-banner")) return;
   if (mode !== "solve" || solveState !== "idle") return;
   e.preventDefault();
   if (solveInspection) {
@@ -4060,6 +4567,7 @@ solveOverlay.addEventListener("pointerdown", e => {
   e.preventDefault();
   if (mode === "solve") {
     if (solveState === "running") {
+      if (solveTimerDriven) return; // stop on the GAN timer
       stopSolve(true);
       return;
     }
@@ -4153,6 +4661,12 @@ solveList.addEventListener("click", e => {
       renderSolvePanel();
       updateStatsTable();
     }
+    return;
+  }
+
+  const isReplay = e.target.closest(".solve-chip-replay-tag");
+  if (isReplay && s.moves && s.moves.length > 0) {
+    solveReplayViewer.open(s, `Solve #${index + 1} Replay`);
     return;
   }
 
@@ -4888,6 +5402,18 @@ function renderSolveStatsTable() {
   const container = document.getElementById("stats-table-container");
   if (!container) return;
 
+  if (!isCfopAnalyzerReady()) {
+    initCfopAnalyzer().then(() => {
+      if (statsType === "cll") renderSolveStatsTable();
+    });
+  }
+
+  if (!isOllPllSvgsPrewarmed()) {
+    prewarmOllPllSvgs(ollCases, pllCases).then(() => {
+      if (statsType === "cll") renderSolveStatsTable();
+    });
+  }
+
   const track = getTrack(currentPuzzle, currentTrackId);
   const trackCases = track?.cases || [];
   const trackCaseIds = trackCases.map(c => c.id);
@@ -4897,35 +5423,65 @@ function renderSolveStatsTable() {
   const currentSolves = currentSess.solves || [];
 
   const caseSolves = new Map();
+  const addCaseRecord = (caseId, msVal, pauseCount = 0, pauseMs = 0) => {
+    if (!caseId || !Number.isFinite(msVal) || msVal <= 0) return;
+    if (!caseSolves.has(caseId)) {
+      caseSolves.set(caseId, { times: [], pauseCounts: [], pauseMsList: [] });
+    }
+    const rec = caseSolves.get(caseId);
+    rec.times.push(msVal);
+    rec.pauseCounts.push(pauseCount);
+    rec.pauseMsList.push(pauseMs);
+  };
+
   for (const s of currentSolves) {
+    if (s.penalty === "DNF" || s.penalty === -1) continue;
+    const cfop = ensureSolveCfop(s);
     const isTrackMatch = s.track ? (s.track === currentTrackId) : true;
+
     if (s.id && trackCaseIds.includes(s.id) && isTrackMatch) {
-      if (!caseSolves.has(s.id)) {
-        caseSolves.set(s.id, []);
-      }
       const timeVal = (s.penalty === "+2" || s.penalty === 2)
         ? ((s.ms ?? s.time) + 2000)
-        : ((s.penalty === "DNF" || s.penalty === -1) ? Infinity : (s.ms ?? s.time));
-      if (Number.isFinite(timeVal)) {
-        caseSolves.get(s.id).push(timeVal);
+        : (s.ms ?? s.time);
+      const pCount = cfop?.pauses?.totalCount || 0;
+      const pMs = cfop?.pauses?.totalMs || 0;
+      addCaseRecord(s.id, timeVal, pCount, pMs);
+    } else if (cfop) {
+      // Also include OLL & PLL cases automatically detected from 3x3 CFOP full solves
+      if (currentTrackId === "oll" && cfop.ollCase?.id && trackCaseIds.includes(cfop.ollCase.id)) {
+        addCaseRecord(cfop.ollCase.id, cfop.ollCase.ms, cfop.ollCase.pauseCount || 0, cfop.ollCase.pauseMs || 0);
+      } else if (currentTrackId === "pll" && cfop.pllCase?.id && trackCaseIds.includes(cfop.pllCase.id)) {
+        addCaseRecord(cfop.pllCase.id, cfop.pllCase.ms, cfop.pllCase.pauseCount || 0, cfop.pllCase.pauseMs || 0);
       }
     }
   }
 
   const casesWithTimes = trackCaseIds.filter(id => caseSolves.has(id));
+  const isOllTrack = (currentPuzzle === "333" || currentPuzzle === "333oh") && currentTrackId === "oll";
+  const isPllTrack = (currentPuzzle === "333" || currentPuzzle === "333oh") && currentTrackId === "pll";
+  const showCubeSvgCol = isOllTrack || isPllTrack;
+  const showGroupCol = !isPllTrack;
 
   const sortCols = [
     { key: "case", label: "Case" },
-    { key: "name", label: "Name / Group" },
+    ...(showCubeSvgCol ? [{ key: "cube", label: "Cube", unsortable: true }] : []),
+    ...(showGroupCol ? [{ key: "name", label: isOllTrack ? "Group" : "Name / Group" }] : []),
     { key: "attempts", label: "Attempts" },
     { key: "best", label: "Best", title: "Best time" },
     { key: "mean", label: "Mean", title: "Mean time" },
     { key: "median", label: "Median", title: "Median time" },
-    { key: "worst", label: "Worst", title: "Worst time" }
+    { key: "trimMean", label: "TrimMean 10%", title: "Trimmed mean (excludes top & bottom 10%)" },
+    { key: "worst", label: "Worst", title: "Worst time" },
+    { key: "avgPauseCount", label: "Avg Pauses", title: "Average pauses per solve" },
+    { key: "avgPauseMs", label: "Avg Pause Time", title: "Average pause duration per solve" }
   ];
 
   let html = '<table class="solve-stats-table"><thead><tr>';
   sortCols.forEach(col => {
+    if (col.unsortable) {
+      html += `<th scope="col">${col.label}</th>`;
+      return;
+    }
     const isSorted = solveStatsSort.col === col.key;
     const arrow = isSorted ? (solveStatsSort.dir === "asc" ? " ▲" : " ▼") : "";
     html += `<th scope="col" class="sortable" data-sort="${col.key}" title="${col.title || ('Sort by ' + col.label)}">${col.label}<span class="sort-icon">${arrow}</span></th>`;
@@ -4933,9 +5489,9 @@ function renderSolveStatsTable() {
   html += '</tr></thead><tbody>';
 
   if (casesWithTimes.length === 0) {
-    html += `<tr><td colspan="7" class="empty-stats" style="padding: 24px 12px; text-align: center;">
+    html += `<tr><td colspan="${sortCols.length}" class="empty-stats" style="padding: 24px 12px; text-align: center;">
       <p style="margin-bottom: 4px; font-weight: 600;">No ${escapeHtml(track?.shortName || '')} case solves recorded in session "${escapeHtml(currentSess.name)}".</p>
-      <p style="font-size: 0.85rem; color: var(--muted); margin: 0;">Time solves with Target set to <strong>${escapeHtml(track?.shortName || '')}</strong> in the Solve tab to build per-case statistics.</p>
+      <p style="font-size: 0.85rem; color: var(--muted); margin: 0;">Complete 3x3 CFOP solves with your Smart Cube or time solves with Target set to <strong>${escapeHtml(track?.shortName || '')}</strong> to build per-case statistics.</p>
     </td></tr></tbody></table>`;
     container.innerHTML = html;
     attachSortListeners(container);
@@ -4943,17 +5499,25 @@ function renderSolveStatsTable() {
   }
 
   const caseStatsList = casesWithTimes.map(id => {
-    const times = caseSolves.get(id);
+    const rec = caseSolves.get(id);
+    const times = rec.times;
     const attempts = times.length;
     const best = Math.min(...times);
     const worst = Math.max(...times);
     const mean = Math.round(times.reduce((sum, t) => sum + t, 0) / attempts);
-    const sorted = [...times].sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    const median = sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+    const median = computeMedian(times);
+    const trimMean = computeTrimmedMean(times, 0.10);
+    const avgPauseCount = rec.pauseCounts.length
+      ? Number((rec.pauseCounts.reduce((a, b) => a + b, 0) / rec.pauseCounts.length).toFixed(1))
+      : 0;
+    const avgPauseMs = rec.pauseMsList.length
+      ? Math.round(rec.pauseMsList.reduce((a, b) => a + b, 0) / rec.pauseMsList.length)
+      : 0;
     const caseObj = caseMap.get(id);
-    const name = caseObj ? (caseObj.name || caseObj.group || id) : id;
-    return { id, name, attempts, best, worst, mean, median };
+    const name = isOllTrack
+      ? (caseObj?.group || id)
+      : (caseObj ? (caseObj.name || caseObj.group || id) : id);
+    return { id, name, attempts, best, worst, mean, median, trimMean, avgPauseCount, avgPauseMs };
   });
 
   caseStatsList.sort((a, b) => {
@@ -4969,14 +5533,21 @@ function renderSolveStatsTable() {
   });
 
   caseStatsList.forEach(stat => {
+    const svgDiagram = showCubeSvgCol
+      ? getCachedCaseSvg("333", isOllTrack ? "oll" : "pll", stat.id)
+      : "";
     html += `<tr>
       <th scope="row"><strong>${escapeHtml(stat.id)}</strong></th>
-      <td style="color: var(--muted); font-size: 0.85rem;">${escapeHtml(stat.name)}</td>
+      ${showCubeSvgCol ? `<td class="case-svg-cell"><div class="case-table-svg">${svgDiagram}</div></td>` : ''}
+      ${showGroupCol ? `<td style="color: var(--muted); font-size: 0.85rem;">${escapeHtml(stat.name)}</td>` : ''}
       <td>${stat.attempts}</td>
       <td>${formatSolveTime(stat.best)}</td>
-      <td>${formatSolveTime(stat.mean)}</td>
+      <td><strong>${formatSolveTime(stat.mean)}</strong></td>
       <td>${formatSolveTime(stat.median)}</td>
+      <td><strong>${formatSolveTime(stat.trimMean)}</strong></td>
       <td>${formatSolveTime(stat.worst)}</td>
+      <td>${stat.avgPauseCount}</td>
+      <td>${formatSolveTime(stat.avgPauseMs)}s</td>
     </tr>`;
   });
 
@@ -4984,26 +5555,37 @@ function renderSolveStatsTable() {
 
   if (caseStatsList.length > 1) {
     const allTimes = [];
+    const allPauseCounts = [];
+    const allPauseMs = [];
     casesWithTimes.forEach(id => {
-      const times = caseSolves.get(id);
-      if (times) allTimes.push(...times);
+      const rec = caseSolves.get(id);
+      if (rec) {
+        allTimes.push(...rec.times);
+        allPauseCounts.push(...rec.pauseCounts);
+        allPauseMs.push(...rec.pauseMsList);
+      }
     });
     const totalAttempts = allTimes.length;
     const overallBest = allTimes.length ? Math.min(...allTimes) : 0;
     const overallWorst = allTimes.length ? Math.max(...allTimes) : 0;
     const overallMean = allTimes.length ? Math.round(allTimes.reduce((sum, t) => sum + t, 0) / totalAttempts) : 0;
-    const sortedAll = [...allTimes].sort((a, b) => a - b);
-    const midAll = Math.floor(sortedAll.length / 2);
-    const overallMedian = sortedAll.length % 2 !== 0 ? sortedAll[midAll] : Math.round((sortedAll[midAll - 1] + sortedAll[midAll]) / 2);
+    const overallMedian = allTimes.length ? computeMedian(allTimes) : 0;
+    const overallTrimMean = allTimes.length ? computeTrimmedMean(allTimes, 0.10) : 0;
+    const overallAvgPauses = allPauseCounts.length ? Number((allPauseCounts.reduce((a, b) => a + b, 0) / allPauseCounts.length).toFixed(1)) : 0;
+    const overallAvgPauseMs = allPauseMs.length ? Math.round(allPauseMs.reduce((a, b) => a + b, 0) / allPauseMs.length) : 0;
 
     html += `<tfoot><tr>
       <th scope="row">Total</th>
-      <td style="color: var(--muted); font-size: 0.85rem;">${caseStatsList.length} cases</td>
+      ${showCubeSvgCol ? `<td></td>` : ''}
+      ${showGroupCol ? `<td style="color: var(--muted); font-size: 0.85rem;">${caseStatsList.length} cases</td>` : ''}
       <td>${totalAttempts}</td>
       <td>${formatSolveTime(overallBest)}</td>
       <td>${formatSolveTime(overallMean)}</td>
       <td>${formatSolveTime(overallMedian)}</td>
+      <td><strong>${formatSolveTime(overallTrimMean)}</strong></td>
       <td>${formatSolveTime(overallWorst)}</td>
+      <td>${overallAvgPauses}</td>
+      <td>${formatSolveTime(overallAvgPauseMs)}s</td>
     </tr></tfoot>`;
   }
 
@@ -5021,7 +5603,7 @@ function attachSortListeners(container) {
         solveStatsSort.dir = solveStatsSort.dir === "asc" ? "desc" : "asc";
       } else {
         solveStatsSort.col = col;
-        solveStatsSort.dir = (col === "case" || col === "name" || col === "best" || col === "mean" || col === "median" || col === "worst") ? "asc" : "desc";
+        solveStatsSort.dir = (col === "case" || col === "name" || col === "best" || col === "mean" || col === "median" || col === "trimMean" || col === "worst") ? "asc" : "desc";
       }
       renderSolveStatsTable();
     });
@@ -5041,10 +5623,24 @@ function escapeHtml(str) {
 function formatSolveDate(timestamp) {
   if (!timestamp) return "-";
   const d = new Date(timestamp);
-  const month = d.toLocaleDateString(undefined, { month: 'short' });
-  const day = d.getDate();
-  const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  return `${month} ${day}, ${time}`;
+  if (Number.isNaN(d.getTime())) return "-";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function renderSolveDateClockHtml(timestamp) {
+  const dateStr = formatSolveDate(timestamp);
+  if (dateStr === "-") return "-";
+  const safeDate = escapeHtml(dateStr);
+  return `
+    <div class="solve-date-clock-wrap">
+      <button type="button" class="btn-solve-date-clock" title="${safeDate}" aria-label="Solve date: ${safeDate}">&#x1F552;</button>
+      <div class="solve-date-popover" role="tooltip">
+        <span class="solve-date-popover-icon" aria-hidden="true">&#x1F552;</span>
+        <span class="solve-date-popover-text">${safeDate}</span>
+      </div>
+    </div>
+  `;
 }
 
 function calculateMedian(arr) {
@@ -5054,9 +5650,122 @@ function calculateMedian(arr) {
   return sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
 }
 
+function renderOllPllCasesBreakdownHtml(solvesList) {
+  const { ollCases: ollStats, pllCases: pllStats } = computeOllPllCaseStats(solvesList);
+
+  const renderCaseSubTable = (title, subtitle, items, badgeClass, trackId) => {
+    if (!items || items.length === 0) {
+      return `
+        <div class="cfop-case-breakdown-card">
+          <div class="cfop-case-breakdown-head">
+            <h4>${escapeHtml(title)}</h4>
+            <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
+          </div>
+          <p class="cfop-case-empty">No ${escapeHtml(title)} tracked yet in this session. Solve with your Smart Cube to automatically identify cases, times, and pauses.</p>
+        </div>
+      `;
+    }
+
+    const showGroupCol = trackId === "oll";
+    const maxPauseMs = Math.max(...items.map(i => i.avgPauseMs));
+
+    const rowsHtml = items.map((item, idx) => {
+      const needsWork = items.length > 1 && (idx === 0 || (item.avgPauseMs > 400 && item.avgPauseMs >= maxPauseMs * 0.85));
+      const priorityBadge = needsWork
+        ? `<span class="badge badge-priority-improve" title="Slowest average time or longest pauses — focus practice here">Needs Work</span>`
+        : "";
+      const svgDiagram = getCachedCaseSvg("333", trackId, item.id);
+      return `
+        <tr>
+          <td class="cfop-case-id-cell">
+            <span class="badge ${badgeClass}"><strong>${escapeHtml(item.shortName)}</strong></span>
+            ${priorityBadge}
+          </td>
+          <td class="case-svg-cell"><div class="case-table-svg">${svgDiagram}</div></td>
+          ${showGroupCol ? `<td class="cfop-case-group-cell">${escapeHtml(item.group)}</td>` : ''}
+          <td>${item.attempts}</td>
+          <td><strong>${formatCfopSplitMs(item.avgMs)}</strong></td>
+          <td>${formatCfopSplitMs(item.medianMs)}</td>
+          <td><strong>${formatCfopSplitMs(item.trimMeanMs)}</strong></td>
+          <td>${formatCfopSplitMs(item.bestMs)}</td>
+          <td>${formatCfopSplitMs(item.worstMs)}</td>
+          <td class="${item.avgPauseCount > 0 ? 'pause-cell-warn' : ''}">
+            ${item.avgPauseCount} <small>(${formatCfopSplitMs(item.avgPauseMs)})</small>
+          </td>
+          <td>${formatCfopSplitMs(item.avgRecogMs)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    return `
+      <div class="cfop-case-breakdown-card">
+        <div class="cfop-case-breakdown-head">
+          <h4>${escapeHtml(title)} (${items.length} case${items.length === 1 ? '' : 's'} solved)</h4>
+          <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
+        </div>
+        <div class="cfop-table-scroll">
+          <table class="layer-log-table cfop-cases-table">
+            <thead>
+              <tr>
+                <th scope="col">Case</th>
+                <th scope="col">Cube</th>
+                ${showGroupCol ? '<th scope="col">Group</th>' : ''}
+                <th scope="col">Solves</th>
+                <th scope="col" title="Arithmetic mean time">Mean ▼</th>
+                <th scope="col" title="Median time">Median</th>
+                <th scope="col" title="Trimmed mean (excludes top & bottom 10%)">Trim10%</th>
+                <th scope="col">Best</th>
+                <th scope="col">Worst</th>
+                <th scope="col" title="Average number of pauses (≥0.40s) and average total pause time per case">Avg Pauses</th>
+                <th scope="col" title="Average pre-algorithm recognition / AUF time">Avg Recog</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  };
+
+  return `
+    <div class="cfop-cases-improvement-section">
+      <div class="layer-log-header" style="margin-top: 20px;">
+        <div class="layer-log-title-wrap">
+          <h3 class="layer-log-title">3x3 OLL &amp; PLL Case Performance &amp; Pauses (Where to Improve)</h3>
+          <span class="layer-log-hint">Automatically tracked from your solves, sorted slowest first</span>
+        </div>
+      </div>
+      <div class="cfop-cases-grid">
+        ${renderCaseSubTable("OLL Cases", "Orientation of the Last Layer — Mean, Median, TrimMean & Pauses per Case", ollStats, "badge-oll-case", "oll")}
+        ${renderCaseSubTable("PLL Cases", "Permutation of the Last Layer — Mean, Median, TrimMean & Pauses per Case", pllStats, "badge-pll-case", "pll")}
+      </div>
+    </div>
+  `;
+}
+
 function renderSessionLogTable() {
   const container = document.getElementById("stats-table-container");
   if (!container) return;
+
+  const is3x3Puzzle = currentPuzzle === "333" || currentPuzzle === "333oh";
+
+  if (is3x3Puzzle && !isCfopAnalyzerReady()) {
+    initCfopAnalyzer().then(() => {
+      if (statsType === "log" || statsType === "solve") {
+        renderSessionLogTable();
+      }
+    });
+  }
+
+  if (is3x3Puzzle && !isOllPllSvgsPrewarmed()) {
+    prewarmOllPllSvgs(ollCases, pllCases).then(() => {
+      if (statsType === "log" || statsType === "solve") {
+        renderSessionLogTable();
+      }
+    });
+  }
 
   const sess = getActiveSession();
   const sessSolves = sess.solves || [];
@@ -5065,7 +5774,7 @@ function renderSessionLogTable() {
     container.innerHTML = `
       <div class="empty-stats" style="text-align: center; padding: 24px;">
         <p>No solves recorded in <strong>${escapeHtml(sess.name)}</strong> yet.</p>
-        <p style="color: var(--muted); font-size: 0.9rem;">Time your solves in the <strong>Solve</strong> tab to build your session history and averages.</p>
+        <p style="color: var(--muted); font-size: 0.9rem;">Time your solves in the <strong>Solve</strong> tab to build your session history${is3x3Puzzle ? ', CFOP step splits, and OLL/PLL case analytics' : ''}.</p>
       </div>
     `;
     return;
@@ -5091,6 +5800,11 @@ function renderSessionLogTable() {
     displaySolves = fullSolves;
   }
 
+  // Ensure CFOP data is computed on 3x3 displaySolves
+  if (is3x3Puzzle) {
+    displaySolves.forEach(s => ensureSolveCfop(s));
+  }
+
   const validTimes = displaySolves.filter(s => s.penalty !== "DNF" && s.penalty !== -1).map(s => {
     const ms = s.ms ?? s.time ?? 0;
     return (s.penalty === "+2" || s.penalty === 2) ? ms + 2000 : ms;
@@ -5099,7 +5813,8 @@ function renderSessionLogTable() {
   const count = displaySolves.length;
   const best = validTimes.length ? Math.min(...validTimes) : null;
   const mean = validTimes.length ? Math.round(validTimes.reduce((a, b) => a + b, 0) / validTimes.length) : null;
-  const median = validTimes.length ? calculateMedian(validTimes) : null;
+  const median = validTimes.length ? computeMedian(validTimes) : null;
+  const trimMean = validTimes.length ? computeTrimmedMean(validTimes, 0.10) : null;
   const worst = validTimes.length ? Math.max(...validTimes) : null;
   const curAo5 = calculateAoN(displaySolves, 5);
   const bestAo5 = getBestAoN(displaySolves, 5);
@@ -5109,6 +5824,36 @@ function renderSessionLogTable() {
   const bestAo100 = getBestAoN(displaySolves, 100);
 
   const formatAo = (val) => val === "DNF" ? "DNF" : (val != null ? formatSolveTime(val) : "-");
+
+  // Pagination state calculation (newest solves first)
+  const allReversed = [...displaySolves].map((s, idx) => ({
+    s,
+    num: idx + 1,
+    origIdx: sessSolves.indexOf(s)
+  })).reverse();
+
+  const pageSize = LOG_PAGE_SIZE_OPTIONS.includes(Number(sessionLogPageSize))
+    ? Number(sessionLogPageSize)
+    : 12;
+  const totalPages = Math.max(1, Math.ceil(allReversed.length / pageSize));
+  if (sessionLogPage > totalPages) sessionLogPage = totalPages;
+  if (sessionLogPage < 1) sessionLogPage = 1;
+
+  const startIdx = (sessionLogPage - 1) * pageSize;
+  const endIdx = Math.min(allReversed.length, startIdx + pageSize);
+  const pageRows = allReversed.slice(startIdx, endIdx);
+  const pageSolves = pageRows.map(r => r.s);
+  const lastXSolves = allReversed.slice(0, pageSize).map(r => r.s);
+
+  // Compute CFOP & Pause Averages for the Last X Solves in Pagination, Current Page, and All Session Solves
+  const lastXAvg = computeCfopAverages(lastXSolves);
+  const pageAvg = sessionLogPage === 1 ? lastXAvg : computeCfopAverages(pageSolves);
+  const sessionAvg = computeCfopAverages(displaySolves);
+
+  const fmtPauseSummary = (countVal, msVal) => {
+    if (countVal == null) return "-";
+    return `${countVal} (${formatCfopSplitMs(msVal || 0)})`;
+  };
 
   let html = `
     <div class="stats-subfilter-bar">
@@ -5136,11 +5881,30 @@ function renderSessionLogTable() {
         <span class="layer-stat-val">${median != null ? formatSolveTime(median) : "-"}</span>
         <span class="layer-stat-lbl">Median</span>
       </div>
+      <div class="layer-stat-card" title="Trimmed Mean (excludes fastest 10% and slowest 10% of solves)">
+        <span class="layer-stat-val">${trimMean != null ? formatSolveTime(trimMean) : "-"}</span>
+        <span class="layer-stat-lbl">TrimMean 10%</span>
+      </div>
       <div class="layer-stat-card">
         <span class="layer-stat-val">${worst != null ? formatSolveTime(worst) : "-"}</span>
         <span class="layer-stat-lbl">Worst</span>
       </div>
   `;
+
+  const logAvgPickup = averagePhase(displaySolves, "pickupMs");
+  const logAvgPutdown = averagePhase(displaySolves, "putdownMs");
+  if (logAvgPickup != null || logAvgPutdown != null) {
+    html += `
+      <div class="layer-stat-card" title="GAN timer start → first smart cube turn">
+        <span class="layer-stat-val">${formatCfopSplitMs(logAvgPickup)}</span>
+        <span class="layer-stat-lbl">Avg Pick-up</span>
+      </div>
+      <div class="layer-stat-card" title="Smart cube solved → GAN timer stopped">
+        <span class="layer-stat-val">${formatCfopSplitMs(logAvgPutdown)}</span>
+        <span class="layer-stat-lbl">Avg Put-down</span>
+      </div>
+    `;
+  }
 
   if (count >= 5) {
     html += `
@@ -5181,76 +5945,368 @@ function renderSessionLogTable() {
 
   html += `</div>`;
 
-  // Solve Log Header and Table
-  html += `
-    <div class="layer-log-header">
-      <div class="layer-log-title-wrap">
-        <h3 class="layer-log-title">Solve Log &mdash; ${escapeHtml(sess.name)}</h3>
-        <span class="layer-log-hint">Tap any row for details</span>
+  const renderCfopStatRowHtml = (scopeTitle, subMeta, statsObj, pauseCnt, pauseMsVal, rowClass = "") => {
+    if (!statsObj) return "";
+    return `
+      <tr class="${rowClass}">
+        <td class="cfop-avg-scope-cell"><strong>${scopeTitle}</strong> ${subMeta ? `<small class="cfop-sub-meta">${subMeta}</small>` : ''}</td>
+        <td><strong>${statsObj.totalMs != null ? formatSolveTime(statsObj.totalMs) + 's' : '-'}</strong></td>
+        <td>${formatCfopSplitMs(statsObj.cross)}</td>
+        <td>${formatCfopSplitMs(statsObj.f2l1)}</td>
+        <td>${formatCfopSplitMs(statsObj.f2l2)}</td>
+        <td>${formatCfopSplitMs(statsObj.f2l3)}</td>
+        <td>${formatCfopSplitMs(statsObj.f2l4)}</td>
+        <td><strong>${formatCfopSplitMs(statsObj.f2lTotal)}</strong></td>
+        <td>${formatCfopSplitMs(statsObj.oll)}</td>
+        <td>${formatCfopSplitMs(statsObj.pll)}</td>
+        <td>${fmtPauseSummary(pauseCnt, pauseMsVal)}</td>
+        <td>${formatCfopSplitMs(statsObj.pickupMs)}</td>
+        <td>${formatCfopSplitMs(statsObj.putdownMs)}</td>
+      </tr>
+    `;
+  };
+
+  // Only show 3x3 CFOP Phase & Pause Averages Table on 3x3 / 3x3 OH
+  if (is3x3Puzzle) {
+    html += `
+      <div class="cfop-averages-summary-card">
+        <div class="cfop-averages-head">
+          <span class="cfop-averages-title">CFOP Phase &amp; Pause Stats (Mean, Median, TrimMean 10%) — Last ${lastXSolves.length} vs Session (${count})</span>
+          <span class="cfop-averages-hint">TrimMean throws away top &amp; bottom 10% · Pauses ≥0.40s</span>
+        </div>
+        <div class="cfop-table-scroll">
+          <table class="layer-log-table cfop-avg-comparison-table">
+            <thead>
+              <tr>
+                <th scope="col" class="cfop-avg-scope-cell">Scope / Metric</th>
+                <th scope="col">Total</th>
+                <th scope="col">Cross</th>
+                <th scope="col">F2L 1</th>
+                <th scope="col">F2L 2</th>
+                <th scope="col">F2L 3</th>
+                <th scope="col">F2L 4</th>
+                <th scope="col">F2L &Sigma;</th>
+                <th scope="col">OLL</th>
+                <th scope="col">PLL</th>
+                <th scope="col">Pauses</th>
+                <th scope="col" title="Time from GAN Bluetooth timer start to first smart cube turn">Pick-up</th>
+                <th scope="col" title="Time from smart cube solved to GAN Bluetooth timer stop">Put-down</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderCfopStatRowHtml(`Last ${lastXSolves.length} · Mean`, `(Page ${pageSize})`, lastXAvg, lastXAvg.avgPauseCount, lastXAvg.avgPauseMs)}
+              ${renderCfopStatRowHtml(`Last ${lastXSolves.length} · Median`, ``, lastXAvg.median, lastXAvg.median?.pauseCount, lastXAvg.median?.pauseMs)}
+              ${renderCfopStatRowHtml(`Last ${lastXSolves.length} · Trim10%`, `(-top/bot 10%)`, lastXAvg.trimMean, lastXAvg.trimMean?.pauseCount, lastXAvg.trimMean?.pauseMs, "cfop-trim-highlight-row")}
+              ${renderCfopStatRowHtml(`Session · Mean`, `(${count} solves)`, sessionAvg, sessionAvg.avgPauseCount, sessionAvg.avgPauseMs, "cfop-session-avg-row")}
+              ${renderCfopStatRowHtml(`Session · Median`, `(${count} solves)`, sessionAvg.median, sessionAvg.median?.pauseCount, sessionAvg.median?.pauseMs)}
+              ${renderCfopStatRowHtml(`Session · Trim10%`, `(-top/bot 10%)`, sessionAvg.trimMean, sessionAvg.trimMean?.pauseCount, sessionAvg.trimMean?.pauseMs, "cfop-trim-highlight-row")}
+            </tbody>
+          </table>
+        </div>
       </div>
-      <span class="layer-log-count">${count} solve${count === 1 ? '' : 's'} recorded</span>
-    </div>
-    <table class="layer-log-table">
-      <thead>
-        <tr>
-          <th scope="col" style="width: 44px;">#</th>
-          <th scope="col">Time</th>
-          <th scope="col">Target</th>
-          <th scope="col">Date</th>
-          <th scope="col" style="width: 76px;">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-  `;
-
-  if (displaySolves.length === 0) {
-    html += `<tr><td colspan="5" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
-  } else {
-    // Reverse chronological (newest at top)
-    const rows = [...displaySolves].map((s, idx) => ({ s, num: idx + 1, origIdx: sessSolves.indexOf(s) })).reverse();
-    rows.forEach(({ s, num, origIdx }) => {
-      let targetLabel = "Full";
-      let targetClass = "badge";
-      if (s.id) {
-        targetLabel = s.id;
-        targetClass = "badge badge-case";
-      } else if (s.target === "layer") {
-        targetLabel = "1st Layer";
-      } else if (s.target === "face") {
-        targetLabel = "1st Face";
-      } else if (s.target === "cross") {
-        targetLabel = "White Cross";
-      } else if (s.target === "pll") {
-        targetLabel = "PLL";
-      } else if (s.target === "oll") {
-        targetLabel = "OLL";
-      } else if (s.target === "f2l") {
-        targetLabel = "F2L";
-      } else if (s.target === "cll") {
-        targetLabel = "CLL";
-      } else if (s.target === "full") {
-        targetLabel = (s.puzzle === "333" || currentPuzzle === "333") ? "3x3 Full" : "2x2 Full";
-      }
-      const dateStr = formatSolveDate(s.at);
-
-      html += `
-        <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click to view details &amp; scramble">
-          <td>${num}</td>
-          <td class="layer-time-cell">${formatSolveDisplay(s)}</td>
-          <td><span class="${targetClass}">${escapeHtml(targetLabel)}</span></td>
-          <td class="layer-date-cell">${dateStr}</td>
-          <td>
-            <div class="layer-log-actions">
-              <button type="button" class="btn-reattempt-solve" data-index="${origIdx}" data-num="${num}" title="Reattempt solve #${num} scramble">&#x21bb;</button>
-              <button type="button" class="btn-del-solve" data-index="${origIdx}" data-num="${num}" title="Delete solve #${num} (${formatSolveDisplay(s)})">&times;</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    });
+    `;
   }
 
-  html += `</tbody></table>`;
+  // Pagination & Solve Log Header (Dropdown only + |< < > >| buttons)
+  html += `
+    <div class="layer-log-header layer-log-header-bar">
+      <div class="layer-log-title-wrap">
+        <h3 class="layer-log-title">Solve Log &mdash; ${escapeHtml(sess.name)}</h3>
+        <span class="layer-log-hint">${is3x3Puzzle ? 'Tap any row for full CFOP breakdown, 3D replay &amp; scramble' : 'Tap any row for solve details &amp; scramble'}</span>
+      </div>
+      <div class="layer-log-pagination-controls">
+        <label class="pagination-size-group" for="sessionLogPageSizeSelect">
+          <span class="pagination-size-label">Show:</span>
+          <select id="sessionLogPageSizeSelect" class="pagination-size-select" aria-label="Items per page">
+            ${LOG_PAGE_SIZE_OPTIONS.map(sz => `<option value="${sz}" ${pageSize === sz ? 'selected' : ''}>${sz}</option>`).join("")}
+          </select>
+        </label>
+        <span class="pagination-status-text">
+          <strong>${allReversed.length ? startIdx + 1 : 0}&ndash;${endIdx}</strong> of <strong>${allReversed.length}</strong> (${sessionLogPage}/${totalPages})
+        </span>
+        <div class="pagination-nav-group" role="group" aria-label="Page navigation">
+          <button type="button" class="btn btn-xs pagination-nav-btn" id="logPageFirstBtn" ${sessionLogPage <= 1 ? 'disabled' : ''} title="First page">|&lt;</button>
+          <button type="button" class="btn btn-xs pagination-nav-btn" id="logPagePrevBtn" ${sessionLogPage <= 1 ? 'disabled' : ''} title="Previous page">&lt;</button>
+          <button type="button" class="btn btn-xs pagination-nav-btn" id="logPageNextBtn" ${sessionLogPage >= totalPages ? 'disabled' : ''} title="Next page">&gt;</button>
+          <button type="button" class="btn btn-xs pagination-nav-btn" id="logPageLastBtn" ${sessionLogPage >= totalPages ? 'disabled' : ''} title="Final page">&gt;|</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (is3x3Puzzle) {
+    html += `
+      <div class="cfop-table-scroll">
+        <table class="layer-log-table cfop-solve-log-table">
+          <thead>
+            <tr>
+              <th scope="col" style="width: 36px;">#</th>
+              <th scope="col">Time</th>
+              <th scope="col">Cross</th>
+              <th scope="col">F2L 1</th>
+              <th scope="col">F2L 2</th>
+              <th scope="col">F2L 3</th>
+              <th scope="col">F2L 4</th>
+              <th scope="col">F2L &Sigma;</th>
+              <th scope="col">OLL</th>
+              <th scope="col">PLL</th>
+              <th scope="col" title="Number of pauses (≥0.40s) and total pause duration">Pauses</th>
+              <th scope="col" title="Time from GAN Bluetooth timer start to first smart cube turn">Pick-up</th>
+              <th scope="col" title="Time from smart cube solved to GAN Bluetooth timer stop">Put-down</th>
+              <th scope="col" style="width: 48px; text-align: center;" title="Date &amp; time (YYYY-MM-DD HH:MM:SS)">Date</th>
+              <th scope="col" style="width: 78px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    if (pageRows.length === 0) {
+      html += `<tr><td colspan="15" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+    } else {
+      pageRows.forEach(({ s, num, origIdx }) => {
+        const cfop = ensureSolveCfop(s);
+        const sp = cfop?.splits || {};
+        const ollCase = cfop?.ollCase;
+        const pllCase = cfop?.pllCase;
+        const pauses = cfop?.pauses;
+
+        const ollCellHtml = sp.oll != null
+          ? `<div class="cfop-cell-stack">
+              <span class="cfop-split-val">${formatCfopSplitMs(sp.oll)}</span>
+              ${ollCase?.shortName ? `<span class="badge badge-oll-case" title="${escapeHtml(ollCase.name)}">${escapeHtml(ollCase.shortName)}</span>` : ''}
+            </div>`
+          : (s.target === "oll" && s.id ? `<span class="badge badge-oll-case">${escapeHtml(s.id)}</span>` : "-");
+
+        const pllCellHtml = sp.pll != null
+          ? `<div class="cfop-cell-stack">
+              <span class="cfop-split-val">${formatCfopSplitMs(sp.pll)}</span>
+              ${pllCase?.shortName ? `<span class="badge badge-pll-case" title="${escapeHtml(pllCase.name)}">${escapeHtml(pllCase.shortName)}</span>` : ''}
+            </div>`
+          : (s.target === "pll" && s.id ? `<span class="badge badge-pll-case">${escapeHtml(s.id)}</span>` : "-");
+
+        const pauseCellHtml = pauses
+          ? `<span class="${pauses.totalCount > 0 ? 'pause-cell-warn' : 'pause-cell-clean'}" title="${pauses.totalCount} pause(s) totaling ${formatCfopSplitMs(pauses.totalMs)}">
+              ${pauses.totalCount} <small>(${formatCfopSplitMs(pauses.totalMs)})</small>
+            </span>`
+          : "-";
+
+        const dateClockHtml = renderSolveDateClockHtml(s.at);
+        const hasReplay = Array.isArray(s.moves) && s.moves.length > 0;
+
+        html += `
+          <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click to view full CFOP details &amp; scramble">
+            <td>${num}</td>
+            <td class="layer-time-cell">
+              <div class="cfop-cell-stack">
+                <strong>${formatSolveDisplay(s)}</strong>
+                ${s.tps ? `<small class="cfop-sub-meta">${s.tps} TPS</small>` : ''}
+              </div>
+            </td>
+            <td>${formatCfopSplitMs(sp.cross)}</td>
+            <td>${formatCfopSplitMs(sp.f2l1)}</td>
+            <td>${formatCfopSplitMs(sp.f2l2)}</td>
+            <td>${formatCfopSplitMs(sp.f2l3)}</td>
+            <td>${formatCfopSplitMs(sp.f2l4)}</td>
+            <td><strong>${formatCfopSplitMs(sp.f2lTotal)}</strong></td>
+            <td>${ollCellHtml}</td>
+            <td>${pllCellHtml}</td>
+            <td>${pauseCellHtml}</td>
+            <td>${formatCfopSplitMs(s.pickupMs)}</td>
+            <td>${formatCfopSplitMs(s.putdownMs)}</td>
+            <td class="layer-date-cell">${dateClockHtml}</td>
+            <td>
+              <div class="layer-log-actions">
+                ${hasReplay ? `<button type="button" class="btn-replay-solve" data-index="${origIdx}" data-num="${num}" title="Replay solve #${num} in 3D">&#x25B6;</button>` : ''}
+                <button type="button" class="btn-reattempt-solve" data-index="${origIdx}" data-num="${num}" title="Reattempt solve #${num} scramble">&#x21bb;</button>
+                <button type="button" class="btn-del-solve" data-index="${origIdx}" data-num="${num}" title="Delete solve #${num} (${formatSolveDisplay(s)})">&times;</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    html += `
+          </tbody>
+          <tfoot>
+            <tr class="cfop-tfoot-page-avg">
+              <th scope="row">Mean</th>
+              <td>
+                <div class="cfop-cell-stack">
+                  <strong>${pageAvg.totalMs != null ? formatSolveTime(pageAvg.totalMs) : '-'}</strong>
+                  <small class="cfop-sub-meta">Page (${pageSolves.length})</small>
+                </div>
+              </td>
+              <td>${formatCfopSplitMs(pageAvg.cross)}</td>
+              <td>${formatCfopSplitMs(pageAvg.f2l1)}</td>
+              <td>${formatCfopSplitMs(pageAvg.f2l2)}</td>
+              <td>${formatCfopSplitMs(pageAvg.f2l3)}</td>
+              <td>${formatCfopSplitMs(pageAvg.f2l4)}</td>
+              <td><strong>${formatCfopSplitMs(pageAvg.f2lTotal)}</strong></td>
+              <td>${formatCfopSplitMs(pageAvg.oll)}</td>
+              <td>${formatCfopSplitMs(pageAvg.pll)}</td>
+              <td>${fmtPauseSummary(pageAvg.avgPauseCount, pageAvg.avgPauseMs)}</td>
+              <td>${formatCfopSplitMs(pageAvg.pickupMs)}</td>
+              <td>${formatCfopSplitMs(pageAvg.putdownMs)}</td>
+              <td colspan="2"><small class="cfop-sub-meta">Page Mean</small></td>
+            </tr>
+            <tr class="cfop-tfoot-page-avg">
+              <th scope="row">Med</th>
+              <td>
+                <div class="cfop-cell-stack">
+                  <strong>${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : '-'}</strong>
+                  <small class="cfop-sub-meta">Page (${pageSolves.length})</small>
+                </div>
+              </td>
+              <td>${formatCfopSplitMs(pageAvg.median?.cross)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.f2l1)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.f2l2)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.f2l3)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.f2l4)}</td>
+              <td><strong>${formatCfopSplitMs(pageAvg.median?.f2lTotal)}</strong></td>
+              <td>${formatCfopSplitMs(pageAvg.median?.oll)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.pll)}</td>
+              <td>${fmtPauseSummary(pageAvg.median?.pauseCount, pageAvg.median?.pauseMs)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.pickupMs)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.putdownMs)}</td>
+              <td colspan="2"><small class="cfop-sub-meta">Page Median</small></td>
+            </tr>
+            <tr class="cfop-tfoot-page-avg cfop-trim-highlight-row">
+              <th scope="row">Trim</th>
+              <td>
+                <div class="cfop-cell-stack">
+                  <strong>${pageAvg.trimMean?.totalMs != null ? formatSolveTime(pageAvg.trimMean.totalMs) : '-'}</strong>
+                  <small class="cfop-sub-meta">Trim10%</small>
+                </div>
+              </td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.cross)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l1)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l2)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l3)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l4)}</td>
+              <td><strong>${formatCfopSplitMs(pageAvg.trimMean?.f2lTotal)}</strong></td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.oll)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.pll)}</td>
+              <td>${fmtPauseSummary(pageAvg.trimMean?.pauseCount, pageAvg.trimMean?.pauseMs)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.pickupMs)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.putdownMs)}</td>
+              <td colspan="2"><small class="cfop-sub-meta">Page TrimMean 10%</small></td>
+            </tr>
+            <tr class="cfop-tfoot-session-avg">
+              <th scope="row">All</th>
+              <td>
+                <div class="cfop-cell-stack">
+                  <strong>${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : '-'}</strong>
+                  <small class="cfop-sub-meta">Session (${count})</small>
+                </div>
+              </td>
+              <td>${formatCfopSplitMs(sessionAvg.cross)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.f2l1)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.f2l2)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.f2l3)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.f2l4)}</td>
+              <td><strong>${formatCfopSplitMs(sessionAvg.f2lTotal)}</strong></td>
+              <td>${formatCfopSplitMs(sessionAvg.oll)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.pll)}</td>
+              <td>${fmtPauseSummary(sessionAvg.avgPauseCount, sessionAvg.avgPauseMs)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.pickupMs)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.putdownMs)}</td>
+              <td colspan="2"><small class="cfop-sub-meta">Session Mean</small></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+
+    // Append OLL & PLL Per-Case Performance & Pause Tracker on 3x3
+    html += renderOllPllCasesBreakdownHtml(displaySolves);
+  } else {
+    // Non-3x3 Puzzles (2x2, 4x4, 5x5): Clean, focused Solve Log table without 3x3 CFOP columns
+    html += `
+      <div class="cfop-table-scroll">
+        <table class="layer-log-table standard-solve-log-table">
+          <thead>
+            <tr>
+              <th scope="col" style="width: 44px;">#</th>
+              <th scope="col" style="width: 110px;">Time</th>
+              <th scope="col" style="width: 78px;" title="Time from GAN Bluetooth timer start to first smart cube turn">Pick-up</th>
+              <th scope="col" style="width: 78px;" title="Time from smart cube solved to GAN Bluetooth timer stop">Put-down</th>
+              <th scope="col" style="width: 140px;">Case / Target</th>
+              <th scope="col">Scramble</th>
+              <th scope="col" style="width: 52px; text-align: center;" title="Date &amp; time (YYYY-MM-DD HH:MM:SS)">Date</th>
+              <th scope="col" style="width: 84px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    if (pageRows.length === 0) {
+      html += `<tr><td colspan="8" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+    } else {
+      pageRows.forEach(({ s, num, origIdx }) => {
+        const targetBadge = s.id
+          ? `<span class="badge">${escapeHtml(s.id)}</span>`
+          : `<span class="badge badge-subtle">${escapeHtml(s.target === 'layer' ? '1st Layer' : (s.target === 'face' ? '1st Face' : (s.target === 'parity' ? 'Parity Drill' : 'Full Solve')))}</span>`;
+        const dateClockHtml = renderSolveDateClockHtml(s.at);
+        const hasReplay = Array.isArray(s.moves) && s.moves.length > 0;
+
+        html += `
+          <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click to view solve details &amp; scramble">
+            <td>${num}</td>
+            <td class="layer-time-cell">
+              <div class="cfop-cell-stack">
+                <strong>${formatSolveDisplay(s)}</strong>
+                ${s.tps ? `<small class="cfop-sub-meta">${s.tps} TPS</small>` : ''}
+              </div>
+            </td>
+            <td>${formatCfopSplitMs(s.pickupMs)}</td>
+            <td>${formatCfopSplitMs(s.putdownMs)}</td>
+            <td>${targetBadge}</td>
+            <td class="standard-log-scramble-cell"><code>${escapeHtml(s.scramble || "-")}</code></td>
+            <td class="layer-date-cell">${dateClockHtml}</td>
+            <td>
+              <div class="layer-log-actions">
+                ${hasReplay ? `<button type="button" class="btn-replay-solve" data-index="${origIdx}" data-num="${num}" title="Replay solve #${num} in 3D">&#x25B6;</button>` : ''}
+                <button type="button" class="btn-reattempt-solve" data-index="${origIdx}" data-num="${num}" title="Reattempt solve #${num} scramble">&#x21bb;</button>
+                <button type="button" class="btn-del-solve" data-index="${origIdx}" data-num="${num}" title="Delete solve #${num} (${formatSolveDisplay(s)})">&times;</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    html += `
+          </tbody>
+          <tfoot>
+            <tr class="cfop-tfoot-page-avg">
+              <th scope="row">Page</th>
+              <td colspan="7">
+                <strong>Mean:</strong> ${pageAvg.totalMs != null ? formatSolveTime(pageAvg.totalMs) : '-'} &bull;
+                <strong>Median:</strong> ${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : '-'} &bull;
+                <strong>TrimMean (10%):</strong> ${pageAvg.trimMean?.totalMs != null ? formatSolveTime(pageAvg.trimMean.totalMs) : '-'}
+                ${pageAvg.pickupMs != null ? ` &bull; <strong>Pick-up:</strong> ${formatCfopSplitMs(pageAvg.pickupMs)}` : ''}
+                ${pageAvg.putdownMs != null ? ` &bull; <strong>Put-down:</strong> ${formatCfopSplitMs(pageAvg.putdownMs)}` : ''}
+                <small class="cfop-sub-meta">(${pageSolves.length} solves on page)</small>
+              </td>
+            </tr>
+            <tr class="cfop-tfoot-session-avg">
+              <th scope="row">All</th>
+              <td colspan="7">
+                <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : '-'} &bull;
+                <strong>Median:</strong> ${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : '-'} &bull;
+                <strong>TrimMean (10%):</strong> ${sessionAvg.trimMean?.totalMs != null ? formatSolveTime(sessionAvg.trimMean.totalMs) : '-'}
+                ${sessionAvg.pickupMs != null ? ` &bull; <strong>Pick-up:</strong> ${formatCfopSplitMs(sessionAvg.pickupMs)}` : ''}
+                ${sessionAvg.putdownMs != null ? ` &bull; <strong>Put-down:</strong> ${formatCfopSplitMs(sessionAvg.putdownMs)}` : ''}
+                <small class="cfop-sub-meta">(${count} solves in session)</small>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+  }
+
   container.innerHTML = html;
 
   // Attach subfilter button listeners
@@ -5258,19 +6314,102 @@ function renderSessionLogTable() {
   container.querySelectorAll(".stats-subfilter-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       sessionLogFilter = btn.dataset.logFilter || "all";
+      sessionLogPage = 1;
       renderSessionLogTable();
     });
+  });
+
+  // Attach pagination size dropdown listener
+  const pageSizeSelect = container.querySelector("#sessionLogPageSizeSelect");
+  if (pageSizeSelect) {
+    pageSizeSelect.addEventListener("change", () => {
+      const sz = Number(pageSizeSelect.value);
+      if (LOG_PAGE_SIZE_OPTIONS.includes(sz)) {
+        sessionLogPageSize = sz;
+        sessionLogPage = 1;
+        saveSettings();
+        renderSolvePanel();
+        renderSessionLogTable();
+      }
+    });
+  }
+
+  // Attach pagination page navigation listeners
+  container.querySelector("#logPageFirstBtn")?.addEventListener("click", () => {
+    if (sessionLogPage > 1) {
+      sessionLogPage = 1;
+      renderSessionLogTable();
+    }
+  });
+  container.querySelector("#logPagePrevBtn")?.addEventListener("click", () => {
+    if (sessionLogPage > 1) {
+      sessionLogPage--;
+      renderSessionLogTable();
+    }
+  });
+  container.querySelector("#logPageNextBtn")?.addEventListener("click", () => {
+    if (sessionLogPage < totalPages) {
+      sessionLogPage++;
+      renderSessionLogTable();
+    }
+  });
+  container.querySelector("#logPageLastBtn")?.addEventListener("click", () => {
+    if (sessionLogPage < totalPages) {
+      sessionLogPage = totalPages;
+      renderSessionLogTable();
+    }
   });
 
   // Attach row click listeners to show details popup
   container.querySelectorAll(".layer-log-row").forEach(row => {
     row.addEventListener("click", (e) => {
-      if (e.target.closest(".btn-del-solve") || e.target.closest(".btn-reattempt-solve")) return;
+      if (
+        e.target.closest(".btn-del-solve") ||
+        e.target.closest(".btn-reattempt-solve") ||
+        e.target.closest(".btn-replay-solve") ||
+        e.target.closest(".solve-date-clock-wrap")
+      ) {
+        return;
+      }
       const index = Number(row.dataset.index);
       const num = row.dataset.num;
       const solve = sessSolves[index];
       if (solve) {
         openSolveDetailModal(solve, num);
+      }
+    });
+  });
+
+  // Attach clock icon click & mouseleave listeners for date pop-up
+  container.querySelectorAll(".solve-date-clock-wrap").forEach(wrap => {
+    const btn = wrap.querySelector(".btn-solve-date-clock");
+    if (btn) {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const wasOpen = wrap.classList.contains("is-open");
+        container.querySelectorAll(".solve-date-clock-wrap.is-open").forEach(other => {
+          if (other !== wrap) other.classList.remove("is-open");
+        });
+        wrap.classList.toggle("is-open", !wasOpen);
+      });
+    }
+    wrap.addEventListener("mouseleave", () => {
+      wrap.classList.remove("is-open");
+      if (btn && document.activeElement === btn) {
+        btn.blur();
+      }
+    });
+  });
+
+  // Attach replay button listeners
+  container.querySelectorAll(".btn-replay-solve").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const index = Number(btn.dataset.index);
+      const num = btn.dataset.num;
+      const solve = sessSolves[index];
+      if (solve) {
+        solveReplayViewer.open(solve, `Solve #${num} (${sess.name})`);
       }
     });
   });
@@ -5311,23 +6450,13 @@ function renderSessionLogTable() {
 }
 
 // ---------------------------------------------------------------------------
-// Solve Details Modal (Popup for Scramble & Date)
+// Solve Details Modal (Popup for Scramble, CFOP Breakdown & Date)
 // ---------------------------------------------------------------------------
 
 let activeModalSolve = null;
 
 function formatFullSolveDate(timestamp) {
-  if (!timestamp) return "-";
-  const d = new Date(timestamp);
-  return d.toLocaleString(undefined, {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
+  return formatSolveDate(timestamp);
 }
 
 function openSolveDetailModal(solve, solveNum) {
@@ -5339,6 +6468,47 @@ function openSolveDetailModal(solve, solveNum) {
   if (solveModalScramble) solveModalScramble.textContent = solve.scramble || "(no scramble recorded)";
   if (solveModalDate) solveModalDate.textContent = formatFullSolveDate(solve.at);
   if (solveModalCopyScrambleBtn) solveModalCopyScrambleBtn.textContent = "Copy";
+
+  if (solveModalPhasesField && solveModalPhasesContent) {
+    if (solve.timer) {
+      solveModalPhasesField.hidden = false;
+      const cell = (label, ms, hint) => `
+        <div class="solve-phase-cell" title="${escapeHtml(hint)}">
+          <span class="solve-phase-label">${label}</span>
+          <strong class="solve-phase-val">${formatCfopSplitMs(ms)}</strong>
+        </div>`;
+      solveModalPhasesContent.innerHTML = `
+        ${cell("Timer", solve.rawMs, "Time recorded by the GAN Smart Timer")}
+        ${cell("Pick-up", solve.pickupMs, "Timer start → first smart cube turn")}
+        ${cell("Cube solve", solve.cubeMs, "First turn → smart cube solved")}
+        ${cell("Put-down", solve.putdownMs, "Smart cube solved → timer stopped")}
+      `;
+    } else {
+      solveModalPhasesField.hidden = true;
+      solveModalPhasesContent.innerHTML = "";
+    }
+  }
+  const cfop = ensureSolveCfop(solve);
+  if (solveModalCfopField && solveModalCfopContent) {
+    if (cfop && (cfop.steps?.length > 0 || cfop.ollCase || cfop.pllCase)) {
+      solveModalCfopField.hidden = false;
+      const totalPauses = cfop.pauses ? `${cfop.pauses.totalCount} pause(s) (${formatCfopSplitMs(cfop.pauses.totalMs)} total)` : "0";
+      const stepTableHtml = renderCfopStepTable(solve, { detailed: true });
+      solveModalCfopContent.innerHTML = `
+        <div class="solve-modal-cfop-summary-bar">
+          <span><strong>Cross Color:</strong> ${escapeHtml(cfop.crossColor || "White")}</span>
+          ${cfop.splits?.f2lTotal != null ? `<span><strong>F2L &Sigma;:</strong> ${formatCfopSplitMs(cfop.splits.f2lTotal)}</span>` : ''}
+          ${cfop.ollCase ? `<span><strong>OLL:</strong> ${escapeHtml(cfop.ollCase.name)} (${formatCfopSplitMs(cfop.ollCase.ms)})</span>` : ''}
+          ${cfop.pllCase ? `<span><strong>PLL:</strong> ${escapeHtml(cfop.pllCase.name)} (${formatCfopSplitMs(cfop.pllCase.ms)})</span>` : ''}
+          <span><strong>Total Pauses:</strong> ${totalPauses}</span>
+        </div>
+        ${stepTableHtml}
+      `;
+    } else {
+      solveModalCfopField.hidden = true;
+      solveModalCfopContent.innerHTML = "";
+    }
+  }
 
   if (solveModalMovesField) {
     if (solve.moves && solve.moves.length > 0) {
@@ -5460,10 +6630,92 @@ function showBluetoothError(msg) {
   if (btStatusDesc) btStatusDesc.textContent = msg;
 }
 
+function renderSavedCubesList() {
+  if (!btSavedCubesList) return;
+  const saved = smartCube.getSavedCubes();
+  const st = smartCube.getStatus();
+
+  if (!saved || saved.length === 0) {
+    btSavedCubesList.innerHTML = `
+      <p class="bt-saved-empty">No saved smart cubes yet. Connect a cube above and it will be saved here for 1-click reconnect.</p>
+    `;
+    return;
+  }
+
+  btSavedCubesList.innerHTML = saved.map(cube => {
+    const isCurrent = st.connected && st.deviceName === cube.name;
+    const protoBadge = cube.protocol ? `<span class="badge badge-subtle">${escapeHtml(cube.protocol)}</span>` : "";
+    const macBadge = cube.mac ? `<code class="bt-saved-mac" title="Saved Bluetooth MAC Address">${escapeHtml(cube.mac)}</code>` : "";
+    const statusLabel = isCurrent
+      ? `<span class="bt-saved-status connected">● Connected</span>`
+      : `<span class="bt-saved-status">Reconnect &rarr;</span>`;
+
+    return `
+      <div class="bt-saved-cube-item ${isCurrent ? 'is-connected' : ''}" data-cube-name="${escapeHtml(cube.name)}">
+        <button type="button" class="bt-saved-cube-connect-btn" data-cube-name="${escapeHtml(cube.name)}" title="${isCurrent ? 'Currently connected' : `Click to reconnect to ${escapeHtml(cube.name)}`}">
+          <span class="bt-saved-cube-icon" aria-hidden="true">ᛒ</span>
+          <span class="bt-saved-cube-main">
+            <strong class="bt-saved-cube-name">${escapeHtml(cube.name)}</strong>
+            <span class="bt-saved-cube-meta">${protoBadge} ${macBadge}</span>
+          </span>
+          ${statusLabel}
+        </button>
+        <button type="button" class="bt-saved-cube-del-btn" data-cube-name="${escapeHtml(cube.name)}" title="Remove ${escapeHtml(cube.name)} from saved cubes" aria-label="Remove ${escapeHtml(cube.name)}">&times;</button>
+      </div>
+    `;
+  }).join("");
+
+  btSavedCubesList.querySelectorAll(".bt-saved-cube-connect-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const name = btn.dataset.cubeName;
+      if (!name) return;
+      const entry = saved.find(c => c.name === name) || { name };
+      if (btErrorAlert) btErrorAlert.hidden = true;
+      if (entry.mac && btCustomMacInput) {
+        btCustomMacInput.value = entry.mac;
+      }
+      if (btStatusDesc) {
+        btStatusDesc.textContent = `Reconnecting to ${name}… Select "${name}" in the Bluetooth prompt.`;
+      }
+      try {
+        const deviceSelection = (btUnfilteredCheckbox && btUnfilteredCheckbox.checked) ? "any" : "filtered";
+        await smartCube.reconnectSavedCube(entry, { deviceSelection });
+        if (btErrorAlert) btErrorAlert.hidden = true;
+      } catch (err) {
+        if (err && (err.name === "NotFoundError" || err.code === "NotFoundError")) {
+          if (btStatusDesc) btStatusDesc.textContent = "Bluetooth device selection cancelled.";
+          return;
+        }
+        console.warn("Saved cube reconnect error:", err);
+        showBluetoothError(err?.message || `Failed to reconnect to ${name}.`);
+      }
+    });
+  });
+
+  btSavedCubesList.querySelectorAll(".bt-saved-cube-del-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const name = btn.dataset.cubeName;
+      if (!name) return;
+      smartCube.removeSavedCube(name);
+      renderSavedCubesList();
+    });
+  });
+}
+
+smartCube.addEventListener("savedcubeschange", () => {
+  renderSavedCubesList();
+});
+
 function updateBluetoothUI() {
   const st = smartCube.getStatus();
+  const hasCubeAlert = Boolean(smartCubeDisconnectAlert && !st.connected);
+  renderSavedCubesList();
   if (bluetoothHeaderDot) {
     bluetoothHeaderDot.className = `bt-dot ${st.status}`;
+  }
+  if (bluetoothBtn) {
+    bluetoothBtn.classList.toggle("is-disconnected-alert", hasCubeAlert);
   }
   if (bluetoothModalStatusBadge) {
     const badgeClass = st.status === 'connected' ? 'badge-success' : (st.status === 'connecting' ? 'badge-warning' : 'badge-disconnected');
@@ -5499,62 +6751,79 @@ function updateBluetoothUI() {
   updateSmartCubeIndicator();
   if (st.connected && mode === "solve") {
     if (smartCubeStage === "scrambling" && !scrambleTracker.isComplete()) {
-      if (!scrambleTracker.scrambleString || scrambleTracker.scrambleString !== currentSolveScramble) {
+      if (!scrambleTracker.rawScramble || scrambleTracker.rawScramble !== currentSolveScramble) {
         scrambleTracker.reset(currentSolveScramble);
+        smartCube.logDiag("SCRAMBLE_SYNC_RESET", { scramble: currentSolveScramble });
       }
       renderSmartScrambleAssistant();
     }
   }
 }
 
-// Sample demonstration solve with realistic turns and splits for instant replay testing
+// Sample demonstration CFOP solve with realistic turns, splits, OLL 27 (Sune), PLL (T-Perm), and pauses
 const DEMO_SOLVE = {
   puzzle: "333",
   target: "full",
-  ms: 8420,
-  rawMs: 8420,
+  ms: 9960,
+  rawMs: 9960,
   penalty: null,
   at: Date.now() - 3600000,
-  scramble: "D' R2 U B2 R2 B2 D F2 U2 F2 L' B D' B2 L2 B' D B2",
+  scramble: "U F R U' R' U R U R2' F' R U R U' R' U' R U2' R' U' R U' R' U' R U' R' U L' U L U2' R' U' R U' L U L' U' D F R' D'",
   moves: [
-    { move: "R", t: 340, split: 340 },
-    { move: "U", t: 550, split: 210 },
-    { move: "R'", t: 730, split: 180 },
-    { move: "U'", t: 980, split: 250 },
-    { move: "F'", t: 1240, split: 260 },
-    { move: "U", t: 1460, split: 220 },
-    { move: "F", t: 1690, split: 230 },
-    { move: "U2", t: 2020, split: 330 },
-    { move: "R", t: 2310, split: 290 },
-    { move: "U'", t: 2540, split: 230 },
-    { move: "R'", t: 2750, split: 210 },
-    { move: "U", t: 3040, split: 290 },
-    { move: "R", t: 3260, split: 220 },
-    { move: "U2", t: 3580, split: 320 },
-    { move: "R'", t: 3790, split: 210 },
-    { move: "F", t: 4120, split: 330 },
-    { move: "R", t: 4340, split: 220 },
-    { move: "U", t: 4560, split: 220 },
-    { move: "R'", t: 4770, split: 210 },
-    { move: "U'", t: 5010, split: 240 },
-    { move: "F'", t: 5280, split: 270 },
-    { move: "R", t: 5610, split: 330 },
-    { move: "U", t: 5820, split: 210 },
-    { move: "R'", t: 6040, split: 220 },
-    { move: "U'", t: 6280, split: 240 },
-    { move: "R'", t: 6510, split: 230 },
-    { move: "F", t: 6790, split: 280 },
-    { move: "R2", t: 7120, split: 330 },
-    { move: "U'", t: 7350, split: 230 },
-    { move: "R'", t: 7570, split: 220 },
-    { move: "U'", t: 7790, split: 220 },
-    { move: "R", t: 8010, split: 220 },
-    { move: "U", t: 8220, split: 210 },
-    { move: "R'", t: 8340, split: 120 },
-    { move: "F'", t: 8420, split: 80 }
+    // Cross (4 moves)
+    { move: "D",  t: 180,  split: 180 },
+    { move: "R",  t: 360,  split: 180 },
+    { move: "F'", t: 540,  split: 180 },
+    { move: "D'", t: 720,  split: 180 },
+    // F2L 1 (4 moves, starts with 520ms pause)
+    { move: "U",  t: 1240, split: 520 },
+    { move: "L",  t: 1420, split: 180 },
+    { move: "U'", t: 1600, split: 180 },
+    { move: "L'", t: 1780, split: 180 },
+    // F2L 2 (4 moves, starts with 460ms pause)
+    { move: "U",  t: 2240, split: 460 },
+    { move: "R'", t: 2420, split: 180 },
+    { move: "U",  t: 2600, split: 180 },
+    { move: "R",  t: 2780, split: 180 },
+    // F2L 3 (4 moves)
+    { move: "U2", t: 3100, split: 320 },
+    { move: "L'", t: 3280, split: 180 },
+    { move: "U'", t: 3460, split: 180 },
+    { move: "L",  t: 3640, split: 180 },
+    // F2L 4 (4 moves)
+    { move: "U'", t: 3920, split: 280 },
+    { move: "R",  t: 4100, split: 180 },
+    { move: "U",  t: 4280, split: 180 },
+    { move: "R'", t: 4460, split: 180 },
+    // OLL 27 Sune (8 moves, starts with 550ms recognition pause)
+    { move: "U",  t: 5010, split: 550 },
+    { move: "R",  t: 5210, split: 200 },
+    { move: "U",  t: 5390, split: 180 },
+    { move: "R'", t: 5570, split: 180 },
+    { move: "U",  t: 5750, split: 180 },
+    { move: "R",  t: 5930, split: 180 },
+    { move: "U2", t: 6150, split: 220 },
+    { move: "R'", t: 6330, split: 180 },
+    // PLL T-Perm (16 moves, starts with 630ms recognition pause)
+    { move: "U",  t: 6960, split: 630 },
+    { move: "R",  t: 7160, split: 200 },
+    { move: "U",  t: 7360, split: 200 },
+    { move: "R'", t: 7560, split: 200 },
+    { move: "U'", t: 7760, split: 200 },
+    { move: "R'", t: 7960, split: 200 },
+    { move: "F",  t: 8160, split: 200 },
+    { move: "R2", t: 8360, split: 200 },
+    { move: "U'", t: 8560, split: 200 },
+    { move: "R'", t: 8760, split: 200 },
+    { move: "U'", t: 8960, split: 200 },
+    { move: "R",  t: 9160, split: 200 },
+    { move: "U",  t: 9360, split: 200 },
+    { move: "R'", t: 9560, split: 200 },
+    { move: "F'", t: 9760, split: 200 },
+    { move: "U'", t: 9960, split: 200 }
   ],
-  moveCount: 35,
-  tps: 4.16,
+  moveCount: 44,
+  tps: 4.42,
   smartCube: "Smart Cube (Demo)"
 };
 
@@ -5599,13 +6868,16 @@ if (btConnectBtn) {
 // Hard Reset Bluetooth & Clear Cache Handlers
 function handleBluetoothReset() {
   smartCube.hardReset();
+  ganTimer.disconnect();
   if (btCustomMacInput) btCustomMacInput.value = "";
   try { localStorage.removeItem("cll_smartcube_last_mac"); } catch {}
   if (btErrorAlert) btErrorAlert.hidden = true;
   if (btStatusDesc) {
-    btStatusDesc.textContent = "Bluetooth state and saved MAC cache cleared. Ready to connect fresh.";
+    btStatusDesc.textContent = "Bluetooth state, saved cubes, and MAC cache cleared. Ready to connect fresh.";
   }
+  renderSavedCubesList();
   updateBluetoothUI();
+  updateGanTimerUI();
 }
 
 if (btResetBtn) {
@@ -5719,22 +6991,14 @@ function request3DCubeUpdate() {
 
 // Listen for Solved State from Smart Cube Hardware / Facelets
 smartCube.addEventListener("solved", () => {
-  if (mode === "solve" && solveState === "running") {
-    stopSolve(false);
-    smartCubeStage = "scrambling";
-    updateSmartCubeIndicator();
-  }
+  handleSmartCubeSolved();
 });
 
 // Listen for Live Turns from Smart Cube
 smartCube.addEventListener("move", (e) => {
   const { move, isSolved } = e.detail;
   if (!move) {
-    if (isSolved && mode === "solve" && solveState === "running") {
-      stopSolve(false);
-      smartCubeStage = "scrambling";
-      updateSmartCubeIndicator();
-    }
+    if (isSolved) handleSmartCubeSolved();
     return;
   }
 
@@ -5765,21 +7029,76 @@ smartCube.addEventListener("move", (e) => {
       if (!scrambleTracker.isComplete()) {
         if (!isRotation) {
           scrambleTracker.applyMove(move);
-          renderSmartScrambleAssistant();
+          const trackerStatus = scrambleTracker.getStatus();
+          smartCube.logDiag("SCRAMBLE_MOVE", {
+            move,
+            currentIndex: trackerStatus.currentIndex,
+            currentSubAmount: trackerStatus.currentSubAmount,
+            hasError: trackerStatus.hasError,
+            corrections: trackerStatus.corrections,
+            nextRequired: trackerStatus.nextRequired
+          });
           if (scrambleTracker.isComplete()) {
+            clearScrambleCorrectionDelay();
             onSmartScrambleCompleted();
+          } else if (isSolved && (trackerStatus.hasError || trackerStatus.currentIndex > 0 || trackerStatus.currentSubAmount > 0)) {
+            handleSmartCubeSolved();
+          } else if (trackerStatus.hasError || trackerStatus.currentSubAmount > 0) {
+            if (scrambleErrorVisible && trackerStatus.hasError) {
+              // Correction box is already visible and user is actively performing correction moves:
+              // update the correction sequence immediately so they see each correction move take effect!
+              renderSmartScrambleAssistant();
+            } else {
+              // Delay showing any off-track or incomplete-double-turn warning for SCRAMBLE_CORRECTION_DELAY_MS
+              // so proficient double-flicks never flash an error before the 2nd flick lands!
+              scrambleSuppressTransient = true;
+              renderSmartScrambleAssistant();
+              if (scrambleCorrectionDelayTimer) {
+                clearTimeout(scrambleCorrectionDelayTimer);
+              }
+              scrambleCorrectionDelayTimer = setTimeout(() => {
+                scrambleCorrectionDelayTimer = null;
+                scrambleSuppressTransient = false;
+                const stNow = scrambleTracker.getStatus();
+                scrambleErrorVisible = Boolean(stNow.hasError || stNow.currentSubAmount > 0);
+                renderSmartScrambleAssistant();
+              }, SCRAMBLE_CORRECTION_DELAY_MS);
+            }
+          } else {
+            clearScrambleCorrectionDelay();
+            renderSmartScrambleAssistant();
           }
         }
         // Under no circumstances do we start the timer while in scrambling stage!
         return;
       } else {
         // Scramble was marked complete or is already complete, transition
+        clearScrambleCorrectionDelay();
         if (solveInspection) {
           smartCubeStage = "inspecting";
         } else {
           smartCubeStage = "ready";
         }
       }
+    }
+
+    // 1b. GAN Smart Timer connected: the timer (not the first turn) starts the solve.
+    if (ganTimer.isConnected() && solveState !== "running" &&
+        (solveState === "inspecting" || smartCubeStage === "inspecting" || smartCubeStage === "ready")) {
+      if (isRotation) return;
+      // Pre-turn before the timer started: keep it so replay/analysis stay consistent.
+      const now = performance.now();
+      if (!solveFirstMoveTs) {
+        solveFirstMoveTs = now;
+        solveMoveOrigin = now;
+        trackedSolveMoves = [];
+      }
+      const t = Math.round(now - solveMoveOrigin);
+      const prevT = trackedSolveMoves.length > 0 ? trackedSolveMoves[trackedSolveMoves.length - 1].t : 0;
+      trackedSolveMoves.push({ move, t, split: trackedSolveMoves.length ? Math.max(10, t - prevT) : 0 });
+      smartCube.logDiag("TIMER_PRE_TURN", { move, count: trackedSolveMoves.length });
+      request3DCubeUpdate();
+      return;
     }
 
     // 2. Inspection Stage
@@ -5792,6 +7111,7 @@ smartCube.addEventListener("move", (e) => {
       // First physical face turn ends inspection and starts the solve timer!
       smartCubeStage = "solving";
       startSolve(true);
+      solveFirstMoveTs = solveStart;
       trackedSolveMoves = [{ move, t: 0, split: 0 }];
       request3DCubeUpdate();
       if (solveLiveMovesCount) solveLiveMovesCount.textContent = "1 move";
@@ -5809,6 +7129,7 @@ smartCube.addEventListener("move", (e) => {
       // First physical face turn starts the solve timer!
       smartCubeStage = "solving";
       startSolve(true);
+      solveFirstMoveTs = solveStart;
       trackedSolveMoves = [{ move, t: 0, split: 0 }];
       request3DCubeUpdate();
       if (solveLiveMovesCount) solveLiveMovesCount.textContent = "1 move";
@@ -5819,9 +7140,29 @@ smartCube.addEventListener("move", (e) => {
 
     // 4. Solving Stage (Timer is running)
     if (solveState === "running") {
-      const elapsed = Math.round(performance.now() - solveStart);
+      // Timer-driven solve with a non-verified scramble: don't track turns (timer-only solve).
+      if (solveTimerDriven && smartCubeStage !== "solving") return;
+      const now = performance.now();
+      if (solveTimerDriven || solveTimerStartTs > 0) {
+        if (isRotation && !solveFirstMoveTs) return; // rotations don't end pick-up
+        if (!solveFirstMoveTs) {
+          // First turn after the GAN timer started: pick-up phase ends here.
+          solveFirstMoveTs = now;
+          solveMoveOrigin = now;
+          smartCube.logDiag("TIMER_FIRST_TURN", { pickupMs: Math.round(now - solveTimerStartTs) });
+          updateSmartCubeIndicator();
+        }
+        if (solveCubeSolvedTs) {
+          // Cube turned again after being solved: it's no longer solved.
+          solveCubeSolvedTs = 0;
+          solveOverlay.classList.remove("cube-solved");
+          solveOverlayHint.textContent = getRunningOverlayHint();
+          updateSmartCubeIndicator();
+        }
+      }
+      const elapsed = Math.round(now - solveMoveOrigin);
       const prevT = trackedSolveMoves.length > 0 ? trackedSolveMoves[trackedSolveMoves.length - 1].t : 0;
-      const split = Math.max(10, elapsed - prevT);
+      const split = trackedSolveMoves.length > 0 ? Math.max(10, elapsed - prevT) : 0;
       trackedSolveMoves.push({ move, t: elapsed, split });
 
       request3DCubeUpdate();
@@ -5836,9 +7177,7 @@ smartCube.addEventListener("move", (e) => {
 
       // Check if cube reached solved state!
       if (isSolved) {
-        stopSolve(false);
-        smartCubeStage = "scrambling";
-        updateSmartCubeIndicator();
+        handleSmartCubeSolved();
       }
       return;
     }
@@ -5852,6 +7191,365 @@ smartCube.addEventListener("move", (e) => {
 
 // Initialize Solve Replay Viewer
 solveReplayViewer.init({}, reattemptScramble);
+
+// ---------------------------------------------------------------------------
+// High-Visibility Bluetooth Disconnect Alert (Smart Cube & GAN Timer)
+// ---------------------------------------------------------------------------
+
+const btDisconnectBanner = document.getElementById("btDisconnectBanner");
+const btDisconnectBannerTitle = document.getElementById("btDisconnectBannerTitle");
+const btDisconnectBannerDesc = document.getElementById("btDisconnectBannerDesc");
+const btDisconnectReconnectBtn = document.getElementById("btDisconnectReconnectBtn");
+const btDisconnectDismissBtn = document.getElementById("btDisconnectDismissBtn");
+
+const btDisconnectFloatingAlert = document.getElementById("btDisconnectFloatingAlert");
+const btDisconnectFloatingTitle = document.getElementById("btDisconnectFloatingTitle");
+const btDisconnectFloatingDesc = document.getElementById("btDisconnectFloatingDesc");
+const btDisconnectFloatingReconnectBtn = document.getElementById("btDisconnectFloatingReconnectBtn");
+const btDisconnectFloatingDismissBtn = document.getElementById("btDisconnectFloatingDismissBtn");
+
+let ganTimerDisconnectAlert = false;
+let smartCubeDisconnectAlert = null; // null or { deviceName: string }
+
+function playDisconnectAlertSound() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    // Two descending warning tones (880Hz -> 440Hz)
+    [
+      { freq: 880, start: 0, dur: 0.14 },
+      { freq: 440, start: 0.17, dur: 0.24 }
+    ].forEach(({ freq, start, dur }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, now + start);
+      gain.gain.setValueAtTime(0.22, now + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + start);
+      osc.stop(now + start + dur);
+    });
+    setTimeout(() => { try { ctx.close(); } catch {} }, 600);
+  } catch {}
+}
+
+function renderBtDisconnectAlerts() {
+  const hasTimerAlert = Boolean(ganTimerDisconnectAlert && !ganTimer.isConnected());
+  const hasCubeAlert = Boolean(smartCubeDisconnectAlert && !smartCube.getStatus().connected);
+  const anyAlert = hasTimerAlert || hasCubeAlert;
+
+  if (ganTimerBtn) {
+    ganTimerBtn.classList.toggle("is-disconnected-alert", hasTimerAlert);
+  }
+  if (bluetoothBtn) {
+    bluetoothBtn.classList.toggle("is-disconnected-alert", hasCubeAlert);
+  }
+  if (solveSurface) {
+    solveSurface.classList.toggle("has-bt-disconnect-alert", anyAlert);
+  }
+
+  if (!anyAlert) {
+    if (btDisconnectBanner) btDisconnectBanner.hidden = true;
+    if (btDisconnectFloatingAlert) btDisconnectFloatingAlert.hidden = true;
+    return;
+  }
+
+  let title = "";
+  let desc = "";
+  let btnLabel = "🔌 Reconnect Now";
+
+  if (hasTimerAlert && hasCubeAlert) {
+    const cName = smartCubeDisconnectAlert?.deviceName || "Smart Cube";
+    title = `⚠️ GAN TIMER & SMART CUBE (${cName}) DISCONNECTED!`;
+    desc = "Both Bluetooth devices lost connection! Solves on your physical timer and cube turns are NOT being recorded.";
+    btnLabel = "🔌 Reconnect Timer & Cube";
+  } else if (hasTimerAlert) {
+    title = "⚠️ GAN BLUETOOTH TIMER DISCONNECTED!";
+    desc = "Your Bluetooth timer lost connection (it may have powered off or gone to sleep). Solves on the physical timer are NOT being recorded!";
+    btnLabel = "🔌 Reconnect GAN Timer";
+  } else if (hasCubeAlert) {
+    const cName = smartCubeDisconnectAlert?.deviceName || "Smart Cube";
+    title = `⚠️ SMART CUBE DISCONNECTED (${cName})!`;
+    desc = "Your Bluetooth smart cube lost connection. Cube turns and auto-stop are NO LONGER being tracked!";
+    btnLabel = `🔌 Reconnect ${cName}`;
+  }
+
+  if (btDisconnectBannerTitle) btDisconnectBannerTitle.textContent = title;
+  if (btDisconnectBannerDesc) btDisconnectBannerDesc.textContent = desc;
+  if (btDisconnectReconnectBtn) btDisconnectReconnectBtn.textContent = btnLabel;
+  if (btDisconnectBanner) btDisconnectBanner.hidden = false;
+
+  if (btDisconnectFloatingTitle) btDisconnectFloatingTitle.textContent = title;
+  if (btDisconnectFloatingDesc) btDisconnectFloatingDesc.textContent = desc;
+  if (btDisconnectFloatingReconnectBtn) btDisconnectFloatingReconnectBtn.textContent = btnLabel;
+  // Show floating top-center alert whenever solveOverlay is open or user is not in solve mode
+  if (btDisconnectFloatingAlert) {
+    const isSolveSurfaceVisible = mode === "solve" && (!solveOverlay || solveOverlay.hidden);
+    btDisconnectFloatingAlert.hidden = isSolveSurfaceVisible;
+  }
+}
+
+async function handleDisconnectAlertReconnect() {
+  const hasTimerAlert = Boolean(ganTimerDisconnectAlert && !ganTimer.isConnected());
+  const hasCubeAlert = Boolean(smartCubeDisconnectAlert && !smartCube.getStatus().connected);
+
+  if (hasTimerAlert) {
+    try {
+      await ganTimer.connect();
+      ganTimerDisconnectAlert = false;
+      renderBtDisconnectAlerts();
+    } catch (err) {
+      if (err && (err.name === "NotFoundError" || err.code === "NotFoundError")) return;
+      alert(`Could not reconnect GAN Smart Timer: ${err?.message || err}`);
+    }
+    return;
+  }
+
+  if (hasCubeAlert) {
+    const devName = smartCubeDisconnectAlert?.deviceName || "";
+    try {
+      if (devName) {
+        await smartCube.reconnectSavedCube(devName);
+      } else {
+        await smartCube.connect();
+      }
+      smartCubeDisconnectAlert = null;
+      renderBtDisconnectAlerts();
+    } catch (err) {
+      if (err && (err.name === "NotFoundError" || err.code === "NotFoundError")) return;
+      openBluetoothModal();
+      showBluetoothError(err?.message || `Could not reconnect to ${devName || "Smart Cube"}.`);
+    }
+  }
+}
+
+function dismissBtDisconnectAlerts() {
+  ganTimerDisconnectAlert = false;
+  smartCubeDisconnectAlert = null;
+  renderBtDisconnectAlerts();
+  updateGanTimerUI();
+  updateBluetoothUI();
+}
+
+if (btDisconnectReconnectBtn) {
+  btDisconnectReconnectBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    handleDisconnectAlertReconnect();
+  });
+}
+if (btDisconnectFloatingReconnectBtn) {
+  btDisconnectFloatingReconnectBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    handleDisconnectAlertReconnect();
+  });
+}
+if (btDisconnectDismissBtn) {
+  btDisconnectDismissBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dismissBtDisconnectAlerts();
+  });
+}
+if (btDisconnectFloatingDismissBtn) {
+  btDisconnectFloatingDismissBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dismissBtDisconnectAlerts();
+  });
+}
+
+smartCube.addEventListener("connected", () => {
+  smartCubeDisconnectAlert = null;
+  renderBtDisconnectAlerts();
+});
+
+smartCube.addEventListener("disconnected", (e) => {
+  const { reason, deviceName, isVirtual } = e.detail || {};
+  if (isVirtual) return;
+  if (reason !== "manual" || mode === "solve") {
+    smartCubeDisconnectAlert = { deviceName: deviceName || "Smart Cube" };
+    playDisconnectAlertSound();
+    renderBtDisconnectAlerts();
+    updateBluetoothUI();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GAN Smart Timer (Bluetooth)
+// ---------------------------------------------------------------------------
+
+function updateGanTimerUI() {
+  const st = ganTimer.getStatus();
+  const hasTimerAlert = Boolean(ganTimerDisconnectAlert && !st.connected);
+  if (ganTimerHeaderDot) ganTimerHeaderDot.className = `bt-dot ${st.status}`;
+  if (ganTimerLabel) {
+    ganTimerLabel.textContent = st.status === "connected"
+      ? "GAN Timer ✓"
+      : (st.status === "connecting"
+        ? "Connecting…"
+        : (hasTimerAlert ? "⚠️ Timer Lost!" : "GAN Timer"));
+  }
+  if (ganTimerBtn) {
+    ganTimerBtn.title = st.status === "connected"
+      ? "GAN Smart Timer connected · Click to disconnect"
+      : (hasTimerAlert
+        ? "GAN Smart Timer disconnected! Click to reconnect"
+        : "Connect GAN Smart Timer (Bluetooth)");
+    ganTimerBtn.classList.toggle("is-connected", st.connected);
+    ganTimerBtn.classList.toggle("is-disconnected-alert", hasTimerAlert);
+  }
+}
+
+// Visual feedback while hands are on the timer (does not change solveState, so
+// keyboard/pointer handlers never start a solve on their own while a timer is used).
+function showGanTimerHandsOverlay(state) {
+  if (mode !== "solve" || (solveState !== "idle" && solveState !== "inspecting")) return;
+  if (solveTarget === "cll" && !currentCaseId) return;
+  solveOverlay.hidden = false;
+  solveOverlay.classList.remove("gan-hands-on", "armed");
+  solveOverlay.classList.add(state === "GET_SET" ? "armed" : "gan-hands-on");
+  if (solveState === "idle") {
+    solveOverlayTime.textContent = "0.00";
+    if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = true;
+  }
+  solveOverlayHint.textContent = state === "GET_SET"
+    ? "Ready · Release the timer to start"
+    : "Hands on timer · Hold until green…";
+}
+
+function clearGanTimerHandsOverlay() {
+  solveOverlay.classList.remove("gan-hands-on", "armed");
+  if (mode !== "solve") return;
+  if (solveState === "idle") {
+    hideSolveOverlay();
+  } else if (solveState === "inspecting") {
+    solveOverlayHint.textContent = "Start the GAN timer when ready · Esc to cancel";
+  }
+}
+
+function startTimerDrivenSolve(ts) {
+  if (mode !== "solve") return;
+  if (solveState === "running") return;
+  if (solveTarget === "cll" && !currentCaseId) return;
+  const cubeTracking = smartCube.getStatus().connected &&
+    (smartCubeStage === "inspecting" || smartCubeStage === "ready");
+  if (cubeTracking) {
+    smartCubeStage = "solving";
+  } else {
+    // Normal cube (or unverified scramble): timer-only solve, discard any stale pre-turns.
+    trackedSolveMoves = [];
+    solveFirstMoveTs = 0;
+  }
+  startSolve(false, { timerDriven: true, startTs: ts });
+  if (!cubeTracking && solveLiveStats) solveLiveStats.hidden = true;
+  smartCube.logDiag("TIMER_RUNNING", { cubeTracking, preTurns: trackedSolveMoves.length });
+  updateSmartCubeIndicator();
+}
+
+ganTimer.addEventListener("connected", () => {
+  ganTimerDisconnectAlert = false;
+  renderBtDisconnectAlerts();
+  updateGanTimerUI();
+});
+
+ganTimer.addEventListener("statuschange", () => {
+  updateGanTimerUI();
+  renderBtDisconnectAlerts();
+  if (mode === "solve") {
+    renderSolvePanel();
+    updateSmartCubeIndicator();
+  }
+});
+
+ganTimer.addEventListener("disconnected", (e) => {
+  const reason = e.detail?.reason || "unexpected";
+  // Fall back to manual stopping if the timer drops mid-solve.
+  if (solveState === "running" && solveTimerDriven) {
+    solveTimerDriven = false;
+    solveOverlay.classList.remove("cube-solved");
+    solveOverlayHint.textContent = "⚠️ GAN TIMER DISCONNECTED! Press any key or tap to stop";
+  } else {
+    clearGanTimerHandsOverlay();
+  }
+  if (reason !== "manual" || mode === "solve") {
+    ganTimerDisconnectAlert = true;
+    playDisconnectAlertSound();
+    renderBtDisconnectAlerts();
+    updateGanTimerUI();
+  }
+});
+
+ganTimer.addEventListener("timerstate", (e) => {
+  const { state, recordedMs, ts } = e.detail || {};
+  smartCube.logDiag("GAN_TIMER_STATE", { state, recordedMs });
+  if (mode !== "solve") return;
+  switch (state) {
+    case "HANDS_ON":
+    case "GET_SET":
+      showGanTimerHandsOverlay(state);
+      break;
+    case "HANDS_OFF":
+    case "IDLE":
+      if (solveState !== "running") clearGanTimerHandsOverlay();
+      break;
+    case "RUNNING":
+      startTimerDrivenSolve(ts);
+      break;
+    case "STOPPED":
+      if (solveState === "running" && solveTimerDriven) {
+        const elapsedMs = Number.isFinite(recordedMs) && recordedMs > 0
+          ? recordedMs
+          : ((ts != null ? ts : performance.now()) - solveStart);
+        if (shouldIgnorePrematureTimerStop({
+          smartCubeConnected: smartCube.getStatus().connected,
+          smartCubeStage,
+          cubeSolved: Boolean(solveCubeSolvedTs) || smartCube.isCubeSolved(),
+          moveCount: trackedSolveMoves.length,
+          firstMoveTs: solveFirstMoveTs,
+          elapsedMs
+        })) {
+          smartCube.logDiag("GAN_TIMER_FALSE_STOP_IGNORED", {
+            recordedMs,
+            elapsedMs: Math.round(elapsedMs),
+            moves: trackedSolveMoves.length
+          });
+          // Switch to smart-cube auto-stop while keeping solveTimerStartTs intact so pick-up time
+          // (solveFirstMoveTs - solveTimerStartTs) and cube solve time are still recorded!
+          solveTimerDriven = false;
+          if (solveOverlayHint) {
+            solveOverlayHint.textContent = "GAN timer stopped early — keep solving! Auto-stops when cube is solved";
+          }
+          updateSmartCubeIndicator();
+          break;
+        }
+        stopSolve(false, { hardwareMs: recordedMs, stopTs: ts });
+        updateSmartCubeIndicator();
+      }
+      break;
+    default:
+      break;
+  }
+});
+
+if (ganTimerBtn) {
+  ganTimerBtn.addEventListener("click", async () => {
+    if (ganTimer.isConnected()) {
+      if (confirm("Disconnect the GAN Smart Timer?")) ganTimer.disconnect();
+      return;
+    }
+    if (ganTimer.status === "connecting") return;
+    try {
+      await ganTimer.connect();
+    } catch (err) {
+      if (err && (err.name === "NotFoundError" || err.code === "NotFoundError")) return; // picker cancelled
+      console.warn("GAN timer connection error:", err);
+      alert(`Could not connect to GAN Smart Timer: ${err?.message || err}`);
+    }
+  });
+}
+updateGanTimerUI();
 
 // Wire Escape key for Bluetooth Modal
 window.addEventListener("keydown", (e) => {
@@ -7218,6 +8916,9 @@ renderStatsToggle();
 populateSimCaseSelect();
 updateFaceChipsUI();
 regenerateScramble();
+prewarmOllPllSvgs(ollCases, pllCases).then(() => {
+  if (!statsPanel.hidden) updateStatsTable();
+});
 if (mode === "simulate") {
   simInit();
 }

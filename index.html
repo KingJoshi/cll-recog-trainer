@@ -32,6 +32,11 @@
       <span class="bt-icon" aria-hidden="true">ᛒ</span>
       <span class="bt-label">Smart Cube</span>
     </button>
+    <button type="button" id="ganTimerBtn" class="header-btn bluetooth-header-btn" title="Connect GAN Smart Timer (Bluetooth)">
+      <span class="bt-dot disconnected" id="ganTimerHeaderDot" aria-hidden="true"></span>
+      <span class="bt-icon" aria-hidden="true">⏱</span>
+      <span class="bt-label" id="ganTimerLabel">GAN Timer</span>
+    </button>
     <button type="button" id="themeToggleBtn" class="header-btn" title="Toggle Dark/Light Theme">🌙 Dark</button>
     <button type="button" id="settingsBtn" class="header-btn" title="Trainer Settings">⚙️ Settings</button>
     <button type="button" id="guideBtn" class="header-btn">Tips &amp; Guide</button>
@@ -395,12 +400,27 @@
 
     <!-- Solve mode: timer area (hold here on touch devices) and recorded times -->
     <div id="solveSurface" class="solve-surface" hidden>
+      <div id="btDisconnectBanner" class="bt-disconnect-banner" role="alert" aria-live="assertive" hidden>
+        <div class="bt-disconnect-banner-main">
+          <span class="bt-disconnect-banner-icon" aria-hidden="true">⚠️</span>
+          <div class="bt-disconnect-banner-copy">
+            <strong id="btDisconnectBannerTitle" class="bt-disconnect-banner-title">BLUETOOTH DEVICE DISCONNECTED!</strong>
+            <p id="btDisconnectBannerDesc" class="bt-disconnect-banner-desc">Solves on your Bluetooth device are NOT being recorded. Wake up the device and reconnect before solving.</p>
+          </div>
+        </div>
+        <div class="bt-disconnect-banner-actions">
+          <button type="button" id="btDisconnectReconnectBtn" class="btn btn-primary bt-disconnect-reconnect-btn">🔌 Reconnect Now</button>
+          <button type="button" id="btDisconnectDismissBtn" class="btn btn-small bt-disconnect-dismiss-btn">✕ Dismiss</button>
+        </div>
+      </div>
       <div id="smartCubeSolveIndicator" class="smart-cube-solve-indicator" hidden>
         <span class="smart-cube-solve-dot"></span>
         <span id="smartCubeSolveText">ᛒ Smart Cube Connected · Turn cube to start timer</span>
         <div class="smart-cube-indicator-actions">
           <button type="button" id="smartCubeReadyBtn" class="btn btn-xs smart-cube-action-btn" title="Skip scramble checking and start inspection / timer now">✓ Ready</button>
           <button type="button" id="smartCubeResetSolvedBtn" class="btn btn-xs smart-cube-action-btn" title="Calibrate cube internal orientation to solved">↺ Calibrate</button>
+          <button type="button" id="smartCubeDiagToggleBtn" class="btn btn-xs smart-cube-action-btn" title="Start/Stop Smart Cube Diagnostics Log">⏺ Diag Log</button>
+          <button type="button" id="smartCubeDiagCopyBtn" class="btn btn-xs smart-cube-action-btn" title="Copy Diagnostics Log JSON to clipboard">📋 Copy Log</button>
         </div>
       </div>
       <div id="solveTime" class="solve-time">0.00</div>
@@ -545,6 +565,21 @@
   <p id="solveOverlayHint" class="solve-overlay-hint"></p>
 </div>
 
+<!-- High-visibility floating Bluetooth disconnect alert (visible over overlays and all views) -->
+<div id="btDisconnectFloatingAlert" class="bt-disconnect-floating-alert" role="alert" aria-live="assertive" hidden>
+  <div class="bt-disconnect-floating-card">
+    <span class="bt-disconnect-banner-icon" aria-hidden="true">⚠️</span>
+    <div class="bt-disconnect-banner-copy">
+      <strong id="btDisconnectFloatingTitle" class="bt-disconnect-banner-title">BLUETOOTH DEVICE DISCONNECTED!</strong>
+      <p id="btDisconnectFloatingDesc" class="bt-disconnect-banner-desc">Solves on your Bluetooth device are NOT being recorded.</p>
+    </div>
+    <div class="bt-disconnect-banner-actions">
+      <button type="button" id="btDisconnectFloatingReconnectBtn" class="btn btn-primary bt-disconnect-reconnect-btn">🔌 Reconnect Now</button>
+      <button type="button" id="btDisconnectFloatingDismissBtn" class="btn btn-small bt-disconnect-dismiss-btn">✕ Dismiss</button>
+    </div>
+  </div>
+</div>
+
 <!-- Solve details popup modal -->
 <div id="solveDetailModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="solveModalTitle" hidden>
   <div class="solve-modal-card">
@@ -566,6 +601,14 @@
       <div class="solve-modal-field">
         <span class="solve-modal-label">Date &amp; Time</span>
         <p id="solveModalDate" class="solve-modal-date"></p>
+      </div>
+      <div class="solve-modal-field" id="solveModalPhasesField" hidden>
+        <span class="solve-modal-label">GAN Timer · Pick-up &amp; Put-down</span>
+        <div id="solveModalPhasesContent" class="solve-modal-phases"></div>
+      </div>
+      <div class="solve-modal-field" id="solveModalCfopField" hidden>
+        <span class="solve-modal-label">CFOP Phase Splits, Cases &amp; Pauses</span>
+        <div id="solveModalCfopContent" class="solve-modal-cfop-content"></div>
       </div>
       <div class="solve-modal-field" id="solveModalMovesField" hidden>
         <span class="solve-modal-label">Tracked Moves</span>
@@ -647,6 +690,15 @@
         </button>
       </div>
 
+      <!-- Previously Connected Smart Cubes List -->
+      <div id="btSavedCubesSection" class="bt-saved-cubes-section">
+        <div class="bt-stream-header">
+          <span class="bt-stream-title">Previously Connected Cubes</span>
+          <span class="bt-saved-hint">Click a cube to reconnect</span>
+        </div>
+        <div id="btSavedCubesList" class="bt-saved-cubes-list"></div>
+      </div>
+
       <!-- Advanced & Cube Settings (Manual MAC entry for GAN / MoYu) -->
       <details class="bt-advanced-details" id="btAdvancedDetails">
         <summary class="bt-advanced-summary">Advanced Settings (MAC Address &amp; Scan Options)</summary>
@@ -676,6 +728,23 @@
         </div>
         <div id="btMoveChipsList" class="bt-move-chips-list">
           <span class="bt-empty-hint">Turn your smart cube to see moves live...</span>
+        </div>
+      </div>
+
+      <!-- Smart Cube Diagnostics Recorder -->
+      <div class="bt-diag-section">
+        <div class="bt-stream-header">
+          <span class="bt-stream-title">🩺 Smart Cube Diagnostics Recorder</span>
+          <span id="btDiagCountBadge" class="badge">0 events</span>
+        </div>
+        <p class="bt-field-hint" style="margin: 4px 0 8px;">
+          Record raw Bluetooth moves, serial numbers, facelet syncs, and scramble tracker states to diagnose cube tracking issues (plus a rolling 400-event buffer is always kept automatically).
+        </p>
+        <div class="bt-diag-actions">
+          <button type="button" id="btDiagToggleBtn" class="btn btn-xs btn-primary">⏺ Start Recording</button>
+          <button type="button" id="btDiagCopyBtn" class="btn btn-xs">📋 Copy Diagnostics JSON</button>
+          <button type="button" id="btDiagDownloadBtn" class="btn btn-xs">⬇ Download Log (.json)</button>
+          <button type="button" id="btDiagClearBtn" class="btn btn-xs btn-danger">Clear</button>
         </div>
       </div>
 

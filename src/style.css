@@ -164,7 +164,7 @@ button {
 
 .app {
     width: 100%;
-    max-width: 1400px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: var(--gap);
     display: grid;
@@ -176,9 +176,9 @@ button {
         "stats";
 }
 
-.settings { grid-area: settings; }
-.stage    { grid-area: stage; }
-.stats    { grid-area: stats; }
+.settings { grid-area: settings; width: 100%; max-width: 100%; }
+.stage    { grid-area: stage; width: 100%; max-width: 100%; }
+.stats    { grid-area: stats; width: 100%; max-width: 100%; }
 
 .panel {
     background: var(--surface);
@@ -1136,13 +1136,26 @@ scramble-display {
 
 .solve-case {
     margin-top: 10px;
-    font-size: .95rem;
+    font-size: .92rem;
     color: var(--muted);
+    width: 100%;
 }
 
-.solve-case strong {
-    font-size: 1.2rem;
-    color: var(--primary);
+.solve-case-meta {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+
+.solve-case-meta strong {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.solve-case-target {
+    font-weight: 600;
+    color: var(--muted);
 }
 
 .solve-hint {
@@ -1191,7 +1204,7 @@ scramble-display {
 .solve-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
     padding: 0 14px 12px;
     min-height: 12px;
 }
@@ -1200,7 +1213,7 @@ button.solve-chip,
 .solve-chip {
     display: inline-flex;
     align-items: center;
-    padding: 3px 10px;
+    padding: 4px 10px 4px 12px;
     background: var(--surface);
     color: var(--text);
     border: 1px solid var(--border);
@@ -1216,38 +1229,64 @@ button.solve-chip,
 
 button.solve-chip:hover,
 .solve-chip:hover {
-    background: var(--danger-soft);
-    border-color: #fca5a5;
-    color: var(--danger);
+    background: var(--surface-2);
+    border-color: #94a3b8;
+    color: var(--text);
 }
 
 button.solve-chip:active,
 .solve-chip:active {
-    transform: scale(0.97);
+    transform: scale(0.98);
+}
+
+.solve-chip .solve-chip-time {
+    font-weight: 700;
 }
 
 .solve-chip .solve-chip-id {
-    margin-left: 5px;
+    margin-left: 6px;
     font-size: .8rem;
     color: var(--muted);
 }
 
-button.solve-chip:hover .solve-chip-id {
-    color: var(--danger);
+.solve-chip-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 9px;
+}
+
+.solve-chip .solve-chip-replay-tag,
+.solve-chip .solve-chip-del {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: .78rem;
+    line-height: 1;
+    color: var(--muted);
+    opacity: 0.75;
+    transition: background .15s ease, color .15s ease, opacity .15s ease, transform .1s ease;
 }
 
 .solve-chip .solve-chip-del {
-    margin-left: 6px;
-    font-size: .95rem;
-    line-height: 1;
-    color: var(--muted);
-    opacity: 0.6;
-    transition: opacity .15s, color .15s;
+    font-size: 1rem;
 }
 
-button.solve-chip:hover .solve-chip-del {
+.solve-chip .solve-chip-replay-tag:hover {
     opacity: 1;
-    color: var(--danger);
+    background: rgba(37, 99, 235, 0.14);
+    color: var(--primary, #2563eb);
+    transform: scale(1.1);
+}
+
+.solve-chip .solve-chip-del:hover {
+    opacity: 1;
+    background: rgba(239, 68, 68, 0.16);
+    color: var(--danger, #dc2626);
+    transform: scale(1.1);
 }
 
 .solve-overlay {
@@ -3123,33 +3162,19 @@ html.overview-open body {
 }
 
 /* --------------------------------------------------------------------------
-   Wide screens: sidebar layout
+   Wide screens: full-width layout (no narrow sidebar squeezing tables)
    -------------------------------------------------------------------------- */
 
 @media (min-width: 900px) {
     .app {
-        grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+        grid-template-columns: minmax(0, 1fr);
         grid-template-areas:
-            "stage settings"
-            "stage stats";
-        grid-template-rows: auto 1fr;
+            "settings"
+            "stage"
+            "stats";
         align-items: start;
         padding: 20px;
         gap: 20px;
-    }
-
-    /* settings are always open in the sidebar */
-    .settings.collapsed .panel-body {
-        display: block;
-    }
-
-    .settings .panel-toggle {
-        cursor: default;
-        pointer-events: none;
-    }
-
-    .settings .chevron {
-        display: none;
     }
 
     .cube-card {
@@ -3158,17 +3183,20 @@ html.overview-open body {
 
     /* fit cube + guessing UI into the viewport height */
     .stage {
-        --cube-w: min(720px, max(280px, calc((var(--vh) - 24rem) * 1.5)));
+        width: 100%;
+        max-width: 100%;
+        --cube-w: 100%;
     }
 
-    /* Desktop Solve mode: side-by-side 3D cube & timer layout */
+    /* Desktop Solve mode: side-by-side 3D cube & timer layout matching full widget width */
     .stage.mode-solve {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         align-items: stretch;
         --cube-w: 100%;
-        max-width: calc((var(--solve-cube-max-w) + 36px) * 2 + 16px);
+        width: 100%;
+        max-width: 100%;
         gap: 14px;
-        margin: 0 auto;
+        margin: 0;
     }
 
     .stage.mode-solve > * {
@@ -3230,8 +3258,8 @@ html.overview-open body {
     /* When 3D Cube is hidden in solve mode, timer spans both columns */
     .stage.mode-solve.solve-cube-hidden .solve-surface {
         grid-column: 1 / -1;
-        max-width: calc(var(--solve-cube-max-w) + 120px);
-        margin: 0 auto;
+        max-width: 100%;
+        margin: 0;
         width: 100%;
     }
 
@@ -3279,7 +3307,7 @@ html.overview-open body {
     }
 
     .app {
-        grid-template-columns: minmax(0, 1fr) 400px;
+        grid-template-columns: minmax(0, 1fr);
         padding: 28px;
         gap: 28px;
     }
@@ -6332,4 +6360,1252 @@ html.overview-open body {
     border-color: rgba(34, 197, 94, 0.45);
     color: #4ade80;
 }
+
+/* ==========================================================================
+   CFOP Analytics, Step Splits, Case Tracking, Pauses & Pagination Styles
+   ========================================================================== */
+
+/* Last Solve CFOP Strip under Timer (Times prioritized over labels) */
+.last-solve-cfop-strip {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 7px;
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: var(--surface-2, #f8fafc);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 10px;
+}
+
+.cfop-inline-pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    padding: 4px 10px;
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border, #cbd5e1);
+    border-radius: 999px;
+    color: var(--text, #1e293b);
+    white-space: nowrap;
+}
+
+.cfop-inline-pill .cfop-pill-lbl {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.cfop-inline-pill .cfop-pill-val,
+.cfop-inline-pill strong {
+    font-size: 0.96rem;
+    font-weight: 800;
+    color: var(--text, #0f172a);
+    font-variant-numeric: tabular-nums;
+}
+
+.cfop-pill-f2lsum {
+    background: rgba(37, 99, 235, 0.1);
+    border-color: rgba(37, 99, 235, 0.42);
+}
+
+.cfop-pill-f2lsum .cfop-pill-lbl {
+    color: var(--primary, #2563eb);
+    font-weight: 700;
+}
+
+.cfop-pill-f2lsum .cfop-pill-val {
+    color: var(--primary, #2563eb);
+}
+
+.cfop-pill-oll {
+    background: rgba(234, 179, 8, 0.12);
+    border-color: rgba(234, 179, 8, 0.45);
+}
+
+.cfop-pill-oll .cfop-pill-lbl {
+    color: #92400e;
+}
+
+.cfop-pill-pll {
+    background: rgba(168, 85, 247, 0.12);
+    border-color: rgba(168, 85, 247, 0.45);
+}
+
+.cfop-pill-pll .cfop-pill-lbl {
+    color: #6b21a8;
+}
+
+.cfop-pill-pause {
+    background: rgba(245, 158, 11, 0.14);
+    border-color: rgba(245, 158, 11, 0.45);
+}
+
+.cfop-pill-pause .cfop-pill-lbl,
+.cfop-pill-pause .cfop-pill-val {
+    color: #b45309;
+}
+
+.solve-page-size-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 8px;
+}
+
+.log-page-size-select {
+    height: 26px;
+    padding: 1px 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--border, #cbd5e1);
+    background: var(--surface, #ffffff);
+    color: var(--text, #1e293b);
+    cursor: pointer;
+}
+
+/* CFOP Averages Summary Card in Stats Panel & Solve Log */
+.stats,
+.stats-body,
+#stats-table-container {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+}
+
+.cfop-table-scroll {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+}
+
+.cfop-averages-summary-card {
+    margin: 12px 0;
+    padding: 12px;
+    background: var(--surface-2, #f8fafc);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 10px;
+    min-width: 0;
+    width: 100%;
+}
+
+.cfop-averages-head,
+.cfop-averages-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.cfop-averages-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text, #1e293b);
+}
+
+.cfop-averages-hint,
+.cfop-averages-subtitle {
+    font-size: 0.76rem;
+    color: var(--muted, #64748b);
+}
+
+.cfop-avg-comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    text-align: center;
+}
+
+.cfop-avg-comparison-table th,
+.cfop-avg-comparison-table td {
+    padding: 7px 8px;
+    border: 1px solid var(--border, #e2e8f0);
+    white-space: nowrap;
+}
+
+.cfop-avg-comparison-table th {
+    font-weight: 700;
+    color: var(--muted, #64748b);
+    background: var(--surface-2, #f8fafc);
+}
+
+.cfop-avg-scope-cell {
+    text-align: left !important;
+    font-weight: 600;
+}
+
+/* Solve Log Pagination Controls (Dropdown + |< < > >| buttons) */
+.layer-log-header-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 16px 0 10px;
+}
+
+.layer-log-pagination-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.pagination-size-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.pagination-size-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted, #64748b);
+}
+
+.pagination-size-select {
+    height: 30px;
+    padding: 2px 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--border, #cbd5e1);
+    background: var(--surface, #ffffff);
+    color: var(--text, #1e293b);
+    cursor: pointer;
+}
+
+.pagination-status-text {
+    font-size: 0.8rem;
+    color: var(--muted, #64748b);
+    white-space: nowrap;
+}
+
+.pagination-nav-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pagination-nav-btn {
+    min-width: 32px;
+    height: 30px;
+    padding: 0 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    font-weight: 700;
+    border-radius: 6px;
+}
+
+.pagination-nav-btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+}
+
+/* CFOP Solve Log Table */
+.cfop-solve-log-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.cfop-solve-log-table th,
+.cfop-solve-log-table td {
+    padding: 7px 6px;
+    font-size: 0.82rem;
+    vertical-align: middle;
+}
+
+.cfop-cell-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    line-height: 1.15;
+}
+
+.cfop-split-val {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.cfop-sub-meta {
+    font-size: 0.66rem;
+    color: var(--muted, #64748b);
+    white-space: nowrap;
+}
+
+.badge-oll-case,
+.badge-pll-case {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.badge-oll-case {
+    background: rgba(234, 179, 8, 0.16);
+    color: #a16207;
+    border: 1px solid rgba(234, 179, 8, 0.4);
+}
+
+.badge-pll-case {
+    background: rgba(168, 85, 247, 0.15);
+    color: #7e22ce;
+    border: 1px solid rgba(168, 85, 247, 0.38);
+}
+
+.badge-priority-improve {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.64rem;
+    font-weight: 700;
+    background: rgba(239, 68, 68, 0.14);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.pause-cell-warn {
+    color: #d97706;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.pause-cell-clean {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+/* OLL & PLL Case Breakdown Section */
+.cfop-cases-improvement-section {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.cfop-cases-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+.cfop-case-breakdown-card {
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 10px;
+    padding: 12px 14px;
+    overflow-x: auto;
+}
+
+.cfop-case-breakdown-head,
+.cfop-case-breakdown-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.cfop-case-breakdown-head h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.cfop-case-breakdown-sub,
+.cfop-case-breakdown-hint {
+    font-size: 0.78rem;
+    color: var(--muted, #64748b);
+}
+
+.cfop-cases-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+}
+
+.cfop-cases-table th,
+.cfop-cases-table td {
+    padding: 6px 8px;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.cfop-cases-table th:first-child,
+.cfop-cases-table td:first-child {
+    text-align: left;
+}
+
+.cfop-case-group-cell {
+    color: var(--muted, #64748b);
+    font-size: 0.82rem;
+    text-align: left !important;
+}
+
+.case-svg-cell {
+    width: 44px;
+    padding: 3px 6px !important;
+    text-align: center;
+}
+
+.case-table-svg {
+    width: 38px;
+    height: 38px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.case-table-svg svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Smart Cube Diagnostics Recorder in Bluetooth Modal & Indicator */
+.bt-diag-section {
+    padding: 12px 14px;
+    background: var(--surface-2, #f8fafc);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
+
+.bt-diag-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.diag-recording-active {
+    background: rgba(239, 68, 68, 0.16) !important;
+    border-color: #ef4444 !important;
+    color: #dc2626 !important;
+    font-weight: 700;
+}
+
+.row-needs-improvement {
+    background: rgba(245, 158, 11, 0.06);
+}
+
+/* Solve Detail Modal CFOP Summary & Phase Table */
+.solve-modal-cfop-summary-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.solve-modal-cfop-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.76rem;
+}
+
+.solve-modal-cfop-table th,
+.solve-modal-cfop-table td {
+    padding: 5px 6px;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+    text-align: center;
+}
+
+.solve-modal-cfop-table th:first-child,
+.solve-modal-cfop-table td:first-child {
+    text-align: left;
+    font-weight: 600;
+}
+
+/* Replay Move Chip Phase Tags & Pause Highlights */
+.replay-move-chip .chip-phase-tag {
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0 5px;
+    border-radius: 4px;
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--primary, #2563eb);
+    margin-bottom: 2px;
+}
+
+.replay-move-chip.active .chip-phase-tag {
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+}
+
+.replay-move-chip.is-pause-move,
+.solve-tape-item.is-pause-move {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.12);
+}
+
+/* Dark Mode Overrides for CFOP & Pagination */
+[data-theme="dark"] .last-solve-cfop-strip,
+[data-theme="dark"] .cfop-averages-summary-card,
+[data-theme="dark"] .cfop-case-breakdown-card,
+[data-theme="dark"] .bt-diag-section {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+[data-theme="dark"] .cfop-inline-pill,
+[data-theme="dark"] .btn-page-size-chip,
+[data-theme="dark"] .pagination-size-select,
+[data-theme="dark"] .log-page-size-select {
+    background: #0f172a;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .cfop-inline-pill .cfop-pill-val {
+    color: #f8fafc;
+}
+
+[data-theme="dark"] .cfop-pill-f2lsum .cfop-pill-lbl,
+[data-theme="dark"] .cfop-pill-f2lsum .cfop-pill-val {
+    color: #60a5fa;
+}
+
+[data-theme="dark"] .btn-page-size-chip.active {
+    background: #2563eb;
+    border-color: #3b82f6;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .badge-oll-case {
+    background: rgba(234, 179, 8, 0.2);
+    color: #fde047;
+    border-color: rgba(234, 179, 8, 0.45);
+}
+
+[data-theme="dark"] .badge-pll-case {
+    background: rgba(168, 85, 247, 0.22);
+    color: #d8b4fe;
+    border-color: rgba(168, 85, 247, 0.45);
+}
+
+[data-theme="dark"] .pause-cell-warn,
+[data-theme="dark"] .cfop-pill-pause,
+[data-theme="dark"] .cfop-pill-pause .cfop-pill-lbl,
+[data-theme="dark"] .cfop-pill-pause .cfop-pill-val {
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .pause-cell-clean {
+    color: #4ade80;
+}
+
+/* ==========================================================================
+   DESIGN SYSTEM STYLE GUIDE & ADAPTIVE LAYOUT TOKENS (2x2 Mobile -> 3x3 Smart Cube)
+   ========================================================================== */
+:root {
+    --font-2xs: 0.68rem;
+    --font-xs: 0.74rem;
+    --font-sm: 0.82rem;
+    --font-md: 0.92rem;
+    --font-lg: 1.08rem;
+    --font-xl: 1.35rem;
+
+    /* Semantic CFOP Step Tokens */
+    --step-cross-bg: #f8fafc;
+    --step-cross-border: #cbd5e1;
+    --step-cross-text: #334155;
+
+    --step-f2l-bg: #f1f5f9;
+    --step-f2l-border: #cbd5e1;
+    --step-f2l-text: #1e293b;
+
+    --step-f2lsum-bg: rgba(37, 99, 235, 0.1);
+    --step-f2lsum-border: rgba(37, 99, 235, 0.35);
+    --step-f2lsum-text: #1d4ed8;
+
+    --step-oll-bg: rgba(234, 179, 8, 0.16);
+    --step-oll-border: rgba(234, 179, 8, 0.48);
+    --step-oll-text: #854d0e;
+
+    --step-pll-bg: rgba(168, 85, 247, 0.14);
+    --step-pll-border: rgba(168, 85, 247, 0.42);
+    --step-pll-text: #6b21a8;
+
+    --step-pause-bg: rgba(245, 158, 11, 0.14);
+    --step-pause-border: rgba(245, 158, 11, 0.42);
+    --step-pause-text: #b45309;
+}
+
+[data-theme="dark"] {
+    --step-cross-bg: #1e293b;
+    --step-cross-border: #475569;
+    --step-cross-text: #e2e8f0;
+
+    --step-f2l-bg: #0f172a;
+    --step-f2l-border: #334155;
+    --step-f2l-text: #f1f5f9;
+
+    --step-f2lsum-bg: rgba(59, 130, 246, 0.18);
+    --step-f2lsum-border: rgba(59, 130, 246, 0.45);
+    --step-f2lsum-text: #93c5fd;
+
+    --step-oll-bg: rgba(234, 179, 8, 0.22);
+    --step-oll-border: rgba(234, 179, 8, 0.48);
+    --step-oll-text: #fde047;
+
+    --step-pll-bg: rgba(168, 85, 247, 0.24);
+    --step-pll-border: rgba(168, 85, 247, 0.48);
+    --step-pll-text: #e9d5ff;
+
+    --step-pause-bg: rgba(245, 158, 11, 0.2);
+    --step-pause-border: rgba(245, 158, 11, 0.45);
+    --step-pause-text: #fcd34d;
+}
+
+/* Wider Solve Detail Modal for Full CFOP Step Breakdown & Recon */
+#solveDetailModal .solve-modal-card {
+    max-width: 960px;
+    width: 95vw;
+}
+
+/* Adaptive 3x3 Solve Stage Layout: Give Timer & CFOP Step Table generous width on desktop */
+@media (min-width: 960px) {
+    .stage.mode-solve[data-puzzle="333"],
+    .stage.mode-solve[data-puzzle="333oh"] {
+        grid-template-columns: minmax(300px, 380px) minmax(520px, 1fr);
+        gap: 16px;
+    }
+}
+
+/* Base Timer CFOP Strip container adapted for the CFOP Step Table */
+.last-solve-cfop-strip {
+    display: block;
+    width: 100%;
+    padding: 8px 10px;
+    margin: 8px 0;
+    border-radius: 10px;
+    background: var(--bg-subtle, #f8fafc);
+    border: 1px solid var(--border, #e2e8f0);
+    overflow-x: auto;
+}
+
+.cfop-step-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.cfop-step-breakdown-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+.cfop-step-breakdown-table th {
+    font-size: var(--font-2xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted, #64748b);
+    padding: 5px 6px;
+    border-bottom: 1px solid var(--border, #cbd5e1);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.cfop-step-breakdown-table th:first-child,
+.cfop-step-breakdown-table td:first-child {
+    text-align: left;
+}
+
+.cfop-step-breakdown-table th:last-child,
+.cfop-step-breakdown-table td:last-child {
+    text-align: left;
+}
+
+.cfop-step-breakdown-table td {
+    padding: 5px 6px;
+    border-bottom: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.2));
+    text-align: center;
+    vertical-align: middle;
+}
+
+.cfop-step-breakdown-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.cfop-step-row-f2lsum {
+    background: var(--step-f2lsum-bg);
+    font-weight: 600;
+}
+
+.cfop-step-row-oll {
+    background: rgba(234, 179, 8, 0.05);
+}
+
+.cfop-step-row-pll {
+    background: rgba(168, 85, 247, 0.05);
+}
+
+.cfop-step-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: var(--font-2xs);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    border: 1px solid var(--step-f2l-border);
+    background: var(--step-f2l-bg);
+    color: var(--step-f2l-text);
+}
+
+.cfop-step-badge-cross {
+    background: var(--step-cross-bg);
+    border-color: var(--step-cross-border);
+    color: var(--step-cross-text);
+}
+
+.cfop-step-badge-f2lsum {
+    background: var(--step-f2lsum-bg);
+    border-color: var(--step-f2lsum-border);
+    color: var(--step-f2lsum-text);
+}
+
+.cfop-step-badge-oll {
+    background: var(--step-oll-bg);
+    border-color: var(--step-oll-border);
+    color: var(--step-oll-text);
+}
+
+.cfop-step-badge-pll {
+    background: var(--step-pll-bg);
+    border-color: var(--step-pll-border);
+    color: var(--step-pll-text);
+}
+
+.cfop-step-badge-pause {
+    background: var(--step-pause-bg);
+    border-color: var(--step-pause-border);
+    color: var(--step-pause-text);
+}
+
+.cfop-slot-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-size: var(--font-2xs);
+    font-weight: 600;
+    background: var(--step-f2l-bg);
+    border: 1px solid var(--step-f2l-border);
+    color: var(--text-muted, #64748b);
+}
+
+.cfop-setup-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: var(--font-2xs);
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--primary, #2563eb);
+}
+
+.cfop-step-total-cell {
+    font-size: var(--font-xs);
+    color: var(--text, #0f172a);
+}
+
+.cfop-step-accum-cell {
+    color: var(--text-muted, #64748b);
+    font-weight: 600;
+}
+
+.cfop-step-moves-cell {
+    white-space: nowrap;
+}
+
+.cfop-step-tps {
+    display: inline-block;
+    margin-left: 3px;
+    font-size: 0.65rem;
+    color: var(--text-muted, #64748b);
+}
+
+.cfop-step-recon-cell {
+    max-width: 240px;
+}
+
+.cfop-step-table-detailed .cfop-step-recon-cell {
+    max-width: 360px;
+}
+
+.cfop-recon-code {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.68rem;
+    color: var(--text-muted, #475569);
+    background: rgba(148, 163, 184, 0.12);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+.cfop-step-table-detailed .cfop-recon-code {
+    white-space: normal;
+    word-break: break-word;
+}
+
+.cfop-trim-highlight-row {
+    background: rgba(37, 99, 235, 0.05);
+}
+
+[data-theme="dark"] .cfop-trim-highlight-row {
+    background: rgba(59, 130, 246, 0.12);
+}
+
+/* Saved Smart Cubes List in Bluetooth Modal */
+.bt-saved-cubes-section {
+    margin: 10px 0 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--bg-subtle, #f8fafc);
+    border: 1px solid var(--border, #e2e8f0);
+}
+
+[data-theme="dark"] .bt-saved-cubes-section {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+.bt-saved-cubes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: var(--font-xs);
+    font-weight: 700;
+    color: var(--text, #1e293b);
+}
+
+.bt-saved-cubes-hint {
+    font-size: var(--font-2xs);
+    font-weight: 500;
+    color: var(--text-muted, #64748b);
+}
+
+.bt-saved-cubes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.bt-saved-cube-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bt-saved-cube-connect-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border, #cbd5e1);
+    background: var(--surface, #ffffff);
+    color: var(--text, #0f172a);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+
+[data-theme="dark"] .bt-saved-cube-connect-btn {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f8fafc;
+}
+
+.bt-saved-cube-connect-btn:hover {
+    border-color: var(--primary, #2563eb);
+    background: rgba(37, 99, 235, 0.05);
+}
+
+.bt-saved-cube-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.bt-saved-cube-name {
+    font-weight: 700;
+    font-size: var(--font-sm);
+}
+
+.bt-saved-cube-proto {
+    font-size: var(--font-2xs);
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--primary, #2563eb);
+}
+
+.bt-saved-cube-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--font-2xs);
+    color: var(--text-muted, #64748b);
+}
+
+.bt-saved-cube-mac {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.bt-saved-cube-action {
+    font-weight: 700;
+    color: var(--primary, #2563eb);
+}
+
+.bt-saved-cube-del-btn {
+    width: 30px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid var(--border, #cbd5e1);
+    background: var(--surface, #ffffff);
+    color: var(--text-muted, #64748b);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+[data-theme="dark"] .bt-saved-cube-del-btn {
+    background: #0f172a;
+    border-color: #334155;
+    color: #94a3b8;
+}
+
+.bt-saved-cube-del-btn:hover {
+    background: rgba(239, 68, 68, 0.14);
+    border-color: #ef4444;
+    color: #dc2626;
+}
+
+
+
+
+/* GAN Smart Timer */
+.solve-overlay.gan-hands-on .solve-overlay-time {
+    color: #ef4444;
+}
+
+.solve-overlay.cube-solved .solve-overlay-hint {
+    color: var(--success);
+    font-weight: 600;
+}
+
+.solve-phase-inline {
+    white-space: nowrap;
+}
+
+.solve-modal-phases {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 8px;
+}
+
+.solve-phase-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+    border-radius: 8px;
+}
+
+.solve-phase-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.solve-phase-val {
+    font-size: 1.1rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* High-Visibility Bluetooth Disconnect Alert Banner & Floating Alert */
+@keyframes btDisconnectPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55), 0 8px 28px rgba(220, 38, 38, 0.35);
+        border-color: #ef4444;
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(239, 68, 68, 0), 0 12px 36px rgba(220, 38, 38, 0.55);
+        border-color: #f97316;
+    }
+}
+
+.bt-disconnect-banner {
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto 14px auto;
+    padding: 16px 20px;
+    border-radius: 12px;
+    border: 3px solid #ef4444;
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 55%, #b91c1c 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    box-sizing: border-box;
+    text-align: left;
+    animation: btDisconnectPulse 1.5s infinite ease-in-out;
+}
+
+.bt-disconnect-banner[hidden],
+.bt-disconnect-floating-alert[hidden] {
+    display: none !important;
+}
+
+.bt-disconnect-banner-main {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1 1 280px;
+}
+
+.bt-disconnect-banner-icon {
+    font-size: 2.2rem;
+    line-height: 1;
+    flex-shrink: 0;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+}
+
+.bt-disconnect-banner-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bt-disconnect-banner-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #fef08a;
+    text-transform: uppercase;
+}
+
+.bt-disconnect-banner-desc {
+    margin: 0;
+    font-size: 0.92rem;
+    line-height: 1.35;
+    color: #fee2e2;
+    font-weight: 500;
+}
+
+.bt-disconnect-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.bt-disconnect-reconnect-btn {
+    background: #fef08a !important;
+    color: #7f1d1d !important;
+    border-color: #fde047 !important;
+    font-weight: 800 !important;
+    font-size: 0.95rem !important;
+    padding: 9px 16px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+}
+
+.bt-disconnect-reconnect-btn:hover {
+    background: #ffffff !important;
+    color: #991b1b !important;
+}
+
+.bt-disconnect-dismiss-btn {
+    background: rgba(255, 255, 255, 0.14) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.38) !important;
+    font-weight: 600 !important;
+}
+
+.bt-disconnect-dismiss-btn:hover {
+    background: rgba(255, 255, 255, 0.25) !important;
+}
+
+.solve-surface.has-bt-disconnect-alert {
+    border: 3px solid #ef4444 !important;
+    background: rgba(239, 68, 68, 0.08) !important;
+    animation: btDisconnectPulse 1.6s infinite ease-in-out;
+}
+
+.bt-disconnect-floating-alert {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3500;
+    width: min(94vw, 680px);
+    pointer-events: auto;
+}
+
+.bt-disconnect-floating-card {
+    padding: 16px 20px;
+    border-radius: 14px;
+    border: 3px solid #ef4444;
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 55%, #b91c1c 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+    animation: btDisconnectPulse 1.5s infinite ease-in-out;
+}
+
+.header-btn.is-disconnected-alert {
+    border-color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.16) !important;
+    color: #ef4444 !important;
+    font-weight: 700 !important;
+    animation: btDisconnectPulse 1.6s infinite ease-in-out;
+}
+
+.header-btn.is-disconnected-alert .bt-dot {
+    background: #ef4444 !important;
+    box-shadow: 0 0 8px #ef4444 !important;
+}
+
+/* Compact Clock Icon & Hover/Click Date Pop-up in Solve Log */
+.layer-date-cell {
+    position: relative;
+    text-align: center;
+    padding: 4px 6px !important;
+}
+
+.solve-date-clock-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-solve-date-clock {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted, #64748b);
+    font-size: 0.98rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+}
+
+.btn-solve-date-clock:hover,
+.solve-date-clock-wrap.is-open .btn-solve-date-clock {
+    background: var(--surface-2, #f1f5f9);
+    border-color: var(--border, #cbd5e1);
+    color: var(--text, #0f172a);
+    transform: scale(1.06);
+}
+
+.solve-date-popover {
+    position: absolute;
+    right: calc(100% + 6px);
+    top: 50%;
+    transform: translateY(-50%) scale(0.96);
+    z-index: 60;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 7px;
+    background: #0f172a;
+    color: #f8fafc;
+    border: 1px solid #334155;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.28);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.76rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+}
+
+/* Invisible bridge between clock button and pop-up so cursor movement doesn't drop hover */
+.solve-date-popover::after {
+    content: "";
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    right: -10px;
+    width: 10px;
+}
+
+.solve-date-clock-wrap:hover .solve-date-popover,
+.solve-date-clock-wrap.is-open .solve-date-popover {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(-50%) scale(1);
+}
+
+.solve-date-popover-icon {
+    font-size: 0.82rem;
+    line-height: 1;
+}
+
+[data-theme="dark"] .btn-solve-date-clock:hover,
+[data-theme="dark"] .solve-date-clock-wrap.is-open .btn-solve-date-clock {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .solve-date-popover {
+    background: #020617;
+    color: #f8fafc;
+    border-color: #475569;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+}
+
 

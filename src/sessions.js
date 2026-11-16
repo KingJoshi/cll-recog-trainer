@@ -185,15 +185,37 @@ export function exportSolvesToCSV(solves = [], sessionName = "Session") {
     "Case",
     "Target",
     "Scramble",
-    "Date"
+    "Date",
+    "Cross(s)",
+    "F2L1(s)",
+    "F2L2(s)",
+    "F2L3(s)",
+    "F2L4(s)",
+    "OLL(s)",
+    "PLL(s)",
+    "OLL Case",
+    "PLL Case",
+    "Pauses",
+    "Pause Time(s)",
+    "Pickup(s)",
+    "Cube Time(s)",
+    "Putdown(s)",
+    "Timer"
   ];
+
+  const fmtSec = (ms) => (typeof ms === "number" && Number.isFinite(ms) ? (ms / 1000).toFixed(2) : "");
 
   const rows = solves.map((s, idx) => {
     const rawMs = s.ms != null ? s.ms : (s.time != null ? s.time : 0);
-    const penalty = s.penalty === -1 ? "DNF" : (s.penalty === 2 ? "+2" : "OK");
-    const finalSec = s.penalty === -1 ? "DNF" : ((rawMs + (s.penalty === 2 ? 2000 : 0)) / 1000).toFixed(2);
+    const penalty = (s.penalty === -1 || s.penalty === "DNF") ? "DNF" : ((s.penalty === 2 || s.penalty === "+2") ? "+2" : "OK");
+    const finalSec = penalty === "DNF" ? "DNF" : ((rawMs + (penalty === "+2" ? 2000 : 0)) / 1000).toFixed(2);
     const dateStr = s.at ? new Date(s.at).toISOString().replace("T", " ").substring(0, 19) : "";
     const cleanScramble = (s.scramble || "").replace(/"/g, '""');
+    const sp = s.cfop?.splits || {};
+    const ollName = (s.cfop?.ollCase?.shortName || s.cfop?.ollCase?.id || "").replace(/"/g, '""');
+    const pllName = (s.cfop?.pllCase?.shortName || s.cfop?.pllCase?.id || "").replace(/"/g, '""');
+    const pauseCount = s.cfop?.pauses?.totalCount != null ? s.cfop.pauses.totalCount : "";
+    const pauseSec = s.cfop?.pauses?.totalMs != null ? fmtSec(s.cfop.pauses.totalMs) : "";
 
     return [
       idx + 1,
@@ -205,7 +227,22 @@ export function exportSolvesToCSV(solves = [], sessionName = "Session") {
       s.id || s.caseTag || "",
       s.target || "",
       `"${cleanScramble}"`,
-      `"${dateStr}"`
+      `"${dateStr}"`,
+      fmtSec(sp.cross),
+      fmtSec(sp.f2l1),
+      fmtSec(sp.f2l2),
+      fmtSec(sp.f2l3),
+      fmtSec(sp.f2l4),
+      fmtSec(sp.oll),
+      fmtSec(sp.pll),
+      `"${ollName}"`,
+      `"${pllName}"`,
+      pauseCount,
+      pauseSec,
+      fmtSec(s.pickupMs),
+      fmtSec(s.cubeMs),
+      fmtSec(s.putdownMs),
+      s.timer ? `"${String(s.timer).replace(/"/g, '""')}"` : ""
     ].join(",");
   });
 

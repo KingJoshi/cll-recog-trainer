@@ -37,6 +37,7 @@ export class ScrambleTracker {
 
   reset(scrambleStr = '') {
     this.rawScramble = scrambleStr || '';
+    this.scrambleString = this.rawScramble;
     this.originalTokens = this._extractTokens(this.rawScramble);
     this.moves = this.originalTokens.map(t => {
       const p = parseMoveToken(t);
@@ -44,8 +45,8 @@ export class ScrambleTracker {
     }).filter(Boolean);
 
     this.currentIndex = 0;
-    this.currentSubAmount = 0; // Tracks partial progress for double turns (e.g. turned R of R2)
-    this.deviations = []; // Stack of off-track turns: { face, amount }
+    this.currentSubAmount = 0; // Tracks partial progress on current move (e.g. turned R of R2)
+    this.deviations = []; // Stack of off-track turns on wrong faces: { face, amount }
     this.forceCompleted = false;
   }
 
@@ -84,24 +85,17 @@ export class ScrambleTracker {
     // 2. On-track: test against the current expected scramble move
     if (this.currentIndex < this.moves.length) {
       const target = this.moves[this.currentIndex];
-      const neededAmount = (target.amount - this.currentSubAmount + 4) % 4;
 
       if (parsed.face === target.face) {
-        if (parsed.amount === neededAmount) {
-          // Exactly satisfied the remaining amount for this step
+        const newSub = (this.currentSubAmount + parsed.amount) % 4;
+        if (newSub === target.amount) {
+          // Exactly satisfied the target move
           this.currentIndex++;
           this.currentSubAmount = 0;
-        } else if (neededAmount === 2 && (parsed.amount === 1 || parsed.amount === 3)) {
-          // Double turn (e.g. R2) satisfied by 90-degree turn -> needs another 90-degree turn
-          this.currentSubAmount = (this.currentSubAmount + parsed.amount) % 4;
         } else {
-          // Over-turn or mismatch on the same face
-          const over = (parsed.amount - neededAmount + 4) % 4;
-          this.currentIndex++;
-          this.currentSubAmount = 0;
-          if (over > 0) {
-            this.deviations.push({ face: parsed.face, amount: over });
-          }
+          // Partial turn (e.g. R of R2) or wrong direction/overshoot on current face:
+          // Keep currentIndex on this move until it is actually satisfied!
+          this.currentSubAmount = newSub;
         }
       } else {
         // Turned the wrong face
@@ -122,29 +116,39 @@ export class ScrambleTracker {
 
   isComplete() {
     if (this.forceCompleted) return true;
-    return this.moves.length > 0 && this.currentIndex >= this.moves.length && this.deviations.length === 0;
+    return this.moves.length > 0 && this.currentIndex >= this.moves.length && this.deviations.length === 0 && this.currentSubAmount === 0;
   }
 
   getStatus() {
     const isDone = this.isComplete();
-    const hasError = this.deviations.length > 0;
+    const cur = (!isDone && this.currentIndex < this.moves.length) ? this.moves[this.currentIndex] : null;
+    const remAmount = cur ? (cur.amount - this.currentSubAmount + 4) % 4 : 0;
+    const remMove = cur ? formatMove(cur.face, remAmount) : null;
+
+    // A partial turn on a non-double move (e.g. R' instead of R, or R2 instead of R) is a direction/overshoot error on the current face.
+    // A 90° turn on a double move (e.g. R of R2) is a normal mid-double-flick state unless other face deviations also occurred.
+    const isSameFaceWrongDir = Boolean(cur && this.currentSubAmount > 0 && cur.amount !== 2);
+    const hasError = this.deviations.length > 0 || isSameFaceWrongDir;
 
     let nextRequired = null;
-    if (!isDone && !hasError && this.currentIndex < this.moves.length) {
-      const cur = this.moves[this.currentIndex];
-      const remAmount = (cur.amount - this.currentSubAmount + 4) % 4;
-      nextRequired = formatMove(cur.face, remAmount);
+    if (!isDone && this.deviations.length === 0 && cur) {
+      nextRequired = remMove;
     }
 
-    // Corrections are the reverse inverse of deviations
+    // Corrections are the reverse inverse of deviations, PLUS any remaining turn on the current move if partially turned
     const corrections = [...this.deviations].reverse().map(d => {
       const inv = (4 - (d.amount % 4)) % 4;
       return formatMove(d.face, inv);
     }).filter(Boolean);
 
+    if (this.currentSubAmount > 0 && remMove && (this.deviations.length > 0 || isSameFaceWrongDir)) {
+      corrections.push(remMove);
+    }
+
     return {
       isComplete: isDone,
       currentIndex: this.currentIndex,
+      currentSubAmount: this.currentSubAmount,
       totalMoves: this.moves.length,
       nextRequired,
       corrections,
@@ -153,7 +157,7 @@ export class ScrambleTracker {
     };
   }
 
-  getHtml() {
+  getHtml(options = {}) {
     const status = this.getStatus();
     if (this.moves.length === 0) {
       return '<span class="scramble-empty">No scramble loaded</span>';
@@ -163,6 +167,9 @@ export class ScrambleTracker {
       return `<span class="scramble-complete-badge">✓ Scramble Verified Complete!</span>`;
     }
 
+    const suppressError = Boolean(options.suppressError);
+    const suppressSubAmount = Boolean(options.suppressSubAmount);
+
     const parts = [];
 
     // Done moves
@@ -171,11 +178,15 @@ export class ScrambleTracker {
     }
 
     // Current move
+    let cur = null;
+    let displayNext = '';
     if (this.currentIndex < this.moves.length) {
-      const cur = this.moves[this.currentIndex];
+      cur = this.moves[this.currentIndex];
       const remAmount = (cur.amount - this.currentSubAmount + 4) % 4;
-      const displayNext = formatMove(cur.face, remAmount);
-      const subLabel = this.currentSubAmount > 0 ? ` <small class="token-sub">(${displayNext} needed)</small>` : '';
+      displayNext = formatMove(cur.face, remAmount);
+      const subLabel = (!suppressSubAmount && this.currentSubAmount > 0)
+        ? ` <small class="token-sub">(${displayNext} needed)</small>`
+        : '';
       parts.push(`<span class="scramble-token token-current" title="Next move to perform">${cur.text}${subLabel}</span>`);
     }
 
@@ -185,7 +196,7 @@ export class ScrambleTracker {
     }
 
     let correctionHtml = '';
-    if (status.hasError && status.corrections.length > 0) {
+    if (!suppressError && status.hasError && status.corrections.length > 0) {
       const undoText = status.corrections.join(' ');
       correctionHtml = `
         <div class="scramble-correction-box">
@@ -193,6 +204,15 @@ export class ScrambleTracker {
           <span class="correction-label">Incorrect turn! Please do:</span>
           <strong class="correction-moves">${undoText}</strong>
           <span class="correction-hint">to get back on track</span>
+        </div>
+      `;
+    } else if (!suppressError && !suppressSubAmount && this.currentSubAmount > 0 && cur) {
+      correctionHtml = `
+        <div class="scramble-correction-box">
+          <span class="correction-icon">⚠️</span>
+          <span class="correction-label">Incomplete double turn (${cur.text})! Please do:</span>
+          <strong class="correction-moves">${displayNext}</strong>
+          <span class="correction-hint">to finish ${cur.text}</span>
         </div>
       `;
     }
