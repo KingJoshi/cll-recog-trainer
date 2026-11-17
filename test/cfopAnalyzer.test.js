@@ -96,7 +96,7 @@ test('analyzeCfopSolve accurately detects Cross, F2L 1-4, OLL 27 (Sune), PLL (T 
 
   // OLL & PLL case identification
   assert.strictEqual(cfop.ollCase.shortName, 'OLL 27');
-  assert.strictEqual(cfop.ollCase.name, 'OLL 27 (Sune)');
+  assert.strictEqual(cfop.ollCase.name, 'Sune');
   assert.strictEqual(cfop.pllCase.shortName, 'T');
   assert.strictEqual(cfop.pllCase.name, 'T-Perm (Adjacent Swap - Classic)');
 

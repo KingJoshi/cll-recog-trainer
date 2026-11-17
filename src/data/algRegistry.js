@@ -249,3 +249,22 @@ export function getTrack(puzzleId, trackId) {
   if (!p) return null;
   return p.tracks.find(t => t.id === trackId) || p.tracks[0];
 }
+
+export function formatCaseDisplayId(id) {
+  if (!id) return "";
+  return String(id)
+    .replace(/^oll-/i, "OLL-")
+    .replace(/^pll-/i, "PLL-")
+    .replace(/^f2l-/i, "F2L-")
+    .replace(/^ortega-oll-/i, "Ortega-OLL-")
+    .replace(/^ortega-pbl-/i, "Ortega-PBL-");
+}
+
+export function getDistinctCaseName(caseObj) {
+  if (!caseObj || !caseObj.name) return "";
+  const idNorm = String(caseObj.id || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const nameNorm = String(caseObj.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const idNoZero = idNorm.replace(/([a-z])0+(\d+)/g, "$1$2");
+  if (!nameNorm || nameNorm === idNorm || nameNorm === idNoZero) return "";
+  return caseObj.name;
+}

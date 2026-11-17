@@ -1,6 +1,6 @@
 // Study View: Handles Case Grid, 3D Flashcard, and Reference Guide for any active track
 
-import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg } from './data/algRegistry.js';
+import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg, formatCaseDisplayId, getDistinctCaseName } from './data/algRegistry.js';
 import { renderCaseSvg, applyColorsTo3DCube } from './caseVisualizer.js';
 import { PLL_TWO_SIDED_GUIDE, OLL_TWO_SIDED_GUIDE } from './data/twoSidedRecogData.js';
 import { ScrambleDisplay } from 'scramble-display';
@@ -11,23 +11,65 @@ export class StudyView {
     this.onSelectCase = options.onSelectCase; // (caseObj) => void
     this.onSimulateCase = options.onSimulateCase; // (caseObj, algObj) => void
     this.onPracticeCase = options.onPracticeCase; // (caseObj) => void
+    this.getSelectedCaseIds = options.getSelectedCaseIds || (() => new Set());
+    this.getAlwaysWhiteBottom = options.getAlwaysWhiteBottom || (() => true);
+    this.getShowReflection = options.getShowReflection || (() => true);
 
     this.currentPuzzle = "222";
     this.currentTrackId = "cll";
-    this.currentView = "grid"; // "grid" | "detail" | "guide"
-    this.activeGroupFilter = "all";
+    this.currentView = "grid"; // "grid" | "hybrid" | "detail" | "twosided" | "guide"
+    this.activeGroupFilters = new Set(); // empty = All groups
+    this.onlySelectedFilter = false;
     this.selectedCaseId = null;
+    this.previewAlgId = null;
     this.activeDisplay3d = null;
+  }
+
+  getTrackSelectedCases(track) {
+    const sel = this.getSelectedCaseIds ? this.getSelectedCaseIds() : new Set();
+    if (!sel || sel.size === 0) return [];
+    return (track?.cases || []).filter(c => sel.has(c.id));
+  }
+
+  getFilteredCases(track) {
+    let list = track?.cases || [];
+    if (this.onlySelectedFilter) {
+      const sel = this.getSelectedCaseIds ? this.getSelectedCaseIds() : new Set();
+      if (sel && sel.size > 0) {
+        list = list.filter(c => sel.has(c.id));
+      }
+    }
+    if (this.activeGroupFilters.size > 0) {
+      list = list.filter(c => this.activeGroupFilters.has(c.group));
+    }
+    return list;
+  }
+
+  getNavigableCases(track) {
+    const selectedInTrack = this.getTrackSelectedCases(track);
+    if (selectedInTrack.length > 0) {
+      if (this.activeGroupFilters.size > 0) {
+        const inGroups = selectedInTrack.filter(c => this.activeGroupFilters.has(c.group));
+        if (inGroups.length > 0) return inGroups;
+      }
+      return selectedInTrack;
+    }
+    const filtered = this.getFilteredCases(track);
+    return filtered.length > 0 ? filtered : (track?.cases || []);
   }
 
   setTrack(puzzleId, trackId) {
     this.currentPuzzle = puzzleId;
     this.currentTrackId = trackId;
-    this.activeGroupFilter = "all";
+    this.activeGroupFilters.clear();
+    this.previewAlgId = null;
     const track = getTrack(puzzleId, trackId);
     if (track && track.cases.length > 0) {
-      this.currentView = "grid";
-      this.selectedCaseId = track.cases[0].id;
+      if (this.currentView === "guide" || (this.currentView === "twosided" && !["pll", "oll"].includes(trackId))) {
+        this.currentView = "grid";
+      }
+      const nav = this.getNavigableCases(track);
+      this.selectedCaseId = (nav[0] || track.cases[0]).id;
     } else {
       this.selectedCaseId = null;
       this.currentView = "guide";
@@ -37,6 +79,16 @@ export class StudyView {
 
   setView(view) {
     this.currentView = view;
+    if (view === 'hybrid' || view === 'detail') {
+      const track = getTrack(this.currentPuzzle, this.currentTrackId);
+      if (track) {
+        const nav = this.getNavigableCases(track);
+        if (nav.length > 0 && !nav.some(c => c.id === this.selectedCaseId)) {
+          this.selectedCaseId = nav[0].id;
+          this.previewAlgId = null;
+        }
+      }
+    }
     this.render();
   }
 
@@ -60,6 +112,7 @@ export class StudyView {
         <div class="study-subnav" role="group" aria-label="Study view">
           ${track.cases.length > 0 ? `
             <button type="button" class="study-subnav-btn ${this.currentView === 'grid' ? 'active' : ''}" data-view="grid">📋 Case Grid (${track.cases.length})</button>
+            <button type="button" class="study-subnav-btn ${this.currentView === 'hybrid' ? 'active' : ''}" data-view="hybrid">🧩 Grid + 3D</button>
             <button type="button" class="study-subnav-btn ${this.currentView === 'detail' ? 'active' : ''}" data-view="detail">🔍 3D Flashcard</button>
           ` : ''}
           ${(this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && (this.currentTrackId === "pll" || this.currentTrackId === "oll") ? `
@@ -71,6 +124,7 @@ export class StudyView {
 
       <div class="study-content">
         ${this.currentView === 'grid' ? this.renderGridView(track) : ''}
+        ${this.currentView === 'hybrid' ? this.renderHybridView(track) : ''}
         ${this.currentView === 'detail' ? this.renderDetailView(track) : ''}
         ${this.currentView === 'twosided' ? this.renderTwoSidedView(track) : ''}
         ${this.currentView === 'guide' ? this.renderGuideView(track) : ''}
@@ -80,56 +134,140 @@ export class StudyView {
     this.bindEvents(track);
   }
 
-  renderGridView(track) {
+  renderGroupFilterBar(track) {
     const groups = track.groups || [];
     const cases = track.cases || [];
+    const selectedInTrack = this.getTrackSelectedCases(track);
+    const isAll = this.activeGroupFilters.size === 0;
+    return `
+      <div class="study-group-filter-bar" role="group" aria-label="Filter cases by group (multi-select)">
+        <span class="study-filter-label">Group:</span>
+        <button type="button" class="study-group-pill ${isAll ? 'active' : ''}" data-group="all" aria-pressed="${isAll}">All (${cases.length})</button>
+        ${selectedInTrack.length > 0 && selectedInTrack.length < cases.length ? `
+          <button type="button" class="study-group-pill study-selected-pill ${this.onlySelectedFilter ? 'active' : ''}" data-only-selected="1" aria-pressed="${this.onlySelectedFilter}" title="Show only cases selected in Active Cases">★ Selected (${selectedInTrack.length})</button>
+        ` : ''}
+        ${groups.map(g => {
+          const count = cases.filter(c => c.group === g).length;
+          const active = this.activeGroupFilters.has(g);
+          return `<button type="button" class="study-group-pill ${active ? 'active' : ''}" data-group="${g}" aria-pressed="${active}">${g} (${count})</button>`;
+        }).join('')}
+      </div>
+    `;
+  }
 
-    const filteredCases = this.activeGroupFilter === "all"
-      ? cases
-      : cases.filter(c => c.group === this.activeGroupFilter);
+  getGroupedSections(track) {
+    const filtered = this.getFilteredCases(track);
+    const orderedGroups = [...(track?.groups || [])];
+    for (const c of filtered) {
+      if (c.group && !orderedGroups.includes(c.group)) orderedGroups.push(c.group);
+    }
+    const sections = [];
+    for (const g of orderedGroups) {
+      const items = filtered.filter(c => c.group === g);
+      if (items.length > 0) sections.push({ group: g, cases: items });
+    }
+    if (sections.length === 0 && filtered.length > 0) {
+      sections.push({ group: "All", cases: filtered });
+    }
+    return sections;
+  }
+
+  renderGridView(track) {
+    const sections = this.getGroupedSections(track);
+    const showGroupHeaders = sections.length > 1;
+
+    const renderCard = (c) => {
+      const prefAlgId = getPreferredAlg(c.id, c.algs[0]?.id);
+      const activeAlg = c.algs.find(a => a.id === prefAlgId) || c.algs[0];
+      const displayId = formatCaseDisplayId(c.id);
+      const distinctName = getDistinctCaseName(c);
+
+      return `
+        <div class="study-card ${this.selectedCaseId === c.id ? 'selected' : ''}" data-case-id="${c.id}">
+          <div class="study-card-head">
+            <span class="study-card-id">${displayId}</span>
+            <span class="study-card-group">${c.group}</span>
+          </div>
+          <div class="study-card-visual" id="studyCardVisual_${c.id}" data-case-id="${c.id}">
+            <span class="study-visual-loading">Loading diagram...</span>
+          </div>
+          ${distinctName ? `<div class="study-card-name">${distinctName}</div>` : ''}
+          <div class="study-card-alg-box">
+            <div class="study-card-alg-primary">${activeAlg ? activeAlg.alg : 'No alg'}</div>
+            ${activeAlg && activeAlg.note ? `<div class="study-card-alg-note">${activeAlg.note}</div>` : ''}
+          </div>
+
+          ${c.algs.length > 1 ? `
+            <div class="study-card-algs-count">${c.algs.length} alg variants available</div>
+          ` : ''}
+
+          <div class="study-card-actions">
+            <button type="button" class="btn btn-xs btn-study-view" data-case-id="${c.id}">Detail (3D)</button>
+            <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${c.id}">Simulate</button>
+          </div>
+        </div>
+      `;
+    };
 
     return `
       <div class="study-grid-wrap">
-        <div class="study-group-filter-bar" role="group" aria-label="Filter cases by group">
-          <span class="study-filter-label">Group:</span>
-          <button type="button" class="study-group-pill ${this.activeGroupFilter === 'all' ? 'active' : ''}" data-group="all">All (${cases.length})</button>
-          ${groups.map(g => {
-            const count = cases.filter(c => c.group === g).length;
-            return `<button type="button" class="study-group-pill ${this.activeGroupFilter === g ? 'active' : ''}" data-group="${g}">${g} (${count})</button>`;
-          }).join('')}
-        </div>
-
-        <div class="study-case-grid">
-          ${filteredCases.map(c => {
-            const prefAlgId = getPreferredAlg(c.id, c.algs[0]?.id);
-            const activeAlg = c.algs.find(a => a.id === prefAlgId) || c.algs[0];
-
-            return `
-              <div class="study-card ${this.selectedCaseId === c.id ? 'selected' : ''}" data-case-id="${c.id}">
-                <div class="study-card-head">
-                  <span class="study-card-id">${c.id}</span>
-                  <span class="study-card-group">${c.group}</span>
-                </div>
-                <div class="study-card-visual" id="studyCardVisual_${c.id}" data-case-id="${c.id}">
-                  <span class="study-visual-loading">Loading diagram...</span>
-                </div>
-                <div class="study-card-name">${c.name}</div>
-                <div class="study-card-alg-box">
-                  <div class="study-card-alg-primary">${activeAlg ? activeAlg.alg : 'No alg'}</div>
-                  ${activeAlg && activeAlg.note ? `<div class="study-card-alg-note">${activeAlg.note}</div>` : ''}
-                </div>
-
-                ${c.algs.length > 1 ? `
-                  <div class="study-card-algs-count">${c.algs.length} alg variants available</div>
-                ` : ''}
-
-                <div class="study-card-actions">
-                  <button type="button" class="btn btn-xs btn-study-view" data-case-id="${c.id}">Detail (3D)</button>
-                  <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${c.id}">Simulate</button>
+        ${this.renderGroupFilterBar(track)}
+        ${sections.length === 0
+          ? `<p class="empty-state" style="padding: 20px;">No cases match the active filter.</p>`
+          : sections.map(sec => `
+              <div class="study-group-section">
+                ${showGroupHeaders ? `<div class="study-group-section-title">${sec.group} <span class="study-group-section-count">(${sec.cases.length})</span></div>` : ''}
+                <div class="study-case-grid">
+                  ${sec.cases.map(renderCard).join('')}
                 </div>
               </div>
-            `;
-          }).join('')}
+            `).join('')}
+      </div>
+    `;
+  }
+
+  renderHybridView(track) {
+    const sections = this.getGroupedSections(track);
+    const isSingleGroup = sections.length === 1;
+    const showGroupHeaders = sections.length > 1;
+    const navCases = this.getNavigableCases(track);
+    if (navCases.length > 0 && !track.caseById.has(this.selectedCaseId)) {
+      this.selectedCaseId = navCases[0].id;
+    }
+
+    const renderHybridCard = (c) => {
+      const displayId = formatCaseDisplayId(c.id);
+      const isSelected = this.selectedCaseId === c.id;
+      const inPool = this.getTrackSelectedCases(track).some(sc => sc.id === c.id);
+      return `
+        <button type="button" class="study-hybrid-card ${isSelected ? 'selected' : ''} ${inPool ? 'in-pool' : ''}" data-case-id="${c.id}" aria-selected="${isSelected}" title="${c.name || displayId}">
+          <span class="study-hybrid-card-id">${displayId}</span>
+          <span class="study-card-visual study-hybrid-visual" data-case-id="${c.id}">
+            <span class="study-visual-loading">...</span>
+          </span>
+        </button>
+      `;
+    };
+
+    return `
+      <div class="study-hybrid-wrap">
+        ${this.renderGroupFilterBar(track)}
+        <div class="study-hybrid-layout ${isSingleGroup ? 'is-single-group' : ''}">
+          <div class="study-hybrid-grid-pane" role="listbox" aria-label="Cases">
+            ${sections.length === 0
+              ? `<p class="empty-state" style="padding: 18px;">No cases match the active filter.</p>`
+              : sections.map(sec => `
+                  <div class="study-hybrid-group-section">
+                    ${showGroupHeaders ? `<div class="study-hybrid-group-label">${sec.group} (${sec.cases.length})</div>` : ''}
+                    <div class="study-hybrid-grid ${isSingleGroup ? 'is-single-group' : ''}">
+                      ${sec.cases.map(renderHybridCard).join('')}
+                    </div>
+                  </div>
+                `).join('')}
+          </div>
+          <div class="study-hybrid-detail-pane">
+            ${this.renderDetailView(track)}
+          </div>
         </div>
       </div>
     `;
@@ -139,19 +277,33 @@ export class StudyView {
     const c = track.caseById.get(this.selectedCaseId) || track.cases[0];
     if (!c) return `<p class="empty-state">No case selected</p>`;
 
+    const navCases = this.getNavigableCases(track);
+    const navIdx = navCases.findIndex(nc => nc.id === c.id);
+    const navCountText = navCases.length > 0
+      ? `${navIdx >= 0 ? navIdx + 1 : 1} / ${navCases.length}`
+      : '';
+
     const prefAlgId = getPreferredAlg(c.id, c.algs[0]?.id);
+    const activePreviewAlg = c.algs.find(a => a.id === this.previewAlgId) || c.algs.find(a => a.id === prefAlgId) || c.algs[0];
+    const displayId = formatCaseDisplayId(c.id);
+    const distinctName = getDistinctCaseName(c);
+    const formatAufBadge = (auf) => {
+      if (!auf) return "Start: Standard";
+      return `Start: ${auf}`;
+    };
 
     return `
       <div class="study-detail-view">
         <div class="study-detail-card">
           <div class="study-detail-header">
             <div class="study-detail-title-group">
-              <span class="study-detail-id">${c.id}</span>
-              <h3 class="study-detail-name">${c.name}</h3>
+              <span class="study-detail-id">${displayId}</span>
+              ${distinctName ? `<h3 class="study-detail-name">${distinctName}</h3>` : ''}
               <span class="study-detail-group">${c.group}</span>
             </div>
             <div class="study-detail-nav-btns">
               <button type="button" id="studyPrevCaseBtn" class="btn btn-xs">&larr; Prev</button>
+              ${navCountText ? `<span class="study-nav-count" title="Cycling through selected cases">${navCountText}</span>` : ''}
               <button type="button" id="studyNextCaseBtn" class="btn btn-xs">Next &rarr;</button>
             </div>
           </div>
@@ -164,6 +316,10 @@ export class StudyView {
               <div class="study-visual-3d-wrap" id="studyDetail3dWrap">
                 <span class="study-visual-loading" style="display:flex;height:100%;align-items:center;justify-content:center;">Loading 3D...</span>
               </div>
+              <div class="study-start-angle-meta" id="studyStartAngleMeta">
+                <span class="study-auf-pill ${activePreviewAlg?.startAuf ? 'has-auf' : ''}">${formatAufBadge(activePreviewAlg?.startAuf)}</span>
+                <span class="study-auf-alg">${activePreviewAlg ? activePreviewAlg.alg : ''}</span>
+              </div>
               <div class="study-visual-3d-controls">
                 <button type="button" class="btn btn-xs" id="studyReset3dBtn" title="Reset camera orientation">&#x21bb; Reset 3D</button>
                 <button type="button" class="btn btn-xs btn-primary" id="studySimulateThisBtn" data-case-id="${c.id}" title="Open in 3D Scramble Simulator">&#x25B6; Full Simulator</button>
@@ -174,20 +330,25 @@ export class StudyView {
               ${c.description ? `<p class="study-detail-desc">${c.description}</p>` : ''}
 
               <div class="study-algs-section">
-                <h4 class="study-section-title">Algorithms &amp; Fingertricks</h4>
+                <h4 class="study-section-title">Algorithms &amp; Fingertricks (${c.algs.length}) <small class="study-alg-hint">Click any option to preview its starting angle</small></h4>
                 <div class="study-alg-list">
                   ${c.algs.map(a => {
                     const isPref = a.id === prefAlgId;
+                    const isPreview = activePreviewAlg && a.id === activePreviewAlg.id;
+                    const aufText = a.startAuf ? `Start: ${a.startAuf}` : 'Start: Standard';
                     return `
-                      <div class="study-alg-row ${isPref ? 'preferred' : ''}">
+                      <div class="study-alg-row ${isPref ? 'preferred' : ''} ${isPreview ? 'previewing' : ''}" data-case-id="${c.id}" data-alg-id="${a.id}" role="button" tabindex="0" title="Click to preview this algorithm's starting top-layer angle">
                         <button type="button" class="study-star-btn ${isPref ? 'starred' : ''}" data-case-id="${c.id}" data-alg-id="${a.id}" title="${isPref ? 'Preferred algorithm' : 'Set as preferred algorithm'}">
                           ${isPref ? '★' : '☆'}
                         </button>
                         <div class="study-alg-info">
                           <span class="study-alg-text">${a.alg}</span>
-                          ${a.note ? `<span class="study-alg-note">${a.note}</span>` : ''}
+                          <div class="study-alg-meta-row">
+                            <span class="study-auf-badge ${a.startAuf ? 'has-auf' : ''}">${aufText}</span>
+                            ${a.note ? `<span class="study-alg-note">${a.note}</span>` : ''}
+                          </div>
                         </div>
-                        <button type="button" class="btn btn-xs btn-alg-sim" data-case-id="${c.id}" data-alg="${a.alg}">Simulate</button>
+                        <button type="button" class="btn btn-xs btn-alg-sim" data-case-id="${c.id}" data-alg-id="${a.id}" data-alg="${a.alg}">Simulate</button>
                       </div>
                     `;
                   }).join('')}
@@ -410,10 +571,36 @@ export class StudyView {
       });
     });
 
-    // Group filter pills
+    // Group filter pills (multi-select) + Selected Only pill
     this.container.querySelectorAll('.study-group-pill').forEach(btn => {
       btn.addEventListener('click', () => {
-        this.activeGroupFilter = btn.dataset.group;
+        if (btn.dataset.onlySelected) {
+          this.onlySelectedFilter = !this.onlySelectedFilter;
+        } else {
+          const grp = btn.dataset.group;
+          if (grp === "all") {
+            this.activeGroupFilters.clear();
+          } else {
+            if (this.activeGroupFilters.has(grp)) {
+              this.activeGroupFilters.delete(grp);
+            } else {
+              this.activeGroupFilters.add(grp);
+            }
+            const totalGroups = (track.groups || []).length;
+            if (totalGroups > 0 && this.activeGroupFilters.size >= totalGroups) {
+              this.activeGroupFilters.clear();
+            }
+          }
+        }
+        this.render();
+      });
+    });
+
+    // Card click in hybrid view (stays in hybrid, updates right detail pane)
+    this.container.querySelectorAll('.study-hybrid-card').forEach(card => {
+      card.addEventListener('click', () => {
+        this.selectedCaseId = card.dataset.caseId;
+        this.previewAlgId = null;
         this.render();
       });
     });
@@ -423,6 +610,7 @@ export class StudyView {
       card.addEventListener('click', (e) => {
         if (e.target.closest('button')) return; // handled by button
         this.selectedCaseId = card.dataset.caseId;
+        this.previewAlgId = null;
         this.setView('detail');
       });
     });
@@ -432,6 +620,7 @@ export class StudyView {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.selectedCaseId = btn.dataset.caseId;
+        this.previewAlgId = null;
         this.setView('detail');
       });
     });
@@ -444,7 +633,8 @@ export class StudyView {
         if (c && this.onSimulateCase) {
           const prefId = getPreferredAlg(c.id, c.algs[0]?.id);
           const algObj = c.algs.find(a => a.id === prefId) || c.algs[0];
-          this.onSimulateCase(c, algObj);
+          const setupWithAuf = `${c.setup || ''}${algObj?.startAuf ? ' ' + algObj.startAuf : ''}`.trim();
+          this.onSimulateCase({ ...c, setup: setupWithAuf }, algObj);
         }
       });
     });
@@ -454,7 +644,42 @@ export class StudyView {
         e.stopPropagation();
         const c = track.caseById.get(btn.dataset.caseId);
         if (c && this.onSimulateCase) {
-          this.onSimulateCase(c, { alg: btn.dataset.alg });
+          const algObj = c.algs.find(a => a.id === btn.dataset.algId) || { alg: btn.dataset.alg };
+          const setupWithAuf = `${c.setup || ''}${algObj?.startAuf ? ' ' + algObj.startAuf : ''}`.trim();
+          this.onSimulateCase({ ...c, setup: setupWithAuf }, algObj);
+        }
+      });
+    });
+
+    // Click alg row to preview its starting top-layer angle on 2D + 3D flashcard
+    this.container.querySelectorAll('.study-alg-row').forEach(row => {
+      const selectPreview = () => {
+        const caseId = row.dataset.caseId;
+        const algId = row.dataset.algId;
+        const c = track.caseById.get(caseId);
+        if (!c || !algId) return;
+        this.previewAlgId = algId;
+        this.container.querySelectorAll('.study-alg-row').forEach(r => {
+          r.classList.toggle('previewing', r.dataset.algId === algId);
+        });
+        const algObj = c.algs.find(a => a.id === algId);
+        const metaEl = this.container.querySelector('#studyStartAngleMeta');
+        if (metaEl && algObj) {
+          metaEl.innerHTML = `
+            <span class="study-auf-pill ${algObj.startAuf ? 'has-auf' : ''}">${algObj.startAuf ? 'Start: ' + algObj.startAuf : 'Start: Standard'}</span>
+            <span class="study-auf-alg">${algObj.alg}</span>
+          `;
+        }
+        this.populateDetailVisuals(track, c);
+      };
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        selectPreview();
+      });
+      row.addEventListener('keydown', (e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('button')) {
+          e.preventDefault();
+          selectPreview();
         }
       });
     });
@@ -466,24 +691,31 @@ export class StudyView {
         const caseId = btn.dataset.caseId;
         const algId = btn.dataset.algId;
         setPreferredAlg(caseId, algId);
+        this.previewAlgId = algId;
         this.render();
       });
     });
 
-    // Prev / Next case in detail view
+    // Prev / Next case in detail & hybrid view (cycles only through selected cases when any are selected)
     const prevBtn = this.container.querySelector('#studyPrevCaseBtn');
     const nextBtn = this.container.querySelector('#studyNextCaseBtn');
     if (prevBtn && nextBtn) {
-      const cases = track.cases;
+      const cases = this.getNavigableCases(track);
       const idx = cases.findIndex(c => c.id === this.selectedCaseId);
       prevBtn.addEventListener('click', () => {
-        const nextIdx = (idx - 1 + cases.length) % cases.length;
+        if (cases.length === 0) return;
+        const curIdx = idx >= 0 ? idx : 0;
+        const nextIdx = (curIdx - 1 + cases.length) % cases.length;
         this.selectedCaseId = cases[nextIdx].id;
+        this.previewAlgId = null;
         this.render();
       });
       nextBtn.addEventListener('click', () => {
-        const nextIdx = (idx + 1) % cases.length;
+        if (cases.length === 0) return;
+        const curIdx = idx >= 0 ? idx : -1;
+        const nextIdx = (curIdx + 1) % cases.length;
         this.selectedCaseId = cases[nextIdx].id;
+        this.previewAlgId = null;
         this.render();
       });
     }
@@ -506,8 +738,9 @@ export class StudyView {
         const c = track.caseById.get(simBtn.dataset.caseId);
         if (c && this.onSimulateCase) {
           const prefId = getPreferredAlg(c.id, c.algs[0]?.id);
-          const algObj = c.algs.find(a => a.id === prefId) || c.algs[0];
-          this.onSimulateCase(c, algObj);
+          const algObj = c.algs.find(a => a.id === this.previewAlgId) || c.algs.find(a => a.id === prefId) || c.algs[0];
+          const setupWithAuf = `${c.setup || ''}${algObj?.startAuf ? ' ' + algObj.startAuf : ''}`.trim();
+          this.onSimulateCase({ ...c, setup: setupWithAuf }, algObj);
         }
       });
     }
@@ -515,6 +748,12 @@ export class StudyView {
     // Populate visual representations
     if (this.currentView === 'grid') {
       this.populateGridVisuals(track);
+    } else if (this.currentView === 'hybrid') {
+      this.populateGridVisuals(track);
+      const c = track.caseById.get(this.selectedCaseId) || track.cases[0];
+      if (c) {
+        this.populateDetailVisuals(track, c);
+      }
     } else if (this.currentView === 'detail') {
       const c = track.caseById.get(this.selectedCaseId) || track.cases[0];
       if (c) {
@@ -533,7 +772,7 @@ export class StudyView {
       if (!c) continue;
       try {
         const svg = await renderCaseSvg(puzzle, trackId, c);
-        if (this.currentPuzzle === puzzle && this.currentTrackId === trackId && this.currentView === 'grid') {
+        if (this.currentPuzzle === puzzle && this.currentTrackId === trackId && (this.currentView === 'grid' || this.currentView === 'hybrid')) {
           el.innerHTML = svg;
         }
       } catch (err) {
@@ -545,13 +784,21 @@ export class StudyView {
   async populateDetailVisuals(track, c) {
     const puzzle = this.currentPuzzle;
     const trackId = this.currentTrackId;
+    const prefId = getPreferredAlg(c.id, c.algs[0]?.id);
+    const activeAlg = c.algs.find(a => a.id === this.previewAlgId) || c.algs.find(a => a.id === prefId) || c.algs[0];
+    const startAuf = activeAlg?.startAuf || "";
+    const baseSetup = c.setup || c.scramble || "";
+    const setupWithAuf = `${baseSetup}${startAuf ? ' ' + startAuf : ''}`.trim();
 
-    // 1. 2D Recognition Diagram
+    // 1. 2D Recognition Diagram (reflects exact starting AUF for the previewed alg)
     const diagramEl = this.container.querySelector('#studyDetailDiagram');
     if (diagramEl) {
       try {
-        const svg = await renderCaseSvg(puzzle, trackId, c);
-        if (this.currentPuzzle === puzzle && this.currentTrackId === trackId && this.currentView === 'detail' && this.selectedCaseId === c.id) {
+        const previewCase = startAuf
+          ? { ...c, id: `${c.id}__auf_${startAuf.replace(/[^a-zA-Z0-9]/g, '')}`, setup: setupWithAuf }
+          : c;
+        const svg = await renderCaseSvg(puzzle, trackId, previewCase);
+        if (this.currentPuzzle === puzzle && this.currentTrackId === trackId && (this.currentView === 'detail' || this.currentView === 'hybrid') && this.selectedCaseId === c.id) {
           diagramEl.innerHTML = svg;
         }
       } catch (err) {
@@ -559,7 +806,7 @@ export class StudyView {
       }
     }
 
-    // 2. 3D ScrambleDisplay Flashcard
+    // 2. 3D ScrambleDisplay Flashcard (always White bottom when enabled, including 2x2 CLL/Ortega and 3x3 CFOP)
     const wrapEl = this.container.querySelector('#studyDetail3dWrap');
     if (wrapEl) {
       wrapEl.innerHTML = '';
@@ -567,11 +814,14 @@ export class StudyView {
         const el = new ScrambleDisplay();
         el.event = puzzle === "333oh" ? "333" : puzzle;
         el.visualization = "3D";
-        const is333Case = (puzzle === "333" || puzzle === "333oh") && ["f2l", "oll", "pll"].includes(trackId);
-        const setupAlg = c.setup || c.scramble || "";
-        el.scramble = (is333Case ? `z2 ${setupAlg}` : setupAlg).trim();
+        const showRefl = this.getShowReflection ? this.getShowReflection() : true;
+        el.hintFacelets = showRefl ? "floating" : "none";
+        const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
+        const needsZ2 = whiteBottom && ["cll", "ortega", "f2l", "oll", "pll"].includes(trackId);
+        el.scramble = (needsZ2 ? `z2 ${setupWithAuf}` : setupWithAuf).trim();
         wrapEl.appendChild(el);
         this.activeDisplay3d = el;
+        this.applyReflection();
         applyColorsTo3DCube(el);
 
         const resetBtn = this.container.querySelector('#studyReset3dBtn');
@@ -602,6 +852,28 @@ export class StudyView {
         console.error("Failed to mount 3D ScrambleDisplay:", err);
         wrapEl.innerHTML = `<span class="study-visual-loading">3D view unavailable</span>`;
       }
+    }
+  }
+
+  applyReflection() {
+    const el = this.activeDisplay3d;
+    if (!el) return;
+    const showRefl = this.getShowReflection ? this.getShowReflection() : true;
+    const modeVal = showRefl ? "floating" : "none";
+    try {
+      el.hintFacelets = modeVal;
+      if (el.player) {
+        el.player.hintFacelets = modeVal;
+        el.player.experimentalCurrentThreeJSPuzzleObject?.().then(p => {
+          if (p && typeof p.updateMaterialArrays === "function") {
+            p.updateMaterialArrays();
+            p.scheduleRenderCallback?.();
+          }
+          applyColorsTo3DCube(el);
+        }).catch(() => {});
+      }
+    } catch (err) {
+      console.warn("Could not update study 3D reflection facelets:", err);
     }
   }
 }

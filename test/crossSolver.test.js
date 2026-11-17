@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { findCrossSolutions, centerToWhiteEdge } from '../src/crossSolver.js';
+import { findCrossSolutions, centerToWhiteEdge, CROSS_FACE_CENTER_IDS, ALL_CROSS_FACES } from '../src/crossSolver.js';
 import { Alg } from 'cubing/alg';
 import { puzzles } from 'cubing/puzzles';
 
@@ -86,4 +86,51 @@ test('3x3 Cross Solver reports EO and Cross+1 information', async () => {
   assert.strictEqual(typeof top.eoSummary.badEdges, 'number');
   assert.strictEqual(top.eoSummary.goodEdges + top.eoSummary.badEdges, 12);
   assert.strictEqual(typeof top.crossPlus1.hasPair, 'boolean');
+});
+
+test('3x3 Cross Solver solves optimal cross for all 6 colors (Color Neutrality)', async () => {
+  const kp = await puzzles['3x3x3'].kpuzzle();
+  const scramble = "F2 D' B2 U2 L2 D L2 B2 U' F2 R' B D2 L' U' R' F2 U2 B'";
+
+  for (const color of ALL_CROSS_FACES) {
+    const sols = await findCrossSolutions(scramble, [color], 3);
+    assert.ok(sols.length > 0, `Must find cross solutions for ${color}`);
+    const targetCenterId = CROSS_FACE_CENTER_IDS[color];
+
+    for (const sol of sols) {
+      assert.strictEqual(sol.face, color);
+      let combined = scramble;
+      if (sol.insp && sol.insp !== 'none') {
+        combined += ' ' + sol.insp;
+      }
+      if (sol.moves) {
+        combined += ' ' + sol.moves;
+      }
+      const pat = kp.defaultPattern().applyAlg(new Alg(combined));
+      // Target color center must be on D (slot 5)
+      assert.strictEqual(pat.patternData.CENTERS.pieces[5], targetCenterId, `D center must be ${color} (${targetCenterId})`);
+
+      // Find the matching solved reference pattern for the same center orientation
+      const allRots = [
+        "", "y", "y2", "y'", "z2", "z2 y", "x2", "x2 y",
+        "x", "x y", "x y2", "x y'", "x'", "x' y", "x' y2", "x' y'",
+        "z", "z y", "z y2", "z y'", "z'", "z' y", "z' y2", "z' y'"
+      ];
+      const solvedRef = allRots
+        .map(r => (r ? kp.defaultPattern().applyAlg(new Alg(r)) : kp.defaultPattern()))
+        .find(cand => JSON.stringify(cand.patternData.CENTERS.pieces) === JSON.stringify(pat.patternData.CENTERS.pieces));
+      assert.ok(solvedRef, `Must match one of 24 solved center orientations for ${color}`);
+
+      assert.deepStrictEqual(
+        pat.patternData.EDGES.pieces.slice(4, 8),
+        solvedRef.patternData.EDGES.pieces.slice(4, 8),
+        `Cross edges must match solved positions for ${color}`
+      );
+      assert.deepStrictEqual(
+        pat.patternData.EDGES.orientation.slice(4, 8),
+        solvedRef.patternData.EDGES.orientation.slice(4, 8),
+        `Cross edge orientations must match solved state for ${color}`
+      );
+    }
+  }
 });

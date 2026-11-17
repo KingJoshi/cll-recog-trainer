@@ -193,16 +193,25 @@ test('Full mathematical simulation verification of all algorithms', async () => 
     }
   }
 
+  const orientRots = [
+    '', 'y', 'y2', "y'",
+    'x', 'x y', 'x y2', "x y'",
+    'x2', 'x2 y', 'x2 y2', "x2 y'",
+    "x'", "x' y", "x' y2", "x' y'",
+    'z', 'z y', 'z y2', "z y'",
+    "z'", "z' y", "z' y2", "z' y'"
+  ];
+  const solvedPats2 = orientRots.map(r => r ? def2.applyAlg(new Alg(r)) : def2);
+  const solvedPats3 = orientRots.map(r => r ? def3.applyAlg(new Alg(r)) : def3);
+
   // 2. 2x2 CLL
   for (const c of cllCases) {
     for (const a of c.algs) {
-      const algStr = `${c.setup} ${a.alg}`;
+      const algStr = `${c.setup} ${a.startAuf ? a.startAuf + ' ' : ''}${a.alg}`;
       let solved = false;
       for (const auf of ['', 'U', 'U2', "U'"]) {
         const pat = def2.applyAlg(new Alg(`${algStr} ${auf}`));
-        const pieces = pat.patternData.CORNERS.pieces;
-        const ori = pat.patternData.CORNERS.orientation;
-        if (pieces.every((p, idx) => p === idx) && ori.every(o => o === 0)) {
+        if (solvedPats2.some(sp => pat.isIdentical(sp))) {
           solved = true;
           break;
         }
@@ -214,16 +223,11 @@ test('Full mathematical simulation verification of all algorithms', async () => 
   // 3. 3x3 PLL
   for (const c of pllCases) {
     for (const a of c.algs) {
-      const algStr = `${c.setup} ${a.alg}`;
+      const algStr = `${c.setup} ${a.startAuf ? a.startAuf + ' ' : ''}${a.alg}`;
       let solved = false;
       for (const auf of ['', 'U', 'U2', "U'"]) {
         const pat = def3.applyAlg(new Alg(`${algStr} ${auf}`));
-        const cPieces = pat.patternData.CORNERS.pieces;
-        const cOri = pat.patternData.CORNERS.orientation;
-        const ePieces = pat.patternData.EDGES.pieces;
-        const eOri = pat.patternData.EDGES.orientation;
-        if (cPieces.every((p, i) => p === i) && cOri.every(o => o === 0) &&
-            ePieces.every((p, i) => p === i) && eOri.every(o => o === 0)) {
+        if (solvedPats3.some(sp => pat.isIdentical(sp))) {
           solved = true;
           break;
         }
@@ -235,12 +239,19 @@ test('Full mathematical simulation verification of all algorithms', async () => 
   // 4. 3x3 OLL
   for (const c of ollCases) {
     for (const a of c.algs) {
-      const algStr = `${c.setup} ${a.alg}`;
-      const pat = def3.applyAlg(new Alg(algStr));
-      const cOri = pat.patternData.CORNERS.orientation.slice(0, 4);
-      const eOri = pat.patternData.EDGES.orientation.slice(0, 4);
-      assert.ok(cOri.every(o => o === 0), `OLL ${c.number} ${a.id} must orient corners`);
-      assert.ok(eOri.every(o => o === 0), `OLL ${c.number} ${a.id} must orient edges`);
+      const algStr = `${c.setup} ${a.startAuf ? a.startAuf + ' ' : ''}${a.alg}`;
+      const basePat = def3.applyAlg(new Alg(algStr));
+      let ollOk = false;
+      for (const rot of ['', 'y', 'y2', "y'"]) {
+        const pat = rot ? basePat.applyAlg(new Alg(rot)) : basePat;
+        const cOri = pat.patternData.CORNERS.orientation.slice(0, 4);
+        const eOri = pat.patternData.EDGES.orientation.slice(0, 4);
+        if (cOri.every(o => o === 0) && eOri.every(o => o === 0)) {
+          ollOk = true;
+          break;
+        }
+      }
+      assert.ok(ollOk, `OLL ${c.number} ${a.id} must orient top corners and edges`);
     }
   }
 });

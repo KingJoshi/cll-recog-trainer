@@ -12,6 +12,8 @@ export class PracticeView {
     this.onApplyScrambleToDisplay = options.onApplyScrambleToDisplay; // (scramble) => void
     this.onRecordRecognition = options.onRecordRecognition; // (caseId, isCorrect) => void
     this.onFlashCube = options.onFlashCube; // (result) => void
+    this.getCrossTargetFaces = options.getCrossTargetFaces || (() => ['white']);
+    this.getLayerTargetFaces = options.getLayerTargetFaces || (() => ['white']);
 
     this.currentPuzzle = "222";
     this.currentTrackId = "cll";
@@ -60,8 +62,9 @@ export class PracticeView {
       const res = await this.onGenerateScramble(this.currentTrackId);
       if (typeof res === 'object' && res?.caseObj) {
         this.currentCase = res.caseObj;
-      } else if (typeof res === 'string') {
-        this.inspectionScramble = res;
+      } else {
+        this.currentCase = null;
+        this.inspectionScramble = typeof res === 'string' ? res : (res?.scramble || '');
       }
     }
     this.render();
@@ -171,15 +174,19 @@ export class PracticeView {
   }
 
   renderInspectionSolutionsList(is3x3) {
+    const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : 'White';
     return `
       <div class="inspection-solutions-reveal">
         <h4 class="inspection-reveal-title">
-          Optimal ${is3x3 ? 'White Cross' : '1st Layer'} Solutions:
+          Optimal ${is3x3 ? 'Cross' : '1st Layer'} Solutions:
         </h4>
         <div class="inspection-solutions-list">
-          ${this.inspectionSolutions.map((sol, idx) => `
+          ${this.inspectionSolutions.length === 0
+            ? `<p class="hint" style="margin: 6px 0 0;">No optimal solutions found within search depth for the selected target color(s).</p>`
+            : this.inspectionSolutions.map((sol, idx) => `
             <div class="inspection-sol-item">
               <div class="inspection-sol-head">
+                <span class="face-badge face-badge-${sol.face || 'white'}">${cap(sol.face || 'white')}</span>
                 <span class="sol-badge">#${idx + 1} (${sol.moveCount} moves)</span>
                 <span class="sol-insp">Inspection: <strong>${sol.insp || 'none'}</strong></span>
                 ${sol.crossPlus1?.hasPair ? `<span class="sol-chip chip-cross1">${sol.crossPlus1.description}</span>` : ''}
@@ -380,8 +387,22 @@ export class PracticeView {
     }
 
     if (track.id === "ortega") {
-      const ortegaOll = ["H", "Pi", "Antisune", "Sune", "L", "T", "U"];
-      const ortegaPbl = ["Adj/Adj", "Opp/Opp", "Adj/Opp", "Adj/Solved", "Opp/Solved"];
+      const ortegaOll = [
+        { id: "ortega-oll-h", label: "H" },
+        { id: "ortega-oll-pi", label: "Pi" },
+        { id: "ortega-oll-antisune", label: "Antisune" },
+        { id: "ortega-oll-sune", label: "Sune" },
+        { id: "ortega-oll-l", label: "L" },
+        { id: "ortega-oll-t", label: "T" },
+        { id: "ortega-oll-u", label: "U" }
+      ];
+      const ortegaPbl = [
+        { id: "ortega-pbl-adj-adj", label: "Adj/Adj" },
+        { id: "ortega-pbl-opp-opp", label: "Opp/Opp" },
+        { id: "ortega-pbl-adj-opp", label: "Adj/Opp" },
+        { id: "ortega-pbl-adj-solved", label: "Adj/Solved" },
+        { id: "ortega-pbl-opp-solved", label: "Opp/Solved" }
+      ];
       return `
         <p class="guess-label">Select the Ortega case:</p>
         <div class="ortega-keypad-sections">
@@ -389,7 +410,7 @@ export class PracticeView {
             <span class="ortega-group-label">OLL:</span>
             <div class="ortega-pill-row">
               ${ortegaOll.map(c => `
-                <button type="button" class="btn-recog-key ${this.guessCase === c ? 'active' : ''}" data-case="${c}">${c}</button>
+                <button type="button" class="btn-recog-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${c.label}</button>
               `).join('')}
             </div>
           </div>
@@ -397,7 +418,7 @@ export class PracticeView {
             <span class="ortega-group-label">PBL:</span>
             <div class="ortega-pill-row">
               ${ortegaPbl.map(c => `
-                <button type="button" class="btn-recog-key ${this.guessCase === c ? 'active' : ''}" data-case="${c}">${c}</button>
+                <button type="button" class="btn-recog-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${c.label}</button>
               `).join('')}
             </div>
           </div>
@@ -406,14 +427,38 @@ export class PracticeView {
     }
 
     if (track.id === "oll") {
-      // Common OLL cases / Cross OLL
-      const ollCross = ["H (21)", "Pi (22)", "Antisune (26)", "Sune (27)", "L (24)", "T (25)", "U (23)"];
+      const allOlls = (track.cases || []).slice().sort((a, b) => (a.number || 0) - (b.number || 0));
+      const crossCases = allOlls.filter(c => c.group === "All Edges Oriented (Cross)");
+      if (this.currentCase && this.currentCase.group === "All Edges Oriented (Cross)" && crossCases.length > 0) {
+        return `
+          <p class="guess-label">Select OLL Cross case:</p>
+          <div class="ortega-pill-row" style="flex-wrap: wrap;">
+            ${crossCases.map(c => `
+              <button type="button" class="btn-recog-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${c.drillLabel || c.name}</button>
+            `).join('')}
+          </div>
+        `;
+      }
       return `
-        <p class="guess-label">Select OLL Cross case:</p>
-        <div class="ortega-pill-row">
-          ${ollCross.map(c => `
-            <button type="button" class="btn-recog-key ${this.guessCase === c ? 'active' : ''}" data-case="${c}">${c}</button>
-          `).join('')}
+        <p class="guess-label">Which OLL case is it?</p>
+        <div class="pll-keypad-grid">
+          ${allOlls.map(c => {
+            const lbl = c.drillLabel || String(c.number || c.id.replace(/^oll-/, "")).padStart(2, "0");
+            return `<button type="button" class="btn-recog-key pll-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${lbl}</button>`;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    if (track.id === "f2l") {
+      const allF2l = (track.cases || []).slice().sort((a, b) => (a.number || 0) - (b.number || 0));
+      return `
+        <p class="guess-label">Which F2L case is it?</p>
+        <div class="pll-keypad-grid">
+          ${allF2l.map(c => {
+            const lbl = String(c.number || c.id.replace(/^f2l-/, "")).padStart(2, "0");
+            return `<button type="button" class="btn-recog-key pll-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${lbl}</button>`;
+          }).join('')}
         </div>
       `;
     }
@@ -747,15 +792,14 @@ export class PracticeView {
   checkAnswerMatch(guess) {
     if (!this.currentCase || !guess) return false;
     const c = this.currentCase;
-    return (
-      guess === c.id ||
-      guess === c.name ||
-      guess === c.group ||
-      (c.group && c.id && guess === `${c.group}${c.id.replace(c.group, '')}`) ||
-      (c.name && guess.toLowerCase() === c.name.toLowerCase()) ||
-      (c.id && c.id.includes(guess)) ||
-      (typeof guess === "string" && c.id && guess.includes(c.id))
-    );
+    if (guess === c.id || guess === c.name) return true;
+    if (c.group && c.id && guess === `${c.group}${c.id.replace(c.group, '')}`) return true;
+    if (c.name && guess.toLowerCase() === c.name.toLowerCase()) return true;
+    const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const ng = norm(guess);
+    const nid = norm(c.id);
+    if (ng && nid && (ng === nid || nid === `ortega-oll-${ng}` || nid === `ortega-pbl-${ng}`)) return true;
+    return false;
   }
 
   formatTime(ms) {
@@ -812,11 +856,18 @@ export class PracticeView {
     this.stopInspectionTimer();
     this.solutionRevealed = true;
 
-    if (this.currentPuzzle === "333") {
+    if (!this.inspectionScramble && this.onGenerateScramble) {
+      const res = await this.onGenerateScramble(this.currentTrackId);
+      this.inspectionScramble = typeof res === 'string' ? res : (res?.scramble || '');
+    }
+
+    if (this.currentPuzzle === "333" || this.currentPuzzle === "333oh") {
       try {
-        const res = await findCrossSolutions(this.inspectionScramble, 5);
+        const faces = this.getCrossTargetFaces();
+        const res = await findCrossSolutions(this.inspectionScramble, faces, 6);
         const list = Array.isArray(res) ? res : (res?.solutions || []);
         this.inspectionSolutions = list.map(s => ({
+          face: s.face || 'white',
           moves: s.moves,
           moveCount: s.moveCount || s.length,
           insp: s.insp && s.insp !== "none" ? s.insp : (s.inspectionRot && s.inspectionRot !== "none" ? s.inspectionRot : "none"),
@@ -828,8 +879,10 @@ export class PracticeView {
       }
     } else {
       try {
-        const sols = await findLayerSolutions(this.inspectionScramble, ['white'], 5);
+        const faces = this.getLayerTargetFaces();
+        const sols = await findLayerSolutions(this.inspectionScramble, faces, 5);
         this.inspectionSolutions = (sols || []).map(s => ({
+          face: s.face || 'white',
           moves: s.moves,
           moveCount: s.moveCount,
           insp: s.inspection && s.inspection !== "none" ? s.inspection : "none",

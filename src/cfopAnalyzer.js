@@ -1053,8 +1053,8 @@ export function computeOllPllCaseStats(solves = [], options = {}) {
         avgMoves
       });
     }
-    // Default sort: slowest average time first so user immediately sees where to improve
-    list.sort((a, b) => b.avgMs - a.avgMs || b.avgPauseMs - a.avgPauseMs);
+    // Default sort: slowest median time first (then trimMean, then mean) so user immediately sees where to improve
+    list.sort((a, b) => (b.medianMs ?? 0) - (a.medianMs ?? 0) || (b.trimMeanMs ?? 0) - (a.trimMeanMs ?? 0) || b.avgMs - a.avgMs || b.avgPauseMs - a.avgPauseMs);
     return list;
   };
 

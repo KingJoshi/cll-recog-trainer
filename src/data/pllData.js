@@ -1,5 +1,5 @@
 // 3x3x3 PLL (Permutation of the Last Layer) - All 21 Cases
-// Automatically formatted and verified with cubing.js
+// Verified with cubing.js + SpeedCubeDB community alternatives
 
 export const pllCases = [
   {
@@ -12,17 +12,38 @@ export const pllCases = [
         "id": "ua-1",
         "alg": "R U' R U R U R U' R' U' R2",
         "note": "Standard RU-Gen (Most popular)",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "ua-2",
         "alg": "M2' U M U2 M' U M2'",
-        "note": "MU-Gen / Ergonomic table turns"
+        "note": "MU-Gen / Ergonomic table turns",
+        "startAuf": ""
       },
       {
         "id": "ua-3",
         "alg": "y2 R2 U' R' U' R U R U R U' R y2",
-        "note": "Back-bar variant"
+        "note": "Back-bar variant",
+        "startAuf": ""
+      },
+      {
+        "id": "Ua-4",
+        "alg": "M2 U M U2 M' U M2",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Ua-5",
+        "alg": "R U R' U R' U' R2 U' R' U R' U R",
+        "note": "Community Alt",
+        "startAuf": "U2"
+      },
+      {
+        "id": "Ua-6",
+        "alg": "R2 U' S' U2 S U' R2",
+        "note": "Community Alt",
+        "startAuf": "U'"
       }
     ],
     "setup": "R2' U R U R' U' R' U' R' U R'"
@@ -37,17 +58,38 @@ export const pllCases = [
         "id": "ub-1",
         "alg": "R2 U R U R' U' R' U' R' U R'",
         "note": "Standard RU-Gen",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "ub-2",
         "alg": "M2' U' M U2 M' U' M2'",
-        "note": "MU-Gen / Table turn variant"
+        "note": "MU-Gen / Table turn variant",
+        "startAuf": ""
       },
       {
         "id": "ub-3",
         "alg": "y2 R' U R' U' R' U' R' U R U R2 y2",
-        "note": "Left-flick variant"
+        "note": "Left-flick variant",
+        "startAuf": ""
+      },
+      {
+        "id": "Ub-4",
+        "alg": "M2 U' M U2 M' U' M2",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Ub-5",
+        "alg": "R' U R' U' R' U' R' U R U R2",
+        "note": "Community Alt",
+        "startAuf": "U2"
+      },
+      {
+        "id": "Ub-6",
+        "alg": "R2' U R U R' U' R3 U' R' U R'",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "R U' R U R U R U' R' U' R2'"
@@ -62,12 +104,38 @@ export const pllCases = [
         "id": "h-1",
         "alg": "M2' U M2' U2 M2' U M2'",
         "note": "Standard MU-Gen (Super fast)",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "h-2",
         "alg": "M2' U' M2' U2 M2' U' M2'",
-        "note": "U' index flick variant"
+        "note": "U' index flick variant",
+        "startAuf": ""
+      },
+      {
+        "id": "H-3",
+        "alg": "M2 U M2 U2 M2 U M2",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "H-4",
+        "alg": "M2 U' M2 U2 M2 U' M2",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "H-5",
+        "alg": "R2 S2 R2 U' R2 S2 R2",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "H-6",
+        "alg": "M2 U2 M2 U M2 U2 M2",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "M2 U' M2 U2' M2 U' M2"
@@ -82,17 +150,38 @@ export const pllCases = [
         "id": "z-1",
         "alg": "M2' U M2' U M' U2 M2' U2 M'",
         "note": "Standard MU-Gen",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "z-2",
         "alg": "y M2' U' M2' U' M' U2 M2' U2 M' y'",
-        "note": "Alternative finger-trick with rotation"
+        "note": "Alternative finger-trick with rotation",
+        "startAuf": ""
       },
       {
-        "id": "z-3",
-        "alg": "M2' U M2' U M' U2 M2' U2 M'",
-        "note": "Standard variant"
+        "id": "Z-3",
+        "alg": "M' U' M2 U' M2 U' M' U2 M2",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Z-4",
+        "alg": "M2 U M2 U M' U2 M2 U2 M'",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Z-5",
+        "alg": "M2 U' M2 U' M' U2 M2 U2 M'",
+        "note": "Community Alt",
+        "startAuf": "U"
+      },
+      {
+        "id": "Z-6",
+        "alg": "M' U M2 U M2 U M' U2 M2",
+        "note": "Community Alt",
+        "startAuf": "U"
       }
     ],
     "setup": "M U2' M2 U2' M U' M2 U' M2"
@@ -107,12 +196,32 @@ export const pllCases = [
         "id": "aa-1",
         "alg": "x R' U R' D2 R U' R' D2 R2 x'",
         "note": "Standard x rotation with D2 double flick",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "aa-2",
         "alg": "y x' R2 D2 R' U' R D2 R' U R' x y'",
-        "note": "Alternative grip"
+        "note": "Alternative grip",
+        "startAuf": ""
+      },
+      {
+        "id": "Aa-3",
+        "alg": "y' x L2 D2 L' U' L D2 L' U L'",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Aa-4",
+        "alg": "l' U R' D2 R U' R' D2 R2 x'",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Aa-5",
+        "alg": "x' R2 D2 R' U' R D2 R' U R' x",
+        "note": "Community Alt",
+        "startAuf": "U"
       }
     ],
     "setup": "x R2' D2' R U R' D2' R U' R x'"
@@ -127,12 +236,32 @@ export const pllCases = [
         "id": "ab-1",
         "alg": "x R2 D2 R U R' D2 R U' R x'",
         "note": "Standard x rotation",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "ab-2",
         "alg": "y x' R U' R D2 R' U R D2 R2 x y'",
-        "note": "Headlights in front"
+        "note": "Headlights in front",
+        "startAuf": ""
+      },
+      {
+        "id": "Ab-3",
+        "alg": "y' x L U' L D2 L' U L D2 L2",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Ab-4",
+        "alg": "x' R U' R D2 R' U R D2 R2 x",
+        "note": "Community Alt",
+        "startAuf": "U"
+      },
+      {
+        "id": "Ab-5",
+        "alg": "R' B' R U' R D R' U R D' R2 B R",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "x R' U R' D2' R U' R' D2' R2' x'"
@@ -147,17 +276,38 @@ export const pllCases = [
         "id": "ja-1",
         "alg": "x R2 F R F' R U2 r' U r U2 x'",
         "note": "Standard fast flick",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "ja-2",
         "alg": "U' R' U L' U2 R U' R' U2 R L",
-        "note": "Niklas-style 2-gen (AUF aligned)"
+        "note": "Niklas-style 2-gen (AUF aligned)",
+        "startAuf": ""
       },
       {
         "id": "ja-3",
         "alg": "y2 L' U' L F L' U' L U L F' L2' U L y2 U",
-        "note": "Left-handed Jb mirror with rotation"
+        "note": "Left-handed Jb mirror with rotation",
+        "startAuf": ""
+      },
+      {
+        "id": "Ja-4",
+        "alg": "L' U' L F L' U' L U L F' L2 U L",
+        "note": "Community Alt",
+        "startAuf": "U2"
+      },
+      {
+        "id": "Ja-5",
+        "alg": "R' U L' U2 R U' R' U2 R L",
+        "note": "Community Alt",
+        "startAuf": "U'"
+      },
+      {
+        "id": "Ja-6",
+        "alg": "R U' L' U R' U2 L U' L' U2 L",
+        "note": "Community Alt",
+        "startAuf": "U2"
       }
     ],
     "setup": "x U2' r' U' r U2' R' F R' F' R2' x'"
@@ -172,12 +322,26 @@ export const pllCases = [
         "id": "jb-1",
         "alg": "R U R' F' R U R' U' R' F R2 U' R'",
         "note": "Standard (Fastest adjacent PLL)",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "jb-2",
         "alg": "R U2 R' U' R U2 L' U R' U' L",
-        "note": "2-gen RU/L variant"
+        "note": "2-gen RU/L variant",
+        "startAuf": ""
+      },
+      {
+        "id": "Jb-3",
+        "alg": "r' F R F' r U2 R' U R U2 R'",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Jb-4",
+        "alg": "L' U R U' L U2 R' U R U2 R'",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "R U R2' F' R U R U' R' F R U' R'"
@@ -192,12 +356,26 @@ export const pllCases = [
         "id": "ra-1",
         "alg": "R U' R' U' R U R D R' U' R D' R' U2 R'",
         "note": "Standard RUD alg",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "ra-2",
         "alg": "R U R' F' R U2 R' U2 R' F R U R U2 R'",
-        "note": "RUF-gen variant"
+        "note": "RUF-gen variant",
+        "startAuf": ""
+      },
+      {
+        "id": "Ra-3",
+        "alg": "L U2 L' U2 L F' L' U' L U L F L2",
+        "note": "Community Alt",
+        "startAuf": "U'"
+      },
+      {
+        "id": "Ra-4",
+        "alg": "R U' R' U' R U R' U R' D' R U' R' D R2 U R'",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "R U2' R D R' U R D' R' U' R' U R U R'"
@@ -212,12 +390,26 @@ export const pllCases = [
         "id": "rb-1",
         "alg": "R' U2 R U2 R' F R U R' U' R' F' R2",
         "note": "Standard (Starts with R' U2)",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "rb-2",
         "alg": "R' U2 R' D' R U' R' D R U R U' R' U' R",
-        "note": "RUD-gen variant"
+        "note": "RUD-gen variant",
+        "startAuf": ""
+      },
+      {
+        "id": "Rb-3",
+        "alg": "R2 F R U R U' R' F' R U2 R' U2 R",
+        "note": "Community Alt",
+        "startAuf": "U"
+      },
+      {
+        "id": "Rb-4",
+        "alg": "R' U R U R' U' R' D' R U R' D R U2 R",
+        "note": "Community Alt",
+        "startAuf": "U"
       }
     ],
     "setup": "R2' F R U R U' R' F' R U2' R' U2' R"
@@ -232,12 +424,32 @@ export const pllCases = [
         "id": "t-1",
         "alg": "R U R' U' R' F R2 U' R' U' R U R' F'",
         "note": "Standard T-Perm",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "t-2",
         "alg": "R2 U R2 U' R2 U' D R2 U' R2 U R2 D'",
-        "note": "2-gen RU/D variant"
+        "note": "2-gen RU/D variant",
+        "startAuf": ""
+      },
+      {
+        "id": "T-3",
+        "alg": "l b d' L' U' F U2 L' U' L' U L U' f' S M r u E U' R'",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "T-4",
+        "alg": "R U R' U' R' F R2 U' R' U F' L' U L",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "T-5",
+        "alg": "R2 u R2 u' R2 F2 u' F2 u F2",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "F R U' R' U R U R2' F' R U R U' R'"
@@ -252,12 +464,32 @@ export const pllCases = [
         "id": "f-1",
         "alg": "R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R",
         "note": "Setup move + T-Perm + undo",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "f-2",
         "alg": "y R' U2 R' d' R' F' R2 U' R' U R' F R U' F y2",
-        "note": "Alternative finger-trick with rotation"
+        "note": "Alternative finger-trick with rotation",
+        "startAuf": ""
+      },
+      {
+        "id": "F-3",
+        "alg": "R' F R f' R' F R2 U R' U' R' F' R2 U R' S",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "F-4",
+        "alg": "R' U R U' R2 F' U' F U R F R' F' R2",
+        "note": "Community Alt",
+        "startAuf": "U'"
+      },
+      {
+        "id": "F-5",
+        "alg": "R2 F R F' R' U' F' U F R2 U R' U' R",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "R' U' R U' R' U R U R2' F' R U R U' R' F U R"
@@ -272,12 +504,32 @@ export const pllCases = [
         "id": "v-1",
         "alg": "R' U R' U' y R' F' R2 U' R' U R' F R F",
         "note": "Standard rotation variant",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "v-2",
         "alg": "R' U R' U' B' R' B2 U' B' U B' R B R y",
-        "note": "Rotationless B variant"
+        "note": "Rotationless B variant",
+        "startAuf": ""
+      },
+      {
+        "id": "V-3",
+        "alg": "R' U R' U' R D' R' D R' U D' R2 U' R2 D R2",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "V-4",
+        "alg": "R' U R U' R' f' U' R U2 R' U' R U' R' f R",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "V-5",
+        "alg": "R U' R U R' D R D' R U' D R2 U R2 D' R2",
+        "note": "Community Alt",
+        "startAuf": "U"
       }
     ],
     "setup": "F' R' F' R U' R U R2' F R y' U R U' R"
@@ -292,12 +544,26 @@ export const pllCases = [
         "id": "y-1",
         "alg": "F R U' R' U' R U R' F' R U R' U' R' F R F'",
         "note": "Standard Y-Perm",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "y-2",
         "alg": "F R' F R2 U' R' U' R U R' F' R U R' U' F'",
-        "note": "Fast alternative"
+        "note": "Fast alternative",
+        "startAuf": ""
+      },
+      {
+        "id": "Y-3",
+        "alg": "R2 U' R2 U' R2 U F U F' R2 F U' F'",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Y-4",
+        "alg": "F R' F' R U R U' R2 U' R U R f' U' f",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "F R' F' R U R U' R' F R U' R' U R U R' F'"
@@ -312,12 +578,32 @@ export const pllCases = [
         "id": "e-1",
         "alg": "x' R U' R' D R U R' D' R U R' D R U' R' D' x",
         "note": "Standard x rotation with D flicks",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "e-2",
         "alg": "x' L' U L D' L' U' L D L' U' L D' L' U L D x",
-        "note": "Left-handed mirror"
+        "note": "Left-handed mirror",
+        "startAuf": ""
+      },
+      {
+        "id": "E-3",
+        "alg": "R' U' R' D' R U' R' D R U R' D' R U R' D R2",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "E-4",
+        "alg": "R2 U F' R' U R U' R' U R U' R' U R U' F U' R2",
+        "note": "Community Alt",
+        "startAuf": "U"
+      },
+      {
+        "id": "E-5",
+        "alg": "x' L' U L D' L' U' L D L' U' L D' L' U L D",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "x' D R U R' D' R U' R' D R U' R' D' R U R' x"
@@ -332,12 +618,32 @@ export const pllCases = [
         "id": "na-1",
         "alg": "R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'",
         "note": "Standard J-perm insert",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "na-2",
         "alg": "z U R' D R2 U' R D' U R' D R2 U' R D' z'",
-        "note": "z-rotation RUD variant"
+        "note": "z-rotation RUD variant",
+        "startAuf": ""
+      },
+      {
+        "id": "Na-3",
+        "alg": "F' R U R' U' R' F R2 F U' R' U' R U F' R'",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Na-4",
+        "alg": "R F U' R' U R U F' R2 F' R U R U' R' F",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Na-5",
+        "alg": "r' D r U2 r' D r U2 r' D r U2 r' D r U2 r' D r",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "R U R' U2' R U R2' F' R U R U' R' F R U' R' U' R U' R'"
@@ -352,12 +658,32 @@ export const pllCases = [
         "id": "nb-1",
         "alg": "R' U R U' R' F' U' F R U R' F R' F' R U' R",
         "note": "Standard trigger-based",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "nb-2",
         "alg": "z U' R D' R2 U R' D U' R D' R2 U R' D z'",
-        "note": "z-rotation RUD variant"
+        "note": "z-rotation RUD variant",
+        "startAuf": ""
+      },
+      {
+        "id": "Nb-3",
+        "alg": "r' D' F r U' r' F' D r2 U r' U' r' F r F'",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Nb-4",
+        "alg": "R' U L' U2 R U' L R' U L' U2 R U' L",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Nb-5",
+        "alg": "R' U R U' R' F' U' F R U R' U' R U' f R f'",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "R' U R' F R F' R U' R' F' U F R U R' U' R"
@@ -372,12 +698,32 @@ export const pllCases = [
         "id": "ga-1",
         "alg": "R2 U R' U R' U' R U' R2 D U' R' U R D'",
         "note": "Standard RUD-gen",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "ga-2",
         "alg": "R2 u R' U R' U' R u' R2' F' U F U'",
-        "note": "Wide u turn variant"
+        "note": "Wide u turn variant",
+        "startAuf": ""
+      },
+      {
+        "id": "Ga-3",
+        "alg": "R2 u R' U R' U' R u' R2 F' U F",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Ga-4",
+        "alg": "R U R' F' R U R' U' R' F R U' R' F R2 U' R' U' R U R' F'",
+        "note": "Community Alt",
+        "startAuf": "U"
+      },
+      {
+        "id": "Ga-5",
+        "alg": "L2 F2 L' U2 L' U2 L F' L' U' L U L F' L2",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "D R' U' R U D' R2' U R' U R U' R U' R2'"
@@ -392,12 +738,32 @@ export const pllCases = [
         "id": "gb-1",
         "alg": "R' U' R U D' R2 U R' U R U' R U' R2 D",
         "note": "Standard RUD-gen",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "gb-2",
         "alg": "y F' U' F R2 u R' U R U' R u' R2 y' U",
-        "note": "F-start wide-u variant"
+        "note": "F-start wide-u variant",
+        "startAuf": ""
+      },
+      {
+        "id": "Gb-3",
+        "alg": "D R' U' R U D' R2 U R' U R U' R U' R2",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Gb-4",
+        "alg": "F' U' F R2 u R' U R U' R u' R2",
+        "note": "Community Alt",
+        "startAuf": "U"
+      },
+      {
+        "id": "Gb-5",
+        "alg": "R' d' F R2 u R' U R U' R u' R2",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "R2' U R' U R' U' R U' R2' D U' R' U R D'"
@@ -412,12 +778,32 @@ export const pllCases = [
         "id": "gc-1",
         "alg": "R2 U' R U' R U R' U R2 D' U R U' R' D",
         "note": "Standard RUD-gen",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "gc-2",
         "alg": "R2 u' R U' R U R' u R2' f R' f' U",
-        "note": "Wide u' turn variant"
+        "note": "Wide u' turn variant",
+        "startAuf": ""
+      },
+      {
+        "id": "Gc-3",
+        "alg": "R2 F2 R U2 R U2 R' F R U R' U' R' F R2",
+        "note": "Community Alt",
+        "startAuf": "U2"
+      },
+      {
+        "id": "Gc-4",
+        "alg": "D R2 U' R U' R U R' U R2 D' U R U' R'",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Gc-5",
+        "alg": "R2 u' R U' R U R' u R2 f R' f'",
+        "note": "Community Alt",
+        "startAuf": ""
       }
     ],
     "setup": "D' R U R' U' D R2' U' R U' R' U R' U R2'"
@@ -432,12 +818,32 @@ export const pllCases = [
         "id": "gd-1",
         "alg": "R U R' U' D R2 U' R U' R' U R' U R2 D'",
         "note": "Standard RUD-gen",
-        "isDefault": true
+        "isDefault": true,
+        "startAuf": ""
       },
       {
         "id": "gd-2",
         "alg": "R U R' y' R2 u' R U' R' U R' u R2 y U'",
-        "note": "Standard with rotation"
+        "note": "Standard with rotation",
+        "startAuf": ""
+      },
+      {
+        "id": "Gd-3",
+        "alg": "D' R U R' U' D R2 U' R U' R' U R' U R2",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Gd-4",
+        "alg": "R U R' y' R2 u' R U' R' U R' u R2",
+        "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "Gd-5",
+        "alg": "R2 F' R U R U' R' F' R U2 R' U2 R' F2 R2",
+        "note": "Community Alt",
+        "startAuf": "U"
       }
     ],
     "setup": "R2' U' R U' R U R' U R2' D' U R U' R' D"

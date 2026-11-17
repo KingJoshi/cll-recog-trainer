@@ -47,26 +47,28 @@
 
 <main class="app">
 
-  <!-- Cases & options: collapsible bar on phones, always-open sidebar panel on wide screens -->
+  <!-- Active Cases: collapsible on all screen sizes, persisted in cookies/localStorage -->
   <section class="panel settings collapsed" id="settingsPanel">
     <button type="button" class="panel-toggle" id="settingsToggle" aria-expanded="false" aria-controls="settingsBody">
-      <span class="panel-title">Cases &amp; options</span>
-      <span class="panel-meta" id="selectionCount"></span>
       <span class="chevron" aria-hidden="true"></span>
+      <span class="panel-title" id="casesPanelTitle">Active Cases</span>
+      <span class="panel-meta" id="selectionCount"></span>
     </button>
 
     <div class="panel-body" id="settingsBody">
       <div class="section-head">
-        <h2>Cases</h2>
+        <h2 id="casesSectionSubtitle">Cases in Drill Pool</h2>
         <div class="bulk-actions">
+          <button type="button" id="caseTagModeBtn" class="btn btn-small" aria-pressed="false" title="Toggle touch tag-editing mode to cycle Learning / Review / Mastered">🏷️ Tag Mode: Off</button>
           <button type="button" id="addAllBtn" class="btn btn-small">Add all</button>
           <button type="button" id="clearAllBtn" class="btn btn-small">Clear all</button>
         </div>
       </div>
-      <p class="hint">Tap a letter to add or remove a whole group, a number for a single case.</p>
+      <p class="hint" id="casePickerHint">Tap a group button to toggle a group, or a case chip to toggle a single case. Turn on <strong>🏷️ Tag Mode</strong> (or right-click) to mark cases Learning / Review / Mastered.</p>
       <div class="case-tag-filter-bar" role="group" aria-label="Filter cases by tag">
         <span class="tag-filter-label">Filter:</span>
         <button type="button" class="tag-filter-btn active" data-tag-filter="all">All</button>
+        <button type="button" class="tag-filter-btn tag-filter-none" data-tag-filter="none" title="Pending (not yet started)">Pending</button>
         <button type="button" class="tag-filter-btn tag-filter-learning" data-tag-filter="learning">Learning</button>
         <button type="button" class="tag-filter-btn tag-filter-review" data-tag-filter="review">Review</button>
         <button type="button" class="tag-filter-btn tag-filter-mastered" data-tag-filter="mastered">Mastered</button>
@@ -74,39 +76,19 @@
       <div id="casePicker" class="case-picker" role="group" aria-label="Cases to practice">
         <!-- Rows are populated by JavaScript -->
       </div>
-
-      <h2 class="section-title">Options</h2>
-      <div class="toggle-list">
-        <button type="button" class="switch" data-toggle="darkMode" id="toggleDarkMode" aria-pressed="false">
-          <span class="switch-label">Dark theme</span>
-          <span class="switch-track" aria-hidden="true"></span>
-        </button>
-        <button type="button" class="switch" data-toggle="alwaysWhiteBottom" id="toggleAlwaysWhiteBottom" aria-pressed="true">
-          <span class="switch-label">Always white bottom</span>
-          <span class="switch-track" aria-hidden="true"></span>
-        </button>
-        <button type="button" class="switch" data-toggle="allowAUF" id="toggleAllowAUF" aria-pressed="true">
-          <span class="switch-label">Allow AUF</span>
-          <span class="switch-track" aria-hidden="true"></span>
-        </button>
-        <button type="button" class="switch" data-toggle="showReflection" id="toggleShowReflection" aria-pressed="true">
-          <span class="switch-label">Show reflection (backs &amp; bottom)</span>
-          <span class="switch-track" aria-hidden="true"></span>
-        </button>
-      </div>
     </div>
   </section>
 
-  <!-- Stage: training set (track), mode, cube, guessing UI, timed session -->
+  <!-- Stage: mode progression (Study -> Practice -> Solve -> Simulate), track/focus bar, cube, drills, timer -->
   <section class="stage">
-    <div id="trackBar" class="track-bar" role="group" aria-label="Algorithm Track"></div>
-
     <div class="seg mode-seg" role="group" aria-label="Mode">
-      <button type="button" class="mode-btn" data-mode="solve" aria-pressed="true">Solve</button>
-      <button type="button" class="mode-btn" data-mode="study" aria-pressed="false">Study</button>
-      <button type="button" class="mode-btn" data-mode="practice" aria-pressed="false">Practice</button>
-      <button type="button" class="mode-btn" data-mode="simulate" aria-pressed="false">Simulate</button>
+      <button type="button" class="mode-btn" data-mode="study" aria-pressed="false">📚 Study</button>
+      <button type="button" class="mode-btn" data-mode="practice" aria-pressed="false">🎯 Practice</button>
+      <button type="button" class="mode-btn" data-mode="solve" aria-pressed="true">⏱️ Solve</button>
+      <button type="button" class="mode-btn" data-mode="simulate" aria-pressed="false">🎬 Simulate</button>
     </div>
+
+    <div id="trackBar" class="track-bar" role="group" aria-label="Algorithm Track or Solve Focus"></div>
 
     <!-- Study View Container (Case Grid, 3D Flashcard, Guides) -->
     <div id="studyViewContainer" class="study-container" hidden></div>
@@ -171,6 +153,26 @@
       </div>
       <p id="solveScrambleText" class="solve-scramble-text"></p>
       <p id="solveScrambleSubtext" class="solve-scramble-subtext" hidden></p>
+
+      <!-- Timer & Handling Drill Panel (visible when Target === "timer-drill") -->
+      <div id="timerDrillBanner" class="timer-drill-banner" hidden>
+        <div class="timer-drill-top">
+          <div class="timer-drill-info">
+            <span class="timer-drill-badge">⏱️ Timer &amp; Pickup/Putdown Drill</span>
+            <p class="timer-drill-desc">Start with a <strong>solved cube</strong>. Place 4 fingers on the timer, release to start, pick up the cube, execute the trigger sequence below (returns cube to solved), put it down, and stop the timer.</p>
+          </div>
+          <div class="timer-drill-preset-wrap">
+            <label for="timerDrillPresetSelect" class="timer-drill-preset-label">Sequence:</label>
+            <select id="timerDrillPresetSelect" class="sim-select timer-drill-preset-select" aria-label="Timer drill sequence">
+              <option value="righty-inv">Righty + Inv Righty: (R U R' U') (U R U' R')</option>
+              <option value="lefty-inv">Lefty + Inv Lefty: (L' U' L U) (U' L' U L)</option>
+              <option value="double-righty-inv">2× Righty + 2× Inv: (R U R' U')2 (U R U' R')2</option>
+              <option value="quick-rr">Pure Pickup / Putdown: R R'</option>
+            </select>
+          </div>
+        </div>
+        <div id="timerDrillMetricsBar" class="timer-drill-metrics-bar"></div>
+      </div>
     </div>
 
     <div class="cube-card">
@@ -180,75 +182,78 @@
           <span class="reset-orient-icon" aria-hidden="true">&#x21bb;</span> Reset orientation
         </button>
       </div>
-      <div id="freeMovesPanel" class="free-moves-panel" role="region" aria-label="Free Face Rotations">
-        <div class="free-moves-header">
+      <details id="freeMovesPanel" class="free-moves-panel" role="region" aria-label="Free Face Rotations">
+        <summary class="free-moves-header">
           <div class="free-moves-title-wrap">
+            <span class="chevron" aria-hidden="true"></span>
             <span class="free-moves-title">Free Face Turns</span>
             <span id="freeMovesCountBadge" class="badge">0 turns</span>
           </div>
           <div class="free-moves-header-actions">
             <button type="button" id="freeMoveUndoBtn" class="btn btn-xs" title="Undo last face turn" disabled>↶ Undo</button>
-            <button type="button" id="freeMoveReverseBtn" class="btn btn-xs" title="Reverse all user turns back to initial state" disabled>↺ Reverse Moves</button>
+            <button type="button" id="freeMoveReverseBtn" class="btn btn-xs" title="Reverse all user turns back to initial state" disabled>↺ Reverse</button>
             <button type="button" id="freeMoveResetScrambleBtn" class="btn btn-xs" title="Reset cube to scramble">Reset Scramble</button>
             <button type="button" id="freeMoveResetSolvedBtn" class="btn btn-xs" title="Reset cube to solved">Reset Solved</button>
           </div>
-        </div>
-        <div class="free-moves-keypad">
-          <div class="free-moves-row free-moves-rot">
-            <span class="free-moves-row-label">Rotate:</span>
-            <button type="button" class="btn-face-turn" data-move="x" title="Rotate X (pitch forward) · Keyboard: X">X</button>
-            <button type="button" class="btn-face-turn" data-move="x'" title="Rotate X' (pitch backward) · Keyboard: Shift+X">X'</button>
-            <button type="button" class="btn-face-turn" data-move="y" title="Rotate Y (turn right) · Keyboard: Y">Y</button>
-            <button type="button" class="btn-face-turn" data-move="y'" title="Rotate Y' (turn left) · Keyboard: Shift+Y">Y'</button>
-            <button type="button" class="btn-face-turn" data-move="z" title="Rotate Z (roll clockwise) · Keyboard: Z">Z</button>
-            <button type="button" class="btn-face-turn" data-move="z'" title="Rotate Z' (roll counter-clockwise) · Keyboard: Shift+Z">Z'</button>
-          </div>
-          <div class="free-moves-row free-moves-cw">
-            <span class="free-moves-row-label">CW:</span>
-            <button type="button" class="btn-face-turn" data-move="U" title="Turn U (Up)">U</button>
-            <button type="button" class="btn-face-turn" data-move="D" title="Turn D (Down)">D</button>
-            <button type="button" class="btn-face-turn" data-move="L" title="Turn L (Left)">L</button>
-            <button type="button" class="btn-face-turn" data-move="R" title="Turn R (Right)">R</button>
-            <button type="button" class="btn-face-turn" data-move="F" title="Turn F (Front)">F</button>
-            <button type="button" class="btn-face-turn" data-move="B" title="Turn B (Back)">B</button>
-          </div>
-          <div class="free-moves-row free-moves-ccw">
-            <span class="free-moves-row-label">CCW:</span>
-            <button type="button" class="btn-face-turn" data-move="U'" title="Turn U' (Up prime)">U'</button>
-            <button type="button" class="btn-face-turn" data-move="D'" title="Turn D' (Down prime)">D'</button>
-            <button type="button" class="btn-face-turn" data-move="L'" title="Turn L' (Left prime)">L'</button>
-            <button type="button" class="btn-face-turn" data-move="R'" title="Turn R' (Right prime)">R'</button>
-            <button type="button" class="btn-face-turn" data-move="F'" title="Turn F' (Front prime)">F'</button>
-            <button type="button" class="btn-face-turn" data-move="B'" title="Turn B' (Back prime)">B'</button>
-          </div>
-          <div id="freeMovesWideWrap" class="free-moves-wide-wrap" hidden>
-            <div class="free-moves-row free-moves-wide-cw">
-              <span class="free-moves-row-label">Wide CW:</span>
-              <button type="button" class="btn-face-turn" data-move="Uw" title="Turn Uw">Uw</button>
-              <button type="button" class="btn-face-turn" data-move="Dw" title="Turn Dw">Dw</button>
-              <button type="button" class="btn-face-turn" data-move="Lw" title="Turn Lw">Lw</button>
-              <button type="button" class="btn-face-turn" data-move="Rw" title="Turn Rw">Rw</button>
-              <button type="button" class="btn-face-turn" data-move="Fw" title="Turn Fw">Fw</button>
-              <button type="button" class="btn-face-turn" data-move="Bw" title="Turn Bw">Bw</button>
+        </summary>
+        <div class="free-moves-body">
+          <div class="free-moves-keypad">
+            <div class="free-moves-row free-moves-rot">
+              <span class="free-moves-row-label">Rotate:</span>
+              <button type="button" class="btn-face-turn" data-move="x" title="Rotate X (pitch forward) · Keyboard: X">X</button>
+              <button type="button" class="btn-face-turn" data-move="x'" title="Rotate X' (pitch backward) · Keyboard: Shift+X">X'</button>
+              <button type="button" class="btn-face-turn" data-move="y" title="Rotate Y (turn right) · Keyboard: Y">Y</button>
+              <button type="button" class="btn-face-turn" data-move="y'" title="Rotate Y' (turn left) · Keyboard: Shift+Y">Y'</button>
+              <button type="button" class="btn-face-turn" data-move="z" title="Rotate Z (roll clockwise) · Keyboard: Z">Z</button>
+              <button type="button" class="btn-face-turn" data-move="z'" title="Rotate Z' (roll counter-clockwise) · Keyboard: Shift+Z">Z'</button>
             </div>
-            <div class="free-moves-row free-moves-wide-ccw">
-              <span class="free-moves-row-label">Wide CCW:</span>
-              <button type="button" class="btn-face-turn" data-move="Uw'" title="Turn Uw'">Uw'</button>
-              <button type="button" class="btn-face-turn" data-move="Dw'" title="Turn Dw'">Dw'</button>
-              <button type="button" class="btn-face-turn" data-move="Lw'" title="Turn Lw'">Lw'</button>
-              <button type="button" class="btn-face-turn" data-move="Rw'" title="Turn Rw'">Rw'</button>
-              <button type="button" class="btn-face-turn" data-move="Fw'" title="Turn Fw'">Fw'</button>
-              <button type="button" class="btn-face-turn" data-move="Bw'" title="Turn Bw'">Bw'</button>
+            <div class="free-moves-row free-moves-cw">
+              <span class="free-moves-row-label">CW:</span>
+              <button type="button" class="btn-face-turn" data-move="U" title="Turn U (Up)">U</button>
+              <button type="button" class="btn-face-turn" data-move="D" title="Turn D (Down)">D</button>
+              <button type="button" class="btn-face-turn" data-move="L" title="Turn L (Left)">L</button>
+              <button type="button" class="btn-face-turn" data-move="R" title="Turn R (Right)">R</button>
+              <button type="button" class="btn-face-turn" data-move="F" title="Turn F (Front)">F</button>
+              <button type="button" class="btn-face-turn" data-move="B" title="Turn B (Back)">B</button>
+            </div>
+            <div class="free-moves-row free-moves-ccw">
+              <span class="free-moves-row-label">CCW:</span>
+              <button type="button" class="btn-face-turn" data-move="U'" title="Turn U' (Up prime)">U'</button>
+              <button type="button" class="btn-face-turn" data-move="D'" title="Turn D' (Down prime)">D'</button>
+              <button type="button" class="btn-face-turn" data-move="L'" title="Turn L' (Left prime)">L'</button>
+              <button type="button" class="btn-face-turn" data-move="R'" title="Turn R' (Right prime)">R'</button>
+              <button type="button" class="btn-face-turn" data-move="F'" title="Turn F' (Front prime)">F'</button>
+              <button type="button" class="btn-face-turn" data-move="B'" title="Turn B' (Back prime)">B'</button>
+            </div>
+            <div id="freeMovesWideWrap" class="free-moves-wide-wrap" hidden>
+              <div class="free-moves-row free-moves-wide-cw">
+                <span class="free-moves-row-label">Wide CW:</span>
+                <button type="button" class="btn-face-turn" data-move="Uw" title="Turn Uw">Uw</button>
+                <button type="button" class="btn-face-turn" data-move="Dw" title="Turn Dw">Dw</button>
+                <button type="button" class="btn-face-turn" data-move="Lw" title="Turn Lw">Lw</button>
+                <button type="button" class="btn-face-turn" data-move="Rw" title="Turn Rw">Rw</button>
+                <button type="button" class="btn-face-turn" data-move="Fw" title="Turn Fw">Fw</button>
+                <button type="button" class="btn-face-turn" data-move="Bw" title="Turn Bw">Bw</button>
+              </div>
+              <div class="free-moves-row free-moves-wide-ccw">
+                <span class="free-moves-row-label">Wide CCW:</span>
+                <button type="button" class="btn-face-turn" data-move="Uw'" title="Turn Uw'">Uw'</button>
+                <button type="button" class="btn-face-turn" data-move="Dw'" title="Turn Dw'">Dw'</button>
+                <button type="button" class="btn-face-turn" data-move="Lw'" title="Turn Lw'">Lw'</button>
+                <button type="button" class="btn-face-turn" data-move="Rw'" title="Turn Rw'">Rw'</button>
+                <button type="button" class="btn-face-turn" data-move="Fw'" title="Turn Fw'">Fw'</button>
+                <button type="button" class="btn-face-turn" data-move="Bw'" title="Turn Bw'">Bw'</button>
+              </div>
+            </div>
+          </div>
+          <div id="freeMovesHistoryWrap" class="free-moves-history">
+            <span class="free-moves-history-label">User turns:</span>
+            <div id="freeMovesList" class="free-moves-list">
+              <span class="free-moves-empty">None</span>
             </div>
           </div>
         </div>
-        <div id="freeMovesHistoryWrap" class="free-moves-history">
-          <span class="free-moves-history-label">User turns:</span>
-          <div id="freeMovesList" class="free-moves-list">
-            <span class="free-moves-empty">None</span>
-          </div>
-        </div>
-      </div>
+      </details>
       <p id="empty-state" class="empty-state" hidden>
         No cases selected. Open <strong>Cases &amp; options</strong> and pick some.
       </p>
@@ -438,19 +443,19 @@
       <p class="solve-hint solve-hint-touch">Touch and hold here, release to start. Tap anywhere to stop.</p>
     </div>
 
-    <!-- 1st Layer Solutions Widget (visible in Solve mode) -->
+    <!-- 1st Layer Solutions Widget (visible in Solve mode for 2x2) -->
     <details id="layerSolutionsWidget" class="panel layer-solutions-widget" hidden>
       <summary class="layer-solutions-summary">
         <div class="layer-solutions-title-wrap">
+          <span class="chevron" aria-hidden="true"></span>
           <span class="panel-title" id="layerSolutionsTitle">1st layer solutions</span>
           <span id="layerSolutionsBadge" class="badge"></span>
         </div>
-        <span class="chevron" aria-hidden="true"></span>
       </summary>
       <div class="layer-solutions-body">
         <div class="layer-faces-picker" role="group" aria-label="Select faces to solve">
           <div class="layer-faces-header">
-            <span class="layer-faces-label">Target Faces (multi-select):</span>
+            <span class="layer-faces-label">Target Faces (also in ⚙️ Settings):</span>
             <div class="layer-faces-presets">
               <button type="button" id="layerPresetWhiteBtn" class="btn btn-xs">White</button>
               <button type="button" id="layerPresetOppositeBtn" class="btn btn-xs">W / Y</button>
@@ -484,19 +489,19 @@
       </div>
     </details>
 
-    <!-- White Cross Solutions Widget (visible in Solve mode for 3x3) -->
-    <details id="crossSolutionsWidget" class="panel layer-solutions-widget" hidden open>
+    <!-- Cross Solutions Widget (visible in Solve mode for 3x3; open/collapsed state persisted) -->
+    <details id="crossSolutionsWidget" class="panel layer-solutions-widget" hidden>
       <summary class="layer-solutions-summary">
         <div class="layer-solutions-title-wrap">
-          <span class="panel-title" id="crossSolutionsTitle">White Cross &amp; Cross+1 / EO solutions</span>
+          <span class="chevron" aria-hidden="true"></span>
+          <span class="panel-title" id="crossSolutionsTitle">Cross &amp; Cross+1 / EO solutions (White)</span>
           <span id="crossSolutionsBadge" class="badge"></span>
         </div>
-        <span class="chevron" aria-hidden="true"></span>
       </summary>
       <div class="layer-solutions-body">
         <div id="crossEoSummary" class="cross-eo-summary"></div>
         <div id="crossSolutionsList" class="layer-solutions-list">
-          <p class="layer-solutions-empty">Generating White cross solutions...</p>
+          <p class="layer-solutions-empty">Generating cross solutions...</p>
         </div>
       </div>
     </details>
@@ -522,13 +527,13 @@
     <button type="button" id="regenerateBtn" class="btn btn-outline btn-block">New scramble</button>
   </section>
 
-  <!-- Stats: collapsible, so the table can be hidden while just practicing -->
+  <!-- Stats & History: collapsible with leading chevron, persisted in cookies/localStorage -->
   <section class="panel stats" id="statsPanel">
     <div class="stats-head">
       <button type="button" class="panel-toggle" id="statsToggle" aria-expanded="true" aria-controls="statsBody">
-        <span class="panel-title" id="statsPanelTitle">Stats</span>
-        <span class="panel-meta" id="statsScopeBadge">2x2 &bull; CLL</span>
         <span class="chevron" aria-hidden="true"></span>
+        <span class="panel-title" id="statsPanelTitle">Stats &amp; History</span>
+        <span class="panel-meta" id="statsScopeBadge">2x2 &bull; CLL</span>
       </button>
       <div class="stats-head-actions">
         <button type="button" id="statsExportCsvBtn" class="btn btn-small" title="Export session solves to CSV">📥 Export CSV</button>
@@ -537,9 +542,9 @@
     </div>
     <div id="statsBody" class="stats-body">
       <div class="seg stats-seg" role="group" aria-label="Stats type">
-        <button type="button" class="stats-tab-btn" id="statsTabLog" data-stats="log" aria-pressed="true">Session Log</button>
-        <button type="button" class="stats-tab-btn" id="statsTabCll" data-stats="cll" aria-pressed="false">Case Solves</button>
-        <button type="button" class="stats-tab-btn" id="statsTabRecog" data-stats="recog" aria-pressed="false">Recognition</button>
+        <button type="button" class="stats-tab-btn" id="statsTabLog" data-stats="log" aria-pressed="true">⏱️ Solve Log</button>
+        <button type="button" class="stats-tab-btn" id="statsTabCll" data-stats="cll" aria-pressed="false">🧩 Case Solves</button>
+        <button type="button" class="stats-tab-btn" id="statsTabRecog" data-stats="recog" aria-pressed="false">🎯 Recognition</button>
       </div>
       <div id="stats-table-container"></div>
     </div>
@@ -1003,6 +1008,7 @@
           <option value="f2l">F2L Case (3x3)</option>
           <option value="oll">OLL Case (3x3)</option>
           <option value="pll">PLL Case (3x3)</option>
+          <option value="timer-drill">⏱️ Timer &amp; Handling Drill (Righty + Inv Righty)</option>
         </select>
       </div>
       <div class="solve-modal-field">
@@ -1055,7 +1061,8 @@
       <!-- Trainer Preferences -->
       <div class="settings-section">
         <div class="settings-section-head">
-          <h4 class="settings-section-title">🔧 Preferences</h4>
+          <h4 class="settings-section-title">🔧 Trainer &amp; Solve Preferences</h4>
+          <span class="settings-section-desc">Saved automatically to your browser settings &amp; cookies</span>
         </div>
         <div class="settings-toggles-list">
           <label class="solve-toggle-label">
@@ -1064,16 +1071,54 @@
           </label>
           <label class="solve-toggle-label">
             <input type="checkbox" id="settingsAlwaysWhiteBottom">
-            <span>Always white bottom (z2 CFOP orientation)</span>
+            <span>Always white bottom (z2 CFOP / CLL orientation)</span>
           </label>
           <label class="solve-toggle-label">
             <input type="checkbox" id="settingsAllowAUF">
-            <span>Allow AUF (Adjust Upper Face)</span>
+            <span>Allow AUF (Adjust Upper Face in case scrambles)</span>
           </label>
           <label class="solve-toggle-label">
             <input type="checkbox" id="settingsShowReflection">
-            <span>Show reflection facelets (backs &amp; bottom)</span>
+            <span>Show reflection facelets (backs &amp; bottom on 3D cube)</span>
           </label>
+        </div>
+      </div>
+
+      <!-- 3x3 Cross Colors & 2x2 Layer Target Colors -->
+      <div class="settings-section">
+        <div class="settings-section-head">
+          <h4 class="settings-section-title">🧩 3x3 Cross &amp; 2x2 Layer Solver Colors</h4>
+          <span class="settings-section-desc">Choose which cross colors to compute for 3x3 Cross / Cross+1 solutions and 2x2 1st Layer solutions</span>
+        </div>
+        <div class="settings-subsection">
+          <div class="layer-faces-header" style="margin-bottom: 6px;">
+            <span class="layer-faces-label"><strong>3x3 Cross Colors:</strong></span>
+            <div class="layer-faces-presets">
+              <button type="button" id="crossPresetWhiteBtn" class="btn btn-xs">White Only</button>
+              <button type="button" id="crossPresetOppositeBtn" class="btn btn-xs">W / Y (Dual CN)</button>
+              <button type="button" id="crossPresetAllBtn" class="btn btn-xs">All 6 (Full CN)</button>
+            </div>
+          </div>
+          <div class="layer-faces-chips" id="settingsCrossFacesChips">
+            <button type="button" class="face-chip face-chip-white active" data-cross-face="white" aria-pressed="true">
+              <span class="face-chip-dot face-dot-white"></span> White
+            </button>
+            <button type="button" class="face-chip face-chip-yellow" data-cross-face="yellow" aria-pressed="false">
+              <span class="face-chip-dot face-dot-yellow"></span> Yellow
+            </button>
+            <button type="button" class="face-chip face-chip-green" data-cross-face="green" aria-pressed="false">
+              <span class="face-chip-dot face-dot-green"></span> Green
+            </button>
+            <button type="button" class="face-chip face-chip-blue" data-cross-face="blue" aria-pressed="false">
+              <span class="face-chip-dot face-dot-blue"></span> Blue
+            </button>
+            <button type="button" class="face-chip face-chip-red" data-cross-face="red" aria-pressed="false">
+              <span class="face-chip-dot face-dot-red"></span> Red
+            </button>
+            <button type="button" class="face-chip face-chip-orange" data-cross-face="orange" aria-pressed="false">
+              <span class="face-chip-dot face-dot-orange"></span> Orange
+            </button>
+          </div>
         </div>
       </div>
 

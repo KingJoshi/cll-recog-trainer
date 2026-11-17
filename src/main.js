@@ -6,7 +6,7 @@ import { findCrossSolutions } from './crossSolver.js';
 import { Alg } from 'cubing/alg';
 import { cllCases } from './casesData.js';
 import { pblCases, pblCaseById } from './pblData.js';
-import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg } from './data/algRegistry.js';
+import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg, formatCaseDisplayId, getDistinctCaseName } from './data/algRegistry.js';
 import { StudyView } from './studyView.js';
 import { PracticeView } from './practiceView.js';
 import { pllCases } from './data/pllData.js';
@@ -86,6 +86,27 @@ const PBL_SETTINGS_KEY = 'cllTrainerPblSettings';
 const SESSIONS_KEY = 'cllTrainerSessions';
 const MAX_SOLVES = 500;
 
+const UI_COOKIE_KEY = 'cll_ui_prefs';
+
+function readCookieJSON(name) {
+  try {
+    if (typeof document === "undefined" || !document.cookie) return null;
+    const match = document.cookie.split('; ').find(row => row.startsWith(name + '='));
+    if (!match) return null;
+    return JSON.parse(decodeURIComponent(match.substring(name.length + 1)));
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeCookieJSON(name, value) {
+  try {
+    if (typeof document === "undefined") return;
+    const encoded = encodeURIComponent(JSON.stringify(value));
+    document.cookie = `${name}=${encoded}; max-age=31536000; path=/; SameSite=Lax`;
+  } catch (e) {}
+}
+
 function readJSON(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -135,7 +156,8 @@ function resetCaseAppearances() {
 // ---------------------------------------------------------------------------
 
 const VALID_PUZZLES = ["222", "333", "333oh", "444", "555"];
-const savedSettings = readJSON(SETTINGS_KEY) || {};
+const cookiePrefs = readCookieJSON(UI_COOKIE_KEY) || {};
+const savedSettings = { ...cookiePrefs, ...(readJSON(SETTINGS_KEY) || {}) };
 
 let currentPuzzle = VALID_PUZZLES.includes(savedSettings.currentPuzzle) ? savedSettings.currentPuzzle : "222";
 let currentTrackId = savedSettings.currentTrackId || (PUZZLES[currentPuzzle]?.defaultTrack || "cll");
@@ -149,7 +171,17 @@ let alwaysWhiteBottom = savedSettings.alwaysWhiteBottom ?? true;
 let allowAUF = savedSettings.allowAUF ?? true;
 let showReflection = savedSettings.showReflection ?? true;
 let darkMode = savedSettings.darkMode ?? false;
-let statsCollapsed = savedSettings.statsCollapsed ?? false;
+let statsCollapsed = savedSettings.statsCollapsed ?? cookiePrefs.statsCollapsed ?? false;
+let freeMovesOpen = savedSettings.freeMovesOpen ?? cookiePrefs.freeMovesOpen ?? false;
+let layerSolutionsOpen = savedSettings.layerSolutionsOpen ?? cookiePrefs.layerSolutionsOpen ?? false;
+let crossSolutionsOpen = savedSettings.crossSolutionsOpen ?? cookiePrefs.crossSolutionsOpen ?? false;
+let solveLogOpen = savedSettings.solveLogOpen ?? cookiePrefs.solveLogOpen ?? true;
+let cfopSummaryOpen = savedSettings.cfopSummaryOpen ?? cookiePrefs.cfopSummaryOpen ?? true;
+let ollCasesStatsOpen = savedSettings.ollCasesStatsOpen ?? cookiePrefs.ollCasesStatsOpen ?? true;
+let pllCasesStatsOpen = savedSettings.pllCasesStatsOpen ?? cookiePrefs.pllCasesStatsOpen ?? true;
+let timerDrillPreset = savedSettings.timerDrillPreset || "righty-inv";
+let caseTagMode = false;
+
 if (savedSettings.customColors) {
   setCustomCubeColors(savedSettings.customColors);
   applyCubeColorsToCss(savedSettings.customColors);
@@ -159,13 +191,22 @@ if (savedSettings.customColors) {
 let layerTargetFaces = Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
   ? savedSettings.layerTargetFaces
   : ["white"];
+let crossTargetFaces = Array.isArray(savedSettings.crossTargetFaces) && savedSettings.crossTargetFaces.length
+  ? savedSettings.crossTargetFaces
+  : ["white"];
 let statsType = (savedSettings.statsType === "recog" || savedSettings.statsType === "cll")
   ? savedSettings.statsType
   : "log";
-let solveStatsSort = { col: "case", dir: "asc" };
+let solveStatsSort = { col: "median", dir: "desc" };
+let sessionLogSort = { col: "num", dir: "desc" };
+let ollPllBreakdownSort = {
+  oll: { col: "medianMs", dir: "desc" },
+  pll: { col: "medianMs", dir: "desc" }
+};
+let recogStatsSort = { col: "case", dir: "asc" };
 
-// Modes: solve, study, practice, simulate (Timed Sprint is inside Practice)
-const MODES = ["solve", "study", "practice", "simulate"];
+// Modes in progression order: study, practice, solve, simulate
+const MODES = ["study", "practice", "solve", "simulate"];
 let mode = MODES.includes(savedSettings.mode)
   ? savedSettings.mode
   : (savedSettings.mode === "timed" ? "practice" : "solve");
@@ -296,12 +337,20 @@ function saveCaseTags() {
 }
 
 function getCaseTag(caseId) {
-  return caseTags[caseId] || "learning";
+  return caseTags[caseId] || "none";
+}
+
+function formatCaseTagLabel(tag) {
+  return tag === "none" ? "Pending" : tag;
 }
 
 function setCaseTag(caseId, tag) {
-  if (!["learning", "review", "mastered"].includes(tag)) return;
-  caseTags[caseId] = tag;
+  if (!["none", "learning", "review", "mastered"].includes(tag)) return;
+  if (tag === "none") {
+    delete caseTags[caseId];
+  } else {
+    caseTags[caseId] = tag;
+  }
   saveCaseTags();
   if (typeof updateCasePickerTags === "function") updateCasePickerTags();
   if (mode === "study" && currentCaseId === caseId) {
@@ -311,7 +360,7 @@ function setCaseTag(caseId, tag) {
 
 function cycleCaseTag(caseId) {
   const current = getCaseTag(caseId);
-  const next = current === "learning" ? "review" : current === "review" ? "mastered" : "learning";
+  const next = current === "none" ? "learning" : current === "learning" ? "review" : current === "review" ? "mastered" : "none";
   setCaseTag(caseId, next);
 }
 
@@ -372,7 +421,7 @@ let currentSolveScramble = "";
 let solveScrambleSource = null;
 let guessedGroup = null;
 let guessedCase = null;
-let settingsCollapsed = true; // narrow screens only; the sidebar is always open
+let settingsCollapsed = savedSettings.casesCollapsed ?? savedSettings.settingsCollapsed ?? cookiePrefs.casesCollapsed ?? true;
 
 // stats supporting Puzzle -> Track -> Case hierarchy
 // Structure: stats[puzzle][trackId][caseId] = { shown, correct }
@@ -435,7 +484,7 @@ let sessionLogPageSize = LOG_PAGE_SIZE_OPTIONS.includes(Number(savedSettings.ses
 let sessionLogPage = 1;
 
 function saveSettings() {
-  writeJSON(SETTINGS_KEY, {
+  const payload = {
     currentPuzzle,
     currentTrackId,
     selected: [...selectedCases],
@@ -445,9 +494,20 @@ function saveSettings() {
     darkMode,
     mode,
     timedMinutes,
+    casesCollapsed: settingsCollapsed,
+    settingsCollapsed,
     statsCollapsed,
+    freeMovesOpen,
+    layerSolutionsOpen,
+    crossSolutionsOpen,
+    solveLogOpen,
+    cfopSummaryOpen,
+    ollCasesStatsOpen,
+    pllCasesStatsOpen,
+    timerDrillPreset,
     statsType,
     layerTargetFaces,
+    crossTargetFaces,
     activeSessionId,
     solveTarget,
     solveShowCube,
@@ -455,6 +515,28 @@ function saveSettings() {
     solveWidgetSize,
     sessionLogPageSize,
     customColors: { ...CUBE_COLORS }
+  };
+  writeJSON(SETTINGS_KEY, payload);
+  writeCookieJSON(UI_COOKIE_KEY, {
+    currentPuzzle,
+    currentTrackId,
+    mode,
+    darkMode,
+    alwaysWhiteBottom,
+    allowAUF,
+    showReflection,
+    casesCollapsed: settingsCollapsed,
+    statsCollapsed,
+    freeMovesOpen,
+    layerSolutionsOpen,
+    crossSolutionsOpen,
+    solveLogOpen,
+    cfopSummaryOpen,
+    ollCasesStatsOpen,
+    pllCasesStatsOpen,
+    timerDrillPreset,
+    layerTargetFaces,
+    crossTargetFaces
   });
 }
 
@@ -926,16 +1008,16 @@ document.querySelectorAll(".btn-face-turn").forEach(btn => {
 });
 
 const freeMoveUndoBtn = document.getElementById("freeMoveUndoBtn");
-if (freeMoveUndoBtn) freeMoveUndoBtn.addEventListener("click", undoLastFreeMove);
+if (freeMoveUndoBtn) freeMoveUndoBtn.addEventListener("click", (e) => { e.stopPropagation(); e.preventDefault(); undoLastFreeMove(); });
 
 const freeMoveReverseBtn = document.getElementById("freeMoveReverseBtn");
-if (freeMoveReverseBtn) freeMoveReverseBtn.addEventListener("click", reverseAllFreeMoves);
+if (freeMoveReverseBtn) freeMoveReverseBtn.addEventListener("click", (e) => { e.stopPropagation(); e.preventDefault(); reverseAllFreeMoves(); });
 
 const freeMoveResetScrambleBtn = document.getElementById("freeMoveResetScrambleBtn");
-if (freeMoveResetScrambleBtn) freeMoveResetScrambleBtn.addEventListener("click", resetFreeMovesToScramble);
+if (freeMoveResetScrambleBtn) freeMoveResetScrambleBtn.addEventListener("click", (e) => { e.stopPropagation(); e.preventDefault(); resetFreeMovesToScramble(); });
 
 const freeMoveResetSolvedBtn = document.getElementById("freeMoveResetSolvedBtn");
-if (freeMoveResetSolvedBtn) freeMoveResetSolvedBtn.addEventListener("click", resetFreeMovesToSolved);
+if (freeMoveResetSolvedBtn) freeMoveResetSolvedBtn.addEventListener("click", (e) => { e.stopPropagation(); e.preventDefault(); resetFreeMovesToSolved(); });
 
 // Keyboard shortcuts for face turns (U, D, L, R, F, B) when not typing in an input
 window.addEventListener("keydown", e => {
@@ -972,11 +1054,82 @@ function ensureTrackSelection() {
 
 function renderTrackBar() {
   if (!trackBar) return;
+  if (mode === "simulate") {
+    trackBar.hidden = true;
+    return;
+  }
+  trackBar.hidden = false;
   const pData = PUZZLES[currentPuzzle];
   if (!pData || !pData.tracks) {
     trackBar.innerHTML = "";
     return;
   }
+
+  // In Solve mode, the track bar acts as a 1-click quick-selector for Solve Target
+  // (including Full Solve, each track/case drill, and Timer & Handling Drill).
+  if (mode === "solve") {
+    let items = [];
+    if (currentPuzzle === "333" || currentPuzzle === "333oh") {
+      if (!["full", "timer-drill"].includes(solveTarget)) {
+        solveTarget = "full";
+      }
+      items = [
+        { id: "full", name: `Full Solve (${currentPuzzle === "333oh" ? "3x3 OH" : "3x3"})`, shortName: "Full Solve" },
+        { id: "timer-drill", name: "⏱️ Timer & Handling Drill", shortName: "⏱️ Timer Drill" }
+      ];
+    } else if (currentPuzzle === "444" || currentPuzzle === "555") {
+      if (!["full", "timer-drill"].includes(solveTarget)) {
+        solveTarget = "full";
+      }
+      const pName = currentPuzzle === "444" ? "4x4" : "5x5";
+      items = [
+        { id: "full", name: `Full Solve (${pName})`, shortName: "Full Solve" },
+        { id: "timer-drill", name: "⏱️ Timer & Handling Drill", shortName: "⏱️ Timer Drill" }
+      ];
+    } else {
+      if (!["full", "layer", "face", "timer-drill"].includes(solveTarget)) {
+        solveTarget = "full";
+      }
+      items = [
+        { id: "full", name: "Full Solve (2x2)", shortName: "Full Solve" },
+        { id: "layer", name: "1st Layer Only", shortName: "1st Layer" },
+        { id: "face", name: "1st Face (Ortega)", shortName: "1st Face" },
+        { id: "timer-drill", name: "⏱️ Timer & Handling Drill", shortName: "⏱️ Timer Drill" }
+      ];
+    }
+    trackBar.innerHTML = items.map(item => {
+      const active = item.id === solveTarget;
+      return `<button type="button" class="track-btn ${active ? 'active' : ''}" data-solve-target="${item.id}" aria-pressed="${active}">
+        <span class="track-btn-full">${item.name}</span>
+        <span class="track-btn-short">${item.shortName || item.name}</span>
+      </button>`;
+    }).join("");
+
+    trackBar.querySelectorAll(".track-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const tgt = btn.dataset.solveTarget;
+        if (!tgt) return;
+        solveTarget = tgt;
+        if (solveTargetSelect) solveTargetSelect.value = solveTarget;
+        getActiveSession().target = solveTarget;
+        saveSessions();
+        if (pData.tracks.some(t => t.id === tgt)) {
+          currentTrackId = tgt;
+          ensureTrackSelection();
+          buildCasePicker();
+          renderSelection();
+        }
+        saveSettings();
+        renderTrackBar();
+        renderStage();
+        renderSolvePanel();
+        updateStatsTable();
+        regenerateScramble();
+      });
+    });
+    return;
+  }
+
   trackBar.innerHTML = pData.tracks.map(t => {
     const active = t.id === currentTrackId;
     return `<button type="button" class="track-btn ${active ? 'active' : ''}" data-track="${t.id}" aria-pressed="${active}">
@@ -997,14 +1150,6 @@ function setTrack(trackId) {
   if (!pData || !pData.tracks.some(t => t.id === trackId)) return;
   currentTrackId = trackId;
 
-  if (trackBar) {
-    trackBar.querySelectorAll(".track-btn").forEach(btn => {
-      const active = btn.dataset.track === currentTrackId;
-      btn.classList.toggle("active", active);
-      btn.setAttribute("aria-pressed", String(active));
-    });
-  }
-
   ensureTrackSelection();
   buildCasePicker();
   renderSelection();
@@ -1023,6 +1168,7 @@ function setTrack(trackId) {
     if (solveTargetSelect) solveTargetSelect.value = solveTarget;
     regenerateScramble();
   }
+  renderTrackBar();
   updateStatsTable();
 }
 
@@ -1032,28 +1178,25 @@ function populateSolveTargetSelect() {
     const isOh = currentPuzzle === "333oh";
     solveTargetSelect.innerHTML = `
       <option value="full">Full Solve (WCA ${isOh ? "3x3 OH" : "3x3"})</option>
-      <option value="cross">White Cross Only</option>
-      <option value="f2l">F2L Case</option>
-      <option value="oll">OLL Case</option>
-      <option value="pll">PLL Case</option>
+      <option value="timer-drill">⏱️ Timer &amp; Handling Drill</option>
     `;
-    if (!["full", "cross", "f2l", "oll", "pll"].includes(solveTarget)) {
+    if (!["full", "timer-drill"].includes(solveTarget)) {
       solveTarget = "full";
     }
   } else if (currentPuzzle === "444") {
     solveTargetSelect.innerHTML = `
       <option value="full">Full Solve (WCA 4x4)</option>
-      <option value="parity">4x4 Parity Drill (OLL &amp; PLL)</option>
+      <option value="timer-drill">⏱️ Timer &amp; Handling Drill</option>
     `;
-    if (!["full", "parity"].includes(solveTarget)) {
+    if (!["full", "timer-drill"].includes(solveTarget)) {
       solveTarget = "full";
     }
   } else if (currentPuzzle === "555") {
     solveTargetSelect.innerHTML = `
       <option value="full">Full Solve (WCA 5x5)</option>
-      <option value="parity">5x5 Parity &amp; L2E Drill</option>
+      <option value="timer-drill">⏱️ Timer &amp; Handling Drill</option>
     `;
-    if (!["full", "parity"].includes(solveTarget)) {
+    if (!["full", "timer-drill"].includes(solveTarget)) {
       solveTarget = "full";
     }
   } else {
@@ -1061,9 +1204,9 @@ function populateSolveTargetSelect() {
       <option value="full">Full Solve (WCA 2x2)</option>
       <option value="layer">1st Layer Only</option>
       <option value="face">1st Face Only (Ortega)</option>
-      <option value="cll">CLL Case</option>
+      <option value="timer-drill">⏱️ Timer &amp; Handling Drill</option>
     `;
-    if (!["full", "layer", "face", "cll"].includes(solveTarget)) {
+    if (!["full", "layer", "face", "timer-drill"].includes(solveTarget)) {
       solveTarget = "full";
     }
   }
@@ -1158,7 +1301,7 @@ function getCaseShortLabel(caseObj, track) {
   if (id.startsWith("444-pll-parity-adj")) return "Adjacent";
 
   if (track && track.id === "pll") {
-    return caseObj.name || id.replace(/^pll-/, "");
+    return id.replace(/^pll-/, "");
   }
   if (track && track.id === "oll") {
     return id.replace(/^oll-/, "");
@@ -1202,15 +1345,31 @@ function buildCasePicker() {
       groupBtn.addEventListener("click", () => toggleGroup(group));
       row.appendChild(groupBtn);
 
+      const show3x3ChipSvg = (currentPuzzle === "333" || currentPuzzle === "333oh") &&
+        (track.id === "f2l" || track.id === "oll" || track.id === "pll");
+
       casesInGroup.forEach(caseObj => {
         const chip = document.createElement("button");
         chip.type = "button";
-        chip.className = "case-chip";
+        chip.className = show3x3ChipSvg ? "case-chip case-chip-with-svg" : "case-chip";
         chip.dataset.case = caseObj.id;
         const tag = getCaseTag(caseObj.id);
         const shortLabel = getCaseShortLabel(caseObj, track);
-        chip.innerHTML = `${shortLabel}<span class="case-chip-dot tag-dot-${tag}"></span>`;
-        chip.title = `Case ${caseObj.name || caseObj.id} (${tag}) · Click to toggle practice, Right-click to change tag`;
+        if (show3x3ChipSvg) {
+          const cachedSvg = getCachedCaseSvg("333", track.id, caseObj.id);
+          chip.innerHTML = `<span class="case-chip-svg" aria-hidden="true">${cachedSvg}</span><span class="case-chip-label">${escapeHtml(shortLabel)}</span><span class="case-chip-dot tag-dot-${tag}"></span>`;
+          if (!cachedSvg) {
+            renderCaseSvg("333", track.id, caseObj).then(svg => {
+              const svgWrap = chip.querySelector(".case-chip-svg");
+              if (svgWrap && chip.isConnected && svg) {
+                svgWrap.innerHTML = svg;
+              }
+            });
+          }
+        } else {
+          chip.innerHTML = `${shortLabel}<span class="case-chip-dot tag-dot-${tag}"></span>`;
+        }
+        chip.title = `Case ${caseObj.name || caseObj.id} (${formatCaseTagLabel(tag)}) · Click to toggle practice, Right-click to change tag`;
         chip.setAttribute("aria-label", `Case ${caseObj.id}`);
         chip.addEventListener("click", () => toggleCase(caseObj.id));
         chip.addEventListener("contextmenu", e => {
@@ -1248,7 +1407,7 @@ function buildCasePicker() {
       chip.dataset.case = caseObj.id;
       const tag = getCaseTag(caseObj.id);
       chip.innerHTML = `${caseObj.id.slice(group.length)}<span class="case-chip-dot tag-dot-${tag}"></span>`;
-      chip.title = `Case ${caseObj.id} (${tag}) · Click to toggle practice, Right-click to change tag`;
+      chip.title = `Case ${caseObj.id} (${formatCaseTagLabel(tag)}) · Click to toggle practice, Right-click to change tag`;
       chip.setAttribute("aria-label", `Case ${caseObj.id}`);
       chip.addEventListener("click", () => toggleCase(caseObj.id));
       chip.addEventListener("contextmenu", e => {
@@ -1275,7 +1434,7 @@ function updateCasePickerTags() {
       chip.appendChild(dot);
     }
     dot.className = `case-chip-dot tag-dot-${tag}`;
-    chip.title = `Case ${id} (${tag}) · Click to toggle practice, Right-click to change tag`;
+    chip.title = `Case ${id} (${formatCaseTagLabel(tag)}) · Click to toggle practice, Right-click to change tag`;
   });
   updateCasePickerFilter();
 }
@@ -1312,7 +1471,15 @@ function getCasesInGroup(group) {
 function renderSelection() {
   const track = getTrack(currentPuzzle, currentTrackId);
   const totalCases = track && track.cases.length > 0 ? track.cases.length : CASE_IDS.length;
-  selectionCount.textContent = `${selectedCases.size} / ${totalCases} cases`;
+  const activeCount = track && track.cases.length > 0
+    ? track.cases.filter(c => selectedCases.has(c.id)).length
+    : selectedCases.size;
+  selectionCount.textContent = `${activeCount} / ${totalCases} cases`;
+  const casesPanelTitle = document.getElementById("casesPanelTitle");
+  if (casesPanelTitle) {
+    const tShort = track?.shortName || currentTrackId.toUpperCase();
+    casesPanelTitle.textContent = `Active Cases (${tShort})`;
+  }
 
   casePicker.querySelectorAll(".case-chip").forEach(chip => {
     chip.setAttribute("aria-pressed", String(selectedCases.has(chip.dataset.case)));
@@ -1331,6 +1498,22 @@ function renderSelection() {
     btn.dataset.state = state;
     btn.setAttribute("aria-pressed", state === "all" ? "true" : state === "none" ? "false" : "mixed");
   });
+
+  if (typeof cubeCard !== "undefined" && cubeCard && (mode === "practice" || mode === "study")) {
+    const hasActiveCases = activeCount > 0;
+    const hideCubeInStudy = mode === "study";
+    cubeCard.hidden = hideCubeInStudy || !hasActiveCases;
+    if (typeof emptyState !== "undefined" && emptyState) {
+      emptyState.hidden = hasActiveCases;
+    }
+    if (typeof resetOrientationBtn !== "undefined" && resetOrientationBtn) {
+      resetOrientationBtn.hidden = cubeCard.hidden;
+    }
+  }
+
+  if (typeof studyView !== "undefined" && studyView && mode === "study") {
+    studyView.render();
+  }
 }
 
 function setSelection(next) {
@@ -1363,6 +1546,10 @@ function toggleGroup(group) {
 }
 
 function toggleCase(id) {
+  if (caseTagMode) {
+    cycleCaseTag(id);
+    return;
+  }
   const next = new Set(selectedCases);
   if (next.has(id)) {
     next.delete(id);
@@ -1370,6 +1557,17 @@ function toggleCase(id) {
     next.add(id);
   }
   setSelection(next);
+}
+
+const caseTagModeBtn = document.getElementById("caseTagModeBtn");
+if (caseTagModeBtn) {
+  caseTagModeBtn.addEventListener("click", () => {
+    caseTagMode = !caseTagMode;
+    caseTagModeBtn.classList.toggle("active", caseTagMode);
+    caseTagModeBtn.setAttribute("aria-pressed", String(caseTagMode));
+    caseTagModeBtn.textContent = caseTagMode ? "🏷️ Tag Mode: ON" : "🏷️ Tag Mode: Off";
+    settingsPanel?.classList.toggle("tag-mode-active", caseTagMode);
+  });
 }
 
 document.getElementById("addAllBtn").addEventListener("click", () => {
@@ -1406,11 +1604,13 @@ function syncSettingsPanel() {
   settingsPanel.classList.toggle("collapsed", settingsCollapsed);
   settingsToggle.setAttribute("aria-expanded", String(!settingsCollapsed));
   settingsToggle.tabIndex = 0;
+  document.querySelector(".app")?.classList.toggle("cases-collapsed", settingsCollapsed);
 }
 
 settingsToggle.addEventListener("click", () => {
   settingsCollapsed = !settingsCollapsed;
   syncSettingsPanel();
+  saveSettings();
 });
 
 // ---------------------------------------------------------------------------
@@ -1441,16 +1641,14 @@ function setDarkMode(enabled) {
 }
 
 function renderToggles() {
-  const toggleDark = document.getElementById("toggleDarkMode");
-  if (toggleDark) {
-    toggleDark.setAttribute("aria-pressed", String(darkMode));
-  }
-  document.getElementById("toggleAlwaysWhiteBottom").setAttribute("aria-pressed", String(alwaysWhiteBottom));
-  document.getElementById("toggleAllowAUF").setAttribute("aria-pressed", String(allowAUF));
-  const toggleReflect = document.getElementById("toggleShowReflection");
-  if (toggleReflect) {
-    toggleReflect.setAttribute("aria-pressed", String(showReflection));
-  }
+  document.getElementById("toggleDarkMode")?.setAttribute("aria-pressed", String(darkMode));
+  document.getElementById("toggleAlwaysWhiteBottom")?.setAttribute("aria-pressed", String(alwaysWhiteBottom));
+  document.getElementById("toggleAllowAUF")?.setAttribute("aria-pressed", String(allowAUF));
+  document.getElementById("toggleShowReflection")?.setAttribute("aria-pressed", String(showReflection));
+  if (settingsDarkTheme) settingsDarkTheme.checked = darkMode;
+  if (settingsAlwaysWhiteBottom) settingsAlwaysWhiteBottom.checked = alwaysWhiteBottom;
+  if (settingsAllowAUF) settingsAllowAUF.checked = allowAUF;
+  if (settingsShowReflection) settingsShowReflection.checked = showReflection;
 }
 
 function applyReflection() {
@@ -1466,6 +1664,9 @@ function applyReflection() {
     }).catch(() => {});
   } catch (err) {
     console.warn("Could not update reflection facelets:", err);
+  }
+  if (typeof studyView !== "undefined" && studyView) {
+    studyView.applyReflection();
   }
 }
 
@@ -1694,6 +1895,115 @@ function clearScrambleCorrectionDelay() {
   scrambleErrorVisible = false;
 }
 
+const TIMER_DRILL_PRESETS = {
+  "righty-inv": {
+    id: "righty-inv",
+    name: "Righty + Inv Righty",
+    display: "(R U R' U') (U R U' R')",
+    moves: "R U R' U' U R U' R'",
+    expectedMoves: 8
+  },
+  "lefty-inv": {
+    id: "lefty-inv",
+    name: "Lefty + Inv Lefty",
+    display: "(L' U' L U) (U' L' U L)",
+    moves: "L' U' L U U' L' U L",
+    expectedMoves: 8
+  },
+  "double-righty-inv": {
+    id: "double-righty-inv",
+    name: "2× Righty + 2× Inv Righty",
+    display: "(R U R' U')2 (U R U' R')2",
+    moves: "R U R' U' R U R' U' U R U' R' U R U' R'",
+    expectedMoves: 16
+  },
+  "quick-rr": {
+    id: "quick-rr",
+    name: "Pure Pickup / Putdown (R R')",
+    display: "R R'",
+    moves: "R R'",
+    expectedMoves: 2
+  }
+};
+
+function getActiveTimerDrillPreset() {
+  return TIMER_DRILL_PRESETS[timerDrillPreset] || TIMER_DRILL_PRESETS["righty-inv"];
+}
+
+function renderTimerDrillBanner() {
+  const banner = document.getElementById("timerDrillBanner");
+  const presetSelect = document.getElementById("timerDrillPresetSelect");
+  const metricsBar = document.getElementById("timerDrillMetricsBar");
+  if (!banner) return;
+  const isDrill = mode === "solve" && solveTarget === "timer-drill";
+  banner.hidden = !isDrill;
+  if (!isDrill) return;
+
+  if (presetSelect) {
+    presetSelect.value = timerDrillPreset;
+  }
+  if (!metricsBar) return;
+
+  const drillSolves = (solves || []).filter(s => s && s.target === "timer-drill" && s.penalty !== "DNF");
+  const pool = drillSolves.length ? drillSolves : solves;
+  const lastDrill = drillSolves.length ? drillSolves[drillSolves.length - 1] : lastSolve;
+  const medPickup = medianPhase(pool, "pickupMs");
+  const trimPickup = trimMeanPhase(pool, "pickupMs");
+  const avgPickup = averagePhase(pool, "pickupMs");
+  const medCube = medianPhase(pool, "cubeMs");
+  const trimCube = trimMeanPhase(pool, "cubeMs");
+  const avgCube = averagePhase(pool, "cubeMs");
+  const medPutdown = medianPhase(pool, "putdownMs");
+  const trimPutdown = trimMeanPhase(pool, "putdownMs");
+  const avgPutdown = averagePhase(pool, "putdownMs");
+  const lastHandling = (lastDrill && lastDrill.pickupMs != null && lastDrill.putdownMs != null)
+    ? (lastDrill.pickupMs + lastDrill.putdownMs)
+    : null;
+  const medHandling = (medPickup != null && medPutdown != null) ? (medPickup + medPutdown) : null;
+  const trimHandling = (trimPickup != null && trimPutdown != null) ? (trimPickup + trimPutdown) : null;
+  const avgHandling = (avgPickup != null && avgPutdown != null) ? (avgPickup + avgPutdown) : null;
+
+  const fmtSub = (med, trim, avg) =>
+    `Med: ${med != null ? formatCfopSplitMs(med) : '-'} · Trim: ${trim != null ? formatCfopSplitMs(trim) : '-'} · Mean: ${avg != null ? formatCfopSplitMs(avg) : '-'}`;
+
+  metricsBar.innerHTML = `
+    <div class="timer-drill-kpi">
+      <span class="timer-drill-kpi-lbl">Pick-up (Timer → 1st Turn)</span>
+      <strong class="timer-drill-kpi-val">${lastDrill?.pickupMs != null ? formatCfopSplitMs(lastDrill.pickupMs) : '-'}</strong>
+      <small class="timer-drill-kpi-sub">${fmtSub(medPickup, trimPickup, avgPickup)}</small>
+    </div>
+    <div class="timer-drill-kpi">
+      <span class="timer-drill-kpi-lbl">Trigger Exec</span>
+      <strong class="timer-drill-kpi-val">${lastDrill?.cubeMs != null ? formatCfopSplitMs(lastDrill.cubeMs) : (lastDrill?.ms != null ? formatCfopSplitMs(lastDrill.ms) : '-')}</strong>
+      <small class="timer-drill-kpi-sub">${fmtSub(medCube, trimCube, avgCube)}</small>
+    </div>
+    <div class="timer-drill-kpi">
+      <span class="timer-drill-kpi-lbl">Put-down (Solved → Stop)</span>
+      <strong class="timer-drill-kpi-val">${lastDrill?.putdownMs != null ? formatCfopSplitMs(lastDrill.putdownMs) : '-'}</strong>
+      <small class="timer-drill-kpi-sub">${fmtSub(medPutdown, trimPutdown, avgPutdown)}</small>
+    </div>
+    <div class="timer-drill-kpi timer-drill-kpi-accent">
+      <span class="timer-drill-kpi-lbl">Total Handling (Pick-up + Put-down)</span>
+      <strong class="timer-drill-kpi-val">${lastHandling != null ? formatCfopSplitMs(lastHandling) : '-'}</strong>
+      <small class="timer-drill-kpi-sub">${fmtSub(medHandling, trimHandling, avgHandling)}</small>
+    </div>
+  `;
+}
+
+const timerDrillPresetSelectEl = document.getElementById("timerDrillPresetSelect");
+if (timerDrillPresetSelectEl) {
+  timerDrillPresetSelectEl.addEventListener("change", () => {
+    const val = timerDrillPresetSelectEl.value;
+    if (TIMER_DRILL_PRESETS[val]) {
+      timerDrillPreset = val;
+      saveSettings();
+      if (mode === "solve" && solveTarget === "timer-drill") {
+        regenerateScramble();
+      }
+    }
+  });
+}
+
 function updateSolveScrambleDisplay(scrambleStr) {
   currentSolveScramble = scrambleStr || "";
   scrambleMoves = currentSolveScramble;
@@ -1701,6 +2011,24 @@ function updateSolveScrambleDisplay(scrambleStr) {
   clearScrambleCorrectionDelay();
 
   const st = smartCube.getStatus();
+  if (solveTarget === "timer-drill") {
+    const preset = getActiveTimerDrillPreset();
+    if (st.connected) {
+      smartCube.setScramble("", currentPuzzle);
+      scrambleTracker.reset("");
+      scrambleTracker.markComplete();
+      smartCubeStage = solveInspection ? "inspecting" : "ready";
+      if (solveScrambleText) {
+        solveScrambleText.innerHTML = `<span class="scramble-completed-badge">✓ Solved Cube Ready</span> <span class="timer-drill-seq">${escapeHtml(preset.display)}</span>`;
+      }
+      updateSmartCubeIndicator();
+    } else if (solveScrambleText) {
+      solveScrambleText.textContent = preset.display;
+    }
+    renderTimerDrillBanner();
+    return;
+  }
+
   if (st.connected) {
     smartCubeStage = "scrambling";
     smartCube.setScramble("", currentPuzzle);
@@ -1715,6 +2043,7 @@ function updateSolveScrambleDisplay(scrambleStr) {
       solveScrambleText.textContent = currentSolveScramble;
     }
   }
+  renderTimerDrillBanner();
 }
 
 function renderSmartScrambleAssistant() {
@@ -1925,6 +2254,24 @@ function regenerateScramble() {
   if (solveScrambleSubtext) {
     solveScrambleSubtext.hidden = true;
     solveScrambleSubtext.textContent = "";
+  }
+
+  if (mode === "solve" && solveTarget === "timer-drill") {
+    const preset = getActiveTimerDrillPreset();
+    currentCaseId = `Timer Drill (${preset.name})`;
+    currentCaseScramble = preset.moves;
+    applyScrambleToDisplay("");
+    updateSolveScrambleDisplay(preset.display);
+    if (solveScrambleOrient) {
+      solveScrambleOrient.textContent = "(starts from solved cube)";
+    }
+    if (solveScrambleSubtext) {
+      solveScrambleSubtext.hidden = false;
+      solveScrambleSubtext.textContent = `Timer & Handling Drill: ${preset.name} (${preset.expectedMoves} moves, returns cube to solved)`;
+    }
+    resetGuessingUI();
+    updateStatsTable();
+    return;
   }
 
   if (currentPuzzle === "333" || currentPuzzle === "333oh") {
@@ -2202,13 +2549,12 @@ function setMode(next, { skipSimInit = false } = {}) {
   mode = next;
   resetCaseAppearances();
   if (mode === "solve") {
-    if (statsType !== "cll" && statsType !== "recog") {
-      statsType = "log";
-    }
-  } else {
+    statsType = "log";
+  } else if (mode === "practice") {
     statsType = "recog";
   }
   saveSettings();
+  renderTrackBar();
   renderStage();
   renderStatsToggle();
   updateStatsTable();
@@ -2242,7 +2588,9 @@ function setMode(next, { skipSimInit = false } = {}) {
     resetCubeOrientation();
     if (studyView) studyView.render();
   } else if (mode === "practice") {
-    if (practiceView) practiceView.render();
+    if (practiceView) {
+      practiceView.setTrack(currentPuzzle, currentTrackId);
+    }
   }
 }
 
@@ -2320,17 +2668,22 @@ function renderStage() {
   solveSurface.hidden = !solving;
   solveTimes.hidden = !solving;
   if (layerSolutionsWidget) {
-    layerSolutionsWidget.hidden = !solving || currentPuzzle !== "222";
+    layerSolutionsWidget.hidden = !solving || currentPuzzle !== "222" || solveTarget === "timer-drill";
   }
   if (crossSolutionsWidget) {
-    crossSolutionsWidget.hidden = !solving || (currentPuzzle !== "333" && currentPuzzle !== "333oh");
+    crossSolutionsWidget.hidden = !solving || (currentPuzzle !== "333" && currentPuzzle !== "333oh") || solveTarget === "timer-drill";
   }
+  renderTimerDrillBanner();
   if (solving) renderSolvePanel();
 }
 
 function updateCaseInfoDisplay() {
+  if (mode === "study") {
+    caseInfoContainer.hidden = true;
+    return;
+  }
   const caseObj = currentCaseId ? caseById.get(currentCaseId) : null;
-  if (mode === "study" && caseObj) {
+  if (false && caseObj) {
     const scrambles = caseObj.scrambles && caseObj.scrambles.length ? caseObj.scrambles : [caseObj.scramble];
     const strippedCurrent = currentCaseScramble ? cleanAlg(currentCaseScramble) : "";
     let activePresetIdx = scrambles.findIndex(s => cleanAlg(s) === strippedCurrent || s.trim() === strippedCurrent);
@@ -2840,16 +3193,16 @@ function renderSolveStatsBar(container, solvesList) {
       <span class="solve-stat-lbl">Single Best</span>
     </div>
     <div class="solve-stat-item">
-      <span class="solve-stat-val">${fmt(mean)}</span>
-      <span class="solve-stat-lbl">Mean (${solvesList.length})</span>
-    </div>
-    <div class="solve-stat-item">
       <span class="solve-stat-val">${fmt(median)}</span>
       <span class="solve-stat-lbl">Median</span>
     </div>
     <div class="solve-stat-item" title="Trimmed Mean (excludes fastest 10% and slowest 10% of solves)">
       <span class="solve-stat-val">${fmt(trimMean)}</span>
       <span class="solve-stat-lbl">TrimMean 10%</span>
+    </div>
+    <div class="solve-stat-item">
+      <span class="solve-stat-val">${fmt(mean)}</span>
+      <span class="solve-stat-lbl">Mean (${solvesList.length})</span>
     </div>
     <div class="solve-stat-item">
       <span class="solve-stat-val">${fmt(curAo5)}</span>
@@ -3237,10 +3590,15 @@ if (solveTargetSelect) {
     solveTarget = solveTargetSelect.value;
     getActiveSession().target = solveTarget;
     saveSessions();
-    saveSettings();
-    if (layerSolutionsWidget && (solveTarget === "layer" || solveTarget === "face")) {
-      layerSolutionsWidget.open = true;
+    const pData = PUZZLES[currentPuzzle];
+    if (pData && pData.tracks.some(t => t.id === solveTarget)) {
+      currentTrackId = solveTarget;
+      ensureTrackSelection();
+      buildCasePicker();
+      renderSelection();
     }
+    saveSettings();
+    renderTrackBar();
     renderStage();
     renderSolvePanel();
     regenerateScramble();
@@ -3687,7 +4045,7 @@ function renderSolvePanel() {
       `<option value="${sz}" ${sessionLogPageSize === sz ? 'selected' : ''}>${sz}</option>`
     ).join("");
     solveSummaryEl.innerHTML = `
-      <span>${solves.length} solve${solves.length === 1 ? "" : "s"} · best ${best != null ? formatSolveTime(best) : "-"} · mean ${mean != null ? formatSolveTime(mean) : "-"} · median ${median != null ? formatSolveTime(median) : "-"} · trim10% ${trimMean != null ? formatSolveTime(trimMean) : "-"}${phaseSummary}</span>
+      <span>${solves.length} solve${solves.length === 1 ? "" : "s"} · best ${best != null ? formatSolveTime(best) : "-"} · median <strong>${median != null ? formatSolveTime(median) : "-"}</strong> · trim10% ${trimMean != null ? formatSolveTime(trimMean) : "-"} · mean ${mean != null ? formatSolveTime(mean) : "-"}${phaseSummary}</span>
       <label class="solve-page-size-inline">Show: <select id="solvePanelPageSizeSelect" class="log-page-size-select" aria-label="Solves shown">${pageSizeOptions}</select></label>
     `;
     const pageSizeSel = document.getElementById("solvePanelPageSizeSelect");
@@ -3736,14 +4094,18 @@ function renderSolvePanel() {
     .join("");
 
   if (layerSolutionsWidget) {
-    layerSolutionsWidget.hidden = mode !== "solve" || currentPuzzle !== "222";
+    layerSolutionsWidget.hidden = mode !== "solve" || currentPuzzle !== "222" || solveTarget === "timer-drill";
     if (!layerSolutionsWidget.hidden) {
       updateFaceChipsUI();
     }
   }
   if (crossSolutionsWidget) {
-    crossSolutionsWidget.hidden = mode !== "solve" || currentPuzzle !== "333";
+    crossSolutionsWidget.hidden = mode !== "solve" || (currentPuzzle !== "333" && currentPuzzle !== "333oh") || solveTarget === "timer-drill";
+    if (!crossSolutionsWidget.hidden) {
+      updateCrossFacesUI();
+    }
   }
+  renderTimerDrillBanner();
 }
 
 function startSolveInspection() {
@@ -3907,6 +4269,8 @@ function handleSmartCubeSolved() {
     return;
   }
   if (mode !== "solve" || solveState !== "running") return;
+  // Ignore solved events if 0 moves have been made in this solve (e.g., periodic BLE_FACELETS in timer-drill before first turn)
+  if (!trackedSolveMoves || trackedSolveMoves.length === 0) return;
   if (solveTimerDriven) {
     // GAN timer is authoritative: just mark the moment the cube was solved (put-down starts).
     if (!solveFirstMoveTs || solveCubeSolvedTs) return;
@@ -3921,7 +4285,7 @@ function handleSmartCubeSolved() {
     solveCubeSolvedTs = performance.now();
   }
   stopSolve(false);
-  smartCubeStage = "scrambling";
+  smartCubeStage = solveTarget === "timer-drill" ? (solveInspection ? "inspecting" : "ready") : "scrambling";
   updateSmartCubeIndicator();
 }
 
@@ -3941,7 +4305,7 @@ function stopSolve(byPointer, { hardwareMs = null, stopTs = null } = {}) {
   }
 
   const scr = scrambleMoves || currentSolveScramble || scramble;
-  const isCaseTarget = ["cll", "pll", "oll", "f2l", "ortega"].includes(solveTarget);
+  const isCaseTarget = ["cll", "pll", "oll", "f2l", "ortega", "timer-drill"].includes(solveTarget);
 
   const hasMoves = trackedSolveMoves && trackedSolveMoves.length > 0;
   const moveCount = hasMoves ? trackedSolveMoves.length : null;
@@ -4349,27 +4713,96 @@ function renderLayerSolutions(sols, showAll = false) {
 }
 
 let currentCrossSolutionsScramble = "";
+let currentCrossSolutionsFacesKey = "";
+
+function updateCrossFacesUI() {
+  const settingsCrossFacesChips = document.getElementById("settingsCrossFacesChips");
+  if (settingsCrossFacesChips) {
+    settingsCrossFacesChips.querySelectorAll(".face-chip").forEach(chip => {
+      const face = chip.dataset.crossFace;
+      const isActive = crossTargetFaces.includes(face);
+      chip.classList.toggle("active", isActive);
+      chip.setAttribute("aria-pressed", String(isActive));
+    });
+  }
+
+  const crossPresetWhiteBtn = document.getElementById("crossPresetWhiteBtn");
+  const crossPresetOppositeBtn = document.getElementById("crossPresetOppositeBtn");
+  const crossPresetAllBtn = document.getElementById("crossPresetAllBtn");
+  if (crossPresetWhiteBtn) {
+    crossPresetWhiteBtn.classList.toggle("active", crossTargetFaces.length === 1 && crossTargetFaces[0] === "white");
+  }
+  if (crossPresetOppositeBtn) {
+    crossPresetOppositeBtn.classList.toggle("active", crossTargetFaces.length === 2 && crossTargetFaces.includes("white") && crossTargetFaces.includes("yellow"));
+  }
+  if (crossPresetAllBtn) {
+    crossPresetAllBtn.classList.toggle("active", crossTargetFaces.length === 6);
+  }
+
+  if (crossSolutionsTitle) {
+    if (crossTargetFaces.length === 6) {
+      crossSolutionsTitle.textContent = "Cross & Cross+1 / EO solutions (All 6 / CN)";
+    } else if (crossTargetFaces.length === 1) {
+      crossSolutionsTitle.textContent = `Cross & Cross+1 / EO solutions (${capitalize(crossTargetFaces[0])})`;
+    } else if (crossTargetFaces.length === 2 && crossTargetFaces.includes("white") && crossTargetFaces.includes("yellow")) {
+      crossSolutionsTitle.textContent = "Cross & Cross+1 / EO solutions (W / Y)";
+    } else {
+      crossSolutionsTitle.textContent = `Cross & Cross+1 / EO solutions (${crossTargetFaces.map(f => capitalize(f)).join(", ")})`;
+    }
+  }
+}
+
+function setCrossTargetFaces(faces) {
+  const filtered = faces.filter(f => ALL_LAYER_FACES.includes(f));
+  if (!filtered.length) return;
+  crossTargetFaces = filtered;
+  saveSettings();
+  updateCrossFacesUI();
+  const scr = currentSolveScramble || scrambleMoves || scramble;
+  if (scr && (currentPuzzle === "333" || currentPuzzle === "333oh")) {
+    updateCrossSolutions(scr);
+  }
+  if (mode === "practice" && practiceView && practiceView.solutionRevealed) {
+    practiceView.revealInspectionSolutions();
+  }
+}
+
+function toggleCrossTargetFace(face) {
+  if (!ALL_LAYER_FACES.includes(face)) return;
+  let next;
+  if (crossTargetFaces.includes(face)) {
+    if (crossTargetFaces.length <= 1) return;
+    next = crossTargetFaces.filter(f => f !== face);
+  } else {
+    next = [...crossTargetFaces, face];
+  }
+  setCrossTargetFaces(next);
+}
 
 function updateCrossSolutions(scrambleStr) {
   if (!crossSolutionsList) return;
+  updateCrossFacesUI();
   if (!scrambleStr) {
     crossSolutionsList.innerHTML = '<p class="layer-solutions-empty">No scramble loaded.</p>';
     if (crossSolutionsBadge) crossSolutionsBadge.textContent = "";
     if (crossEoSummary) crossEoSummary.innerHTML = "";
     return;
   }
+  const facesKey = [...crossTargetFaces].sort().join(",");
   currentCrossSolutionsScramble = scrambleStr;
+  currentCrossSolutionsFacesKey = facesKey;
   if (crossSolutionsBadge) crossSolutionsBadge.textContent = "analyzing...";
-  crossSolutionsList.innerHTML = '<p class="layer-solutions-empty">Searching for optimal White cross &amp; Cross+1 / EO solutions...</p>';
+  const facesDesc = crossTargetFaces.length === 6 ? "all 6 colors" : crossTargetFaces.map(f => capitalize(f)).join("/");
+  crossSolutionsList.innerHTML = `<p class="layer-solutions-empty">Searching for optimal ${escapeHtml(facesDesc)} cross &amp; Cross+1 / EO solutions...</p>`;
 
   setTimeout(async () => {
-    if (currentCrossSolutionsScramble !== scrambleStr) return;
+    if (currentCrossSolutionsScramble !== scrambleStr || currentCrossSolutionsFacesKey !== facesKey) return;
     try {
-      const result = await findCrossSolutions(scrambleStr, 8);
-      if (currentCrossSolutionsScramble !== scrambleStr) return;
+      const result = await findCrossSolutions(scrambleStr, crossTargetFaces, 8);
+      if (currentCrossSolutionsScramble !== scrambleStr || currentCrossSolutionsFacesKey !== facesKey) return;
       renderCrossSolutions(result);
     } catch (err) {
-      console.error("Error solving white cross:", err);
+      console.error("Error solving cross:", err);
       crossSolutionsList.innerHTML = '<p class="layer-solutions-empty">Error calculating cross solutions.</p>';
       if (crossSolutionsBadge) crossSolutionsBadge.textContent = "error";
     }
@@ -4380,7 +4813,7 @@ function renderCrossSolutions(result) {
   if (!crossSolutionsList) return;
   const sols = Array.isArray(result) ? result : (result?.solutions || []);
   if (!sols || sols.length === 0) {
-    crossSolutionsList.innerHTML = '<p class="layer-solutions-empty">No White cross solutions found within depth.</p>';
+    crossSolutionsList.innerHTML = '<p class="layer-solutions-empty">No cross solutions found within depth.</p>';
     if (crossSolutionsBadge) crossSolutionsBadge.textContent = "0";
     return;
   }
@@ -4407,6 +4840,7 @@ function renderCrossSolutions(result) {
   }
 
   const html = sols.map((sol, idx) => {
+    const faceName = sol.face || "white";
     const inspText = sol.insp && sol.insp !== "none" ? sol.insp : "none";
     const cross1Badges = sol.crossPlus1 && sol.crossPlus1.hasPair
       ? `<span class="badge ${sol.crossPlus1.type === 'solved' ? 'badge-solved' : 'chip-cross1'}" title="${escapeHtml(sol.crossPlus1.description)}">Cross+1: ${sol.crossPlus1.slot} (${sol.crossPlus1.type})</span>`
@@ -4416,7 +4850,7 @@ function renderCrossSolutions(result) {
       <div class="layer-sol-row">
         <div class="layer-sol-info">
           <div class="layer-sol-badges">
-            <span class="face-badge face-badge-white">White Cross</span>
+            <span class="face-badge face-badge-${faceName}">${capitalize(faceName)} Cross</span>
             <span class="badge layer-sol-moves-badge">${sol.moveCount} moves</span>
             <span class="layer-sol-insp-chip">Inspection: <strong>${escapeHtml(inspText)}</strong></span>
             ${cross1Badges}
@@ -4452,7 +4886,7 @@ function renderCrossSolutions(result) {
       simAppendSolutionBtn.textContent = "Remove Solution";
       simAppendSolutionBtn.classList.add("active");
       simLoadScramble(fullSeq, {
-        expectedCase: { id: `White Cross (${sol.moveCount}m)`, solution: solMoves, solutionAlg: solMoves, isLayer: true },
+        expectedCase: { id: `${capitalize(sol.face || 'white')} Cross (${sol.moveCount}m)`, solution: solMoves, solutionAlg: solMoves, isLayer: true },
         isAppended: true,
         startAtSolution: true,
         originalScramble: base
@@ -4468,7 +4902,7 @@ function renderCrossSolutions(result) {
       const base = currentSolveScramble || scrambleMoves || scramble;
       const lines = [
         `Scramble: ${base}`,
-        `White Cross: ${sol.moves} (${sol.moveCount} moves)`,
+        `${capitalize(sol.face || 'white')} Cross: ${sol.moves} (${sol.moveCount} moves)`,
         sol.insp && sol.insp !== "none" ? `Inspection: ${sol.insp}` : "",
         sol.crossPlus1?.hasPair ? `Cross+1: ${sol.crossPlus1.slot} (${sol.crossPlus1.description})` : ""
       ].filter(Boolean).join("\n");
@@ -4821,15 +5255,17 @@ async function buildOverview() {
       const tagBadge = document.createElement("button");
       tagBadge.type = "button";
       const currentTag = getCaseTag(caseObj.id);
+      const currentLabel = formatCaseTagLabel(currentTag);
       tagBadge.className = `ov-tag-badge tag-${currentTag}`;
-      tagBadge.textContent = currentTag;
-      tagBadge.title = `Status: ${currentTag} · Click to cycle`;
+      tagBadge.textContent = currentLabel;
+      tagBadge.title = `Status: ${currentLabel} · Click to cycle`;
       tagBadge.addEventListener("click", () => {
         cycleCaseTag(caseObj.id);
         const newTag = getCaseTag(caseObj.id);
+        const newLabel = formatCaseTagLabel(newTag);
         tagBadge.className = `ov-tag-badge tag-${newTag}`;
-        tagBadge.textContent = newTag;
-        tagBadge.title = `Status: ${newTag} · Click to cycle`;
+        tagBadge.textContent = newLabel;
+        tagBadge.title = `Status: ${newLabel} · Click to cycle`;
       });
 
       const diagram = document.createElement("div");
@@ -5099,6 +5535,7 @@ function openSettingsModal() {
   if (!settingsModal) return;
   setPickingColor(false);
   renderColorPickers();
+  updateCrossFacesUI();
 
   if (settingsDarkTheme) settingsDarkTheme.checked = darkMode;
   if (settingsAlwaysWhiteBottom) settingsAlwaysWhiteBottom.checked = alwaysWhiteBottom;
@@ -5109,6 +5546,19 @@ function openSettingsModal() {
   document.documentElement.classList.add("overview-open");
   settingsModalCloseBtn?.focus();
 }
+
+const settingsCrossFacesChipsEl = document.getElementById("settingsCrossFacesChips");
+if (settingsCrossFacesChipsEl) {
+  settingsCrossFacesChipsEl.addEventListener("click", (e) => {
+    const chip = e.target.closest(".face-chip");
+    if (!chip) return;
+    const face = chip.dataset.crossFace;
+    if (face) toggleCrossTargetFace(face);
+  });
+}
+document.getElementById("crossPresetWhiteBtn")?.addEventListener("click", () => setCrossTargetFaces(["white"]));
+document.getElementById("crossPresetOppositeBtn")?.addEventListener("click", () => setCrossTargetFaces(["white", "yellow"]));
+document.getElementById("crossPresetAllBtn")?.addEventListener("click", () => setCrossTargetFaces(ALL_LAYER_FACES));
 
 function closeSettingsModal() {
   if (!settingsModal) return;
@@ -5202,11 +5652,11 @@ function renderStatsToggle() {
   }
   const title = document.getElementById("statsPanelTitle");
   if (title) {
-    title.textContent = `Stats — ${pName} ${tName}`;
+    title.textContent = "Stats & History";
   }
   const statsTabCll = document.getElementById("statsTabCll");
   if (statsTabCll) {
-    statsTabCll.textContent = `${tName} Solves`;
+    statsTabCll.textContent = `🧩 ${tName} Cases`;
   }
 
   document.querySelectorAll(".stats-tab-btn").forEach(btn => {
@@ -5246,42 +5696,59 @@ function renderRecogStatsTable() {
 
   if (currentPuzzle === "222" && currentTrackId === "cll") {
     const caseNumbers = [1, 2, 3, 4, 5, 6];
+    const gSort = recogStatsSort.col;
+    const gDir = recogStatsSort.dir;
+    const gArrow = (col) => gSort === col ? (gDir === "asc" ? " ▲" : " ▼") : "";
 
-    html += '<table><thead><tr><th scope="col">Group</th>';
+    html += `<table><thead><tr>
+      <th scope="col" class="sortable" data-recog-sort="case">Group<span class="sort-icon">${gArrow("case")}</span></th>`;
     caseNumbers.forEach(c => {
       html += `<th scope="col">${c}</th>`;
     });
-    html += '<th scope="col">Total</th><th scope="col">Acc%</th></tr></thead><tbody>';
+    html += `<th scope="col" class="sortable" data-recog-sort="shown">Total<span class="sort-icon">${gArrow("shown")}</span></th>
+      <th scope="col" class="sortable" data-recog-sort="pct">Acc%<span class="sort-icon">${gArrow("pct")}</span></th>
+    </tr></thead><tbody>`;
 
     let overallShown = 0;
     let overallCorrect = 0;
 
-    GROUP_DISPLAY_ORDER.forEach(group => {
-      html += `<tr><th scope="row">${group}</th>`;
-
+    const groupRows = GROUP_DISPLAY_ORDER.map((group, idx) => {
       let grpShown = 0;
       let grpCorrect = 0;
-
-      caseNumbers.forEach(caseNum => {
+      const cells = caseNumbers.map(caseNum => {
         const caseId = `${group}${caseNum}`;
-        if (!caseById.has(caseId)) {
-          html += '<td></td>';
-          return;
-        }
+        if (!caseById.has(caseId)) return '<td></td>';
         const stat = getCaseStat("222", "cll", caseId);
         const correct = stat ? stat.correct : 0;
         const shown = stat ? stat.shown : 0;
         grpShown += shown;
         grpCorrect += correct;
-        html += `<td title="${caseId}: ${correct}/${shown}">${correct}/${shown}</td>`;
-      });
-
+        return `<td title="${caseId}: ${correct}/${shown}">${correct}/${shown}</td>`;
+      }).join("");
       overallShown += grpShown;
       overallCorrect += grpCorrect;
-
-      const grpPct = grpShown > 0 ? Math.round((grpCorrect / grpShown) * 100) + '%' : '-';
-      html += `<td class="total">${grpCorrect}/${grpShown}</td><td class="total">${grpPct}</td></tr>`;
+      const pctNum = grpShown > 0 ? Math.round((grpCorrect / grpShown) * 100) : -1;
+      const grpPct = grpShown > 0 ? pctNum + '%' : '-';
+      return {
+        group,
+        idx,
+        grpShown,
+        grpCorrect,
+        pctNum,
+        rowHtml: `<tr><th scope="row">${group}</th>${cells}<td class="total">${grpCorrect}/${grpShown}</td><td class="total">${grpPct}</td></tr>`
+      };
     });
+
+    groupRows.sort((a, b) => {
+      let vA = a.idx, vB = b.idx;
+      if (gSort === "shown") { vA = a.grpShown; vB = b.grpShown; }
+      else if (gSort === "pct") { vA = a.pctNum; vB = b.pctNum; }
+      if (vA < vB) return gDir === "asc" ? -1 : 1;
+      if (vA > vB) return gDir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    html += groupRows.map(r => r.rowHtml).join("");
 
     const totalPct = overallShown > 0 ? Math.round((overallCorrect / overallShown) * 100) + '%' : '-';
     html += `</tbody><tfoot><tr>
@@ -5306,6 +5773,9 @@ function renderRecogStatsTable() {
     });
 
     const overallPct = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : null;
+    const rSort = recogStatsSort.col;
+    const rDir = recogStatsSort.dir;
+    const rArrow = (col) => rSort === col ? (rDir === "asc" ? " ▲" : " ▼") : "";
 
     html += `
       <div class="layer-stats-grid" style="margin-bottom: 16px;">
@@ -5335,26 +5805,55 @@ function renderRecogStatsTable() {
 
       let gShown = 0;
       let gCorrect = 0;
-      let rowsHtml = '';
 
-      groupCases.forEach(c => {
+      const caseItems = groupCases.map((c, idx) => {
         const stat = getCaseStat(currentPuzzle, currentTrackId, c.id);
         const shown = stat.shown || 0;
         const correct = stat.correct || 0;
         gShown += shown;
         gCorrect += correct;
         const pct = shown > 0 ? Math.round((correct / shown) * 100) : null;
-        const badgeClass = shown === 0 ? 'badge' : (pct >= 90 ? 'badge badge-green' : pct >= 70 ? 'badge badge-yellow' : 'badge badge-red');
+        return { c, idx, shown, correct, pct, pctSort: pct != null ? pct : -1 };
+      });
 
-        rowsHtml += `
+      caseItems.sort((a, b) => {
+        let vA = a.idx, vB = b.idx;
+        if (rSort === "name") { vA = (a.c.name || a.c.id).toLowerCase(); vB = (b.c.name || b.c.id).toLowerCase(); }
+        else if (rSort === "shown") { vA = a.shown; vB = b.shown; }
+        else if (rSort === "pct") { vA = a.pctSort; vB = b.pctSort; }
+        if (vA < vB) return rDir === "asc" ? -1 : 1;
+        if (vA > vB) return rDir === "asc" ? 1 : -1;
+        return 0;
+      });
+
+      const is3x3Track = (currentPuzzle === "333" || currentPuzzle === "333oh");
+      const svgPuzzle = is3x3Track ? "333" : currentPuzzle;
+      const showCubeCol = is3x3Track || currentPuzzle === "222" || currentPuzzle === "444" || currentPuzzle === "555";
+
+      const rowsHtml = caseItems.map(({ c, shown, correct, pct }) => {
+        const badgeClass = shown === 0 ? 'badge' : (pct >= 90 ? 'badge badge-green' : pct >= 70 ? 'badge badge-yellow' : 'badge badge-red');
+        const displayId = formatCaseDisplayId(c.id);
+        const displayName = getDistinctCaseName(c) || "—";
+        let svgHtml = "";
+        if (showCubeCol) {
+          svgHtml = getCachedCaseSvg(svgPuzzle, currentTrackId, c.id);
+          if (!svgHtml) {
+            renderCaseSvg(svgPuzzle, currentTrackId, c).then(svg => {
+              const cell = document.querySelector(`[data-recog-svg="${CSS.escape(c.id)}"]`);
+              if (cell && svg) cell.innerHTML = svg;
+            });
+          }
+        }
+        return `
           <tr>
-            <th scope="row"><strong>${escapeHtml(c.id)}</strong></th>
-            <td>${escapeHtml(c.name || c.id)}</td>
+            <th scope="row"><strong>${escapeHtml(displayId)}</strong></th>
+            ${showCubeCol ? `<td class="case-svg-cell"><div class="case-table-svg" data-recog-svg="${escapeHtml(c.id)}">${svgHtml}</div></td>` : ''}
+            <td>${escapeHtml(displayName)}</td>
             <td>${correct} / ${shown}</td>
             <td><span class="${badgeClass}">${pct != null ? pct + '%' : 'untested'}</span></td>
           </tr>
         `;
-      });
+      }).join("");
 
       const gPct = gShown > 0 ? Math.round((gCorrect / gShown) * 100) + '%' : '-';
 
@@ -5367,10 +5866,11 @@ function renderRecogStatsTable() {
           <table class="recog-table">
             <thead>
               <tr>
-                <th scope="col" style="width: 70px;">Case</th>
-                <th scope="col">Name</th>
-                <th scope="col" style="width: 100px;">Recognition</th>
-                <th scope="col" style="width: 80px;">Accuracy</th>
+                <th scope="col" class="sortable" data-recog-sort="case" style="width: 78px;">Case<span class="sort-icon">${rArrow("case")}</span></th>
+                ${showCubeCol ? `<th scope="col" style="width: 48px;">Cube</th>` : ''}
+                <th scope="col" class="sortable" data-recog-sort="name">Name<span class="sort-icon">${rArrow("name")}</span></th>
+                <th scope="col" class="sortable" data-recog-sort="shown" style="width: 110px;">Recognition<span class="sort-icon">${rArrow("shown")}</span></th>
+                <th scope="col" class="sortable" data-recog-sort="pct" style="width: 90px;">Accuracy<span class="sort-icon">${rArrow("pct")}</span></th>
               </tr>
             </thead>
             <tbody>
@@ -5396,6 +5896,19 @@ function renderRecogStatsTable() {
   }
 
   container.innerHTML = html;
+  container.querySelectorAll("th[data-recog-sort]").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.recogSort;
+      if (!col) return;
+      if (recogStatsSort.col === col) {
+        recogStatsSort.dir = recogStatsSort.dir === "asc" ? "desc" : "asc";
+      } else {
+        recogStatsSort.col = col;
+        recogStatsSort.dir = (col === "case" || col === "name") ? "asc" : "desc";
+      }
+      renderRecogStatsTable();
+    });
+  });
 }
 
 function renderSolveStatsTable() {
@@ -5468,9 +5981,9 @@ function renderSolveStatsTable() {
     ...(showGroupCol ? [{ key: "name", label: isOllTrack ? "Group" : "Name / Group" }] : []),
     { key: "attempts", label: "Attempts" },
     { key: "best", label: "Best", title: "Best time" },
-    { key: "mean", label: "Mean", title: "Mean time" },
-    { key: "median", label: "Median", title: "Median time" },
+    { key: "median", label: "Median", title: "Median time (1st priority)" },
     { key: "trimMean", label: "TrimMean 10%", title: "Trimmed mean (excludes top & bottom 10%)" },
+    { key: "mean", label: "Mean", title: "Arithmetic mean time" },
     { key: "worst", label: "Worst", title: "Worst time" },
     { key: "avgPauseCount", label: "Avg Pauses", title: "Average pauses per solve" },
     { key: "avgPauseMs", label: "Avg Pause Time", title: "Average pause duration per solve" }
@@ -5542,9 +6055,9 @@ function renderSolveStatsTable() {
       ${showGroupCol ? `<td style="color: var(--muted); font-size: 0.85rem;">${escapeHtml(stat.name)}</td>` : ''}
       <td>${stat.attempts}</td>
       <td>${formatSolveTime(stat.best)}</td>
-      <td><strong>${formatSolveTime(stat.mean)}</strong></td>
-      <td>${formatSolveTime(stat.median)}</td>
+      <td><strong>${formatSolveTime(stat.median)}</strong></td>
       <td><strong>${formatSolveTime(stat.trimMean)}</strong></td>
+      <td>${formatSolveTime(stat.mean)}</td>
       <td>${formatSolveTime(stat.worst)}</td>
       <td>${stat.avgPauseCount}</td>
       <td>${formatSolveTime(stat.avgPauseMs)}s</td>
@@ -5580,9 +6093,9 @@ function renderSolveStatsTable() {
       ${showGroupCol ? `<td style="color: var(--muted); font-size: 0.85rem;">${caseStatsList.length} cases</td>` : ''}
       <td>${totalAttempts}</td>
       <td>${formatSolveTime(overallBest)}</td>
-      <td>${formatSolveTime(overallMean)}</td>
-      <td>${formatSolveTime(overallMedian)}</td>
+      <td><strong>${formatSolveTime(overallMedian)}</strong></td>
       <td><strong>${formatSolveTime(overallTrimMean)}</strong></td>
+      <td>${formatSolveTime(overallMean)}</td>
       <td>${formatSolveTime(overallWorst)}</td>
       <td>${overallAvgPauses}</td>
       <td>${formatSolveTime(overallAvgPauseMs)}s</td>
@@ -5654,25 +6167,53 @@ function renderOllPllCasesBreakdownHtml(solvesList) {
   const { ollCases: ollStats, pllCases: pllStats } = computeOllPllCaseStats(solvesList);
 
   const renderCaseSubTable = (title, subtitle, items, badgeClass, trackId) => {
+    const isOpen = trackId === "oll" ? ollCasesStatsOpen : pllCasesStatsOpen;
+    const collapseKey = trackId === "oll" ? "ollCases" : "pllCases";
     if (!items || items.length === 0) {
       return `
-        <div class="cfop-case-breakdown-card">
-          <div class="cfop-case-breakdown-head">
-            <h4>${escapeHtml(title)}</h4>
-            <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
+        <div class="cfop-case-breakdown-card stats-subwidget ${isOpen ? '' : 'is-collapsed'}" data-stats-widget="${collapseKey}">
+          <div class="cfop-case-breakdown-head stats-subwidget-head">
+            <button type="button" class="stats-subwidget-toggle" data-stats-collapse="${collapseKey}" aria-expanded="${isOpen ? 'true' : 'false'}">
+              <span class="chevron" aria-hidden="true"></span>
+              <span class="stats-subwidget-title">${escapeHtml(title)}</span>
+              <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
+            </button>
           </div>
-          <p class="cfop-case-empty">No ${escapeHtml(title)} tracked yet in this session. Solve with your Smart Cube to automatically identify cases, times, and pauses.</p>
+          <div class="stats-subwidget-body">
+            <p class="cfop-case-empty">No ${escapeHtml(title)} tracked yet in this session. Solve with your Smart Cube to automatically identify cases, times, and pauses.</p>
+          </div>
         </div>
       `;
     }
 
     const showGroupCol = trackId === "oll";
     const maxPauseMs = Math.max(...items.map(i => i.avgPauseMs));
+    const maxMedianMs = Math.max(...items.map(i => i.medianMs || 0));
+    const sortState = ollPllBreakdownSort[trackId] || { col: "medianMs", dir: "desc" };
+    const sortedItems = [...items].sort((a, b) => {
+      const col = sortState.col;
+      let vA = a[col];
+      let vB = b[col];
+      if (col === "shortName" || col === "group") {
+        vA = String(vA || "").toLowerCase();
+        vB = String(vB || "").toLowerCase();
+      } else {
+        vA = Number.isFinite(vA) ? vA : -1;
+        vB = Number.isFinite(vB) ? vB : -1;
+      }
+      if (vA < vB) return sortState.dir === "asc" ? -1 : 1;
+      if (vA > vB) return sortState.dir === "asc" ? 1 : -1;
+      return 0;
+    });
+    const sortArrow = (col) => sortState.col === col ? (sortState.dir === "asc" ? " ▲" : " ▼") : "";
 
-    const rowsHtml = items.map((item, idx) => {
-      const needsWork = items.length > 1 && (idx === 0 || (item.avgPauseMs > 400 && item.avgPauseMs >= maxPauseMs * 0.85));
+    const rowsHtml = sortedItems.map((item) => {
+      const needsWork = items.length > 1 && (
+        (item.medianMs != null && item.medianMs >= maxMedianMs) ||
+        (item.avgPauseMs > 400 && item.avgPauseMs >= maxPauseMs * 0.85)
+      );
       const priorityBadge = needsWork
-        ? `<span class="badge badge-priority-improve" title="Slowest average time or longest pauses — focus practice here">Needs Work</span>`
+        ? `<span class="badge badge-priority-improve" title="Slowest median time or longest pauses — focus practice here">Needs Work</span>`
         : "";
       const svgDiagram = getCachedCaseSvg("333", trackId, item.id);
       return `
@@ -5684,9 +6225,9 @@ function renderOllPllCasesBreakdownHtml(solvesList) {
           <td class="case-svg-cell"><div class="case-table-svg">${svgDiagram}</div></td>
           ${showGroupCol ? `<td class="cfop-case-group-cell">${escapeHtml(item.group)}</td>` : ''}
           <td>${item.attempts}</td>
-          <td><strong>${formatCfopSplitMs(item.avgMs)}</strong></td>
-          <td>${formatCfopSplitMs(item.medianMs)}</td>
+          <td><strong>${formatCfopSplitMs(item.medianMs)}</strong></td>
           <td><strong>${formatCfopSplitMs(item.trimMeanMs)}</strong></td>
+          <td>${formatCfopSplitMs(item.avgMs)}</td>
           <td>${formatCfopSplitMs(item.bestMs)}</td>
           <td>${formatCfopSplitMs(item.worstMs)}</td>
           <td class="${item.avgPauseCount > 0 ? 'pause-cell-warn' : ''}">
@@ -5698,32 +6239,37 @@ function renderOllPllCasesBreakdownHtml(solvesList) {
     }).join("");
 
     return `
-      <div class="cfop-case-breakdown-card">
-        <div class="cfop-case-breakdown-head">
-          <h4>${escapeHtml(title)} (${items.length} case${items.length === 1 ? '' : 's'} solved)</h4>
-          <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
+      <div class="cfop-case-breakdown-card stats-subwidget ${isOpen ? '' : 'is-collapsed'}" data-stats-widget="${collapseKey}">
+        <div class="cfop-case-breakdown-head stats-subwidget-head">
+          <button type="button" class="stats-subwidget-toggle" data-stats-collapse="${collapseKey}" aria-expanded="${isOpen ? 'true' : 'false'}">
+            <span class="chevron" aria-hidden="true"></span>
+            <span class="stats-subwidget-title">${escapeHtml(title)} (${items.length} case${items.length === 1 ? '' : 's'} solved)</span>
+            <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
+          </button>
         </div>
-        <div class="cfop-table-scroll">
-          <table class="layer-log-table cfop-cases-table">
-            <thead>
-              <tr>
-                <th scope="col">Case</th>
-                <th scope="col">Cube</th>
-                ${showGroupCol ? '<th scope="col">Group</th>' : ''}
-                <th scope="col">Solves</th>
-                <th scope="col" title="Arithmetic mean time">Mean ▼</th>
-                <th scope="col" title="Median time">Median</th>
-                <th scope="col" title="Trimmed mean (excludes top & bottom 10%)">Trim10%</th>
-                <th scope="col">Best</th>
-                <th scope="col">Worst</th>
-                <th scope="col" title="Average number of pauses (≥0.40s) and average total pause time per case">Avg Pauses</th>
-                <th scope="col" title="Average pre-algorithm recognition / AUF time">Avg Recog</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
+        <div class="stats-subwidget-body">
+          <div class="cfop-table-scroll">
+            <table class="layer-log-table cfop-cases-table" data-breakdown-track="${trackId}">
+              <thead>
+                <tr>
+                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="shortName">Case<span class="sort-icon">${sortArrow("shortName")}</span></th>
+                  <th scope="col">Cube</th>
+                  ${showGroupCol ? `<th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="group">Group<span class="sort-icon">${sortArrow("group")}</span></th>` : ''}
+                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="attempts">Solves<span class="sort-icon">${sortArrow("attempts")}</span></th>
+                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="medianMs" title="Median time (1st priority)">Median<span class="sort-icon">${sortArrow("medianMs")}</span></th>
+                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="trimMeanMs" title="Trimmed mean (excludes top & bottom 10%)">Trim10%<span class="sort-icon">${sortArrow("trimMeanMs")}</span></th>
+                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="avgMs" title="Arithmetic mean time">Mean<span class="sort-icon">${sortArrow("avgMs")}</span></th>
+                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="bestMs">Best<span class="sort-icon">${sortArrow("bestMs")}</span></th>
+                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="worstMs">Worst<span class="sort-icon">${sortArrow("worstMs")}</span></th>
+                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="avgPauseMs" title="Average number of pauses (≥0.40s) and average total pause time per case">Avg Pauses<span class="sort-icon">${sortArrow("avgPauseMs")}</span></th>
+                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="avgRecogMs" title="Average pre-algorithm recognition / AUF time">Avg Recog<span class="sort-icon">${sortArrow("avgRecogMs")}</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     `;
@@ -5734,12 +6280,12 @@ function renderOllPllCasesBreakdownHtml(solvesList) {
       <div class="layer-log-header" style="margin-top: 20px;">
         <div class="layer-log-title-wrap">
           <h3 class="layer-log-title">3x3 OLL &amp; PLL Case Performance &amp; Pauses (Where to Improve)</h3>
-          <span class="layer-log-hint">Automatically tracked from your solves, sorted slowest first</span>
+          <span class="layer-log-hint">Sorted by slowest Median first · Click any column header to sort</span>
         </div>
       </div>
       <div class="cfop-cases-grid">
-        ${renderCaseSubTable("OLL Cases", "Orientation of the Last Layer — Mean, Median, TrimMean & Pauses per Case", ollStats, "badge-oll-case", "oll")}
-        ${renderCaseSubTable("PLL Cases", "Permutation of the Last Layer — Mean, Median, TrimMean & Pauses per Case", pllStats, "badge-pll-case", "pll")}
+        ${renderCaseSubTable("OLL Cases", "Orientation of the Last Layer — Median, TrimMean, Mean & Pauses per Case", ollStats, "badge-oll-case", "oll")}
+        ${renderCaseSubTable("PLL Cases", "Permutation of the Last Layer — Median, TrimMean, Mean & Pauses per Case", pllStats, "badge-pll-case", "pll")}
       </div>
     </div>
   `;
@@ -5825,12 +6371,45 @@ function renderSessionLogTable() {
 
   const formatAo = (val) => val === "DNF" ? "DNF" : (val != null ? formatSolveTime(val) : "-");
 
-  // Pagination state calculation (newest solves first)
-  const allReversed = [...displaySolves].map((s, idx) => ({
+  // Pagination & sorting state calculation (default: newest solves first)
+  const allIndexed = [...displaySolves].map((s, idx) => ({
     s,
     num: idx + 1,
     origIdx: sessSolves.indexOf(s)
-  })).reverse();
+  }));
+
+  const getLogSortValue = (entry, col) => {
+    const s = entry.s;
+    if (col === "num" || col === "at") return entry.num;
+    if (col === "ms") {
+      if (s.penalty === "DNF" || s.penalty === -1) return Infinity;
+      const base = s.ms ?? s.time ?? 0;
+      return (s.penalty === "+2" || s.penalty === 2) ? base + 2000 : base;
+    }
+    if (col === "id") return String(s.id || s.target || "").toLowerCase();
+    if (col === "pickupMs") return s.pickupMs != null ? s.pickupMs : Infinity;
+    if (col === "putdownMs") return s.putdownMs != null ? s.putdownMs : Infinity;
+    const cfop = is3x3Puzzle ? ensureSolveCfop(s) : null;
+    const sp = cfop?.splits || {};
+    if (col in sp) return sp[col] != null ? sp[col] : Infinity;
+    if (col === "pauseMs") return cfop?.pauses?.totalMs != null ? cfop.pauses.totalMs : Infinity;
+    return entry.num;
+  };
+
+  const allReversed = [...allIndexed].sort((a, b) => {
+    const col = sessionLogSort.col || "num";
+    const dir = sessionLogSort.dir || "desc";
+    const vA = getLogSortValue(a, col);
+    const vB = getLogSortValue(b, col);
+    if (vA === Infinity && vB === Infinity) return b.num - a.num;
+    if (vA === Infinity) return 1;
+    if (vB === Infinity) return -1;
+    if (vA < vB) return dir === "asc" ? -1 : 1;
+    if (vA > vB) return dir === "asc" ? 1 : -1;
+    return b.num - a.num;
+  });
+
+  const logSortArrow = (col) => sessionLogSort.col === col ? (sessionLogSort.dir === "asc" ? " ▲" : " ▼") : "";
 
   const pageSize = LOG_PAGE_SIZE_OPTIONS.includes(Number(sessionLogPageSize))
     ? Number(sessionLogPageSize)
@@ -5843,11 +6422,11 @@ function renderSessionLogTable() {
   const endIdx = Math.min(allReversed.length, startIdx + pageSize);
   const pageRows = allReversed.slice(startIdx, endIdx);
   const pageSolves = pageRows.map(r => r.s);
-  const lastXSolves = allReversed.slice(0, pageSize).map(r => r.s);
+  const newestXSolves = [...allIndexed].reverse().slice(0, pageSize).map(r => r.s);
 
   // Compute CFOP & Pause Averages for the Last X Solves in Pagination, Current Page, and All Session Solves
-  const lastXAvg = computeCfopAverages(lastXSolves);
-  const pageAvg = sessionLogPage === 1 ? lastXAvg : computeCfopAverages(pageSolves);
+  const lastXAvg = computeCfopAverages(newestXSolves);
+  const pageAvg = computeCfopAverages(pageSolves);
   const sessionAvg = computeCfopAverages(displaySolves);
 
   const fmtPauseSummary = (countVal, msVal) => {
@@ -5873,17 +6452,17 @@ function renderSessionLogTable() {
         <span class="layer-stat-val">${best != null ? formatSolveTime(best) : "-"}</span>
         <span class="layer-stat-lbl">Best</span>
       </div>
-      <div class="layer-stat-card">
-        <span class="layer-stat-val">${mean != null ? formatSolveTime(mean) : "-"}</span>
-        <span class="layer-stat-lbl">Mean</span>
-      </div>
-      <div class="layer-stat-card">
+      <div class="layer-stat-card highlight-best">
         <span class="layer-stat-val">${median != null ? formatSolveTime(median) : "-"}</span>
         <span class="layer-stat-lbl">Median</span>
       </div>
       <div class="layer-stat-card" title="Trimmed Mean (excludes fastest 10% and slowest 10% of solves)">
         <span class="layer-stat-val">${trimMean != null ? formatSolveTime(trimMean) : "-"}</span>
         <span class="layer-stat-lbl">TrimMean 10%</span>
+      </div>
+      <div class="layer-stat-card">
+        <span class="layer-stat-val">${mean != null ? formatSolveTime(mean) : "-"}</span>
+        <span class="layer-stat-lbl">Mean</span>
       </div>
       <div class="layer-stat-card">
         <span class="layer-stat-val">${worst != null ? formatSolveTime(worst) : "-"}</span>
@@ -5969,69 +6548,79 @@ function renderSessionLogTable() {
   // Only show 3x3 CFOP Phase & Pause Averages Table on 3x3 / 3x3 OH
   if (is3x3Puzzle) {
     html += `
-      <div class="cfop-averages-summary-card">
-        <div class="cfop-averages-head">
-          <span class="cfop-averages-title">CFOP Phase &amp; Pause Stats (Mean, Median, TrimMean 10%) — Last ${lastXSolves.length} vs Session (${count})</span>
-          <span class="cfop-averages-hint">TrimMean throws away top &amp; bottom 10% · Pauses ≥0.40s</span>
+      <div class="cfop-averages-summary-card stats-subwidget ${cfopSummaryOpen ? '' : 'is-collapsed'}" data-stats-widget="cfopSummary">
+        <div class="cfop-averages-head stats-subwidget-head">
+          <button type="button" class="stats-subwidget-toggle" data-stats-collapse="cfopSummary" aria-expanded="${cfopSummaryOpen ? 'true' : 'false'}">
+            <span class="chevron" aria-hidden="true"></span>
+            <span class="cfop-averages-title">CFOP Phase &amp; Pause Stats (Median, TrimMean 10%, Mean) — Last ${newestXSolves.length} vs Session (${count})</span>
+            <span class="cfop-averages-hint">Median (1st) · TrimMean 10% (2nd) · Mean (3rd) · Pauses ≥0.40s</span>
+          </button>
         </div>
-        <div class="cfop-table-scroll">
-          <table class="layer-log-table cfop-avg-comparison-table">
-            <thead>
-              <tr>
-                <th scope="col" class="cfop-avg-scope-cell">Scope / Metric</th>
-                <th scope="col">Total</th>
-                <th scope="col">Cross</th>
-                <th scope="col">F2L 1</th>
-                <th scope="col">F2L 2</th>
-                <th scope="col">F2L 3</th>
-                <th scope="col">F2L 4</th>
-                <th scope="col">F2L &Sigma;</th>
-                <th scope="col">OLL</th>
-                <th scope="col">PLL</th>
-                <th scope="col">Pauses</th>
-                <th scope="col" title="Time from GAN Bluetooth timer start to first smart cube turn">Pick-up</th>
-                <th scope="col" title="Time from smart cube solved to GAN Bluetooth timer stop">Put-down</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${renderCfopStatRowHtml(`Last ${lastXSolves.length} · Mean`, `(Page ${pageSize})`, lastXAvg, lastXAvg.avgPauseCount, lastXAvg.avgPauseMs)}
-              ${renderCfopStatRowHtml(`Last ${lastXSolves.length} · Median`, ``, lastXAvg.median, lastXAvg.median?.pauseCount, lastXAvg.median?.pauseMs)}
-              ${renderCfopStatRowHtml(`Last ${lastXSolves.length} · Trim10%`, `(-top/bot 10%)`, lastXAvg.trimMean, lastXAvg.trimMean?.pauseCount, lastXAvg.trimMean?.pauseMs, "cfop-trim-highlight-row")}
-              ${renderCfopStatRowHtml(`Session · Mean`, `(${count} solves)`, sessionAvg, sessionAvg.avgPauseCount, sessionAvg.avgPauseMs, "cfop-session-avg-row")}
-              ${renderCfopStatRowHtml(`Session · Median`, `(${count} solves)`, sessionAvg.median, sessionAvg.median?.pauseCount, sessionAvg.median?.pauseMs)}
-              ${renderCfopStatRowHtml(`Session · Trim10%`, `(-top/bot 10%)`, sessionAvg.trimMean, sessionAvg.trimMean?.pauseCount, sessionAvg.trimMean?.pauseMs, "cfop-trim-highlight-row")}
-            </tbody>
-          </table>
+        <div class="stats-subwidget-body">
+          <div class="cfop-table-scroll">
+            <table class="layer-log-table cfop-avg-comparison-table">
+              <thead>
+                <tr>
+                  <th scope="col" class="cfop-avg-scope-cell">Scope / Metric</th>
+                  <th scope="col">Total</th>
+                  <th scope="col">Cross</th>
+                  <th scope="col">F2L 1</th>
+                  <th scope="col">F2L 2</th>
+                  <th scope="col">F2L 3</th>
+                  <th scope="col">F2L 4</th>
+                  <th scope="col">F2L &Sigma;</th>
+                  <th scope="col">OLL</th>
+                  <th scope="col">PLL</th>
+                  <th scope="col">Pauses</th>
+                  <th scope="col" title="Time from GAN Bluetooth timer start to first smart cube turn">Pick-up</th>
+                  <th scope="col" title="Time from smart cube solved to GAN Bluetooth timer stop">Put-down</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${renderCfopStatRowHtml(`Last ${newestXSolves.length} · Median`, `(Page ${pageSize})`, lastXAvg.median, lastXAvg.median?.pauseCount, lastXAvg.median?.pauseMs, "cfop-trim-highlight-row")}
+                ${renderCfopStatRowHtml(`Last ${newestXSolves.length} · Trim10%`, `(-top/bot 10%)`, lastXAvg.trimMean, lastXAvg.trimMean?.pauseCount, lastXAvg.trimMean?.pauseMs)}
+                ${renderCfopStatRowHtml(`Last ${newestXSolves.length} · Mean`, ``, lastXAvg, lastXAvg.avgPauseCount, lastXAvg.avgPauseMs)}
+                ${renderCfopStatRowHtml(`Session · Median`, `(${count} solves)`, sessionAvg.median, sessionAvg.median?.pauseCount, sessionAvg.median?.pauseMs, "cfop-trim-highlight-row")}
+                ${renderCfopStatRowHtml(`Session · Trim10%`, `(-top/bot 10%)`, sessionAvg.trimMean, sessionAvg.trimMean?.pauseCount, sessionAvg.trimMean?.pauseMs)}
+                ${renderCfopStatRowHtml(`Session · Mean`, `(${count} solves)`, sessionAvg, sessionAvg.avgPauseCount, sessionAvg.avgPauseMs, "cfop-session-avg-row")}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     `;
   }
 
-  // Pagination & Solve Log Header (Dropdown only + |< < > >| buttons)
+  // Pagination & Solve Log Header (Collapsible with leading chevron + pagination on right)
   html += `
-    <div class="layer-log-header layer-log-header-bar">
-      <div class="layer-log-title-wrap">
-        <h3 class="layer-log-title">Solve Log &mdash; ${escapeHtml(sess.name)}</h3>
-        <span class="layer-log-hint">${is3x3Puzzle ? 'Tap any row for full CFOP breakdown, 3D replay &amp; scramble' : 'Tap any row for solve details &amp; scramble'}</span>
-      </div>
-      <div class="layer-log-pagination-controls">
-        <label class="pagination-size-group" for="sessionLogPageSizeSelect">
-          <span class="pagination-size-label">Show:</span>
-          <select id="sessionLogPageSizeSelect" class="pagination-size-select" aria-label="Items per page">
-            ${LOG_PAGE_SIZE_OPTIONS.map(sz => `<option value="${sz}" ${pageSize === sz ? 'selected' : ''}>${sz}</option>`).join("")}
-          </select>
-        </label>
-        <span class="pagination-status-text">
-          <strong>${allReversed.length ? startIdx + 1 : 0}&ndash;${endIdx}</strong> of <strong>${allReversed.length}</strong> (${sessionLogPage}/${totalPages})
-        </span>
-        <div class="pagination-nav-group" role="group" aria-label="Page navigation">
-          <button type="button" class="btn btn-xs pagination-nav-btn" id="logPageFirstBtn" ${sessionLogPage <= 1 ? 'disabled' : ''} title="First page">|&lt;</button>
-          <button type="button" class="btn btn-xs pagination-nav-btn" id="logPagePrevBtn" ${sessionLogPage <= 1 ? 'disabled' : ''} title="Previous page">&lt;</button>
-          <button type="button" class="btn btn-xs pagination-nav-btn" id="logPageNextBtn" ${sessionLogPage >= totalPages ? 'disabled' : ''} title="Next page">&gt;</button>
-          <button type="button" class="btn btn-xs pagination-nav-btn" id="logPageLastBtn" ${sessionLogPage >= totalPages ? 'disabled' : ''} title="Final page">&gt;|</button>
+    <div class="stats-subwidget stats-subwidget-log ${solveLogOpen ? '' : 'is-collapsed'}" data-stats-widget="solveLog">
+      <div class="layer-log-header layer-log-header-bar stats-subwidget-head">
+        <button type="button" class="stats-subwidget-toggle" data-stats-collapse="solveLog" aria-expanded="${solveLogOpen ? 'true' : 'false'}">
+          <span class="chevron" aria-hidden="true"></span>
+          <span class="layer-log-title-wrap">
+            <span class="layer-log-title">Solve Log &mdash; ${escapeHtml(sess.name)} (${allReversed.length})</span>
+            <span class="layer-log-hint">${is3x3Puzzle ? 'Click any column header to sort · Tap any row for full CFOP breakdown &amp; 3D replay' : 'Click any column header to sort · Tap any row for solve details'}</span>
+          </span>
+        </button>
+        <div class="layer-log-pagination-controls">
+          <label class="pagination-size-group" for="sessionLogPageSizeSelect">
+            <span class="pagination-size-label">Show:</span>
+            <select id="sessionLogPageSizeSelect" class="pagination-size-select" aria-label="Items per page">
+              ${LOG_PAGE_SIZE_OPTIONS.map(sz => `<option value="${sz}" ${pageSize === sz ? 'selected' : ''}>${sz}</option>`).join("")}
+            </select>
+          </label>
+          <span class="pagination-status-text">
+            <strong>${allReversed.length ? startIdx + 1 : 0}&ndash;${endIdx}</strong> of <strong>${allReversed.length}</strong> (${sessionLogPage}/${totalPages})
+          </span>
+          <div class="pagination-nav-group" role="group" aria-label="Page navigation">
+            <button type="button" class="btn btn-xs pagination-nav-btn" id="logPageFirstBtn" ${sessionLogPage <= 1 ? 'disabled' : ''} title="First page">|&lt;</button>
+            <button type="button" class="btn btn-xs pagination-nav-btn" id="logPagePrevBtn" ${sessionLogPage <= 1 ? 'disabled' : ''} title="Previous page">&lt;</button>
+            <button type="button" class="btn btn-xs pagination-nav-btn" id="logPageNextBtn" ${sessionLogPage >= totalPages ? 'disabled' : ''} title="Next page">&gt;</button>
+            <button type="button" class="btn btn-xs pagination-nav-btn" id="logPageLastBtn" ${sessionLogPage >= totalPages ? 'disabled' : ''} title="Final page">&gt;|</button>
+          </div>
         </div>
       </div>
-    </div>
+      <div class="stats-subwidget-body">
   `;
 
   if (is3x3Puzzle) {
@@ -6040,20 +6629,20 @@ function renderSessionLogTable() {
         <table class="layer-log-table cfop-solve-log-table">
           <thead>
             <tr>
-              <th scope="col" style="width: 36px;">#</th>
-              <th scope="col">Time</th>
-              <th scope="col">Cross</th>
-              <th scope="col">F2L 1</th>
-              <th scope="col">F2L 2</th>
-              <th scope="col">F2L 3</th>
-              <th scope="col">F2L 4</th>
-              <th scope="col">F2L &Sigma;</th>
-              <th scope="col">OLL</th>
-              <th scope="col">PLL</th>
-              <th scope="col" title="Number of pauses (≥0.40s) and total pause duration">Pauses</th>
-              <th scope="col" title="Time from GAN Bluetooth timer start to first smart cube turn">Pick-up</th>
-              <th scope="col" title="Time from smart cube solved to GAN Bluetooth timer stop">Put-down</th>
-              <th scope="col" style="width: 48px; text-align: center;" title="Date &amp; time (YYYY-MM-DD HH:MM:SS)">Date</th>
+              <th scope="col" class="sortable" data-log-sort="num" style="width: 42px;">#<span class="sort-icon">${logSortArrow("num")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="ms">Time<span class="sort-icon">${logSortArrow("ms")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="cross">Cross<span class="sort-icon">${logSortArrow("cross")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="f2l1">F2L 1<span class="sort-icon">${logSortArrow("f2l1")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="f2l2">F2L 2<span class="sort-icon">${logSortArrow("f2l2")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="f2l3">F2L 3<span class="sort-icon">${logSortArrow("f2l3")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="f2l4">F2L 4<span class="sort-icon">${logSortArrow("f2l4")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="f2lTotal">F2L &Sigma;<span class="sort-icon">${logSortArrow("f2lTotal")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="oll">OLL<span class="sort-icon">${logSortArrow("oll")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="pll">PLL<span class="sort-icon">${logSortArrow("pll")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="pauseMs" title="Number of pauses (≥0.40s) and total pause duration">Pauses<span class="sort-icon">${logSortArrow("pauseMs")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="pickupMs" title="Time from GAN Bluetooth timer start to first smart cube turn">Pick-up<span class="sort-icon">${logSortArrow("pickupMs")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="putdownMs" title="Time from smart cube solved to GAN Bluetooth timer stop">Put-down<span class="sort-icon">${logSortArrow("putdownMs")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="at" style="width: 52px; text-align: center;" title="Date &amp; time (YYYY-MM-DD HH:MM:SS)">Date<span class="sort-icon">${logSortArrow("at")}</span></th>
               <th scope="col" style="width: 78px;">Actions</th>
             </tr>
           </thead>
@@ -6129,6 +6718,48 @@ function renderSessionLogTable() {
     html += `
           </tbody>
           <tfoot>
+            <tr class="cfop-tfoot-page-avg cfop-trim-highlight-row">
+              <th scope="row">Med</th>
+              <td>
+                <div class="cfop-cell-stack">
+                  <strong>${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : '-'}</strong>
+                  <small class="cfop-sub-meta">Page (${pageSolves.length})</small>
+                </div>
+              </td>
+              <td>${formatCfopSplitMs(pageAvg.median?.cross)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.f2l1)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.f2l2)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.f2l3)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.f2l4)}</td>
+              <td><strong>${formatCfopSplitMs(pageAvg.median?.f2lTotal)}</strong></td>
+              <td>${formatCfopSplitMs(pageAvg.median?.oll)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.pll)}</td>
+              <td>${fmtPauseSummary(pageAvg.median?.pauseCount, pageAvg.median?.pauseMs)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.pickupMs)}</td>
+              <td>${formatCfopSplitMs(pageAvg.median?.putdownMs)}</td>
+              <td colspan="2"><small class="cfop-sub-meta">Page Median</small></td>
+            </tr>
+            <tr class="cfop-tfoot-page-avg">
+              <th scope="row">Trim</th>
+              <td>
+                <div class="cfop-cell-stack">
+                  <strong>${pageAvg.trimMean?.totalMs != null ? formatSolveTime(pageAvg.trimMean.totalMs) : '-'}</strong>
+                  <small class="cfop-sub-meta">Trim10%</small>
+                </div>
+              </td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.cross)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l1)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l2)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l3)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l4)}</td>
+              <td><strong>${formatCfopSplitMs(pageAvg.trimMean?.f2lTotal)}</strong></td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.oll)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.pll)}</td>
+              <td>${fmtPauseSummary(pageAvg.trimMean?.pauseCount, pageAvg.trimMean?.pauseMs)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.pickupMs)}</td>
+              <td>${formatCfopSplitMs(pageAvg.trimMean?.putdownMs)}</td>
+              <td colspan="2"><small class="cfop-sub-meta">Page TrimMean 10%</small></td>
+            </tr>
             <tr class="cfop-tfoot-page-avg">
               <th scope="row">Mean</th>
               <td>
@@ -6150,72 +6781,32 @@ function renderSessionLogTable() {
               <td>${formatCfopSplitMs(pageAvg.putdownMs)}</td>
               <td colspan="2"><small class="cfop-sub-meta">Page Mean</small></td>
             </tr>
-            <tr class="cfop-tfoot-page-avg">
-              <th scope="row">Med</th>
-              <td>
-                <div class="cfop-cell-stack">
-                  <strong>${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : '-'}</strong>
-                  <small class="cfop-sub-meta">Page (${pageSolves.length})</small>
-                </div>
-              </td>
-              <td>${formatCfopSplitMs(pageAvg.median?.cross)}</td>
-              <td>${formatCfopSplitMs(pageAvg.median?.f2l1)}</td>
-              <td>${formatCfopSplitMs(pageAvg.median?.f2l2)}</td>
-              <td>${formatCfopSplitMs(pageAvg.median?.f2l3)}</td>
-              <td>${formatCfopSplitMs(pageAvg.median?.f2l4)}</td>
-              <td><strong>${formatCfopSplitMs(pageAvg.median?.f2lTotal)}</strong></td>
-              <td>${formatCfopSplitMs(pageAvg.median?.oll)}</td>
-              <td>${formatCfopSplitMs(pageAvg.median?.pll)}</td>
-              <td>${fmtPauseSummary(pageAvg.median?.pauseCount, pageAvg.median?.pauseMs)}</td>
-              <td>${formatCfopSplitMs(pageAvg.median?.pickupMs)}</td>
-              <td>${formatCfopSplitMs(pageAvg.median?.putdownMs)}</td>
-              <td colspan="2"><small class="cfop-sub-meta">Page Median</small></td>
-            </tr>
-            <tr class="cfop-tfoot-page-avg cfop-trim-highlight-row">
-              <th scope="row">Trim</th>
-              <td>
-                <div class="cfop-cell-stack">
-                  <strong>${pageAvg.trimMean?.totalMs != null ? formatSolveTime(pageAvg.trimMean.totalMs) : '-'}</strong>
-                  <small class="cfop-sub-meta">Trim10%</small>
-                </div>
-              </td>
-              <td>${formatCfopSplitMs(pageAvg.trimMean?.cross)}</td>
-              <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l1)}</td>
-              <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l2)}</td>
-              <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l3)}</td>
-              <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l4)}</td>
-              <td><strong>${formatCfopSplitMs(pageAvg.trimMean?.f2lTotal)}</strong></td>
-              <td>${formatCfopSplitMs(pageAvg.trimMean?.oll)}</td>
-              <td>${formatCfopSplitMs(pageAvg.trimMean?.pll)}</td>
-              <td>${fmtPauseSummary(pageAvg.trimMean?.pauseCount, pageAvg.trimMean?.pauseMs)}</td>
-              <td>${formatCfopSplitMs(pageAvg.trimMean?.pickupMs)}</td>
-              <td>${formatCfopSplitMs(pageAvg.trimMean?.putdownMs)}</td>
-              <td colspan="2"><small class="cfop-sub-meta">Page TrimMean 10%</small></td>
-            </tr>
             <tr class="cfop-tfoot-session-avg">
               <th scope="row">All</th>
               <td>
                 <div class="cfop-cell-stack">
-                  <strong>${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : '-'}</strong>
+                  <strong>${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : '-'}</strong>
                   <small class="cfop-sub-meta">Session (${count})</small>
                 </div>
               </td>
-              <td>${formatCfopSplitMs(sessionAvg.cross)}</td>
-              <td>${formatCfopSplitMs(sessionAvg.f2l1)}</td>
-              <td>${formatCfopSplitMs(sessionAvg.f2l2)}</td>
-              <td>${formatCfopSplitMs(sessionAvg.f2l3)}</td>
-              <td>${formatCfopSplitMs(sessionAvg.f2l4)}</td>
-              <td><strong>${formatCfopSplitMs(sessionAvg.f2lTotal)}</strong></td>
-              <td>${formatCfopSplitMs(sessionAvg.oll)}</td>
-              <td>${formatCfopSplitMs(sessionAvg.pll)}</td>
-              <td>${fmtPauseSummary(sessionAvg.avgPauseCount, sessionAvg.avgPauseMs)}</td>
-              <td>${formatCfopSplitMs(sessionAvg.pickupMs)}</td>
-              <td>${formatCfopSplitMs(sessionAvg.putdownMs)}</td>
-              <td colspan="2"><small class="cfop-sub-meta">Session Mean</small></td>
+              <td>${formatCfopSplitMs(sessionAvg.median?.cross)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.median?.f2l1)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.median?.f2l2)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.median?.f2l3)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.median?.f2l4)}</td>
+              <td><strong>${formatCfopSplitMs(sessionAvg.median?.f2lTotal)}</strong></td>
+              <td>${formatCfopSplitMs(sessionAvg.median?.oll)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.median?.pll)}</td>
+              <td>${fmtPauseSummary(sessionAvg.median?.pauseCount, sessionAvg.median?.pauseMs)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.median?.pickupMs)}</td>
+              <td>${formatCfopSplitMs(sessionAvg.median?.putdownMs)}</td>
+              <td colspan="2"><small class="cfop-sub-meta">Session Median</small></td>
             </tr>
           </tfoot>
         </table>
       </div>
+      </div>
+    </div>
     `;
 
     // Append OLL & PLL Per-Case Performance & Pause Tracker on 3x3
@@ -6227,13 +6818,13 @@ function renderSessionLogTable() {
         <table class="layer-log-table standard-solve-log-table">
           <thead>
             <tr>
-              <th scope="col" style="width: 44px;">#</th>
-              <th scope="col" style="width: 110px;">Time</th>
-              <th scope="col" style="width: 78px;" title="Time from GAN Bluetooth timer start to first smart cube turn">Pick-up</th>
-              <th scope="col" style="width: 78px;" title="Time from smart cube solved to GAN Bluetooth timer stop">Put-down</th>
-              <th scope="col" style="width: 140px;">Case / Target</th>
+              <th scope="col" class="sortable" data-log-sort="num" style="width: 44px;">#<span class="sort-icon">${logSortArrow("num")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="ms" style="width: 110px;">Time<span class="sort-icon">${logSortArrow("ms")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="pickupMs" style="width: 78px;" title="Time from GAN Bluetooth timer start to first smart cube turn">Pick-up<span class="sort-icon">${logSortArrow("pickupMs")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="putdownMs" style="width: 78px;" title="Time from smart cube solved to GAN Bluetooth timer stop">Put-down<span class="sort-icon">${logSortArrow("putdownMs")}</span></th>
+              <th scope="col" class="sortable" data-log-sort="id" style="width: 140px;">Case / Target<span class="sort-icon">${logSortArrow("id")}</span></th>
               <th scope="col">Scramble</th>
-              <th scope="col" style="width: 52px; text-align: center;" title="Date &amp; time (YYYY-MM-DD HH:MM:SS)">Date</th>
+              <th scope="col" class="sortable" data-log-sort="at" style="width: 56px; text-align: center;" title="Date &amp; time (YYYY-MM-DD HH:MM:SS)">Date<span class="sort-icon">${logSortArrow("at")}</span></th>
               <th scope="col" style="width: 84px;">Actions</th>
             </tr>
           </thead>
@@ -6282,32 +6873,94 @@ function renderSessionLogTable() {
             <tr class="cfop-tfoot-page-avg">
               <th scope="row">Page</th>
               <td colspan="7">
-                <strong>Mean:</strong> ${pageAvg.totalMs != null ? formatSolveTime(pageAvg.totalMs) : '-'} &bull;
                 <strong>Median:</strong> ${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : '-'} &bull;
-                <strong>TrimMean (10%):</strong> ${pageAvg.trimMean?.totalMs != null ? formatSolveTime(pageAvg.trimMean.totalMs) : '-'}
-                ${pageAvg.pickupMs != null ? ` &bull; <strong>Pick-up:</strong> ${formatCfopSplitMs(pageAvg.pickupMs)}` : ''}
-                ${pageAvg.putdownMs != null ? ` &bull; <strong>Put-down:</strong> ${formatCfopSplitMs(pageAvg.putdownMs)}` : ''}
+                <strong>TrimMean (10%):</strong> ${pageAvg.trimMean?.totalMs != null ? formatSolveTime(pageAvg.trimMean.totalMs) : '-'} &bull;
+                <strong>Mean:</strong> ${pageAvg.totalMs != null ? formatSolveTime(pageAvg.totalMs) : '-'}
+                ${pageAvg.median?.pickupMs != null ? ` &bull; <strong>Pick-up (Med):</strong> ${formatCfopSplitMs(pageAvg.median.pickupMs)}` : ''}
+                ${pageAvg.median?.putdownMs != null ? ` &bull; <strong>Put-down (Med):</strong> ${formatCfopSplitMs(pageAvg.median.putdownMs)}` : ''}
                 <small class="cfop-sub-meta">(${pageSolves.length} solves on page)</small>
               </td>
             </tr>
             <tr class="cfop-tfoot-session-avg">
               <th scope="row">All</th>
               <td colspan="7">
-                <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : '-'} &bull;
                 <strong>Median:</strong> ${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : '-'} &bull;
-                <strong>TrimMean (10%):</strong> ${sessionAvg.trimMean?.totalMs != null ? formatSolveTime(sessionAvg.trimMean.totalMs) : '-'}
-                ${sessionAvg.pickupMs != null ? ` &bull; <strong>Pick-up:</strong> ${formatCfopSplitMs(sessionAvg.pickupMs)}` : ''}
-                ${sessionAvg.putdownMs != null ? ` &bull; <strong>Put-down:</strong> ${formatCfopSplitMs(sessionAvg.putdownMs)}` : ''}
+                <strong>TrimMean (10%):</strong> ${sessionAvg.trimMean?.totalMs != null ? formatSolveTime(sessionAvg.trimMean.totalMs) : '-'} &bull;
+                <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : '-'}
+                ${sessionAvg.median?.pickupMs != null ? ` &bull; <strong>Pick-up (Med):</strong> ${formatCfopSplitMs(sessionAvg.median.pickupMs)}` : ''}
+                ${sessionAvg.median?.putdownMs != null ? ` &bull; <strong>Put-down (Med):</strong> ${formatCfopSplitMs(sessionAvg.median.putdownMs)}` : ''}
                 <small class="cfop-sub-meta">(${count} solves in session)</small>
               </td>
             </tr>
           </tfoot>
         </table>
       </div>
+      </div>
+    </div>
     `;
   }
 
   container.innerHTML = html;
+
+  // Attach collapsible sub-widget listeners (Solve Log, CFOP Summary, OLL Cases, PLL Cases)
+  container.querySelectorAll("[data-stats-collapse]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.statsCollapse;
+      const card = btn.closest(".stats-subwidget");
+      if (!key || !card) return;
+      let nextOpen = true;
+      if (key === "solveLog") {
+        solveLogOpen = !solveLogOpen;
+        nextOpen = solveLogOpen;
+      } else if (key === "cfopSummary") {
+        cfopSummaryOpen = !cfopSummaryOpen;
+        nextOpen = cfopSummaryOpen;
+      } else if (key === "ollCases") {
+        ollCasesStatsOpen = !ollCasesStatsOpen;
+        nextOpen = ollCasesStatsOpen;
+      } else if (key === "pllCases") {
+        pllCasesStatsOpen = !pllCasesStatsOpen;
+        nextOpen = pllCasesStatsOpen;
+      }
+      card.classList.toggle("is-collapsed", !nextOpen);
+      btn.setAttribute("aria-expanded", nextOpen ? "true" : "false");
+      saveSettings();
+    });
+  });
+
+  // Attach Solve Log column sorting listeners
+  container.querySelectorAll("th[data-log-sort]").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.logSort;
+      if (!col) return;
+      if (sessionLogSort.col === col) {
+        sessionLogSort.dir = sessionLogSort.dir === "asc" ? "desc" : "asc";
+      } else {
+        sessionLogSort.col = col;
+        sessionLogSort.dir = (col === "num" || col === "at") ? "desc" : "asc";
+      }
+      sessionLogPage = 1;
+      renderSessionLogTable();
+    });
+  });
+
+  // Attach OLL / PLL Case Breakdown column sorting listeners
+  container.querySelectorAll("th[data-breakdown-sort]").forEach(th => {
+    th.addEventListener("click", () => {
+      const trackId = th.dataset.breakdownTrack || "oll";
+      const col = th.dataset.breakdownSort;
+      if (!col) return;
+      const cur = ollPllBreakdownSort[trackId] || { col: "medianMs", dir: "desc" };
+      if (cur.col === col) {
+        cur.dir = cur.dir === "asc" ? "desc" : "asc";
+      } else {
+        cur.col = col;
+        cur.dir = (col === "shortName" || col === "group" || col === "bestMs") ? "asc" : "desc";
+      }
+      ollPllBreakdownSort[trackId] = cur;
+      renderSessionLogTable();
+    });
+  });
 
   // Attach subfilter button listeners
   container.querySelector("#sessionLogExportCsvBtn")?.addEventListener("click", handleExportCSV);
@@ -8793,6 +9446,9 @@ document.addEventListener("keydown", e => {
 
 studyView = new StudyView({
   container: studyViewContainer,
+  getSelectedCaseIds: () => selectedCases,
+  getAlwaysWhiteBottom: () => alwaysWhiteBottom,
+  getShowReflection: () => showReflection,
   onSelectCase: (caseObj) => {},
   onSimulateCase: (caseObj, algObj) => {
     setMode("simulate", { skipSimInit: true });
@@ -8822,6 +9478,8 @@ studyView = new StudyView({
 
 practiceView = new PracticeView({
   container: practiceViewContainer,
+  getCrossTargetFaces: () => crossTargetFaces,
+  getLayerTargetFaces: () => layerTargetFaces,
   onRecordRecognition: (caseId, isCorrect) => {
     recordCaseStat(currentPuzzle, currentTrackId, caseId, isCorrect);
     updateStatsTable();
@@ -8906,6 +9564,38 @@ puzzleButtons.forEach(btn => {
 if (pblOverviewBtn) pblOverviewBtn.hidden = currentPuzzle !== "222";
 if (overviewBtn) overviewBtn.hidden = currentPuzzle !== "222";
 
+const freeMovesPanelEl = document.getElementById("freeMovesPanel");
+if (freeMovesPanelEl) {
+  freeMovesPanelEl.open = Boolean(freeMovesOpen);
+  freeMovesPanelEl.addEventListener("toggle", () => {
+    freeMovesOpen = freeMovesPanelEl.open;
+    saveSettings();
+  });
+}
+if (layerSolutionsWidget) {
+  layerSolutionsWidget.open = Boolean(layerSolutionsOpen);
+  layerSolutionsWidget.addEventListener("toggle", () => {
+    layerSolutionsOpen = layerSolutionsWidget.open;
+    saveSettings();
+  });
+}
+if (crossSolutionsWidget) {
+  crossSolutionsWidget.open = Boolean(crossSolutionsOpen);
+  crossSolutionsWidget.addEventListener("toggle", () => {
+    crossSolutionsOpen = crossSolutionsWidget.open;
+    saveSettings();
+  });
+}
+
+// Dismiss open solve date clock popovers on outside touch/click
+document.addEventListener("pointerdown", (e) => {
+  if (!e.target.closest(".solve-date-clock-wrap")) {
+    document.querySelectorAll(".solve-date-clock-wrap.is-open").forEach(elWrap => {
+      elWrap.classList.remove("is-open");
+    });
+  }
+});
+
 buildCasePicker();
 applyTheme();
 renderToggles();
@@ -8915,6 +9605,7 @@ syncStatsPanel();
 renderStatsToggle();
 populateSimCaseSelect();
 updateFaceChipsUI();
+updateCrossFacesUI();
 regenerateScramble();
 prewarmOllPllSvgs(ollCases, pllCases).then(() => {
   if (!statsPanel.hidden) updateStatsTable();

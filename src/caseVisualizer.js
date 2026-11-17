@@ -848,7 +848,7 @@ export async function renderPllSvg(caseObj) {
 
 // ---------------------------------------------------------------------------
 // 3x3 F2L SVG (First Two Layers - 41 Cases)
-// Isometric / Top view highlighting the active pair and Front-Right slot
+// Isometric 3-face (U, F, R) cube overview highlighting the active FR pair
 // ---------------------------------------------------------------------------
 export async function renderF2lSvg(caseObj) {
   const kp = await getKp3();
@@ -856,31 +856,141 @@ export async function renderF2lSvg(caseObj) {
   const scr = caseObj.setup || "";
   const pat = scr ? def.applyAlg(new Alg(scr)) : def;
 
-  // Highlighting FR slot and target pieces
-  const S = 24;
-  const T = 14;
-  const W = 100;
+  const CENTER_ORDER = ["U", "L", "F", "R", "B", "D"];
+  const centerPieces = pat.patternData.CENTERS.pieces;
+  // Map original face letter -> current visual face letter after any y rotations in setup
+  const origToVisualFace = {};
+  for (let i = 0; i < 6; i++) {
+    origToVisualFace[CENTER_ORDER[centerPieces[i]]] = CENTER_ORDER[i];
+  }
 
-  const rect = (x, y, w, h, fill, stroke = "#1e293b", strokeW = 1.1) =>
-    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}"/>`;
+  const { pieces: cPieces, orientation: cOrient } = pat.patternData.CORNERS;
+  const { pieces: ePieces, orientation: eOrient } = pat.patternData.EDGES;
 
-  return `<svg viewBox="0 0 ${W} ${W}" class="case-svg case-svg-f2l" xmlns="http://www.w3.org/2000/svg">
-    <!-- Base 3x3 Top Layer in neutral slate grey -->
-    ${rect(T, T, S, S, CUBE_COLORS.slate)}
-    ${rect(T + S, T, S, S, CUBE_COLORS.slate)}
-    ${rect(T + 2 * S, T, S, S, CUBE_COLORS.slate)}
-    ${rect(T, T + S, S, S, CUBE_COLORS.slate)}
-    ${rect(T + S, T + S, S, S, CUBE_COLORS.yellow)}
-    ${rect(T + 2 * S, T + S, S, S, CUBE_COLORS.blue)}
-    ${rect(T, T + 2 * S, S, S, CUBE_COLORS.slate)}
-    ${rect(T + S, T + 2 * S, S, S, CUBE_COLORS.green)}
+  // Find which original piece indices correspond to the current FR corner (D+F+R) and FR edge (F+R)
+  const targetCornerOrig = cPieces.findIndex((_, idx) => {
+    const faces = CORNER_FACES_333[idx].map(f => origToVisualFace[f]);
+    return faces.includes("D") && faces.includes("F") && faces.includes("R");
+  });
+  const targetEdgeOrig = ePieces.findIndex((_, idx) => {
+    const faces = EDGE_FACES_333[idx].map(f => origToVisualFace[f]);
+    return faces.includes("F") && faces.includes("R");
+  });
 
-    <!-- Front-Right Active Target Slot (UFR / FR slot highlighted in vibrant speedcube red) -->
-    ${rect(T + 2 * S, T + 2 * S, S, S, CUBE_COLORS.red, CUBE_COLORS.red, 2.2)}
+  const visualFaceColor = (vFace) => {
+    if (vFace === "U") return CUBE_COLORS.yellow;
+    if (vFace === "D") return CUBE_COLORS.white;
+    if (vFace === "F") return CUBE_COLORS.green;
+    if (vFace === "R") return CUBE_COLORS.red;
+    if (vFace === "L") return CUBE_COLORS.blue;
+    if (vFace === "B") return CUBE_COLORS.orange;
+    return CUBE_COLORS.slate;
+  };
 
-    <!-- Target Slot Outline indicator (White badge with Red text) -->
-    <circle cx="${T + 2 * S + S / 2}" cy="${T + 2 * S + S / 2}" r="7" fill="${CUBE_COLORS.white}" stroke="#111827" stroke-width="1.5"/>
-    <text x="${T + 2 * S + S / 2}" y="${T + 2 * S + S / 2 + 3.5}" text-anchor="middle" font-size="9" font-weight="900" fill="${CUBE_COLORS.red}">FR</text>
+  // Returns color for a corner sticker at `loc` (0..7) and `faceIdx` (0..2)
+  const f2lCornerColor = (loc, faceIdx, isBaseSlot = false) => {
+    const piece = cPieces[loc];
+    if (piece === targetCornerOrig) {
+      const origFace = CORNER_FACES_333[piece][(faceIdx - cOrient[loc] + 3) % 3];
+      return visualFaceColor(origToVisualFace[origFace]);
+    }
+    if (isBaseSlot) {
+      const baseFace = CORNER_FACES_333[loc][faceIdx];
+      return visualFaceColor(baseFace);
+    }
+    return CUBE_COLORS.slate;
+  };
+
+  // Returns color for an edge sticker at `loc` (0..11) and `faceIdx` (0..1)
+  const f2lEdgeColor = (loc, faceIdx, isBaseSlot = false) => {
+    const piece = ePieces[loc];
+    if (piece === targetEdgeOrig) {
+      const origFace = EDGE_FACES_333[piece][(faceIdx - eOrient[loc] + 2) % 2];
+      return visualFaceColor(origToVisualFace[origFace]);
+    }
+    if (isBaseSlot) {
+      const baseFace = EDGE_FACES_333[loc][faceIdx];
+      return visualFaceColor(baseFace);
+    }
+    return CUBE_COLORS.slate;
+  };
+
+  // Isometric projection helpers (U top, F bottom-left, R bottom-right)
+  // Cube center at (50, 50); U grid runs from back (0,0) to front-right (3,3)
+  const cx = 50;
+  const cy = 46;
+  const ux = 13.5, uy = -7.2;  // +x (towards R)
+  const vx = -13.5, vy = -7.2; // +y (towards B)
+  const dx = 0, dy = 15.0;     // +z (downwards towards D)
+
+  // Wait: let's define clean basis vectors from the front-top-center corner (UFR top-front vertex = (50, 48)):
+  // U face: goes back-left (-L) and back-right (+R? no, UFL is left, UBR is right)
+  // Standard isometric cube:
+  //   Top vertex (UBL) = (50, 6)
+  //   Center vertex (UFR corner) = (50, 48)
+  //   Left vertex (UFL) = (50 - 3*lx, 48 - 3*ly)
+  //   Right vertex (UBR) = (50 + 3*rx, 48 - 3*ry)
+  const ox = 50, oy = 48; // UFR shared vertex
+  const ax = -13.5, ay = -7.0; // 1 unit along U->L (and F->L)
+  const bx = 13.5, by = -7.0;  // 1 unit along U->B (and R->B)
+  const zx = 0, zy = 14.5;     // 1 unit downwards (D)
+
+  const pt = (a, b, z) => [
+    (ox + a * ax + b * bx + z * zx).toFixed(1),
+    (oy + a * ay + b * by + z * zy).toFixed(1)
+  ];
+
+  const poly = (pts, fill) =>
+    `<polygon points="${pts.map(p => p.join(",")).join(" ")}" fill="${fill}" stroke="#1e293b" stroke-width="1.15" stroke-linejoin="round"/>`;
+
+  let stickers = "";
+
+  // 1. U Face (z = 0, a in 0..3 from R to L, b in 0..3 from F to B)
+  // Grid: row r (0=Back..2=Front), col c (0=Left..2=Right)
+  // Note: a = 3 - c -> a goes 3..0 (L to R); b = 3 - r -> b goes 3..0 (B to F)
+  const uColors = [
+    [f2lCornerColor(2, 0), f2lEdgeColor(2, 0), f2lCornerColor(1, 0)],
+    [f2lEdgeColor(3, 0),   CUBE_COLORS.yellow, f2lEdgeColor(1, 0)],
+    [f2lCornerColor(3, 0), f2lEdgeColor(0, 0), f2lCornerColor(0, 0)]
+  ];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const a0 = 3 - c, a1 = 2 - c;
+      const b0 = 3 - r, b1 = 2 - r;
+      stickers += poly([pt(a0, b0, 0), pt(a1, b0, 0), pt(a1, b1, 0), pt(a0, b1, 0)], uColors[r][c]);
+    }
+  }
+
+  // 2. F Face (b = 0, a in 0..3 from R to L, z in 0..3 from U to D)
+  // Row z (0=Top, 1=Mid, 2=Bot), Col c (0=Left..2=Right => a = 3 - c)
+  const fColors = [
+    [f2lCornerColor(3, 1),       f2lEdgeColor(0, 1),       f2lCornerColor(0, 2)],
+    [CUBE_COLORS.green,          CUBE_COLORS.green,        f2lEdgeColor(4, 0, true)],
+    [CUBE_COLORS.green,          CUBE_COLORS.green,        f2lCornerColor(4, 1, true)]
+  ];
+  for (let zr = 0; zr < 3; zr++) {
+    for (let c = 0; c < 3; c++) {
+      const a0 = 3 - c, a1 = 2 - c;
+      stickers += poly([pt(a0, 0, zr), pt(a1, 0, zr), pt(a1, 0, zr + 1), pt(a0, 0, zr + 1)], fColors[zr][c]);
+    }
+  }
+
+  // 3. R Face (a = 0, b in 0..3 from F to B, z in 0..3 from U to D)
+  // Row z (0=Top, 1=Mid, 2=Bot), Col c (0=Front..2=Back => b = c)
+  const rColors = [
+    [f2lCornerColor(0, 1),       f2lEdgeColor(1, 1),       f2lCornerColor(1, 2)],
+    [f2lEdgeColor(4, 1, true),   CUBE_COLORS.red,          CUBE_COLORS.red],
+    [f2lCornerColor(4, 2, true), CUBE_COLORS.red,          CUBE_COLORS.red]
+  ];
+  for (let zr = 0; zr < 3; zr++) {
+    for (let c = 0; c < 3; c++) {
+      const b0 = c, b1 = c + 1;
+      stickers += poly([pt(0, b0, zr), pt(0, b1, zr), pt(0, b1, zr + 1), pt(0, b0, zr + 1)], rColors[zr][c]);
+    }
+  }
+
+  return `<svg viewBox="0 0 100 100" class="case-svg case-svg-f2l" data-slot="FR" xmlns="http://www.w3.org/2000/svg">
+    ${stickers}
   </svg>`;
 }
 
