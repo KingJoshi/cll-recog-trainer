@@ -1087,11 +1087,12 @@ function renderTrackBar() {
         { id: "timer-drill", name: "⏱️ Timer & Handling Drill", shortName: "⏱️ Timer Drill" }
       ];
     } else {
-      if (!["full", "layer", "face", "timer-drill"].includes(solveTarget)) {
+      if (!["full", "cll", "layer", "face", "timer-drill"].includes(solveTarget)) {
         solveTarget = "full";
       }
       items = [
         { id: "full", name: "Full Solve (2x2)", shortName: "Full Solve" },
+        { id: "cll", name: "CLL Case (40)", shortName: "CLL (40)" },
         { id: "layer", name: "1st Layer Only", shortName: "1st Layer" },
         { id: "face", name: "1st Face (Ortega)", shortName: "1st Face" },
         { id: "timer-drill", name: "⏱️ Timer & Handling Drill", shortName: "⏱️ Timer Drill" }
@@ -1202,11 +1203,12 @@ function populateSolveTargetSelect() {
   } else {
     solveTargetSelect.innerHTML = `
       <option value="full">Full Solve (WCA 2x2)</option>
+      <option value="cll">CLL Case (40)</option>
       <option value="layer">1st Layer Only</option>
       <option value="face">1st Face Only (Ortega)</option>
       <option value="timer-drill">⏱️ Timer &amp; Handling Drill</option>
     `;
-    if (!["full", "layer", "face", "timer-drill"].includes(solveTarget)) {
+    if (!["full", "cll", "layer", "face", "timer-drill"].includes(solveTarget)) {
       solveTarget = "full";
     }
   }

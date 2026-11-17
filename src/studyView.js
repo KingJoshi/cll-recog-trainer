@@ -409,12 +409,12 @@ export class StudyView {
       return `
         <div class="guide-card-stack">
           <section class="guide-card">
-            <h3 class="guide-card-title">⏱️ 1. 2x2 1st Layer Fundamentals</h3>
-            <p>Every 2x2 scramble has a 1st layer that can be solved in <strong>4 moves or fewer</strong>:</p>
+            <h3 class="guide-card-title">⏱️ 1. 2x2 1st Face (Ortega) &amp; 1st Layer (CLL) Fundamentals</h3>
+            <p>With full color neutrality, <strong>~99.95%</strong> of 2x2 scrambles have a <strong>1st Face (Ortega)</strong> that can be solved in <strong>4 moves or fewer</strong>, whereas a complete <strong>1st Layer (CLL)</strong> requires matching corner permutation as well:</p>
             <ul class="guide-list">
-              <li><strong>Bar Preservation:</strong> If the scramble already has 2 matching bottom pieces (a 1x2 bar), preserve it!</li>
+              <li><strong>Bar Preservation (CLL):</strong> If the scramble already has 2 adjacent solved corners (a 1x2 bar), preserve it when building your 1st layer!</li>
               <li><strong>Direct Insertion:</strong> Single-move corner insertions (<code>R'</code>, <code>F</code>, <code>R</code>) are fastest.</li>
-              <li><strong>Color Neutrality:</strong> Look at all 6 faces. The easiest layer is often not White!</li>
+              <li><strong>Color Neutrality:</strong> Look at all 6 faces. The shortest face or layer is often not White!</li>
             </ul>
           </section>
         </div>
