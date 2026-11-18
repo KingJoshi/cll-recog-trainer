@@ -8229,6 +8229,21 @@ html.overview-open body {
     }
 }
 
+.layer-mode-switch {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.layer-mode-btn.active {
+    background: var(--accent, #2563eb);
+    border-color: var(--accent, #2563eb);
+    color: #fff;
+}
+
+
 
 
 

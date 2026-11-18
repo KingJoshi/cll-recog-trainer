@@ -241,6 +241,42 @@ function countFaceOnD(pattern, color) {
     return count;
 }
 
+/**
+ * Classifies the bottom-layer permutation once all 4 D-face stickers match `face`:
+ * returns 'Layer Solved', 'Adj Bar', or 'Opp (No Bar)'.
+ */
+function classifyBottomFacePerm(pattern, face) {
+    const d = pattern.patternData['CORNERS'];
+    const opposite = OPPOSITE_COLOR[face];
+    // For each D slot (4:DFR, 5:DFL, 6:DBL, 7:DBR), get the two side colors
+    // Using D sticker at (3 - ori) % 3, the next two stickers are clockwise/CCW around the corner
+    const sideColors = {};
+    for (let s = 4; s <= 7; s++) {
+        const colors = PIECE_COLORS[d.pieces[s]];
+        const o = d.orientation[s];
+        // Pick the two non-D colors in order around the slot
+        sideColors[s] = [colors[(4 - o) % 3], colors[(5 - o) % 3]];
+    }
+    // Check if any two adjacent slots share a matching side color on the same face
+    // Slot 4 (DFR): +F, +R; Slot 5 (DFL): +L, +F; Slot 6 (DBL): +B, +L; Slot 7 (DBR): +R, +B
+    // Actually in PIECE_COLORS:
+    //   0:UFR [U,R,F], 1:UBR [U,B,R], 2:UBL [U,O,B], 3:UFL [U,G,O] -> [D, sideCW, sideCCW]
+    //   4:DFR [Y,G,R] -> [D, F, R] (4-o = F, 5-o = R)
+    //   5:DFL [Y,O,G] -> [D, L, F] (4-o = L, 5-o = F)
+    //   6:DBL [Y,B,O] -> [D, B, L] (4-o = B, 5-o = L)
+    //   7:DBR [Y,R,B] -> [D, R, B] (4-o = R, 5-o = B)
+    const fMatch = sideColors[4][0] === sideColors[5][1];
+    const lMatch = sideColors[5][0] === sideColors[6][1];
+    const bMatch = sideColors[6][0] === sideColors[7][1];
+    const rMatch = sideColors[7][0] === sideColors[4][1];
+    const matches = [fMatch, lMatch, bMatch, rMatch].filter(Boolean).length;
+    if (matches === 4) return 'Layer Solved';
+    if (matches >= 1) return 'Adj Bar';
+    // Sanity check: opposite colors on adjacent corners means Opp
+    void opposite;
+    return 'Opp (No Bar)';
+}
+
 function getInspComplexity(insp) {
     if (!insp || insp === 'none') return 0;
     const parts = insp.trim().split(/\s+/);
@@ -257,6 +293,13 @@ function getInspComplexity(insp) {
 }
 
 /**
+ * Searches for 1st Face (Ortega) solutions on specified face(s).
+ */
+export async function findFaceSolutions(scramble, targetFaces = ['white'], maxDepth = 4) {
+    return search2x2BottomSolutions(scramble, targetFaces, maxDepth, 'face');
+}
+
+/**
  * Searches for first layer solutions on specified face(s).
  * @param {string} scramble - The 2x2 scramble string
  * @param {Array<string>} targetFaces - Array of faces to solve (e.g. ['white'], ['white', 'yellow'], etc.)
@@ -264,6 +307,10 @@ function getInspComplexity(insp) {
  * @returns {Promise<Array<{face: string, inspection: string, moves: string, moveCount: number, caseId: string, fixedCount: number, orientedDCount: number}>>}
  */
 export async function findLayerSolutions(scramble, targetFaces = ['white'], maxDepth = 5) {
+    return search2x2BottomSolutions(scramble, targetFaces, maxDepth, 'layer');
+}
+
+async function search2x2BottomSolutions(scramble, targetFaces = ['white'], maxDepth = 5, goalMode = 'layer') {
     if (!scramble || !scramble.trim()) return [];
 
     const allowedFaces = new Set((targetFaces && targetFaces.length > 0 ? targetFaces : ['white']).map(f => f.toLowerCase()));
@@ -317,14 +364,28 @@ export async function findLayerSolutions(scramble, targetFaces = ['white'], maxD
                 return fixed;
             };
 
-            const initLayer = getSolvedBottomLayer(orientedPattern);
-            if (initLayer && allowedFaces.has(initLayer.bottom)) {
+            const checkSolvedGoal = (pat) => {
+                if (goalMode === 'face') {
+                    if (countFaceOnD(pat, face) === 4) {
+                        return { bottom: face, caseId: classifyBottomFacePerm(pat, face) };
+                    }
+                    return null;
+                }
+                const layer = getSolvedBottomLayer(pat);
+                if (layer && allowedFaces.has(layer.bottom)) {
+                    return { bottom: layer.bottom, caseId: identifyCaseUniversal(pat, ctx, layer) };
+                }
+                return null;
+            };
+
+            const initGoal = checkSolvedGoal(orientedPattern);
+            if (initGoal) {
                 rawSolutions.push({
-                    face: initLayer.bottom,
+                    face: initGoal.bottom,
                     insp,
                     moves: [],
                     count: 0,
-                    caseId: identifyCaseUniversal(orientedPattern, ctx, initLayer),
+                    caseId: initGoal.caseId,
                     fixedCount: 4,
                     orientedDCount,
                     scrambleDCount,
@@ -342,17 +403,17 @@ export async function findLayerSolutions(scramble, targetFaces = ['white'], maxD
                         if (m[0] === lastFace) continue;
                         const nextPattern = item.pattern.applyTransformation(ctx.moveTrans[m]);
                         const nextMoves = [...item.moves, m];
-                        const layer = getSolvedBottomLayer(nextPattern);
-                        if (layer && allowedFaces.has(layer.bottom)) {
+                        const goal = checkSolvedGoal(nextPattern);
+                        if (goal) {
                             while (nextMoves.length > 0 && nextMoves[nextMoves.length - 1][0] === 'U') {
                                 nextMoves.pop();
                             }
                             rawSolutions.push({
-                                face: layer.bottom,
+                                face: goal.bottom,
                                 insp,
                                 moves: nextMoves,
                                 count: nextMoves.length,
-                                caseId: identifyCaseUniversal(nextPattern, ctx, layer),
+                                caseId: goal.caseId,
                                 fixedCount: calcFixedCount(nextMoves),
                                 orientedDCount,
                                 scrambleDCount,

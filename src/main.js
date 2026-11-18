@@ -1,7 +1,7 @@
 import { ScrambleDisplay } from 'scramble-display';
 import { puzzles } from 'cubing/puzzles';
 import { randomScrambleForEvent } from 'cubing/scramble';
-import { findLayerSolutions } from './layerSolver.js';
+import { findLayerSolutions, findFaceSolutions } from './layerSolver.js';
 import { findCrossSolutions } from './crossSolver.js';
 import { Alg } from 'cubing/alg';
 import { cllCases } from './casesData.js';
@@ -937,6 +937,7 @@ async function applyFreeMove(move) {
     simStatusBadge.textContent = "Free Turns";
     simStatusBadge.className = "sim-badge badge-warning";
     simStepCounter.textContent = `Free face turns active (${userFreeMoves.length} turn${userFreeMoves.length === 1 ? '' : 's'} · click Reset Scramble to restore case)`;
+    updateSimulateSolutions();
   }
 }
 
@@ -959,12 +960,23 @@ function undoLastFreeMove() {
     simStatusBadge.textContent = "Free Turns";
     simStatusBadge.className = "sim-badge badge-warning";
     simStepCounter.textContent = `Free face turns active (${userFreeMoves.length} turn${userFreeMoves.length === 1 ? '' : 's'} · click Reset Scramble to restore case)`;
+    updateSimulateSolutions();
   }
 }
 
 async function reverseAllFreeMoves() {
   if (!userFreeMoves.length) return;
   resetFreeMovesToScramble();
+}
+
+function updateSimulateSolutions() {
+  if (mode !== "simulate") return;
+  const seq = [freeMoveBaseScramble, ...userFreeMoves].filter(Boolean).join(" ").trim();
+  if (currentPuzzle === "222") {
+    updateLayerSolutions(seq);
+  } else if (currentPuzzle === "333" || currentPuzzle === "333oh") {
+    updateCrossSolutions(seq);
+  }
 }
 
 function resetFreeMovesToScramble() {
@@ -986,16 +998,46 @@ function resetFreeMovesToScramble() {
     } catch {}
   }
   applyColorsTo3DCube(el);
+  updateSimulateSolutions();
 }
 
 function resetFreeMovesToSolved() {
   userFreeMoves = [];
+  freeMoveBaseScramble = "";
+  currentBaseDisplayScramble = "";
   updateFreeMovesUI();
   el.scramble = "";
   try {
     el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
   } catch {}
   applyColorsTo3DCube(el);
+
+  if (mode === "simulate") {
+    if (simScrambleInput) simScrambleInput.value = "";
+    if (simCaseSelect) simCaseSelect.value = "";
+    if (simScrambleSelectWrap) simScrambleSelectWrap.hidden = true;
+    if (simCaseDetails) simCaseDetails.hidden = true;
+    if (simErrorMsg) simErrorMsg.hidden = true;
+    simOriginalScramble = "";
+    simHasSolutionAppended = false;
+    simExpectedCaseObj = null;
+    simMoves = [];
+    simCurrentStep = 0;
+    if (simAppendSolutionBtn) {
+      simAppendSolutionBtn.textContent = "Append Solution";
+      simAppendSolutionBtn.classList.remove("active");
+      simAppendSolutionBtn.disabled = true;
+    }
+    simRenderMoveList();
+    if (simStatusBadge) {
+      simStatusBadge.textContent = "Solved";
+      simStatusBadge.className = "sim-badge";
+    }
+    if (simStepCounter) {
+      simStepCounter.textContent = "Solved cube · ready for Free Turns";
+    }
+    updateSimulateSolutions();
+  }
 }
 
 // Wire Free Moves keypad buttons
@@ -2670,10 +2712,10 @@ function renderStage() {
   solveSurface.hidden = !solving;
   solveTimes.hidden = !solving;
   if (layerSolutionsWidget) {
-    layerSolutionsWidget.hidden = !solving || currentPuzzle !== "222" || solveTarget === "timer-drill";
+    layerSolutionsWidget.hidden = !(solving || simulating) || currentPuzzle !== "222" || (solving && solveTarget === "timer-drill");
   }
   if (crossSolutionsWidget) {
-    crossSolutionsWidget.hidden = !solving || (currentPuzzle !== "333" && currentPuzzle !== "333oh") || solveTarget === "timer-drill";
+    crossSolutionsWidget.hidden = !(solving || simulating) || (currentPuzzle !== "333" && currentPuzzle !== "333oh") || (solving && solveTarget === "timer-drill");
   }
   renderTimerDrillBanner();
   if (solving) renderSolvePanel();
@@ -4548,29 +4590,61 @@ function toggleTargetFace(face) {
 let currentLayerSolutions = [];
 let currentLayerSolutionsScramble = "";
 let currentLayerSolutionsFacesKey = "";
+let layerSolutionMode = "layer"; // "layer" | "face"
+
+const layerModeLayerBtn = document.getElementById("layerModeLayerBtn");
+const layerModeFaceBtn = document.getElementById("layerModeFaceBtn");
+const layerSolutionsTitleEl = document.getElementById("layerSolutionsTitle");
+
+function setLayerSolutionMode(nextMode) {
+  layerSolutionMode = nextMode === "face" ? "face" : "layer";
+  if (layerModeLayerBtn) {
+    const isL = layerSolutionMode === "layer";
+    layerModeLayerBtn.classList.toggle("active", isL);
+    layerModeLayerBtn.setAttribute("aria-pressed", String(isL));
+  }
+  if (layerModeFaceBtn) {
+    const isF = layerSolutionMode === "face";
+    layerModeFaceBtn.classList.toggle("active", isF);
+    layerModeFaceBtn.setAttribute("aria-pressed", String(isF));
+  }
+  if (layerSolutionsTitleEl) {
+    const facesShort = layerTargetFaces.length === 6 ? "All 6" : layerTargetFaces.map(f => f[0].toUpperCase()).join(" / ");
+    layerSolutionsTitleEl.textContent = `${layerSolutionMode === "face" ? "1st face (Ortega)" : "1st layer"} solutions (${facesShort})`;
+  }
+  const scr = mode === "simulate"
+    ? [freeMoveBaseScramble, ...userFreeMoves].filter(Boolean).join(" ").trim()
+    : (currentSolveScramble || currentLayerSolutionsScramble);
+  updateLayerSolutions(scr);
+}
+
+if (layerModeLayerBtn) layerModeLayerBtn.addEventListener("click", () => setLayerSolutionMode("layer"));
+if (layerModeFaceBtn) layerModeFaceBtn.addEventListener("click", () => setLayerSolutionMode("face"));
 
 function updateLayerSolutions(scrambleStr) {
   if (!scrambleStr) {
     if (layerSolutionsList) {
-      layerSolutionsList.innerHTML = '<p class="layer-solutions-empty">No scramble loaded.</p>';
+      layerSolutionsList.innerHTML = '<p class="layer-solutions-empty">No scramble loaded (or cube is solved). Load a scramble or use Free Face Turns to build a state.</p>';
     }
     if (layerSolutionsBadge) layerSolutionsBadge.textContent = "";
     return;
   }
-  const facesKey = [...layerTargetFaces].sort().join(",");
+  const facesKey = `${layerSolutionMode}:${[...layerTargetFaces].sort().join(",")}`;
   currentLayerSolutionsScramble = scrambleStr;
   currentLayerSolutionsFacesKey = facesKey;
   if (layerSolutionsBadge) layerSolutionsBadge.textContent = "searching...";
   if (layerSolutionsList) {
     const facesDesc = layerTargetFaces.length === 6 ? 'all 6 faces' : layerTargetFaces.map(f => capitalize(f)).join('/');
-    const targetName = solveTarget === "face" ? "1st face" : "1st layer";
+    const targetName = layerSolutionMode === "face" ? "1st face (Ortega)" : "1st layer";
     layerSolutionsList.innerHTML = `<p class="layer-solutions-empty">Searching for ${escapeHtml(facesDesc)} ${targetName} solutions...</p>`;
   }
 
   setTimeout(async () => {
     if (currentLayerSolutionsScramble !== scrambleStr || currentLayerSolutionsFacesKey !== facesKey) return;
     try {
-      const sols = await findLayerSolutions(scrambleStr, layerTargetFaces, 5);
+      const sols = layerSolutionMode === "face"
+        ? await findFaceSolutions(scrambleStr, layerTargetFaces, 4)
+        : await findLayerSolutions(scrambleStr, layerTargetFaces, 5);
       if (currentLayerSolutionsScramble !== scrambleStr || currentLayerSolutionsFacesKey !== facesKey) return;
       currentLayerSolutions = sols;
       renderLayerSolutions(sols, false);
@@ -4585,10 +4659,10 @@ function updateLayerSolutions(scrambleStr) {
 
 function renderLayerSolutions(sols, showAll = false) {
   if (!layerSolutionsList) return;
-  const targetName = solveTarget === "face" ? "1st face" : "1st layer";
+  const targetName = layerSolutionMode === "face" ? "1st face (Ortega)" : "1st layer";
   if (!sols || sols.length === 0) {
     const facesDesc = layerTargetFaces.length === 6 ? 'selected faces' : layerTargetFaces.map(f => capitalize(f)).join(', ');
-    layerSolutionsList.innerHTML = `<p class="layer-solutions-empty">No ${targetName} solutions found for ${escapeHtml(facesDesc)} within 6 moves.</p>`;
+    layerSolutionsList.innerHTML = `<p class="layer-solutions-empty">No ${targetName} solutions found for ${escapeHtml(facesDesc)} within ${layerSolutionMode === "face" ? 4 : 6} moves.</p>`;
     if (layerSolutionsBadge) layerSolutionsBadge.textContent = "0";
     return;
   }
@@ -4602,9 +4676,9 @@ function renderLayerSolutions(sols, showAll = false) {
   const displayed = sols.slice(0, limit);
 
   const html = displayed.map((sol, idx) => {
-    const isSolved = sol.caseId === "Solved";
+    const isSolved = sol.caseId === "Solved" || sol.caseId === "Layer Solved";
     const caseBadgeClass = isSolved ? "badge-solved" : "badge-case";
-    const caseLabel = isSolved ? "Leaves Solved" : (sol.caseId === "PBL" ? "Leaves PBL" : `Leaves ${sol.caseId}`);
+    const caseLabel = isSolved ? `Leaves ${sol.caseId}` : (sol.caseId === "PBL" ? "Leaves PBL" : `Leaves ${sol.caseId}`);
     const faceName = sol.face || 'white';
     const inspText = sol.inspection && sol.inspection !== 'none' ? sol.inspection : 'none';
     const inspTooltip = sol.fixedCount
@@ -4660,7 +4734,9 @@ function renderLayerSolutions(sols, showAll = false) {
       const idx = Number(btn.dataset.idx);
       const sol = displayed[idx];
       if (!sol) return;
-      const base = currentSolveScramble || scrambleMoves || scramble;
+      const base = mode === "simulate"
+        ? ([freeMoveBaseScramble, ...userFreeMoves].filter(Boolean).join(" ").trim() || currentLayerSolutionsScramble)
+        : (currentSolveScramble || scrambleMoves || scramble);
       const solMoves = (sol.inspection && sol.inspection !== 'none' ? sol.inspection + ' ' : '') + (sol.moves || '');
       const fullSeq = `${base} ${solMoves}`.trim();
       setMode("simulate", { skipSimInit: true });
@@ -8783,6 +8859,8 @@ function simLoadScramble(raw, { expectedCase = null, isAppended = false, activeP
     simAppendSolutionBtn.disabled = true;
     if (simScrambleSelectWrap) simScrambleSelectWrap.hidden = true;
   }
+
+  updateSimulateSolutions();
 
   const origCount = getSimOriginalCount();
   const shouldStartAtSolution = startAtSolution && origCount > 0 && origCount < simMoves.length;
