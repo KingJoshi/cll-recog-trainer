@@ -556,9 +556,7 @@ export async function renderF2lSvg(caseObj) {
       const origFace = CORNER_FACES_333[piece][(faceIdx - cOrient[loc] + 3) % 3];
       return visualFaceColor(origToVisualFace[origFace]);
     }
-    if (isBaseSlot) {
-      return visualFaceColor(CORNER_FACES_333[loc][faceIdx]);
-    }
+    // Target slot stays empty (slate) unless the target corner is actually inside it
     return CUBE_COLORS.slate;
   };
 
@@ -568,9 +566,7 @@ export async function renderF2lSvg(caseObj) {
       const origFace = EDGE_FACES_333[piece][(faceIdx - eOrient[loc] + 2) % 2];
       return visualFaceColor(origToVisualFace[origFace]);
     }
-    if (isBaseSlot) {
-      return visualFaceColor(EDGE_FACES_333[loc][faceIdx]);
-    }
+    // Target slot stays empty (slate) unless the target edge is actually inside it
     return CUBE_COLORS.slate;
   };
 
