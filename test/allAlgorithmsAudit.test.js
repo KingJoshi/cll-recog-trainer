@@ -21,7 +21,7 @@ import {
 } from '../src/data/firstLayerBottomData.js';
 import { auditAllFirstLayerAlgs } from '../src/cube/firstLayerVerifier.js';
 import { FIRST_FACE_EXAMPLES } from '../src/features/study/firstLayerExplorer.js';
-import { getEffectiveAlgsForCase } from '../src/cube/algMirror.js';
+import { getEffectiveAlgsForCase, hasSliceMoves, hasBMoves } from '../src/cube/algMirror.js';
 import { TIMER_DRILL_PRESETS } from '../src/ui/navController.js';
 
 const U_AUFS = ['', 'U', "U'", 'U2'];
@@ -378,33 +378,44 @@ test('2x2x2: First Layer Bar-on-Left (75 cases + 13 2-Look mini-cases) and FIRST
   }
 });
 
-test('3x3x3 & 3x3x3 OH (RH Mirror / RH z\' / FL Mirror): F2L (41), OLL (57), PLL (21)', async () => {
+test('3x3x3 & 3x3x3 OH (Left/Right × Table/No-Table): F2L (41), OLL (57), PLL (21)', async () => {
   const kp = await puzzles['3x3x3'].kpuzzle();
   const solved = kp.defaultPattern();
   const z2Solved = solved.applyAlg('z2');
 
+  const getAllOhVariants = (trackId, c, trackCases) => {
+    const out = [];
+    for (const ohHand of ['left', 'right']) {
+      for (const ohTableAbuse of [true, false]) {
+        const eff = getEffectiveAlgsForCase('333oh', trackId, c, { ohHand, ohTableAbuse, trackCases });
+        for (const a of eff) {
+          if (!ohTableAbuse) {
+            assert.ok(
+              !hasSliceMoves(a.alg) && !hasBMoves(a.alg),
+              `${trackId} ${c.id} (${ohHand}, no-table) must not contain slice or raw B moves: ${a.alg}`
+            );
+          }
+          out.push(a);
+        }
+      }
+    }
+    return out;
+  };
+
   // F2L
   assert.strictEqual(f2lCases.length, 41);
   for (const c of f2lCases) {
-    const stdAlgs = c.algs;
-    for (const a of stdAlgs) {
-      const exec = joinMoves(a.startAuf, a.alg);
-      assert.ok(
-        is3x3F2lSolved(solved.applyAlg(joinMoves(c.setup, exec)), solved),
-        `F2L bare failed: ${c.id} | alg=${a.id}`
-      );
-      assert.ok(
-        is3x3F2lSolved(solved.applyAlg(joinMoves('z2', c.setup, exec)), solved, { isZ2: true }),
-        `F2L z2 failed: ${c.id} | alg=${a.id}`
-      );
-    }
-    const rhAlgs = getEffectiveAlgsForCase('333oh', 'f2l', c, { ohHand: 'right', trackCases: f2lCases });
-    for (const a of rhAlgs) {
+    const allF2l = [...c.algs, ...getAllOhVariants('f2l', c, f2lCases)];
+    for (const a of allF2l) {
       const effectiveSetup = a.isFlMirror && a.mirroredSetup ? a.mirroredSetup : c.setup;
       const exec = joinMoves(a.startAuf, a.alg);
       assert.ok(
         is3x3F2lSolved(solved.applyAlg(joinMoves(effectiveSetup, exec)), solved),
-        `F2L 333oh RH failed: ${c.id} | alg=${a.id} | setup="${effectiveSetup}" | exec="${exec}"`
+        `F2L bare/OH failed: ${c.id} | alg=${a.id} | setup="${effectiveSetup}" | exec="${exec}"`
+      );
+      assert.ok(
+        is3x3F2lSolved(solved.applyAlg(joinMoves('z2', effectiveSetup, exec)), solved, { isZ2: true }),
+        `F2L z2 failed: ${c.id} | alg=${a.id} | setup="${effectiveSetup}" | exec="${exec}"`
       );
     }
   }
@@ -413,8 +424,7 @@ test('3x3x3 & 3x3x3 OH (RH Mirror / RH z\' / FL Mirror): F2L (41), OLL (57), PLL
   assert.strictEqual(ollCases.length, 57);
   for (const c of ollCases) {
     const scrambles = Array.from(new Set([c.setup, ...(c.scrambles || [])].filter(Boolean)));
-    const rhAlgs = getEffectiveAlgsForCase('333oh', 'oll', c, { ohHand: 'right', trackCases: ollCases });
-    const allAlgs = [...c.algs, ...rhAlgs.filter(a => a.isSynthesizedRh)];
+    const allAlgs = [...c.algs, ...getAllOhVariants('oll', c, ollCases)];
     for (const s of scrambles) {
       for (const a of allAlgs) {
         const exec = joinMoves(a.startAuf, a.alg);
@@ -434,8 +444,7 @@ test('3x3x3 & 3x3x3 OH (RH Mirror / RH z\' / FL Mirror): F2L (41), OLL (57), PLL
   assert.strictEqual(pllCases.length, 21);
   for (const c of pllCases) {
     const scrambles = Array.from(new Set([c.setup, ...(c.scrambles || [])].filter(Boolean)));
-    const rhAlgs = getEffectiveAlgsForCase('333oh', 'pll', c, { ohHand: 'right', trackCases: pllCases });
-    const allAlgs = [...c.algs, ...rhAlgs.filter(a => a.isSynthesizedRh)];
+    const allAlgs = [...c.algs, ...getAllOhVariants('pll', c, pllCases)];
     for (const s of scrambles) {
       for (const a of allAlgs) {
         const exec = joinMoves(a.startAuf, a.alg);

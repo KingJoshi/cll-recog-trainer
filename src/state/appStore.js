@@ -147,6 +147,9 @@ export class AppStore {
     }
 
     const ohHand = savedSettings.ohHand === "right" ? "right" : (cookiePrefs.ohHand === "right" ? "right" : "left");
+    const ohTableAbuse = savedSettings.ohTableAbuse !== undefined
+      ? Boolean(savedSettings.ohTableAbuse)
+      : (cookiePrefs.ohTableAbuse !== undefined ? Boolean(cookiePrefs.ohTableAbuse) : true);
     const rawSimSpeed = Number(savedSettings.simSpeed ?? cookiePrefs.simSpeed);
     const simSpeed = SIM_SPEED_OPTIONS.includes(rawSimSpeed) ? rawSimSpeed : 1;
 
@@ -155,6 +158,7 @@ export class AppStore {
       currentTrackId,
       mode,
       ohHand,
+      ohTableAbuse,
       simSpeed,
       selectedByTrack,
       selectedCases: new Set(),
@@ -427,6 +431,14 @@ export class AppStore {
     this.notify("ohHand", { ohHand: next });
   }
 
+  setOhTableAbuse(enabled) {
+    const next = Boolean(enabled);
+    if (this.state.ohTableAbuse === next) return;
+    this.state.ohTableAbuse = next;
+    this.saveSettings();
+    this.notify("ohTableAbuse", { ohTableAbuse: next });
+  }
+
   setSimSpeed(speed) {
     const next = Number(speed);
     if (!SIM_SPEED_OPTIONS.includes(next) || this.state.simSpeed === next) return;
@@ -442,6 +454,7 @@ export class AppStore {
       currentPuzzle: s.currentPuzzle,
       currentTrackId: s.currentTrackId,
       ohHand: s.ohHand,
+      ohTableAbuse: s.ohTableAbuse,
       simSpeed: s.simSpeed,
       selected: cllSel,
       selectedByTrack: s.selectedByTrack,
@@ -479,6 +492,7 @@ export class AppStore {
       currentPuzzle: s.currentPuzzle,
       currentTrackId: s.currentTrackId,
       ohHand: s.ohHand,
+      ohTableAbuse: s.ohTableAbuse,
       simSpeed: s.simSpeed,
       mode: s.mode,
       darkMode: s.darkMode,

@@ -71,6 +71,8 @@ export function createSettingsModalController({
   const settingsShowReflection = typeof document !== "undefined" ? document.getElementById("settingsShowReflection") : null;
   const settingsOhHandLeftBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandLeftBtn") : null;
   const settingsOhHandRightBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandRightBtn") : null;
+  const settingsOhTableOnBtn = typeof document !== "undefined" ? document.getElementById("settingsOhTableOnBtn") : null;
+  const settingsOhTableOffBtn = typeof document !== "undefined" ? document.getElementById("settingsOhTableOffBtn") : null;
   const settingsSpeedBtns = typeof document !== "undefined" ? Array.from(document.querySelectorAll(".settings-speed-btn")) : [];
 
   function setPickingColor(isPicking) {
@@ -99,6 +101,15 @@ export function createSettingsModalController({
     if (settingsOhHandRightBtn) {
       settingsOhHandRightBtn.classList.toggle("active", isRight);
       settingsOhHandRightBtn.setAttribute("aria-pressed", String(isRight));
+    }
+    const useTable = s.ohTableAbuse !== false;
+    if (settingsOhTableOnBtn) {
+      settingsOhTableOnBtn.classList.toggle("active", useTable);
+      settingsOhTableOnBtn.setAttribute("aria-pressed", String(useTable));
+    }
+    if (settingsOhTableOffBtn) {
+      settingsOhTableOffBtn.classList.toggle("active", !useTable);
+      settingsOhTableOffBtn.setAttribute("aria-pressed", String(!useTable));
     }
     const activeSpeed = Number(s.simSpeed ?? 1);
     settingsSpeedBtns.forEach(btn => {
@@ -335,6 +346,16 @@ export function createSettingsModalController({
     });
   });
 
+  [settingsOhTableOnBtn, settingsOhTableOffBtn].forEach(btn => {
+    btn?.addEventListener("click", () => {
+      const next = btn.dataset.settingsOhTable;
+      if (!next) return;
+      appStore.setOhTableAbuse?.(next === "table");
+      renderToggles();
+      refreshActiveViews();
+    });
+  });
+
   settingsSpeedBtns.forEach(btn => {
     btn?.addEventListener("click", () => {
       const spd = parseFloat(btn.dataset.settingsSpeed);
@@ -345,7 +366,7 @@ export function createSettingsModalController({
   });
 
   appStore?.subscribe?.((evt) => {
-    if (evt === "theme" || evt === "ohHand" || evt === "simSpeed") renderToggles();
+    if (evt === "theme" || evt === "ohHand" || evt === "ohTableAbuse" || evt === "simSpeed") renderToggles();
   });
 
   return {

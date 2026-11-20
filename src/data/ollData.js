@@ -66,6 +66,12 @@ export const ollCases = [
         "alg": "r U r' U2 R U2 R' U2 r U' r'",
         "note": "Community Alt",
         "startAuf": "U"
+      },
+      {
+        "id": "oll-02-oh-1",
+        "alg": "F R U R' U' F' U2 F U R U' R' F'",
+        "note": "OH <R, U, F> (No Table Abuse)",
+        "startAuf": ""
       }
     ],
     "setup": "f U R U' R' f' F U R U' R' F'"
@@ -100,6 +106,12 @@ export const ollCases = [
         "alg": "M R U R' U r U2 r' U M'",
         "note": "Community Alt",
         "startAuf": "U"
+      },
+      {
+        "id": "oll-03-oh-1",
+        "alg": "F U R U' R' F' U F R U R' U' F'",
+        "note": "OH <R, U, F> (No Table Abuse)",
+        "startAuf": "U2"
       }
     ],
     "setup": "F U R U' R' F' U f U R U' R' f'"
@@ -207,6 +219,12 @@ export const ollCases = [
         "id": "oll-06-4",
         "alg": "L F2 l' U' l F' L'",
         "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "oll-06-oh-1",
+        "alg": "L F2 R' F' R F' L'",
+        "note": "OH <L, R, F> (No Table Abuse)",
         "startAuf": ""
       }
     ],
@@ -378,6 +396,12 @@ export const ollCases = [
         "alg": "M R U R' U R U2 R' U M'",
         "note": "Community Alt",
         "startAuf": "U2"
+      },
+      {
+        "id": "oll-11-oh-1",
+        "alg": "F' L' U' L U F U' F' L' U' L U F",
+        "note": "OH <L, U, F> (No Table Abuse)",
+        "startAuf": "U'"
       }
     ],
     "setup": "r U2' R' F R' F' R U' R U' r'"
@@ -616,6 +640,12 @@ export const ollCases = [
         "alg": "R D r' U' r D' R' U' R2 F R F' R",
         "note": "Community Alt",
         "startAuf": ""
+      },
+      {
+        "id": "oll-18-oh-1",
+        "alg": "F R U R' y' U R' U2 R' F R F'",
+        "note": "OH <R, U, F> (No Table Abuse)",
+        "startAuf": "U2"
       }
     ],
     "setup": "r' U2' R U R' U r2 U2' R' U' R U' r'"
@@ -689,6 +719,24 @@ export const ollCases = [
         "id": "oll-20-6",
         "alg": "S R' U' R U R U R U' R' S'",
         "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "oll-20-oh-1",
+        "alg": "F U R U' R' F' U2 R' U' R' F R F' U R",
+        "note": "OH <R, U, F> (No Table Abuse)",
+        "startAuf": ""
+      },
+      {
+        "id": "oll-20-oh-2",
+        "alg": "F U R U' R' F' L U L F' L' F U' L'",
+        "note": "OH <R, U, L, F> (No Table Abuse)",
+        "startAuf": ""
+      },
+      {
+        "id": "oll-20-oh-3",
+        "alg": "r U R' U' r2 R2 U R U' R' U' R' r",
+        "note": "OH Wide-r (No M-slice)",
         "startAuf": ""
       }
     ],
@@ -1005,6 +1053,18 @@ export const ollCases = [
         "alg": "M' U M U2 M' U M",
         "note": "Community Alt",
         "startAuf": "U2"
+      },
+      {
+        "id": "oll-28-oh-1",
+        "alg": "L F R' F' L' R U R U' R'",
+        "note": "OH <R, U, L, F> (No Table Abuse)",
+        "startAuf": ""
+      },
+      {
+        "id": "oll-28-oh-2",
+        "alg": "F R U R' U' F2 L' U' L U F",
+        "note": "OH <R, U, L, F> Alt",
+        "startAuf": ""
       }
     ],
     "setup": "R U R' U' R' r U R U' r'"
@@ -1737,6 +1797,12 @@ export const ollCases = [
         "alg": "R' F R' F' R2 U2 B' R B R'",
         "note": "Community Alt",
         "startAuf": ""
+      },
+      {
+        "id": "oll-49-oh-1",
+        "alg": "L' U2 L U L' U L F' L' U' L U F",
+        "note": "OH <L, U, F> (No Table Abuse)",
+        "startAuf": "U'"
       }
     ],
     "setup": "r' U r2 U' r2' U' r2 U r'"
@@ -1879,6 +1945,12 @@ export const ollCases = [
         "alg": "l' U2 L U L' U' L U L' U l",
         "note": "Community Alt",
         "startAuf": "U'"
+      },
+      {
+        "id": "oll-53-oh-1",
+        "alg": "F R U R' U' F' R U R' U' R' F R F'",
+        "note": "OH <R, U, F> (No Table Abuse)",
+        "startAuf": "U2"
       }
     ],
     "setup": "r' U2' R U R' U' R U R' U r"
@@ -1913,6 +1985,12 @@ export const ollCases = [
         "alg": "l U L' U L U' L' U L U2 l'",
         "note": "Community Alt",
         "startAuf": "U2"
+      },
+      {
+        "id": "oll-54-oh-1",
+        "alg": "F' L' U' L U F L' U' L U L F' L' F",
+        "note": "OH <L, U, F> (No Table Abuse)",
+        "startAuf": ""
       }
     ],
     "setup": "r U2' R' U' R U R' U' R U' r'"
@@ -1981,6 +2059,12 @@ export const ollCases = [
         "alg": "r' U' r U' R' U R U' R' U R r' U r",
         "note": "Community Alt",
         "startAuf": ""
+      },
+      {
+        "id": "oll-56-oh-1",
+        "alg": "F R U R' U' R F' L F R' F' L'",
+        "note": "OH <R, U, L, F> (No Table Abuse)",
+        "startAuf": ""
       }
     ],
     "setup": "r U r' R U R' U' R U R' U' r U' r'"
@@ -2020,6 +2104,12 @@ export const ollCases = [
         "id": "oll-57-5",
         "alg": "R U R' U' R' r U R U' r'",
         "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "oll-57-oh-1",
+        "alg": "R U R' U' R' L F R F' L'",
+        "note": "OH <R, U, L, F> (No Table Abuse)",
         "startAuf": ""
       }
     ],

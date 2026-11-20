@@ -52,6 +52,8 @@ export class StudyView {
     this.getShowReflection = options.getShowReflection || (() => true);
     this.getOhHand = options.getOhHand || (() => "left");
     this.onSetOhHand = options.onSetOhHand || null;
+    this.getOhTableAbuse = options.getOhTableAbuse || (() => true);
+    this.onSetOhTableAbuse = options.onSetOhTableAbuse || null;
     this.getSimSpeed = options.getSimSpeed || (() => 1);
     this.onSetSimSpeed = options.onSetSimSpeed || null;
 
@@ -80,12 +82,15 @@ export class StudyView {
   getCaseAlgs(track, c) {
     return getEffectiveAlgsForCase(this.currentPuzzle, this.currentTrackId, c, {
       ohHand: this.getOhHand(),
+      ohTableAbuse: this.getOhTableAbuse(),
       trackCases: track?.cases || []
     });
   }
 
   getPrefSubScope() {
-    return this.currentPuzzle === "333oh" ? this.getOhHand() : null;
+    if (this.currentPuzzle !== "333oh") return null;
+    const hand = this.getOhHand();
+    return this.getOhTableAbuse() ? hand : `${hand}:no-table`;
   }
 
   getPreferredAlgObj(track, c) {
@@ -112,7 +117,7 @@ export class StudyView {
     const distinctName = getDistinctCaseName(c);
     const baseTitle = `${displayId}${distinctName ? ` — ${distinctName}` : ''}`;
     const ohSuffix = this.currentPuzzle === '333oh'
-      ? ` (${this.getOhHand() === 'right' ? 'Right OH' : 'Left OH'})`
+      ? ` (${this.getOhHand() === 'right' ? 'Right OH' : 'Left OH'}${this.getOhTableAbuse() ? '' : ' · No Table'})`
       : '';
 
     const solutions = algs.map((a, idx) => {
@@ -304,6 +309,7 @@ export class StudyView {
     const is222FaceOrLayer = this.currentPuzzle === "222" && (this.currentTrackId === "face" || this.currentTrackId === "layer");
     const isOh = this.currentPuzzle === "333oh";
     const ohHand = this.getOhHand();
+    const ohTableAbuse = this.getOhTableAbuse();
 
     this.container.innerHTML = `
       <div class="study-header">
@@ -312,10 +318,17 @@ export class StudyView {
           <span class="study-track-desc">${track.description}</span>
         </div>
         ${isOh ? `
-          <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Solving Hand">
-            <span class="oh-hand-label">Solving Hand:</span>
-            <button type="button" class="oh-hand-btn ${ohHand === 'left' ? 'active' : ''}" data-oh-hand="left" aria-pressed="${ohHand === 'left'}" data-tooltip="Cube held in left hand (standard <R, U> algorithms)">&#x1F91A; Left Hand (RU)</button>
-            <button type="button" class="oh-hand-btn ${ohHand === 'right' ? 'active' : ''}" data-oh-hand="right" aria-pressed="${ohHand === 'right'}" data-tooltip="Cube held in right hand (verified <L, U> mirrors & z' <U, L> variants)">&#x270B; Right Hand (Mirror / z')</button>
+          <div class="oh-controls-group">
+            <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Solving Hand">
+              <span class="oh-hand-label">Solving Hand:</span>
+              <button type="button" class="oh-hand-btn ${ohHand === 'left' ? 'active' : ''}" data-oh-hand="left" aria-pressed="${ohHand === 'left'}" data-tooltip="Cube held in left hand (standard <R, U> algorithms)">&#x1F91A; Left Hand (RU)</button>
+              <button type="button" class="oh-hand-btn ${ohHand === 'right' ? 'active' : ''}" data-oh-hand="right" aria-pressed="${ohHand === 'right'}" data-tooltip="Cube held in right hand (verified <L, U> mirrors & z' <U, L> variants)">&#x270B; Right Hand (Mirror / z')</button>
+            </div>
+            <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Table Abuse Style">
+              <span class="oh-hand-label">Style:</span>
+              <button type="button" class="oh-table-btn ${ohTableAbuse ? 'active' : ''}" data-oh-table="table" aria-pressed="${ohTableAbuse}" data-tooltip="Allow table-assisted M/S/E slice moves (e.g. M2' U M2' U2 M2' U M2' H-Perm)">Table Abuse</button>
+              <button type="button" class="oh-table-btn ${!ohTableAbuse ? 'active' : ''}" data-oh-table="no-table" aria-pressed="${!ohTableAbuse}" data-tooltip="In-air OH only: L, R, U with occasional F/D; zero M slices and B moves rewritten via x' + U">No Table Abuse</button>
+            </div>
           </div>
         ` : ''}
         ${!is222FaceOrLayer ? `
@@ -402,20 +415,20 @@ export class StudyView {
         <div class="study-card ${this.selectedCaseId === c.id ? 'selected' : ''}" data-case-id="${c.id}">
           <div class="study-card-head">
             <span class="study-card-id">${displayId}</span>
-            ${activeAlg?.ohBadge ? `<span class="oh-alg-badge">${escapeHtml(activeAlg.ohBadge)}</span>` : (!showGroupHeaders ? `<span class="study-card-group">${c.group}</span>` : '')}
+            <div class="study-card-head-meta">
+              ${activeAlg?.ohBadge ? `<span class="oh-alg-badge">${escapeHtml(activeAlg.ohBadge)}</span>` : ''}
+              ${algs.length > 1 ? `<span class="study-card-algs-pill" data-tooltip="${algs.length} algorithm variants available">${algs.length} algs</span>` : ''}
+              ${!activeAlg?.ohBadge && !showGroupHeaders ? `<span class="study-card-group">${escapeHtml(c.group)}</span>` : ''}
+            </div>
           </div>
           <div class="study-card-visual" id="studyCardVisual_${c.id}" data-case-id="${c.id}">
             <span class="study-visual-loading">Loading diagram...</span>
           </div>
-          ${distinctName ? `<div class="study-card-name">${distinctName}</div>` : ''}
+          ${distinctName ? `<div class="study-card-name" data-tooltip="${escapeHtml(distinctName)}">${escapeHtml(distinctName)}</div>` : ''}
           <div class="study-card-alg-box">
-            <div class="study-card-alg-primary">${activeAlg ? activeAlg.alg : 'No alg'}</div>
-            ${noteText ? `<div class="study-card-alg-note">${escapeHtml(noteText)}</div>` : ''}
+            <div class="study-card-alg-primary">${activeAlg ? escapeHtml(activeAlg.alg) : 'No alg'}</div>
+            ${noteText ? `<div class="study-card-alg-note" data-tooltip="${escapeHtml(noteText)}">${escapeHtml(noteText)}</div>` : ''}
           </div>
-
-          ${algs.length > 1 ? `
-            <div class="study-card-algs-count">${algs.length} alg variants available</div>
-          ` : ''}
 
           <div class="study-card-actions">
             <button type="button" class="btn btn-xs btn-study-view" data-case-id="${c.id}" data-tooltip="Open Grid + 3D to compare all algorithms, starting angles &amp; labels" aria-label="View algorithms for ${escapeHtml(displayId)}">${ICON_DIAGRAM}<span>Algs</span></button>
@@ -432,7 +445,7 @@ export class StudyView {
           ? `<p class="empty-state" style="padding: 20px;">No cases match the active filter.</p>`
           : `<div class="study-groups-flow ${showGroupHeaders ? 'is-grouped' : 'is-flat'}">
               ${sections.map(sec => `
-                <div class="study-group-section">
+                <div class="study-group-section" style="--group-count: ${sec.cases.length}">
                   ${showGroupHeaders ? `<div class="study-group-section-title">${sec.group} <span class="study-group-section-count">(${sec.cases.length})</span></div>` : ''}
                   <div class="study-case-grid">
                     ${sec.cases.map(renderCard).join('')}
@@ -529,8 +542,14 @@ export class StudyView {
 
           <div class="study-detail-grid">
             <div class="study-visual-box">
-              <div class="study-visual-diagram" id="studyDetailDiagram">
-                <span class="study-visual-loading">Loading diagram...</span>
+              <div class="study-visual-top-strip">
+                <div class="study-visual-diagram" id="studyDetailDiagram">
+                  <span class="study-visual-loading">Loading diagram...</span>
+                </div>
+                <div class="study-start-angle-meta" id="studyStartAngleMeta">
+                  <span class="study-auf-pill ${activePreviewAlg?.startAuf ? 'has-auf' : ''}">${formatAufBadge(activePreviewAlg?.startAuf)}</span>
+                  <span class="study-auf-alg">${activePreviewAlg ? activePreviewAlg.alg : ''}</span>
+                </div>
               </div>
               <div class="study-visual-3d-wrap" id="studyDetail3dWrap">
                 <span class="study-visual-loading" style="display:flex;height:100%;align-items:center;justify-content:center;">Loading 3D...</span>
@@ -544,10 +563,6 @@ export class StudyView {
                 <button type="button" class="btn btn-xs study-mini-speed-btn" id="studyMiniSpeedBtn" data-tooltip="Cycle 3D playback pace (site-wide)" aria-label="Playback pace ${currentSpeed}x">${currentSpeed}x</button>
               </div>
               <div class="study-mini-step-status" id="studyMiniStepStatus" aria-live="polite">Ready</div>
-              <div class="study-start-angle-meta" id="studyStartAngleMeta">
-                <span class="study-auf-pill ${activePreviewAlg?.startAuf ? 'has-auf' : ''}">${formatAufBadge(activePreviewAlg?.startAuf)}</span>
-                <span class="study-auf-alg">${activePreviewAlg ? activePreviewAlg.alg : ''}</span>
-              </div>
               <div class="study-visual-3d-controls">
                 <button type="button" class="btn btn-xs" id="studyReset3dBtn" data-tooltip="Reset 3D camera orientation" aria-label="Reset 3D camera orientation">${ICON_RESET_ANGLE}<span>Reset 3D</span></button>
                 <button type="button" class="btn btn-xs btn-primary" id="studySimulateThisBtn" data-case-id="${c.id}" data-tooltip="Open interactive 3D popup simulator with clickable move timeline &amp; variant switcher">${ICON_POPUP_SIM}<span>Popup Sim</span></button>
@@ -808,6 +823,27 @@ export class StudyView {
       `;
     }
 
+    if (this.currentPuzzle === "333oh") {
+      return `
+        <div class="guide-card-stack">
+          <section class="guide-card">
+            <h3 class="guide-card-title">📖 ${track.name} Reference</h3>
+            <p>${track.description}</p>
+            <p>Use the <strong>Case Grid</strong> to browse all cases and set your preferred algorithms (★), or test yourself in the <strong>Practice</strong> tab.</p>
+          </section>
+
+          <section class="guide-card">
+            <h3 class="guide-card-title">✋ 3x3 One-Handed Style &amp; Turning Technique</h3>
+            <ul class="guide-list">
+              <li><strong>Left Hand (RU) vs. Right Hand (Mirror / z'):</strong> Left-hand OH favors standard <code>&lt;R, U&gt;</code> triggers, while Right-hand OH automatically generates mirrored <code>&lt;L, U&gt;</code> and <code>z'</code> conjugated <code>&lt;U, L&gt;</code> variants.</li>
+              <li><strong>Table Abuse:</strong> Brace the cube against the mat/table to execute rapid <code>M</code>, <code>S</code>, and <code>E</code> slices (like <code>M2' U M2' U2 M2' U M2'</code> for H-Perm).</li>
+              <li><strong>No Table Abuse (In-Air):</strong> Restricts recommendations to <code>L</code>, <code>R</code>, and <code>U</code> moves with occasional <code>F</code> and <code>D</code> turns, removes slice moves, and converts <code>B</code> turns into an <code>x'</code> rotation + <code>U</code> (e.g. <code>R2 U2 R U2 R2 U2 R2 U2 R U2 R2</code> for H-Perm).</li>
+            </ul>
+          </section>
+        </div>
+      `;
+    }
+
     return `
       <div class="guide-card">
         <h3 class="guide-card-title">📖 ${track.name} Reference</h3>
@@ -913,12 +949,21 @@ export class StudyView {
   }
 
   bindEvents(track, is222FaceOrLayer = false) {
-    // 3x3 OH Hand switcher
+    // 3x3 OH Hand & Table Abuse switchers
     this.container.querySelectorAll('.oh-hand-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         if (btn.dataset.ohHand && this.onSetOhHand) {
           this.previewAlgId = null;
           this.onSetOhHand(btn.dataset.ohHand);
+        }
+      });
+    });
+
+    this.container.querySelectorAll('.oh-table-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.ohTable && this.onSetOhTableAbuse) {
+          this.previewAlgId = null;
+          this.onSetOhTableAbuse(btn.dataset.ohTable === 'table');
         }
       });
     });

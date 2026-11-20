@@ -683,9 +683,10 @@ export function createSimulatorController({
     if (!caseObj) return null;
     const puz = puzOverride || appStore.state.currentPuzzle;
     const ohHand = appStore.state.ohHand || "left";
-    const subScope = puz === "333oh" ? ohHand : null;
+    const ohTableAbuse = appStore.state.ohTableAbuse !== false;
+    const subScope = puz === "333oh" ? (ohTableAbuse ? ohHand : `${ohHand}:no-table`) : null;
     const algs = caseObj.algs
-      ? getEffectiveAlgsForCase(puz, tr?.id, caseObj, { ohHand, trackCases: tr?.cases || [] })
+      ? getEffectiveAlgsForCase(puz, tr?.id, caseObj, { ohHand, ohTableAbuse, trackCases: tr?.cases || [] })
       : null;
     const defaultAlg = algs ? (algs.find(a => a.isDefault) || algs[0]) : null;
     const prefId = algs ? getPreferredAlg(caseObj.id, defaultAlg?.id, puz, subScope) : null;
@@ -693,7 +694,7 @@ export function createSimulatorController({
     const prefix = tr ? `${tr.shortName || tr.name}: ` : "";
     const rawSetup = chosenAlg?.mirroredSetup || caseObj.setup || caseObj.scramble || "";
     const setupWithAuf = `${rawSetup}${chosenAlg?.startAuf ? ' ' + chosenAlg.startAuf : ''}`.trim();
-    const scrList = caseObj.scrambles?.length && !chosenAlg?.isSynthesizedRh
+    const scrList = caseObj.scrambles?.length && !chosenAlg?.isSynthesizedRh && !chosenAlg?.isSynthesizedNoTable
       ? caseObj.scrambles.map(s => chosenAlg?.startAuf ? `${s} ${chosenAlg.startAuf}` : s)
       : [setupWithAuf];
     return {
@@ -731,6 +732,7 @@ export function createSimulatorController({
 
     if (puz === "333" || puz === "333oh") {
       const ohHand = appStore.state.ohHand || "left";
+      const ohTableAbuse = appStore.state.ohTableAbuse !== false;
       [["f2l", "F2L (41 cases)"],
        ["oll", "OLL (57 cases)"],
        ["pll", "PLL (21 cases)"]].forEach(([tid, label]) => {
@@ -739,7 +741,7 @@ export function createSimulatorController({
         const g = document.createElement("optgroup");
         g.label = label;
         tr.cases.forEach(c => {
-          const eff = getEffectiveAlgsForCase(puz, tid, c, { ohHand, trackCases: tr.cases });
+          const eff = getEffectiveAlgsForCase(puz, tid, c, { ohHand, ohTableAbuse, trackCases: tr.cases });
           const primary = eff[0]?.alg || c.algs?.[0]?.alg || "";
           const opt = document.createElement("option");
           opt.value = `${puz}:${tid}:${c.id}`;

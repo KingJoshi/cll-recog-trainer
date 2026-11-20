@@ -70,6 +70,7 @@ export function createNavController({
   const solveScrambleSubtext = typeof document !== "undefined" ? document.getElementById("solveScrambleSubtext") : null;
   const solveScrambleOrient = typeof document !== "undefined" ? document.getElementById("solveScrambleOrient") : null;
   const solveSurface = typeof document !== "undefined" ? document.getElementById("solveSurface") : null;
+  const solveTimes = typeof document !== "undefined" ? document.getElementById("solveTimes") : null;
   const layerSolutionsWidget = typeof document !== "undefined" ? document.getElementById("layerSolutionsWidget") : null;
   const crossSolutionsWidget = typeof document !== "undefined" ? document.getElementById("crossSolutionsWidget") : null;
   const modeButtons = typeof document !== "undefined" ? Array.from(document.querySelectorAll(".mode-btn")) : [];
@@ -226,6 +227,9 @@ export function createNavController({
 
     if (solveScramble) solveScramble.hidden = !solving;
     if (solveSurface) solveSurface.hidden = !solving;
+    if (solveTimes) {
+      solveTimes.hidden = !solving || (appStore.getSolves?.().length || 0) === 0;
+    }
     if (layerSolutionsWidget) {
       layerSolutionsWidget.hidden = !(solving || simulating) || s.currentPuzzle !== "222" || (solving && s.solveTarget === "timer-drill");
     }

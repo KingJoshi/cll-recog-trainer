@@ -19,6 +19,8 @@ export class PracticeView {
     this.getLayerTargetFaces = options.getLayerTargetFaces || (() => ['white']);
     this.getOhHand = options.getOhHand || (() => 'left');
     this.onSetOhHand = options.onSetOhHand || null;
+    this.getOhTableAbuse = options.getOhTableAbuse || (() => true);
+    this.onSetOhTableAbuse = options.onSetOhTableAbuse || null;
 
     this.currentPuzzle = "222";
     this.currentTrackId = "cll";
@@ -138,6 +140,7 @@ export class PracticeView {
     const isInspectionDrill = this.isInspectionTrack();
     const isOh = this.currentPuzzle === "333oh";
     const ohHand = this.getOhHand();
+    const ohTableAbuse = this.getOhTableAbuse();
 
     this.container.innerHTML = `
       <div class="practice-header">
@@ -155,6 +158,10 @@ export class PracticeView {
             <div class="oh-hand-switcher oh-hand-switcher-compact" role="group" aria-label="One-Handed Solving Hand">
               <button type="button" class="oh-hand-btn ${ohHand === 'left' ? 'active' : ''}" data-oh-hand="left" aria-pressed="${ohHand === 'left'}" data-tooltip="Left-Handed OH (standard <R, U>)">🤚 Left OH</button>
               <button type="button" class="oh-hand-btn ${ohHand === 'right' ? 'active' : ''}" data-oh-hand="right" aria-pressed="${ohHand === 'right'}" data-tooltip="Right-Handed OH (mirror <L, U> / z')">✋ Right OH</button>
+            </div>
+            <div class="oh-hand-switcher oh-hand-switcher-compact" role="group" aria-label="One-Handed Table Abuse Style">
+              <button type="button" class="oh-table-btn ${ohTableAbuse ? 'active' : ''}" data-oh-table="table" aria-pressed="${ohTableAbuse}" data-tooltip="Allow table-assisted M/S/E slice moves">Table Abuse</button>
+              <button type="button" class="oh-table-btn ${!ohTableAbuse ? 'active' : ''}" data-oh-table="no-table" aria-pressed="${!ohTableAbuse}" data-tooltip="In-air OH: L, R, U with occasional F/D, no M moves, B via x' + U">No Table</button>
             </div>
           ` : ''}
           <div class="practice-subnav" role="group" aria-label="Practice Mode">
@@ -562,6 +569,14 @@ export class PracticeView {
       btn.addEventListener('click', () => {
         if (btn.dataset.ohHand && this.onSetOhHand) {
           this.onSetOhHand(btn.dataset.ohHand);
+        }
+      });
+    });
+
+    this.container.querySelectorAll('.oh-table-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.ohTable && this.onSetOhTableAbuse) {
+          this.onSetOhTableAbuse(btn.dataset.ohTable === 'table');
         }
       });
     });

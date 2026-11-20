@@ -46,7 +46,7 @@
 }
 
 .panel-body {
-    padding: 0 14px 14px;
+    padding: 0 12px 10px;
 }
 
 .settings.collapsed .panel-body {
@@ -58,7 +58,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    margin: 6px 0 6px;
+    margin: 2px 0 4px;
 }
 
 .section-head h2,
@@ -81,7 +81,7 @@
 }
 
 .hint {
-    margin: 0 0 8px;
+    margin: 0 0 6px;
     font-size: .8rem;
     color: var(--muted);
 }
@@ -98,8 +98,8 @@
 .case-row {
     display: inline-flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 7px 9px;
+    gap: 4px;
+    padding: 5px 8px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--bg-subtle, var(--surface-2));
@@ -237,7 +237,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     flex-wrap: wrap;
 }
 

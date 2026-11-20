@@ -233,7 +233,7 @@ scramble-display {
     justify-content: flex-end;
     gap: 8px;
     width: 100%;
-    max-width: 440px;
+    max-width: 520px;
     margin-top: 6px;
     flex-wrap: wrap;
 }

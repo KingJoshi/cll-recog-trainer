@@ -16,6 +16,11 @@ const OH_HAND_OPTIONS = [
   { id: "right", title: "✋ Right Hand (Mirror / z')", badge: "<L, U> / z'", desc: "Hold cube in right hand using verified <L, U> mirrors & z' <U, L> variants" }
 ];
 
+const OH_TABLE_ABUSE_OPTIONS = [
+  { id: "table", title: "Table Abuse (M-Slice)", badge: "MU-Gen", desc: "Brace cube on mat/table for fast M/S/E slice algs (e.g. M2 H-Perm & Z-Perm)" },
+  { id: "no-table", title: "No Table Abuse (In-Air)", badge: "L/R/U", desc: "Pure L, R, U with occasional F/D; zero M moves and B converted via x' + U" }
+];
+
 const LEVEL_OPTIONS_BY_PUZZLE = {
   "222": [
     { id: "beginner", title: "Beginner", badge: "LBL", desc: "1st Layer + 7 OLL + 2 PLL (Adj T/J-Perm & Diag Y-Perm)" },
@@ -56,12 +61,13 @@ const C333_CROSS_OLL_STARTER = ["oll-21", "oll-22", "oll-23", "oll-24", "oll-25"
 /**
  * Pure recommendation engine mapping { puzzle, level, goal, ohHand } to initial app configuration.
  */
-export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal = "learn", ohHand = "left" } = {}) {
+export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal = "learn", ohHand = "left", ohTableAbuse = true } = {}) {
   const safePuzzle = PUZZLES[puzzle] ? puzzle : "222";
   const rawLevel = ["beginner", "intermediate", "advanced", "expert"].includes(level) ? level : "beginner";
   const safeLevel = safePuzzle !== "222" && rawLevel === "expert" ? "advanced" : rawLevel;
   const safeGoal = ["learn", "practice", "solve"].includes(goal) ? goal : "learn";
   const safeOhHand = ohHand === "right" ? "right" : "left";
+  const safeOhTableAbuse = ohTableAbuse !== false;
   const mode = safeGoal === "learn" ? "study" : safeGoal === "practice" ? "practice" : "solve";
 
   if (safePuzzle === "222") {
@@ -71,6 +77,7 @@ export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal
         level: safeLevel,
         goal: safeGoal,
         ohHand: safeOhHand,
+        ohTableAbuse: safeOhTableAbuse,
         mode,
         trackId: "lbl",
         solveTarget: safeGoal === "solve" ? "layer" : "lbl",
@@ -90,6 +97,7 @@ export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal
         level: safeLevel,
         goal: safeGoal,
         ohHand: safeOhHand,
+        ohTableAbuse: safeOhTableAbuse,
         mode,
         trackId: "ortega",
         solveTarget: "face",
@@ -109,6 +117,7 @@ export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal
         level: safeLevel,
         goal: safeGoal,
         ohHand: safeOhHand,
+        ohTableAbuse: safeOhTableAbuse,
         mode,
         trackId: safeGoal === "solve" ? "cll" : "cll",
         solveTarget: safeGoal === "solve" ? "full" : "layer",
@@ -127,6 +136,7 @@ export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal
       level: safeLevel,
       goal: safeGoal,
       ohHand: safeOhHand,
+      ohTableAbuse: safeOhTableAbuse,
       mode,
       trackId: "eg1",
       solveTarget: safeGoal === "solve" ? "eg1" : "face",
@@ -142,13 +152,16 @@ export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal
   }
 
   if (safePuzzle === "333" || safePuzzle === "333oh") {
-    const pName = safePuzzle === "333oh" ? `3x3 OH (${safeOhHand === "right" ? "Right Hand" : "Left Hand"})` : "3x3";
+    const pName = safePuzzle === "333oh"
+      ? `3x3 OH (${safeOhHand === "right" ? "Right Hand" : "Left Hand"}${safeOhTableAbuse ? "" : " · No Table Abuse"})`
+      : "3x3";
     if (safeLevel === "beginner") {
       return {
         puzzle: safePuzzle,
         level: safeLevel,
         goal: safeGoal,
         ohHand: safeOhHand,
+        ohTableAbuse: safeOhTableAbuse,
         mode,
         trackId: safeGoal === "solve" ? "cross" : "oll",
         solveTarget: "full",
@@ -168,6 +181,7 @@ export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal
         level: safeLevel,
         goal: safeGoal,
         ohHand: safeOhHand,
+        ohTableAbuse: safeOhTableAbuse,
         mode,
         trackId: "pll",
         solveTarget: "full",
@@ -186,6 +200,7 @@ export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal
       level: safeLevel,
       goal: safeGoal,
       ohHand: safeOhHand,
+      ohTableAbuse: safeOhTableAbuse,
       mode,
       trackId: safeGoal === "learn" ? "oll" : "pll",
       solveTarget: "full",
@@ -214,6 +229,7 @@ export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal
     level: safeLevel,
     goal: safeGoal,
     ohHand: safeOhHand,
+    ohTableAbuse: safeOhTableAbuse,
     mode,
     trackId: "parity",
     solveTarget: paritySolveTarget,
@@ -256,7 +272,10 @@ export function createOnboardingWizard({
     puzzle: PUZZLES[profile?.puzzle] ? profile.puzzle : (appStore?.state?.currentPuzzle || "222"),
     level: ["beginner", "intermediate", "advanced", "expert"].includes(profile?.level) ? profile.level : "beginner",
     goal: ["learn", "practice", "solve"].includes(profile?.goal) ? profile.goal : "learn",
-    ohHand: profile?.ohHand === "right" ? "right" : (appStore?.state?.ohHand || "left")
+    ohHand: profile?.ohHand === "right" ? "right" : (appStore?.state?.ohHand || "left"),
+    ohTableAbuse: profile?.ohTableAbuse !== undefined
+      ? Boolean(profile.ohTableAbuse)
+      : (appStore?.state?.ohTableAbuse !== false)
   };
 
   function markCompleted(savedProfile = null) {
@@ -329,6 +348,21 @@ export function createOnboardingWizard({
                 </button>
               `).join("")}
             </div>
+            <h5 class="onboarding-step-title" style="margin-top: 14px; font-size: 0.95rem;">Do you use table abuse for M-slice algs?</h5>
+            <div class="onboarding-options-grid onboarding-options-2col">
+              ${OH_TABLE_ABUSE_OPTIONS.map(opt => {
+                const isActive = (opt.id === "table") === Boolean(selection.ohTableAbuse);
+                return `
+                  <button type="button" class="onboarding-option-card ${isActive ? "active" : ""}" data-wiz-oh-table="${opt.id}" aria-pressed="${isActive}">
+                    <div class="onboarding-option-head">
+                      <span class="onboarding-option-title">${opt.title}</span>
+                      <span class="onboarding-option-badge">${opt.badge}</span>
+                    </div>
+                    <span class="onboarding-option-desc">${opt.desc}</span>
+                  </button>
+                `;
+              }).join("")}
+            </div>
           </div>
         ` : ""}
       `;
@@ -377,6 +411,12 @@ export function createOnboardingWizard({
         renderStep();
       });
     });
+    bodyEl.querySelectorAll("[data-wiz-oh-table]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        selection.ohTableAbuse = btn.dataset.wizOhTable === "table";
+        renderStep();
+      });
+    });
     bodyEl.querySelectorAll("[data-wiz-goal]").forEach(btn => {
       btn.addEventListener("click", () => {
         selection.goal = btn.dataset.wizGoal;
@@ -390,10 +430,19 @@ export function createOnboardingWizard({
 
   function applyPlan(plan) {
     if (!appStore?.state) return;
-    markCompleted({ puzzle: plan.puzzle, level: plan.level, goal: plan.goal, ohHand: plan.ohHand || "left" });
+    markCompleted({
+      puzzle: plan.puzzle,
+      level: plan.level,
+      goal: plan.goal,
+      ohHand: plan.ohHand || "left",
+      ohTableAbuse: plan.ohTableAbuse !== false
+    });
 
     if (plan.ohHand && typeof appStore.setOhHand === "function") {
       appStore.setOhHand(plan.ohHand);
+    }
+    if (typeof appStore.setOhTableAbuse === "function") {
+      appStore.setOhTableAbuse(plan.ohTableAbuse !== false);
     }
 
     const studyView = getStudyView();

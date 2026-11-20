@@ -329,6 +329,8 @@ studyView = new StudyView({
   getShowReflection: () => appStore.state.showReflection,
   getOhHand: () => appStore.state.ohHand || "left",
   onSetOhHand: (hand) => appStore.setOhHand(hand),
+  getOhTableAbuse: () => appStore.state.ohTableAbuse !== false,
+  onSetOhTableAbuse: (enabled) => appStore.setOhTableAbuse(enabled),
   getSimSpeed: () => appStore.state.simSpeed ?? 1,
   onSetSimSpeed: (spd) => appStore.setSimSpeed(spd),
   getAlgCustomLabel,
@@ -357,11 +359,13 @@ practiceView = new PracticeView({
   getCrossTargetFaces: () => appStore.state.crossTargetFaces,
   getLayerTargetFaces: () => appStore.state.layerTargetFaces,
   getOhHand: () => appStore.state.ohHand || "left",
-  onSetOhHand: (hand) => appStore.setOhHand(hand)
+  onSetOhHand: (hand) => appStore.setOhHand(hand),
+  getOhTableAbuse: () => appStore.state.ohTableAbuse !== false,
+  onSetOhTableAbuse: (enabled) => appStore.setOhTableAbuse(enabled)
 });
 
 appStore.subscribe((evt) => {
-  if (evt === "ohHand") {
+  if (evt === "ohHand" || evt === "ohTableAbuse") {
     simulatorCtrl?.populateSimCaseSelect?.();
     if (appStore.state.mode === "study") studyView?.render?.();
     else if (appStore.state.mode === "practice") practiceView?.render?.();

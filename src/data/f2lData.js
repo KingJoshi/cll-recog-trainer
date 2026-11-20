@@ -623,6 +623,11 @@ export const f2lCases = [
         "alg": "R U' R' r U' r' U2 r U r'",
         "note": "Wide r finger-trick",
         "isDefault": true
+      },
+      {
+        "id": "f2l-41-oh-1",
+        "alg": "R U F R U R' U' F' R'",
+        "note": "OH <R, U, F> (No Table Abuse)"
       }
     ],
     "setup": "r U' r' U2' r U r' R U R'"

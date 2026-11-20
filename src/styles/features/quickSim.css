@@ -254,6 +254,22 @@
     opacity: 0.72;
   }
 
+  @media (min-width: 1280px) {
+    .quick-sim-card {
+      width: min(920px, 95vw);
+      max-width: 920px;
+    }
+
+    .quick-sim-body {
+      grid-template-columns: 330px 1fr;
+      gap: 20px;
+    }
+
+    .quick-sim-3d-wrap {
+      height: 300px;
+    }
+  }
+
   @media (max-width: 720px) {
     .quick-sim-body {
       grid-template-columns: 1fr;

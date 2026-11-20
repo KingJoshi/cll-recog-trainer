@@ -397,3 +397,44 @@ export const OH_MIRROR_PARTNERS = {
     }
   }
 };
+
+// Verified Right-Hand mirror overrides when 3x3 OH Table Abuse is disabled (no M/E/S slices, no raw B)
+export const OH_NO_TABLE_MIRROR_OVERRIDES = {
+  "pll": {
+    "H":  { "partnerId": "H",  "sourceAlgId": "h-oh-ru-1",   "startAuf": "" },
+    "Z":  { "partnerId": "Z",  "sourceAlgId": "z-oh-ru-1",   "startAuf": "U" },
+    "Ja": { "partnerId": "Jb", "sourceAlgId": "jb-2",        "startAuf": "U2" },
+    "Jb": { "partnerId": "Ja", "sourceAlgId": "Ja-5",        "startAuf": "U'" },
+    "E":  { "partnerId": "E",  "sourceAlgId": "E-4",         "startAuf": "U" },
+    "Na": { "partnerId": "Nb", "sourceAlgId": "Nb-4",        "startAuf": "" },
+    "Nb": { "partnerId": "Na", "sourceAlgId": "na-oh-rul-1", "startAuf": "" }
+  },
+  "oll": {
+    "oll-02": { "partnerId": "oll-02", "sourceAlgId": "oll-02-oh-1", "startAuf": "U2" },
+    "oll-03": { "partnerId": "oll-04", "sourceAlgId": "oll-04-2",    "startAuf": "U2" },
+    "oll-04": { "partnerId": "oll-03", "sourceAlgId": "oll-03-2",    "startAuf": "" },
+    "oll-05": { "partnerId": "oll-06", "sourceAlgId": "oll-06-oh-1", "startAuf": "U2" },
+    "oll-06": { "partnerId": "oll-05", "sourceAlgId": "oll-05-5",    "startAuf": "" },
+    "oll-07": { "partnerId": "oll-08", "sourceAlgId": "oll-08-3",    "startAuf": "" },
+    "oll-08": { "partnerId": "oll-07", "sourceAlgId": "oll-07-3",    "startAuf": "U2" },
+    "oll-12": { "partnerId": "oll-11", "sourceAlgId": "oll-11-oh-1", "startAuf": "" },
+    "oll-15": { "partnerId": "oll-16", "sourceAlgId": "oll-16-3",    "startAuf": "" },
+    "oll-16": { "partnerId": "oll-15", "sourceAlgId": "oll-15-4",    "startAuf": "" },
+    "oll-18": { "partnerId": "oll-18", "sourceAlgId": "oll-18-oh-1", "startAuf": "U2" },
+    "oll-19": { "partnerId": "oll-19", "sourceAlgId": "oll-19-4",    "startAuf": "" },
+    "oll-20": { "partnerId": "oll-20", "sourceAlgId": "oll-20-oh-2", "startAuf": "" },
+    "oll-23": { "partnerId": "oll-23", "sourceAlgId": "oll-23-4",    "startAuf": "" },
+    "oll-24": { "partnerId": "oll-24", "sourceAlgId": "oll-24-4",    "startAuf": "U" },
+    "oll-25": { "partnerId": "oll-25", "sourceAlgId": "oll-25-3",    "startAuf": "" },
+    "oll-28": { "partnerId": "oll-28", "sourceAlgId": "oll-28-oh-1", "startAuf": "U" },
+    "oll-38": { "partnerId": "oll-36", "sourceAlgId": "oll-36-3",    "startAuf": "U" },
+    "oll-49": { "partnerId": "oll-50", "sourceAlgId": "oll-50-4",    "startAuf": "U'" },
+    "oll-50": { "partnerId": "oll-49", "sourceAlgId": "oll-49-oh-1", "startAuf": "U'" },
+    "oll-51": { "partnerId": "oll-51", "sourceAlgId": "oll-51-2",    "startAuf": "" },
+    "oll-52": { "partnerId": "oll-52", "sourceAlgId": "oll-52-3",    "startAuf": "" },
+    "oll-53": { "partnerId": "oll-54", "sourceAlgId": "oll-54-oh-1", "startAuf": "U2" },
+    "oll-54": { "partnerId": "oll-53", "sourceAlgId": "oll-53-oh-1", "startAuf": "" },
+    "oll-56": { "partnerId": "oll-56", "sourceAlgId": "oll-56-oh-1", "startAuf": "" },
+    "oll-57": { "partnerId": "oll-57", "sourceAlgId": "oll-57-oh-1", "startAuf": "" }
+  }
+};

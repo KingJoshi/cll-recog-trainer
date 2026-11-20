@@ -326,3 +326,86 @@ test('StudyView.openCaseQuickSim opens in-place popup payload with OH variants, 
   assert.strictEqual(quickPayloads[1].activeIndex, 1);
   assert.ok(quickPayloads[1].solutions[1].scramble.startsWith('z2 '));
 });
+
+test('StudyView renders compact header variant pills, omits redundant CLL names, and exposes proportional group counts & visual strip', () => {
+  const sv = new StudyView({ container: createMockContainer() });
+  sv.currentPuzzle = '222';
+  sv.currentTrackId = 'cll';
+  const cllTrack = getTrack('222', 'cll');
+
+  const gridHtml = sv.renderGridView(cllTrack);
+  assert.ok(!gridHtml.includes('CLL H1 (H-Group)'));
+  assert.ok(!gridHtml.includes('study-card-algs-count'));
+  assert.ok(gridHtml.includes('study-card-head-meta'));
+  assert.ok(gridHtml.includes('study-card-algs-pill'));
+  assert.ok(gridHtml.includes('--group-count: 4'));
+  assert.ok(gridHtml.includes('--group-count: 6'));
+
+  sv.selectedCaseId = 'T1';
+  const detailHtml = sv.renderDetailView(cllTrack);
+  assert.ok(detailHtml.includes('study-visual-top-strip'));
+});
+
+test('StudyView renders 3x3 OH Table Abuse / No Table Abuse switcher, updates H-Perm & OLL-36, and isolates preferred algs', () => {
+  const store = {};
+  const prevStorage = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: k => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: k => { delete store[k]; }
+  };
+
+  try {
+    let hand = 'left';
+    let useTable = false;
+    const quickPayloads = [];
+    const container = createMockContainer();
+    const sv = new StudyView({
+      container,
+      getOhHand: () => hand,
+      getOhTableAbuse: () => useTable,
+      onQuickSimSolutions: (p) => quickPayloads.push(p)
+    });
+
+    sv.setTrack('333oh', 'pll');
+    assert.ok(container.innerHTML.includes('data-oh-table="table"'));
+    assert.ok(container.innerHTML.includes('data-oh-table="no-table"'));
+
+    const pllTrack = getTrack('333oh', 'pll');
+    const hCase = pllTrack.caseById.get('H');
+
+    // Left + No Table Abuse -> 2-gen <R, U> H-Perm
+    const leftNoTableAlgs = sv.getCaseAlgs(pllTrack, hCase);
+    assert.strictEqual(leftNoTableAlgs[0].alg, 'R2 U2 R U2 R2 U2 R2 U2 R U2 R2');
+    assert.strictEqual(sv.getPrefSubScope(), 'left:no-table');
+
+    // Right + No Table Abuse -> mirrored <L, U> H-Perm
+    hand = 'right';
+    const rightNoTableAlgs = sv.getCaseAlgs(pllTrack, hCase);
+    assert.strictEqual(rightNoTableAlgs[0].alg, "L2 U2 L' U2 L2 U2 L2 U2 L' U2 L2");
+    assert.strictEqual(rightNoTableAlgs[0].ohBadge, 'RH No-Table');
+    assert.strictEqual(sv.getPrefSubScope(), 'right:no-table');
+
+    // Quick Sim payload reflects No Table mode
+    sv.openCaseQuickSim(pllTrack, hCase);
+    assert.strictEqual(quickPayloads.length, 1);
+    assert.ok(quickPayloads[0].title.includes('Right OH') && quickPayloads[0].title.includes('No Table'));
+
+    // Preferred algs stay isolated between Table Abuse ("left") and No Table Abuse ("left:no-table")
+    hand = 'left';
+    setPreferredAlg('H', 'h-oh-ru-2', '333oh', 'left:no-table');
+    setPreferredAlg('H', 'h-2', '333oh', 'left');
+    useTable = true;
+    assert.strictEqual(sv.getPreferredAlgObj(pllTrack, hCase).preferredAlg.id, 'h-2');
+    useTable = false;
+    assert.strictEqual(sv.getPreferredAlgObj(pllTrack, hCase).preferredAlg.id, 'h-oh-ru-2');
+
+    // OLL 36 No Table includes x'-rotated B rewrite
+    sv.setTrack('333oh', 'oll');
+    sv.selectedCaseId = 'oll-36';
+    const ollDetail = sv.renderDetailView(getTrack('333oh', 'oll'));
+    assert.ok(ollDetail.includes("x&#039;") || ollDetail.includes("x'"));
+  } finally {
+    globalThis.localStorage = prevStorage;
+  }
+});

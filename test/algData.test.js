@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg, formatCaseDisplayId, getSolveTargetsForPuzzle, getSolveTargetInfo } from '../src/data/algRegistry.js';
+import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg, formatCaseDisplayId, getDistinctCaseName, getSolveTargetsForPuzzle, getSolveTargetInfo } from '../src/data/algRegistry.js';
 import { pllCases } from '../src/data/pllData.js';
 import { ollCases } from '../src/data/ollData.js';
 import { f2lCases } from '../src/data/f2lData.js';
@@ -350,6 +350,14 @@ test('getTrack returns null for unknown tracks and formatCaseDisplayId formats 4
   assert.strictEqual(formatCaseDisplayId('444-pll-parity-opp'), '4x4-PLL-parity-opp');
   assert.strictEqual(formatCaseDisplayId('555-edge-parity-flip'), '5x5-edge-parity-flip');
   assert.strictEqual(formatCaseDisplayId('555-wing-swap'), '5x5-wing-swap');
+
+  assert.strictEqual(getDistinctCaseName({ id: 'A1', name: 'CLL A1 (A-Group)' }), '');
+  assert.strictEqual(getDistinctCaseName({ id: 'EG1-H1', name: 'EG-1 H1 (H-Group)' }), '');
+  assert.strictEqual(getDistinctCaseName({ id: 'EG2-T3', name: 'EG-2 T3 (T-Group)' }), '');
+  assert.strictEqual(getDistinctCaseName({ id: 'oll-01', name: 'OLL 1' }), '');
+  assert.strictEqual(getDistinctCaseName({ id: 'Ua', name: 'Ua-Perm (3-Edge Cycle Counter-Clockwise)' }), 'Ua-Perm (3-Edge Cycle Counter-Clockwise)');
+  assert.strictEqual(getDistinctCaseName({ id: 'f2l-01', name: 'F2L 1 (Easy Left / Right Insertion)' }), 'F2L 1 (Easy Left / Right Insertion)');
+  assert.strictEqual(getDistinctCaseName({ id: '444-oll-parity', name: '4x4 OLL Parity (Single Dedge Flip)' }), '4x4 OLL Parity (Single Dedge Flip)');
 });
 
 test('getPreferredAlg and setPreferredAlg scope preferences independently by puzzleId', () => {

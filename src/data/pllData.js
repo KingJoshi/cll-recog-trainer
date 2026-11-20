@@ -106,6 +106,18 @@ export const pllCases = [
         "alg": "M2 U2 M2 U M2 U2 M2",
         "note": "Community Alt",
         "startAuf": ""
+      },
+      {
+        "id": "h-oh-ru-1",
+        "alg": "R2 U2 R U2 R2 U2 R2 U2 R U2 R2",
+        "note": "OH 2-Gen <R, U> (No Table Abuse)",
+        "startAuf": ""
+      },
+      {
+        "id": "h-oh-ru-2",
+        "alg": "R2 U2 R' U2 R2 U2 R2 U2 R' U2 R2",
+        "note": "OH 2-Gen <R, U> R' flick (No Table Abuse)",
+        "startAuf": ""
       }
     ],
     "setup": "M2 U' M2 U2' M2 U' M2"
@@ -146,6 +158,18 @@ export const pllCases = [
         "alg": "M' U M2 U M2 U M' U2 M2",
         "note": "Community Alt",
         "startAuf": "U"
+      },
+      {
+        "id": "z-oh-ru-1",
+        "alg": "R' U' R2 U R U R' U' R U R U' R U' R'",
+        "note": "OH 2-Gen <R, U> (No Table Abuse)",
+        "startAuf": ""
+      },
+      {
+        "id": "z-oh-ru-2",
+        "alg": "R U R' U R' U' R' U R U' R' U' R2 U R",
+        "note": "OH 2-Gen <R, U> Alt (No Table Abuse)",
+        "startAuf": ""
       }
     ],
     "setup": "M U2' M2 U2' M U' M2 U' M2"
@@ -607,6 +631,12 @@ export const pllCases = [
         "id": "Na-5",
         "alg": "r' D r U2 r' D r U2 r' D r U2 r' D r U2 r' D r",
         "note": "Community Alt",
+        "startAuf": ""
+      },
+      {
+        "id": "na-oh-rul-1",
+        "alg": "R U' L U2 R' U L' R U' L U2 R' U L'",
+        "note": "OH 3-Gen <R, U, L> (No Table Abuse)",
         "startAuf": ""
       }
     ],

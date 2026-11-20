@@ -354,6 +354,16 @@ export function getDistinctCaseName(caseObj) {
   const nameNorm = String(caseObj.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const idNoZero = idNorm.replace(/([a-z])0+(\d+)/g, "$1$2");
   if (!nameNorm || nameNorm === idNorm || nameNorm === idNoZero) return "";
+  const stripped = String(caseObj.name)
+    .replace(/^(CLL|EG-?[12])\s+/i, "")
+    .replace(/\s*\([^)]*group\)\s*$/i, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  const idWithoutTrack = idNorm.replace(/^eg[12]/, "");
+  if (!stripped || stripped === idNorm || stripped === idNoZero || stripped === idWithoutTrack) {
+    return "";
+  }
   return caseObj.name;
 }
 

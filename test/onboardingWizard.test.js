@@ -60,7 +60,13 @@ test('recommendTrainingPlan matches beginner -> expert progression for 2x2 and O
 
   const planOhRight = recommendTrainingPlan({ puzzle: '333oh', level: 'intermediate', goal: 'learn', ohHand: 'right' });
   assert.strictEqual(planOhRight.ohHand, 'right');
+  assert.strictEqual(planOhRight.ohTableAbuse, true);
   assert.match(planOhRight.title, /Right Hand/);
+
+  const planOhNoTable = recommendTrainingPlan({ puzzle: '333oh', level: 'intermediate', goal: 'learn', ohHand: 'right', ohTableAbuse: false });
+  assert.strictEqual(planOhNoTable.ohHand, 'right');
+  assert.strictEqual(planOhNoTable.ohTableAbuse, false);
+  assert.match(planOhNoTable.title, /No Table Abuse/);
 
   const plan333Beg = recommendTrainingPlan({ puzzle: '333', level: 'beginner', goal: 'learn' });
   assert.strictEqual(plan333Beg.trackId, 'oll');
@@ -92,15 +98,19 @@ test('AppStore defaults onboardingCompleted to false on clean storage and true w
     assert.strictEqual(cleanApp.state.onboardingCompleted, false);
     assert.strictEqual(cleanApp.state.showTooltips, true);
     assert.strictEqual(cleanApp.state.ohHand, 'left');
+    assert.strictEqual(cleanApp.state.ohTableAbuse, true);
     assert.strictEqual(cleanApp.state.simSpeed, 1);
 
     cleanApp.setOhHand('right');
+    cleanApp.setOhTableAbuse(false);
     cleanApp.setSimSpeed(0.5);
     cleanApp.setSimSpeed(99);
     assert.strictEqual(cleanApp.state.ohHand, 'right');
+    assert.strictEqual(cleanApp.state.ohTableAbuse, false);
     assert.strictEqual(cleanApp.state.simSpeed, 0.5);
     const reloadedApp = new AppStore();
     assert.strictEqual(reloadedApp.state.ohHand, 'right');
+    assert.strictEqual(reloadedApp.state.ohTableAbuse, false);
     assert.strictEqual(reloadedApp.state.simSpeed, 0.5);
 
     store.cllTrainerSettings = JSON.stringify({ currentPuzzle: '333' });

@@ -132,8 +132,8 @@
             "stage"
             "stats";
         align-items: start;
-        padding: 20px;
-        gap: 20px;
+        padding: 14px 20px;
+        gap: 14px;
     }
 
     .cube-card {
@@ -153,9 +153,9 @@
         align-items: stretch;
         --cube-w: 100%;
         width: 100%;
-        max-width: 100%;
+        max-width: 2000px;
         gap: 14px;
-        margin: 0;
+        margin: 0 auto;
     }
 
     .stage.mode-solve > * {
@@ -226,11 +226,12 @@
     /* Desktop Practice & Simulate modes: 2-column layout (3D cube left, controls right) */
     .stage.mode-practice,
     .stage.mode-simulate {
-        grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
+        grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
         align-items: start;
         gap: 16px;
         width: 100%;
-        max-width: 100%;
+        max-width: 2000px;
+        margin: 0 auto;
         --cube-w: 100%;
     }
 
@@ -278,13 +279,13 @@
 
     .stage.mode-practice .cube-card #display-container,
     .stage.mode-simulate .cube-card #display-container {
-        width: min(100%, 360px);
+        width: min(100%, 380px);
     }
 
     .stage.mode-practice .cube-card-controls,
     .stage.mode-simulate .cube-card-controls {
         width: 100%;
-        max-width: 360px;
+        max-width: 380px;
         justify-content: center;
     }
 
@@ -313,68 +314,77 @@
         box-sizing: border-box;
     }
 
-    .stage:not(.mode-solve) .cube-card #display-container {
+    .stage:not(.mode-solve):not(.mode-practice):not(.mode-simulate) .cube-card #display-container {
         width: min(100%, var(--cube-card-max-w, 360px));
     }
 
-    .stage:not(.mode-solve) .cube-card-controls {
+    .stage:not(.mode-solve):not(.mode-practice):not(.mode-simulate) .cube-card-controls {
         width: 100%;
         max-width: var(--cube-card-max-w, 360px);
         justify-content: center;
     }
 }
 
-/* Large screens */
+/* Large, QHD, & 4K screens */
 
 @media (min-width: 1400px) {
-    :root {
-        font-size: 17px;
-    }
-
     .app {
+        max-width: min(100%, 3400px);
         grid-template-columns: minmax(0, 1fr);
-        padding: 28px;
-        gap: 28px;
+        padding: 12px 26px;
+        gap: 10px;
     }
 
-    .stage.mode-solve {
-        --cube-w: 100%;
-        width: 100%;
-        max-width: 100%;
+    .stage.mode-solve:not([data-solve-size="small"]):not([data-solve-size="medium"]) {
+        --solve-cube-max-w: 440px;
+        --solve-timer-min-h: 400px;
     }
 
-    .stage:not(.mode-solve) {
-        --cube-w: 100%;
-        width: 100%;
-        max-width: 100%;
-    }
-}
-
-@media (min-width: 2000px) {
-    :root {
-        font-size: 18px;
+    .stage.mode-practice,
+    .stage.mode-simulate {
+        grid-template-columns: minmax(380px, 480px) minmax(0, 1fr);
+        gap: 18px;
     }
 
-    .app {
-        max-width: 1920px;
+    .stage.mode-practice .cube-card #display-container,
+    .stage.mode-simulate .cube-card #display-container {
+        width: min(100%, 440px);
     }
 
-    .stage.mode-solve {
-        --cube-w: 100%;
-        width: 100%;
-        max-width: 100%;
-    }
-
-    .stage:not(.mode-solve) {
-        --cube-w: 100%;
-        width: 100%;
-        max-width: 100%;
+    .stage.mode-practice .cube-card-controls,
+    .stage.mode-simulate .cube-card-controls {
+        max-width: 440px;
     }
 }
 
-@media (min-width: 2500px) {
+@media (min-width: 1920px) {
+    .stage.mode-solve:not([data-solve-size="small"]):not([data-solve-size="medium"]) {
+        --solve-cube-max-w: 500px;
+        --solve-timer-min-h: 440px;
+    }
+
+    .stage.mode-practice,
+    .stage.mode-simulate {
+        grid-template-columns: minmax(440px, 560px) minmax(0, 1fr);
+        gap: 20px;
+    }
+
+    .stage.mode-practice .cube-card #display-container,
+    .stage.mode-simulate .cube-card #display-container {
+        width: min(100%, 520px);
+    }
+
+    .stage.mode-practice .cube-card-controls,
+    .stage.mode-simulate .cube-card-controls {
+        max-width: 520px;
+    }
+}
+
+@media (min-width: 2400px) {
     .app {
-        max-width: 2240px;
+        max-width: min(100%, 3600px);
+        padding: 12px 32px;
+        gap: 12px;
     }
 }
 
