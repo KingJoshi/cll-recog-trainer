@@ -314,9 +314,9 @@ test('smartcube-web-bluetooth exports connectSmartCube & connectGanTimer and has
   assert.ok(content.includes('if (diff === 0 || diff > 200)'), 'GAN evictMoveBuffer must discard duplicate/stale serials');
   assert.ok(content.includes('if (diff > 1 && this.moveBuffer.length <= 12)'), 'GAN evictMoveBuffer must wait for history up to 12 moves');
 
-  // 2. Verify GAN Gen4 0x01 trailing chunk validation
+  // 2. Verify GAN Gen4 0x01 trailing chunk validation (allows CW/CCW/Double direction 0..2)
   assert.ok(
-    content.includes('if (face < 0 || direction > 1 || (off > 0 && (msg.getBitWord(off + 8, 8) !== 7 || serial !== ((this.serial + 1) & 0xFFFF))))'),
+    content.includes('if (face < 0 || direction > 2 || (off > 0 && (msg.getBitWord(off + 8, 8) !== 7 || serial !== ((this.serial + 1) & 0xFFFF))))'),
     'GAN Gen4 0x01 handler must validate trailing chunk before assigning this.serial'
   );
 
@@ -326,6 +326,82 @@ test('smartcube-web-bluetooth exports connectSmartCube & connectGanTimer and has
 
   // 4. Verify synchronous DISCONNECT emission for GAN timer
   assert.ok(content.includes('var disconnectedOnce = false;'), 'connectGanTimer must emit DISCONNECT synchronously');
+});
+
+test('SmartCubeManager hardReset avoids document.body mutation, getSavedCubes is read-only, double-disconnect is prevented, and onRequestMac replaces window.prompt', async () => {
+  const store = {};
+  let setCalls = 0;
+  const prevStorage = globalThis.localStorage;
+  const prevDoc = globalThis.document;
+  globalThis.localStorage = {
+    get length() { return Object.keys(store).length; },
+    key: i => Object.keys(store)[i] ?? null,
+    getItem: k => (k in store ? store[k] : null),
+    setItem: (k, v) => { setCalls++; store[k] = String(v); },
+    removeItem: k => { delete store[k]; }
+  };
+  let bodyOverflowTouched = false;
+  globalThis.document = {
+    body: {
+      style: new Proxy({}, {
+        set() { bodyOverflowTouched = true; return true; }
+      })
+    }
+  };
+
+  try {
+    const sc = new SmartCubeManager();
+    sc.saveConnectedCube({ name: 'GANic4_5927', mac: 'AB:12:34:56:59:27', protocol: 'GAN V4' });
+    const callsBeforeRead = setCalls;
+    const list = sc.getSavedCubes();
+    assert.strictEqual(list.length, 1);
+    assert.strictEqual(setCalls, callsBeforeRead, 'getSavedCubes must be read-only');
+
+    // Double disconnect guard: second call returns clean without duplicate disconnected event
+    let disconnectEvents = 0;
+    let fakeConnDisconnects = 0;
+    sc.addEventListener('disconnected', () => { disconnectEvents++; });
+    sc.connection = {
+      disconnect: async () => { fakeConnDisconnects++; }
+    };
+    sc.status = 'connected';
+    sc.deviceName = 'TestCube';
+
+    await sc.disconnect('manual');
+    await sc.disconnect('manual');
+    assert.strictEqual(disconnectEvents, 1);
+
+    // hardReset must not touch document.body.style
+    await sc.hardReset();
+    assert.strictEqual(bodyOverflowTouched, false);
+
+    // connectSmartCubeFn + onRequestMac injection without window.prompt
+    let promptedDevice = null;
+    let resolvedMac = null;
+    const scInjected = new SmartCubeManager({
+      connectSmartCubeFn: async (opts) => {
+        resolvedMac = await opts.macAddressProvider({ name: 'GANic4_1234', id: 'dev-mac-1' }, true);
+        return {
+          deviceName: 'GANic4_1234',
+          protocol: { id: 'gan-v4', name: 'GAN V4' },
+          capabilities: {},
+          events$: { subscribe: () => ({ unsubscribe() {} }) },
+          disconnect: async () => {}
+        };
+      },
+      onRequestMac: async ({ deviceName }) => {
+        promptedDevice = deviceName;
+        return '11:22:33:44:55:66';
+      }
+    });
+    await scInjected.connect();
+    assert.strictEqual(promptedDevice, 'GANic4_1234');
+    assert.strictEqual(resolvedMac, '11:22:33:44:55:66');
+    await scInjected.disconnect('manual');
+  } finally {
+    globalThis.localStorage = prevStorage;
+    globalThis.document = prevDoc;
+  }
 });
 
 

@@ -2,11 +2,20 @@
 // Uses precomputed IDA* pruning table for 100% optimal move count solutions.
 
 import { Alg } from 'cubing/alg';
-import { puzzles } from 'cubing/puzzles';
+import {
+  ORIENTATIONS_24,
+  CORNER_FACES_333,
+  EDGE_FACES_333,
+  F2L_SLOTS,
+  getKpuzzle,
+  getSolvedOrientations
+} from './cube/cubeUtils.js';
 
 let kp333 = null;
+let solvedOrientationsData = null;
 let distTable = null;
 let moveList = null;
+let initPromise = null;
 
 const faces = ['U', 'D', 'R', 'L', 'F', 'B'];
 
@@ -30,68 +39,78 @@ export const CROSS_FACE_CENTER_IDS = {
 export const ALL_CROSS_FACES = ["white", "yellow", "green", "blue", "red", "orange"];
 
 async function initSolver() {
-  if (distTable) return;
-  kp333 = await puzzles['3x3x3'].kpuzzle();
+  if (distTable && solvedOrientationsData) return;
+  if (!initPromise) {
+    initPromise = (async () => {
+      kp333 = await getKpuzzle('3x3x3');
+      solvedOrientationsData = await getSolvedOrientations('3x3x3');
 
-  moveList = [];
-  for (let fIdx = 0; fIdx < faces.length; fIdx++) {
-    const f = faces[fIdx];
-    for (const suffix of ['', '2', "'"]) {
-      const name = f + suffix;
-      const alg = new Alg(name);
-      const pat = kp333.defaultPattern().applyAlg(alg);
-      const perm = new Array(12);
-      const oriDelta = new Array(12);
-      for (let s = 0; s < 12; s++) {
-        const targetSlot = pat.patternData.EDGES.pieces.indexOf(s);
-        perm[s] = targetSlot;
-        oriDelta[s] = pat.patternData.EDGES.orientation[targetSlot];
+      moveList = [];
+      for (let fIdx = 0; fIdx < faces.length; fIdx++) {
+        const f = faces[fIdx];
+        for (const suffix of ['', '2', "'"]) {
+          const name = f + suffix;
+          const alg = new Alg(name);
+          const pat = kp333.defaultPattern().applyAlg(alg);
+          const perm = new Array(12);
+          const oriDelta = new Array(12);
+          for (let s = 0; s < 12; s++) {
+            const targetSlot = pat.patternData.EDGES.pieces.indexOf(s);
+            perm[s] = targetSlot;
+            oriDelta[s] = pat.patternData.EDGES.orientation[targetSlot];
+          }
+          moveList.push({ name, face: fIdx, perm, oriDelta });
+        }
       }
-      moveList.push({ name, face: fIdx, perm, oriDelta });
-    }
-  }
 
-  const N = 12 * 11 * 10 * 9 * 16;
-  distTable = new Uint8Array(N).fill(255);
-  const queue = new Int32Array(N);
-  let qHead = 0, qTail = 0;
+      const N = 12 * 11 * 10 * 9 * 16;
+      const table = new Uint8Array(N).fill(255);
+      const queue = new Int32Array(N);
+      let qHead = 0, qTail = 0;
 
-  // Solved target: pieces p0, p1, p2, p3 in slots 4, 5, 6, 7 (including 4 D AUF rotations)
-  for (let d = 0; d < 4; d++) {
-    const s0 = 4 + d;
-    const s1 = 4 + ((1 + d) % 4);
-    const s2 = 4 + ((2 + d) % 4);
-    const s3 = 4 + ((3 + d) % 4);
-    const idx = getIndex(s0, s1, s2, s3, 0, 0, 0, 0);
-    if (distTable[idx] === 255) {
-      distTable[idx] = 0;
-      queue[qTail++] = idx;
-    }
-  }
-
-  while (qHead < qTail) {
-    const curr = queue[qHead++];
-    const d = distTable[curr];
-    const [s0, s1, s2, s3, o0, o1, o2, o3] = decodeIndex(curr);
-
-    for (let i = 0; i < moveList.length; i++) {
-      const mv = moveList[i];
-      const ns0 = mv.perm[s0];
-      const ns1 = mv.perm[s1];
-      const ns2 = mv.perm[s2];
-      const ns3 = mv.perm[s3];
-      const no0 = (o0 + mv.oriDelta[s0]) & 1;
-      const no1 = (o1 + mv.oriDelta[s1]) & 1;
-      const no2 = (o2 + mv.oriDelta[s2]) & 1;
-      const no3 = (o3 + mv.oriDelta[s3]) & 1;
-
-      const nIdx = getIndex(ns0, ns1, ns2, ns3, no0, no1, no2, no3);
-      if (distTable[nIdx] === 255) {
-        distTable[nIdx] = d + 1;
-        queue[qTail++] = nIdx;
+      // Solved target: pieces p0, p1, p2, p3 in slots 4, 5, 6, 7 (including 4 D AUF rotations)
+      for (let d = 0; d < 4; d++) {
+        const s0 = 4 + d;
+        const s1 = 4 + ((1 + d) % 4);
+        const s2 = 4 + ((2 + d) % 4);
+        const s3 = 4 + ((3 + d) % 4);
+        const idx = getIndex(s0, s1, s2, s3, 0, 0, 0, 0);
+        if (table[idx] === 255) {
+          table[idx] = 0;
+          queue[qTail++] = idx;
+        }
       }
-    }
+
+      while (qHead < qTail) {
+        const curr = queue[qHead++];
+        const d = table[curr];
+        const [s0, s1, s2, s3, o0, o1, o2, o3] = decodeIndex(curr);
+
+        for (let i = 0; i < moveList.length; i++) {
+          const mv = moveList[i];
+          const ns0 = mv.perm[s0];
+          const ns1 = mv.perm[s1];
+          const ns2 = mv.perm[s2];
+          const ns3 = mv.perm[s3];
+          const no0 = (o0 + mv.oriDelta[s0]) & 1;
+          const no1 = (o1 + mv.oriDelta[s1]) & 1;
+          const no2 = (o2 + mv.oriDelta[s2]) & 1;
+          const no3 = (o3 + mv.oriDelta[s3]) & 1;
+
+          const nIdx = getIndex(ns0, ns1, ns2, ns3, no0, no1, no2, no3);
+          if (table[nIdx] === 255) {
+            table[nIdx] = d + 1;
+            queue[qTail++] = nIdx;
+          }
+        }
+      }
+      distTable = table;
+    })().catch(err => {
+      initPromise = null;
+      throw err;
+    });
   }
+  return initPromise;
 }
 
 function getIndex(s0, s1, s2, s3, o0, o1, o2, o3) {
@@ -188,41 +207,15 @@ function getInspectionRotationsForCenterOnBottom(initialPat, targetCenterId = 0)
     ];
   }
   // Generic search across all 24 cube orientations putting targetCenterId on D (slot 5):
-  const candidates = [
-    { name: "none", alg: "" },
-    { name: "y", alg: "y" },
-    { name: "y2", alg: "y2" },
-    { name: "y'", alg: "y'" },
-    { name: "z2", alg: "z2" },
-    { name: "z2 y", alg: "z2 y" },
-    { name: "x2", alg: "x2" },
-    { name: "x2 y", alg: "x2 y" },
-    { name: "x", alg: "x" },
-    { name: "x y", alg: "x y" },
-    { name: "x y2", alg: "x y2" },
-    { name: "x y'", alg: "x y'" },
-    { name: "x'", alg: "x'" },
-    { name: "x' y", alg: "x' y" },
-    { name: "x' y2", alg: "x' y2" },
-    { name: "x' y'", alg: "x' y'" },
-    { name: "z", alg: "z" },
-    { name: "z y", alg: "z y" },
-    { name: "z y2", alg: "z y2" },
-    { name: "z y'", alg: "z y'" },
-    { name: "z'", alg: "z'" },
-    { name: "z' y", alg: "z' y" },
-    { name: "z' y2", alg: "z' y2" },
-    { name: "z' y'", alg: "z' y'" }
-  ];
   const res = [];
   const seen = new Set();
-  for (const c of candidates) {
-    const p = c.alg ? initialPat.applyAlg(new Alg(c.alg)) : initialPat;
+  for (const alg of ORIENTATIONS_24) {
+    const p = alg ? initialPat.applyAlg(new Alg(alg)) : initialPat;
     if (p.patternData.CENTERS.pieces[5] === targetCenterId) {
-      const key = JSON.stringify(p.patternData.CENTERS.pieces);
+      const key = p.patternData.CENTERS.pieces.join(',');
       if (!seen.has(key)) {
         seen.add(key);
-        res.push(c);
+        res.push({ name: alg || "none", alg });
       }
     }
   }
@@ -281,21 +274,8 @@ export async function findCrossSolutions(scrambleStr, facesOrMax = 8, maybeMaxSo
       }
 
       // Reference solved pattern for this inspection orientation:
-      // Compute Which orientation of defaultPattern() matches pat's centers!
-      let solvedPat = null;
-      const patCentersKey = JSON.stringify(pat.patternData.CENTERS.pieces);
-      const allRots = [
-        "", "y", "y2", "y'", "z2", "z2 y", "x2", "x2 y",
-        "x", "x y", "x y2", "x y'", "x'", "x' y", "x' y2", "x' y'",
-        "z", "z y", "z y2", "z y'", "z'", "z' y", "z' y2", "z' y'"
-      ];
-      for (const r of allRots) {
-        const cand = r ? kp333.defaultPattern().applyAlg(new Alg(r)) : kp333.defaultPattern();
-        if (JSON.stringify(cand.patternData.CENTERS.pieces) === patCentersKey) {
-          solvedPat = cand;
-          break;
-        }
-      }
+      const patCentersKey = pat.patternData.CENTERS.pieces.join(',');
+      const solvedPat = solvedOrientationsData?.byCenterKey?.get(patCentersKey) || null;
       if (!solvedPat) continue;
 
       const pieces = pat.patternData.EDGES.pieces;
@@ -343,12 +323,12 @@ export async function findCrossSolutions(scrambleStr, facesOrMax = 8, maybeMaxSo
       const rawPaths = [];
       searchPaths(s0, s1, s2, s3, o0, o1, o2, o3, 0, optimalMoves, -1, [], rawPaths);
 
-      const f2lSlots = [
-        { name: "FR", cSlot: 4, eSlot: 8 },
-        { name: "FL", cSlot: 5, eSlot: 9 },
-        { name: "BL", cSlot: 6, eSlot: 11 },
-        { name: "BR", cSlot: 7, eSlot: 10 }
-      ];
+      const ADJ_U_SHARED_CORNER_FACE = {
+        '0-0': 2, '0-1': 1,
+        '1-1': 2, '1-2': 1,
+        '2-2': 2, '2-3': 1,
+        '3-3': 2, '3-0': 1
+      };
 
       for (const p of rawPaths) {
         let solStr = p.join(' ');
@@ -382,18 +362,18 @@ export async function findCrossSolutions(scrambleStr, facesOrMax = 8, maybeMaxSo
           description: ""
         };
 
-        for (const slot of f2lSlots) {
-          const targetCorner = solvedPat.patternData.CORNERS.pieces[slot.cSlot];
-          const targetCornerOri = solvedPat.patternData.CORNERS.orientation[slot.cSlot];
-          const targetEdge = solvedPat.patternData.EDGES.pieces[slot.eSlot];
-          const targetEdgeOri = solvedPat.patternData.EDGES.orientation[slot.eSlot];
+        for (const slot of F2L_SLOTS) {
+          const targetCorner = solvedPat.patternData.CORNERS.pieces[slot.c];
+          const targetCornerOri = solvedPat.patternData.CORNERS.orientation[slot.c];
+          const targetEdge = solvedPat.patternData.EDGES.pieces[slot.e];
+          const targetEdgeOri = solvedPat.patternData.EDGES.orientation[slot.e];
 
           const actualCornerSlot = cornerPiecesAfter.indexOf(targetCorner);
           const actualEdgeSlot = edgePiecesAfter.indexOf(targetEdge);
           const cOri = cornerOriAfter[actualCornerSlot];
           const eOri = edgeOriAfter[actualEdgeSlot];
 
-          if (actualCornerSlot === slot.cSlot && actualEdgeSlot === slot.eSlot && cOri === targetCornerOri && eOri === targetEdgeOri) {
+          if (actualCornerSlot === slot.c && actualEdgeSlot === slot.e && cOri === targetCornerOri && eOri === targetEdgeOri) {
             crossPlus1 = {
               hasPair: true,
               score: 3,
@@ -404,15 +384,22 @@ export async function findCrossSolutions(scrambleStr, facesOrMax = 8, maybeMaxSo
             break;
           }
 
-          // Pair in U layer (slots 0..3)
-          if (actualCornerSlot < 4 && actualEdgeSlot < 4) {
-            crossPlus1 = {
-              hasPair: true,
-              score: 2,
-              type: "connected",
-              slot: slot.name,
-              description: `Pair in U layer for ${slot.name}`
-            };
+          // Connected (joined) pair in U layer (slots 0..3)
+          if (crossPlus1.score < 2 && actualCornerSlot < 4 && actualEdgeSlot < 4) {
+            const cSharedIdx = ADJ_U_SHARED_CORNER_FACE[`${actualCornerSlot}-${actualEdgeSlot}`];
+            if (cSharedIdx !== undefined) {
+              const cFace = (fIdx) => CORNER_FACES_333[slot.c][((fIdx - cOri + 3) % 3 + targetCornerOri) % 3];
+              const eFace = (fIdx) => EDGE_FACES_333[slot.e][((fIdx - eOri + 2) % 2 + targetEdgeOri) % 2];
+              if (cFace(0) === eFace(0) && cFace(cSharedIdx) === eFace(1)) {
+                crossPlus1 = {
+                  hasPair: true,
+                  score: 2,
+                  type: "connected",
+                  slot: slot.name,
+                  description: `Connected Pair in U layer for ${slot.name}`
+                };
+              }
+            }
           }
         }
 
@@ -473,6 +460,5 @@ export async function findCrossSolutions(scrambleStr, facesOrMax = 8, maybeMaxSo
     }
   }
 
-  unique.solutions = unique;
   return unique;
 }

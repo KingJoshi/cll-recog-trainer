@@ -188,5 +188,27 @@ test('ScrambleTracker includes remaining double-turn half in corrections if user
   assert.strictEqual(tracker.isComplete(), true);
 });
 
+test('parseMoveToken preserves wide-move case sensitivity and renderScrambleTrackerHtml renders markup', async () => {
+  const { parseMoveToken, renderScrambleTrackerHtml } = await import('../src/scrambleTracker.js');
+
+  const upperR = parseMoveToken('R');
+  const lowerR = parseMoveToken('r');
+  const wideU2 = parseMoveToken('u2');
+  const wideFPrime = parseMoveToken("f'");
+
+  assert.strictEqual(upperR.face, 'R');
+  assert.strictEqual(lowerR.face, 'r');
+  assert.strictEqual(wideU2.face, 'u');
+  assert.strictEqual(wideU2.amount, 2);
+  assert.strictEqual(wideFPrime.face, 'f');
+  assert.strictEqual(wideFPrime.amount, 3);
+
+  const tracker = new ScrambleTracker("r U'");
+  tracker.applyMove('r');
+  const html = renderScrambleTrackerHtml(tracker);
+  assert.ok(html.includes('token-done'));
+  assert.ok(html.includes("U'"));
+});
+
 
 

@@ -9,9 +9,9 @@
  * and accurately identifies the resulting top-layer CLL case (e.g. S1..S6, T1..T6, Solved, PBL, etc.).
  */
 
-import { puzzles } from 'cubing/puzzles';
 import { Alg } from 'cubing/alg';
-import { cllCases } from './casesData.js';
+import { cllCases } from './data/cllData.js';
+import { ORIENTATIONS_24, OPPOSITE_COLOR, getKpuzzle } from './cube/cubeUtils.js';
 
 let solverContextPromise = null;
 
@@ -25,15 +25,6 @@ const PIECE_COLORS = [
     ['yellow', 'blue', 'orange'], // 6: DBL
     ['yellow', 'red', 'blue']     // 7: DBR
 ];
-
-const OPPOSITE_COLOR = {
-    white: 'yellow',
-    yellow: 'white',
-    green: 'blue',
-    blue: 'green',
-    red: 'orange',
-    orange: 'red'
-};
 
 const CANONICAL_PIECE_MAP = new Map();
 PIECE_COLORS.forEach((colors, id) => {
@@ -52,7 +43,7 @@ const FACE_ORDER = { white: 0, yellow: 1, green: 2, blue: 3, red: 4, orange: 5 }
 async function getSolverContext() {
     if (!solverContextPromise) {
         solverContextPromise = (async () => {
-            const kp = await puzzles['2x2x2'].kpuzzle();
+            const kp = await getKpuzzle('2x2x2');
             const def = kp.defaultPattern();
             const moveNames = ['R', 'R2', "R'", 'F', 'F2', "F'", 'U', 'U2', "U'"];
             const moveTrans = {};
@@ -60,35 +51,28 @@ async function getSolverContext() {
                 moveTrans[m] = kp.algToTransformation(new Alg(m));
             }
 
-            const orientations = [
-                '', 'y', 'y2', "y'",
-                'x', 'x y', 'x y2', "x y'",
-                'x2', 'x2 y', 'x2 y2', "x2 y'",
-                "x'", "x' y", "x' y2", "x' y'",
-                'z', 'z y', 'z y2', "z y'",
-                "z'", "z' y", "z' y2", "z' y'"
-            ];
-
             const caseAlgs = [];
-            for (const c of cllCases.cases) {
+            for (const c of cllCases) {
+                const solAlg = c.algs?.[0]?.alg || c.solutionAlg;
+                if (!solAlg) continue;
+                const shortGroup = c.group ? c.group.replace(/-Group$/, '') : c.id[0];
                 for (const auf of ['', 'U', 'U2', "U'"]) {
-                    const algStr = auf ? auf + ' ' + c.solutionAlg : c.solutionAlg;
+                    const algStr = auf ? auf + ' ' + solAlg : solAlg;
                     caseAlgs.push({
                         id: c.id,
-                        group: c.group,
+                        group: shortGroup,
                         trans: kp.algToTransformation(new Alg(algStr))
                     });
                 }
             }
 
-            return { kp, def, moveNames, moveTrans, orientations, caseAlgs };
+            return { kp, def, moveNames, moveTrans, orientations: ORIENTATIONS_24, caseAlgs };
         })();
     }
     return solverContextPromise;
 }
 
-// Start pre-initializing immediately upon module import
-getSolverContext();
+// Solver context initializes lazily on first solver call.
 
 function getSolvedBottomLayer(pattern) {
     const d = pattern.patternData['CORNERS'];
@@ -159,13 +143,14 @@ function identifyCaseUniversal(pattern, ctx, layer) {
         return 'Unknown';
     }
 
-    // Map non-white bottom colors to canonical White bottom & Yellow top
+    // Map non-white bottom layer (matching canonPieces[4..7] = [1, 2, 3, 0] -> z2 y2 frame)
+    // to canonical White bottom, Yellow top, Blue front, Red right, Green back, Orange left.
     const colorMap = {
         [layer.bottom]: 'white',
         [layer.top]: 'yellow',
-        [layer.front]: 'green',
+        [layer.front]: 'blue',
         [layer.right]: 'red',
-        [layer.back]: 'blue',
+        [layer.back]: 'green',
         [layer.left]: 'orange'
     };
 
@@ -191,9 +176,9 @@ function identifyCaseUniversal(pattern, ctx, layer) {
         if (sU === 'yellow') {
             canonOri[slot] = 0;
         } else if (sSide1 === 'yellow') {
-            canonOri[slot] = 2;
-        } else {
             canonOri[slot] = 1;
+        } else {
+            canonOri[slot] = 2;
         }
     }
 
@@ -331,7 +316,8 @@ async function search2x2BottomSolutions(scramble, targetFaces = ['white'], maxDe
 
     const rawSolutions = [];
 
-    for (const curMax of [maxDepth, 6]) {
+    const depths = maxDepth < 6 ? [maxDepth, 6] : [maxDepth];
+    for (const curMax of depths) {
         for (const insp of ctx.orientations) {
             const orientedPattern = insp ? scrambled.applyAlg(new Alg(insp)) : scrambled;
 
@@ -367,7 +353,7 @@ async function search2x2BottomSolutions(scramble, targetFaces = ['white'], maxDe
             const checkSolvedGoal = (pat) => {
                 if (goalMode === 'face') {
                     if (countFaceOnD(pat, face) === 4) {
-                        return { bottom: face, caseId: classifyBottomFacePerm(pat, face) };
+                        return { bottom: face, caseId: classifyBottomFacePerm(pat) };
                     }
                     return null;
                 }

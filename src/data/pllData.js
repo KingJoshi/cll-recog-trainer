@@ -28,12 +28,6 @@ export const pllCases = [
         "startAuf": ""
       },
       {
-        "id": "Ua-4",
-        "alg": "M2 U M U2 M' U M2",
-        "note": "Community Alt",
-        "startAuf": ""
-      },
-      {
         "id": "Ua-5",
         "alg": "R U R' U R' U' R2 U' R' U R' U R",
         "note": "Community Alt",
@@ -74,22 +68,10 @@ export const pllCases = [
         "startAuf": ""
       },
       {
-        "id": "Ub-4",
-        "alg": "M2 U' M U2 M' U' M2",
-        "note": "Community Alt",
-        "startAuf": ""
-      },
-      {
         "id": "Ub-5",
         "alg": "R' U R' U' R' U' R' U R U R2",
         "note": "Community Alt",
         "startAuf": "U2"
-      },
-      {
-        "id": "Ub-6",
-        "alg": "R2' U R U R' U' R3 U' R' U R'",
-        "note": "Community Alt",
-        "startAuf": ""
       }
     ],
     "setup": "R U' R U R U R U' R' U' R2'"
@@ -111,18 +93,6 @@ export const pllCases = [
         "id": "h-2",
         "alg": "M2' U' M2' U2 M2' U' M2'",
         "note": "U' index flick variant",
-        "startAuf": ""
-      },
-      {
-        "id": "H-3",
-        "alg": "M2 U M2 U2 M2 U M2",
-        "note": "Community Alt",
-        "startAuf": ""
-      },
-      {
-        "id": "H-4",
-        "alg": "M2 U' M2 U2 M2 U' M2",
-        "note": "Community Alt",
         "startAuf": ""
       },
       {
@@ -162,12 +132,6 @@ export const pllCases = [
       {
         "id": "Z-3",
         "alg": "M' U' M2 U' M2 U' M' U2 M2",
-        "note": "Community Alt",
-        "startAuf": ""
-      },
-      {
-        "id": "Z-4",
-        "alg": "M2 U M2 U M' U2 M2 U2 M'",
         "note": "Community Alt",
         "startAuf": ""
       },

@@ -24,14 +24,41 @@ export default defineConfig({
   worker: {
     format: 'es'
   },
+  build: {
+    modulePreload: false,
+    rollupOptions: {
+      output: {
+        // Keep shared pure-JS cubing core & Vite's preload helper out of the DOM entry chunk
+        // so cubing's search module worker never imports `main.js` or references `document`.
+        manualChunks(id) {
+          if (id.includes('vite/preload-helper')) {
+            return 'vite-preload'
+          }
+          if (
+            (id.includes('/node_modules/cubing/') || id.includes('/node_modules/@cubing/')) &&
+            !id.includes('/twisty') &&
+            !id.includes('/bluetooth') &&
+            !id.includes('chunk-LD4XJTCU') &&
+            !id.includes('search-worker-entry') &&
+            !id.includes('/inside-') &&
+            !id.includes('-dynamic-') &&
+            !id.includes('big-puzzle-orientation') &&
+            !id.includes('/twips')
+          ) {
+            return 'cubing-core'
+          }
+        }
+      }
+    }
+  },
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: '2x2 CLL Recog Trainer',
-        short_name: 'CLL Trainer',
-        description: 'Practice 2x2 CLL recognition offline',
+        name: 'Speedcube Trainer',
+        short_name: 'CubeTrainer',
+        description: 'Multi-puzzle 2x2-5x5 speedcube recognition, algorithm study, smart cube timer & 3D replay trainer',
         theme_color: '#007bff',
         background_color: '#ffffff',
         display: 'standalone',

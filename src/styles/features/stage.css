@@ -1,0 +1,536 @@
+@layer features {
+/* --------------------------------------------------------------------------
+   Stage: cube, case info, guessing UI
+   -------------------------------------------------------------------------- */
+
+.stage {
+    /* --cube-w is the shared width of the guessing UI and mode segments so they stay aligned.
+       --cube-card-max-w bounds the 3D cube widget to a squarish aspect ratio. */
+    --vh: 100vh;
+    --cube-w: 640px;
+    --cube-card-max-w: 360px;
+    --solve-cube-max-w: 380px;
+    --solve-timer-min-h: 360px;
+    --solve-timer-font: 4.2rem;
+    display: grid;
+    gap: var(--gap);
+    align-content: start;
+    justify-items: center;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.stage[data-solve-size="small"] {
+    --solve-cube-max-w: 240px;
+    --solve-timer-min-h: 220px;
+    --solve-timer-font: 2.6rem;
+}
+
+.stage[data-solve-size="medium"] {
+    --solve-cube-max-w: 300px;
+    --solve-timer-min-h: 280px;
+    --solve-timer-font: 3.4rem;
+}
+
+.stage[data-solve-size="large"] {
+    --solve-cube-max-w: 380px;
+    --solve-timer-min-h: 360px;
+    --solve-timer-font: 4.2rem;
+}
+
+/* Solve mode specific widget sizing */
+.stage.mode-solve {
+    --cube-card-max-w: calc(var(--solve-cube-max-w) + 24px);
+}
+
+.stage.mode-solve .cube-card #display-container {
+    width: min(100%, var(--solve-cube-max-w));
+}
+
+.stage.mode-solve .solve-surface {
+    min-height: var(--solve-timer-min-h);
+}
+
+.stage.mode-solve .solve-time {
+    font-size: var(--solve-timer-font);
+}
+
+@supports (height: 1dvh) {
+    .stage {
+        --vh: 100dvh;
+    }
+}
+
+.stage > * {
+    width: min(100%, var(--cube-w));
+    max-width: 100%;
+    min-width: 0;
+}
+
+/* In all other tabs (Study, Practice, Simulate, Timed), span full width of the container */
+.stage:not(.mode-solve) {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    justify-items: stretch;
+    --cube-w: 100%;
+}
+
+.stage:not(.mode-solve) > * {
+    width: 100%;
+    max-width: 100%;
+}
+
+@media (min-width: 900px) {
+    .stage {
+        --cube-w: 100%;
+        width: 100%;
+        max-width: 100%;
+        justify-items: stretch;
+    }
+
+    .stage > * {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+.cube-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    position: relative;
+    width: min(100%, max(var(--cube-card-max-w, 360px), 360px));
+    box-sizing: border-box;
+    margin: 0 auto;
+}
+
+.reset-orientation-btn {
+    margin-top: 6px;
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.reset-orientation-btn:hover {
+    color: var(--text);
+    border-color: var(--primary);
+    background: var(--surface);
+    transform: translateY(-1px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.reset-orientation-btn:active {
+    transform: translateY(0);
+}
+
+.reset-orient-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+#display-container {
+    width: 100%;
+    max-width: var(--solve-cube-max-w, 340px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+scramble-display {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+}
+
+.empty-state {
+    margin: 0;
+    padding: 12px;
+    text-align: center;
+    color: var(--muted);
+}
+
+/* --------------------------------------------------------------------------
+   Modes and timed sessions
+   -------------------------------------------------------------------------- */
+
+.seg.mode-seg {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+}
+
+.seg.mode-seg > button {
+    min-height: 40px;
+    padding: 0 8px;
+    font-size: .95rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kbd-hint {
+    display: none;
+    margin: 0;
+    text-align: center;
+    font-size: .75rem;
+    color: var(--muted);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .kbd-hint {
+        display: block;
+    }
+}
+
+/* brief flash of the cube card after a timed answer */
+.cube-card {
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.cube-card.flash-correct {
+    border-color: var(--success);
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, .35);
+}
+
+.cube-card.flash-partial {
+    border-color: var(--warning);
+    box-shadow: 0 0 0 3px rgba(255, 193, 7, .4);
+}
+
+.cube-card.flash-incorrect {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, .35);
+}
+
+/* --------------------------------------------------------------------------
+   Cube Card Controls & Keyboard Rotation Hint
+   -------------------------------------------------------------------------- */
+
+.cube-card-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    width: 100%;
+    max-width: 440px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   Free Face Rotations & Move Tracking
+   -------------------------------------------------------------------------- */
+
+.free-moves-panel {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 0;
+    padding: 0;
+    background: var(--surface);
+    border: 0;
+    display: block;
+}
+
+.free-moves-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 12px;
+    box-sizing: border-box;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    transition: background 0.15s ease;
+}
+
+.free-moves-header::-webkit-details-marker {
+    display: none;
+}
+
+.free-moves-header:hover {
+    background: var(--surface-2);
+}
+
+.free-moves-panel summary .chevron {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    margin: 0 4px 0 2px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(-45deg);
+    transition: transform 0.2s ease;
+}
+
+.free-moves-panel[open] summary .chevron {
+    transform: rotate(45deg);
+    margin-bottom: 2px;
+}
+
+.free-moves-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 12px 10px;
+    border-top: 1px solid var(--border);
+}
+
+.free-moves-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.free-moves-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+}
+
+.free-moves-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.free-moves-keypad {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.free-moves-wide-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.free-moves-row {
+    display: grid;
+    grid-template-columns: 68px repeat(6, 1fr);
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.free-moves-row-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+}
+
+.btn-face-turn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 100%;
+    height: 30px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    cursor: pointer;
+    box-sizing: border-box;
+    user-select: none;
+    touch-action: manipulation;
+    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+}
+
+.btn-face-turn:hover {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.btn-face-turn:active {
+    background: var(--primary-dark, #0056b3);
+    color: #fff;
+}
+
+.free-moves-history {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 4px;
+    width: 100%;
+    min-height: 32px;
+    box-sizing: border-box;
+}
+
+[data-theme="dark"] .free-moves-history {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.free-moves-history-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+    font-weight: 700;
+    line-height: 22px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.free-moves-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    white-space: normal;
+    flex: 1;
+    min-height: 22px;
+    box-sizing: border-box;
+}
+
+.free-moves-empty {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-style: italic;
+    line-height: 22px;
+    user-select: none;
+}
+
+.free-move-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 6px;
+    background: var(--primary);
+    color: #fff;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 3px;
+    line-height: 1.2;
+}
+
+  #display-container {
+    position: relative;
+  }
+
+  #display-container.is-twosided-locked scramble-display {
+    pointer-events: none;
+  }
+
+  .twosided-lock-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.78);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    font-size: 0.72rem;
+    font-weight: 700;
+    pointer-events: none;
+  }
+
+  /* Free Moves wrapper separating summary toggle from action buttons in normal flow */
+  .free-moves-wrap {
+    width: 100%;
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .free-moves-wrap > .free-moves-panel {
+    margin-top: 0;
+    border: 0;
+  }
+
+  .free-moves-panel:not([open]) ~ .free-moves-header-actions {
+    display: none;
+  }
+
+  .free-moves-panel[open] ~ .free-moves-header-actions {
+    display: flex;
+    position: static;
+    justify-content: flex-end;
+    padding: 8px 12px 10px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  @media (max-width: 640px) {
+    .seg.mode-seg {
+      display: flex;
+      flex-wrap: nowrap;
+    }
+
+    .seg.mode-seg > button {
+      flex: 1 1 auto;
+      font-size: 0.78rem;
+      min-height: 36px;
+      padding: 0 4px;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .seg.mode-seg > button {
+      font-size: 0.68rem;
+      min-height: 32px;
+      padding: 0 2px;
+      letter-spacing: -0.03em;
+    }
+
+    .cube-card {
+      padding: 6px;
+      min-width: 0;
+      max-width: 100%;
+    }
+  }
+}

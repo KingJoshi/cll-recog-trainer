@@ -7,6 +7,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test test/**/*.test.js",
+    "test:algs": "node --test test/allAlgorithmsAudit.test.js",
     "postinstall": "node scripts/patch-smartcube.js"
   },
   "devDependencies": {

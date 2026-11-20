@@ -5,13 +5,78 @@
 export function parseMoveToken(token) {
   if (!token || typeof token !== "string") return null;
   const cleaned = token.trim();
-  // Match standard 3x3 and 2x2 face moves: U, D, L, R, F, B with optional 2, ', or 2'
-  const match = /^([UDFBLR])([2']|2')?$/i.exec(cleaned);
+  // Match outer (U, D, F, B, L, R) or wide (u, d, f, b, l, r) moves with optional 2, ', or 2' (case-sensitive)
+  const match = /^([UDFBLRudfblr])([2']|2')?$/.exec(cleaned);
   if (!match) return null;
-  const face = match[1].toUpperCase();
+  const face = match[1];
   const suffix = match[2] || '';
   const amount = suffix.includes('2') ? 2 : (suffix.includes("'") ? 3 : 1);
   return { face, amount, raw: cleaned };
+}
+
+export function renderScrambleTrackerHtml(tracker, options = {}) {
+  const status = tracker.getStatus();
+  if (tracker.moves.length === 0) {
+    return '<span class="scramble-empty">No scramble loaded</span>';
+  }
+
+  if (status.isComplete) {
+    return `<span class="scramble-complete-badge">✓ Scramble Verified Complete!</span>`;
+  }
+
+  const suppressError = Boolean(options.suppressError);
+  const suppressSubAmount = Boolean(options.suppressSubAmount);
+
+  const parts = [];
+
+  for (let i = 0; i < tracker.currentIndex; i++) {
+    parts.push(`<span class="scramble-token token-done">${tracker.moves[i].text}</span>`);
+  }
+
+  let cur = null;
+  let displayNext = '';
+  if (tracker.currentIndex < tracker.moves.length) {
+    cur = tracker.moves[tracker.currentIndex];
+    const remAmount = (cur.amount - tracker.currentSubAmount + 4) % 4;
+    displayNext = formatMove(cur.face, remAmount);
+    const subLabel = (!suppressSubAmount && tracker.currentSubAmount > 0)
+      ? ` <small class="token-sub">(${displayNext} needed)</small>`
+      : '';
+    parts.push(`<span class="scramble-token token-current" title="Next move to perform">${cur.text}${subLabel}</span>`);
+  }
+
+  for (let i = tracker.currentIndex + 1; i < tracker.moves.length; i++) {
+    parts.push(`<span class="scramble-token token-pending">${tracker.moves[i].text}</span>`);
+  }
+
+  let correctionHtml = '';
+  if (!suppressError && status.hasError && status.corrections.length > 0) {
+    const undoText = status.corrections.join(' ');
+    correctionHtml = `
+        <div class="scramble-correction-box">
+          <span class="correction-icon">⚠️</span>
+          <span class="correction-label">Incorrect turn! Please do:</span>
+          <strong class="correction-moves">${undoText}</strong>
+          <span class="correction-hint">to get back on track</span>
+        </div>
+      `;
+  } else if (!suppressError && !suppressSubAmount && tracker.currentSubAmount > 0 && cur) {
+    correctionHtml = `
+        <div class="scramble-correction-box">
+          <span class="correction-icon">⚠️</span>
+          <span class="correction-label">Incomplete double turn (${cur.text})! Please do:</span>
+          <strong class="correction-moves">${displayNext}</strong>
+          <span class="correction-hint">to finish ${cur.text}</span>
+        </div>
+      `;
+  }
+
+  return `
+      <div class="scramble-assistant-wrap">
+        <div class="scramble-tokens-stream">${parts.join(' ')}</div>
+        ${correctionHtml}
+      </div>
+    `;
 }
 
 export function formatMove(face, amount) {
@@ -158,70 +223,6 @@ export class ScrambleTracker {
   }
 
   getHtml(options = {}) {
-    const status = this.getStatus();
-    if (this.moves.length === 0) {
-      return '<span class="scramble-empty">No scramble loaded</span>';
-    }
-
-    if (status.isComplete) {
-      return `<span class="scramble-complete-badge">✓ Scramble Verified Complete!</span>`;
-    }
-
-    const suppressError = Boolean(options.suppressError);
-    const suppressSubAmount = Boolean(options.suppressSubAmount);
-
-    const parts = [];
-
-    // Done moves
-    for (let i = 0; i < this.currentIndex; i++) {
-      parts.push(`<span class="scramble-token token-done">${this.moves[i].text}</span>`);
-    }
-
-    // Current move
-    let cur = null;
-    let displayNext = '';
-    if (this.currentIndex < this.moves.length) {
-      cur = this.moves[this.currentIndex];
-      const remAmount = (cur.amount - this.currentSubAmount + 4) % 4;
-      displayNext = formatMove(cur.face, remAmount);
-      const subLabel = (!suppressSubAmount && this.currentSubAmount > 0)
-        ? ` <small class="token-sub">(${displayNext} needed)</small>`
-        : '';
-      parts.push(`<span class="scramble-token token-current" title="Next move to perform">${cur.text}${subLabel}</span>`);
-    }
-
-    // Pending moves
-    for (let i = this.currentIndex + 1; i < this.moves.length; i++) {
-      parts.push(`<span class="scramble-token token-pending">${this.moves[i].text}</span>`);
-    }
-
-    let correctionHtml = '';
-    if (!suppressError && status.hasError && status.corrections.length > 0) {
-      const undoText = status.corrections.join(' ');
-      correctionHtml = `
-        <div class="scramble-correction-box">
-          <span class="correction-icon">⚠️</span>
-          <span class="correction-label">Incorrect turn! Please do:</span>
-          <strong class="correction-moves">${undoText}</strong>
-          <span class="correction-hint">to get back on track</span>
-        </div>
-      `;
-    } else if (!suppressError && !suppressSubAmount && this.currentSubAmount > 0 && cur) {
-      correctionHtml = `
-        <div class="scramble-correction-box">
-          <span class="correction-icon">⚠️</span>
-          <span class="correction-label">Incomplete double turn (${cur.text})! Please do:</span>
-          <strong class="correction-moves">${displayNext}</strong>
-          <span class="correction-hint">to finish ${cur.text}</span>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="scramble-assistant-wrap">
-        <div class="scramble-tokens-stream">${parts.join(' ')}</div>
-        ${correctionHtml}
-      </div>
-    `;
+    return renderScrambleTrackerHtml(this, options);
   }
 }

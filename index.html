@@ -3,21 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="Practice 2x2 CLL recognition offline. Installable PWA for phones and tablets.">
+    <meta name="description" content="Multi-puzzle 2x2-5x5 speedcube recognition, algorithm study, smart cube timer, CFOP analyzer & 3D replay trainer.">
     <meta name="theme-color" content="#007bff">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <title>2x2 CLL Recog Trainer</title>
-    <link rel="stylesheet" href="/src/style.css">
+    <title>Speedcube Trainer — 2x2 · 3x3 · OH · 4x4 · 5x5</title>
 </head>
 <body>
 
 <header class="app-header">
   <div class="header-brand">
-    <h1 class="app-title" id="appTitle">Speedcube Recog &amp; Parity Trainer</h1>
+    <h1 class="app-title" id="appTitle">Speedcube Trainer</h1>
     <div class="puzzle-seg" id="puzzleSwitcher" role="group" aria-label="Select Puzzle">
       <button type="button" class="puzzle-btn active" data-puzzle="222" aria-pressed="true">2x2</button>
       <button type="button" class="puzzle-btn" data-puzzle="333" aria-pressed="false">3x3</button>
@@ -27,80 +26,69 @@
     </div>
   </div>
   <div class="header-actions">
-    <button type="button" id="bluetoothBtn" class="header-btn bluetooth-header-btn" title="Smart Cube (Bluetooth)">
+    <button type="button" id="bluetoothBtn" class="header-btn bluetooth-header-btn" data-tooltip="Connect a Bluetooth smart cube (GAN, MoYu, QiYi, GoCube, GiiKER) or use the virtual keyboard cube">
       <span class="bt-dot disconnected" id="bluetoothHeaderDot" aria-hidden="true"></span>
       <span class="bt-icon" aria-hidden="true">ᛒ</span>
       <span class="bt-label">Smart Cube</span>
     </button>
-    <button type="button" id="ganTimerBtn" class="header-btn bluetooth-header-btn" title="Connect GAN Smart Timer (Bluetooth)">
+    <button type="button" id="ganTimerBtn" class="header-btn bluetooth-header-btn" data-tooltip="Connect a GAN Smart Timer via Bluetooth to measure pickup, cube solve, and putdown splits">
       <span class="bt-dot disconnected" id="ganTimerHeaderDot" aria-hidden="true"></span>
       <span class="bt-icon" aria-hidden="true">⏱</span>
       <span class="bt-label" id="ganTimerLabel">GAN Timer</span>
     </button>
-    <button type="button" id="themeToggleBtn" class="header-btn" title="Toggle Dark/Light Theme">🌙 Dark</button>
-    <button type="button" id="settingsBtn" class="header-btn" title="Trainer Settings">⚙️ Settings</button>
-    <button type="button" id="guideBtn" class="header-btn">Tips &amp; Guide</button>
-    <button type="button" id="pblOverviewBtn" class="header-btn">Ortega PBL</button>
-    <button type="button" id="overviewBtn" class="header-btn">CLL Overview</button>
+    <button type="button" id="onboardingBtn" class="header-btn" data-tooltip="Open the quick setup wizard (cube size, skill stage, and training goal)">🧭 Guide</button>
+    <button type="button" id="themeToggleBtn" class="header-btn" data-tooltip="Toggle Dark or Light theme">🌙 Dark</button>
+    <button type="button" id="settingsBtn" class="header-btn" data-tooltip="Configure trainer preferences, solver target colors, and cube palette">⚙️ Settings</button>
   </div>
 </header>
 
 <main class="app">
 
-  <!-- Active Cases: collapsible on all screen sizes, persisted in cookies/localStorage -->
-  <section class="panel settings collapsed" id="settingsPanel">
-    <button type="button" class="panel-toggle" id="settingsToggle" aria-expanded="false" aria-controls="settingsBody">
-      <span class="chevron" aria-hidden="true"></span>
-      <span class="panel-title" id="casesPanelTitle">Active Cases</span>
-      <span class="panel-meta" id="selectionCount"></span>
-    </button>
-
-    <div class="panel-body" id="settingsBody">
-      <div class="section-head">
-        <h2 id="casesSectionSubtitle">Cases in Drill Pool</h2>
-        <div class="bulk-actions">
-          <button type="button" id="caseTagModeBtn" class="btn btn-small" aria-pressed="false" title="Toggle touch tag-editing mode to cycle Learning / Review / Mastered">🏷️ Tag Mode: Off</button>
-          <button type="button" id="addAllBtn" class="btn btn-small">Add all</button>
-          <button type="button" id="clearAllBtn" class="btn btn-small">Clear all</button>
-        </div>
-      </div>
-      <p class="hint" id="casePickerHint">Tap a group button to toggle a group, or a case chip to toggle a single case. Turn on <strong>🏷️ Tag Mode</strong> (or right-click) to mark cases Learning / Review / Mastered.</p>
-      <div class="case-tag-filter-bar" role="group" aria-label="Filter cases by tag">
-        <span class="tag-filter-label">Filter:</span>
-        <button type="button" class="tag-filter-btn active" data-tag-filter="all">All</button>
-        <button type="button" class="tag-filter-btn tag-filter-none" data-tag-filter="none" title="Pending (not yet started)">Pending</button>
-        <button type="button" class="tag-filter-btn tag-filter-learning" data-tag-filter="learning">Learning</button>
-        <button type="button" class="tag-filter-btn tag-filter-review" data-tag-filter="review">Review</button>
-        <button type="button" class="tag-filter-btn tag-filter-mastered" data-tag-filter="mastered">Mastered</button>
-      </div>
-      <div id="casePicker" class="case-picker" role="group" aria-label="Cases to practice">
-        <!-- Rows are populated by JavaScript -->
-      </div>
-    </div>
-  </section>
-
-  <!-- Stage: mode progression (Study -> Practice -> Solve -> Simulate), track/focus bar, cube, drills, timer -->
+  <!-- Stage: mode progression (Study -> Practice -> Solve -> Simulate), track/focus bar, Active Cases, cube, drills, timer -->
   <section class="stage">
     <div class="seg mode-seg" role="group" aria-label="Mode">
-      <button type="button" class="mode-btn" data-mode="study" aria-pressed="false">📚 Study</button>
-      <button type="button" class="mode-btn" data-mode="practice" aria-pressed="false">🎯 Practice</button>
-      <button type="button" class="mode-btn" data-mode="solve" aria-pressed="true">⏱️ Solve</button>
-      <button type="button" class="mode-btn" data-mode="simulate" aria-pressed="false">🎬 Simulate</button>
+      <button type="button" class="mode-btn" data-mode="study" aria-pressed="false" data-tooltip="Browse algorithm cards, 2D/3D patterns, 2-sided recognition rules, and reference guides">📚 Study</button>
+      <button type="button" class="mode-btn" data-mode="practice" aria-pressed="false" data-tooltip="Drill case recognition speed or 15s inspection planning without needing a physical timer">🎯 Practice</button>
+      <button type="button" class="mode-btn" data-mode="solve" aria-pressed="true" data-tooltip="Time full solves or targeted sub-steps with Spacebar, Bluetooth smart cube, or GAN Timer">⏱️ Solve</button>
+      <button type="button" class="mode-btn" data-mode="simulate" aria-pressed="false" data-tooltip="Step through scrambles and algorithms move-by-move on the 3D cube">🎬 Simulate</button>
     </div>
 
     <div id="trackBar" class="track-bar" role="group" aria-label="Algorithm Track or Solve Focus"></div>
 
+    <!-- Active Cases: contextual to tracks/targets that select cases; collapsed state persisted -->
+    <section class="panel settings collapsed" id="settingsPanel">
+      <button type="button" class="panel-toggle" id="settingsToggle" aria-expanded="false" aria-controls="settingsBody">
+        <span class="chevron" aria-hidden="true"></span>
+        <span class="panel-title" id="casesPanelTitle">Active Cases</span>
+        <span class="panel-meta" id="selectionCount"></span>
+      </button>
+
+      <div class="panel-body" id="settingsBody">
+        <div class="section-head">
+          <h2 id="casesSectionSubtitle">Cases in Drill Pool</h2>
+          <div class="bulk-actions">
+            <button type="button" id="caseTagModeBtn" class="btn btn-small" aria-pressed="false" data-tooltip="When ON, clicking any case chip cycles its study status tag (Pending → Learning → Review → Mastered) instead of toggling drill selection">🏷️ Tag Mode: Off</button>
+            <button type="button" id="addAllBtn" class="btn btn-small">Add all</button>
+            <button type="button" id="clearAllBtn" class="btn btn-small">Clear all</button>
+          </div>
+        </div>
+        <p class="hint" id="casePickerHint">Tap a group button to toggle a group, or a case chip to toggle a single case. Turn on <strong>🏷️ Tag Mode</strong> (or right-click) to mark cases Learning / Review / Mastered.</p>
+        <div class="case-tag-filter-bar" role="group" aria-label="Filter cases by tag">
+          <span class="tag-filter-label">Filter:</span>
+          <button type="button" class="tag-filter-btn active" data-tag-filter="all">All</button>
+          <button type="button" class="tag-filter-btn tag-filter-none" data-tag-filter="none" data-tooltip="Cases not yet tagged as Learning, Review, or Mastered">Pending</button>
+          <button type="button" class="tag-filter-btn tag-filter-learning" data-tag-filter="learning">Learning</button>
+          <button type="button" class="tag-filter-btn tag-filter-review" data-tag-filter="review">Review</button>
+          <button type="button" class="tag-filter-btn tag-filter-mastered" data-tag-filter="mastered">Mastered</button>
+        </div>
+        <div id="casePicker" class="case-picker" role="group" aria-label="Cases to practice">
+          <!-- Rows are populated by JavaScript -->
+        </div>
+      </div>
+    </section>
+
     <!-- Study View Container (Case Grid, 3D Flashcard, Guides) -->
     <div id="studyViewContainer" class="study-container" hidden></div>
-
-    <div id="timedBar" class="timed-bar" hidden>
-      <div class="timed-bar-row">
-        <span id="countdown" class="countdown" role="timer">0:00</span>
-        <span id="liveTally" class="live-tally"></span>
-        <button type="button" id="endSessionBtn" class="btn btn-small">End</button>
-      </div>
-      <div class="timed-progress"><div id="timedProgress" class="timed-progress-fill"></div></div>
-    </div>
 
     <!-- Solve mode: scramble for a physical cube or virtual practice -->
     <div id="solveScramble" class="solve-scramble" hidden>
@@ -118,32 +106,26 @@
         </div>
       </div>
       <div class="solve-options-row">
-        <div class="solve-target-wrap">
-          <label for="solveTargetSelect" class="solve-target-label">Target:</label>
-          <select id="solveTargetSelect" class="solve-target-select" aria-label="Solve target">
-            <option value="full">Full Solve (WCA 2x2)</option>
-            <option value="layer">1st Layer Only</option>
-            <option value="face">1st Face Only (Ortega)</option>
-            <option value="cll">CLL Case</option>
-          </select>
-        </div>
         <label class="solve-toggle-label">
           <input type="checkbox" id="solveShowCubeToggle">
           <span>Show 3D Cube</span>
         </label>
-        <label class="solve-toggle-label">
-          <input type="checkbox" id="solveInspectionToggle" checked>
-          <span>15s Inspection</span>
-        </label>
+        <div class="toggle-with-tip">
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="solveInspectionToggle" checked>
+            <span>15s Inspection</span>
+          </label>
+          <button type="button" class="info-tip-btn" data-tooltip="Run a WCA 15-second inspection countdown before starting the solve timer (triggers +2 at 15s and DNF at 17s)" aria-label="Explain 15s Inspection">?</button>
+        </div>
         <div class="solve-scramble-btns">
           <button type="button" id="solveNewScrambleBtn" class="btn btn-xs">New Scramble</button>
-          <button type="button" id="solveCustomScrambleBtn" class="btn btn-xs" title="Enter a custom scramble">Custom</button>
+          <button type="button" id="solveCustomScrambleBtn" class="btn btn-xs" data-tooltip="Paste or type any scramble sequence to practice it">Custom</button>
         </div>
       </div>
       <div id="solveCustomScrambleRow" class="layer-custom-row" hidden>
         <div class="layer-custom-wrap">
-          <input type="text" id="solveCustomInput" class="sim-input" placeholder="Enter custom scramble (e.g. U2 F2 U L2...)" autocomplete="off" spellcheck="false">
-          <button type="button" id="solveCustomClearBtn" class="sim-btn-clear" title="Clear input">&times;</button>
+          <input type="text" id="solveCustomInput" class="sim-input" placeholder="Enter custom scramble (e.g. U2 F2 U L2...)" aria-label="Enter custom scramble" autocomplete="off" spellcheck="false">
+          <button type="button" id="solveCustomClearBtn" class="sim-btn-clear" title="Clear input" aria-label="Clear custom scramble">&times;</button>
         </div>
         <button type="button" id="solveCustomApplyBtn" class="btn btn-primary sim-btn-load">Apply</button>
         <button type="button" id="solveCustomCancelBtn" class="btn btn-small">Cancel</button>
@@ -175,25 +157,20 @@
     <div class="cube-card">
       <div id="display-container"></div>
       <div class="cube-card-controls">
-        <button type="button" id="resetOrientationBtn" class="reset-orientation-btn" title="Reset 3D camera orientation">
-          <span class="reset-orient-icon" aria-hidden="true">&#x21bb;</span> Reset orientation
+        <button type="button" id="resetOrientationBtn" class="reset-orientation-btn" data-tooltip="Reset the 3D camera back to the default front-top viewing angle" aria-label="Reset 3D angle">
+          <span class="reset-orient-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.8 7.5A4.9 4.9 0 1 0 11.4 11.4"/><polyline points="13.5,4.2 12.9,7.7 9.5,6.8"/></svg></span><span>Reset 3D Angle</span>
         </button>
       </div>
-      <details id="freeMovesPanel" class="free-moves-panel" role="region" aria-label="Free Face Rotations">
-        <summary class="free-moves-header">
-          <div class="free-moves-title-wrap">
-            <span class="chevron" aria-hidden="true"></span>
-            <span class="free-moves-title">Free Face Turns</span>
-            <span id="freeMovesCountBadge" class="badge">0 turns</span>
-          </div>
-          <div class="free-moves-header-actions">
-            <button type="button" id="freeMoveUndoBtn" class="btn btn-xs" title="Undo last face turn" disabled>↶ Undo</button>
-            <button type="button" id="freeMoveReverseBtn" class="btn btn-xs" title="Reverse all user turns back to initial state" disabled>↺ Reverse</button>
-            <button type="button" id="freeMoveResetScrambleBtn" class="btn btn-xs" title="Reset cube to scramble">Reset Scramble</button>
-            <button type="button" id="freeMoveResetSolvedBtn" class="btn btn-xs" title="Reset cube to solved">Reset Solved</button>
-          </div>
-        </summary>
-        <div class="free-moves-body">
+      <div class="free-moves-wrap">
+        <details id="freeMovesPanel" class="free-moves-panel" role="region" aria-label="Free Face Rotations">
+          <summary class="free-moves-header">
+            <div class="free-moves-title-wrap">
+              <span class="chevron" aria-hidden="true"></span>
+              <span class="free-moves-title">Free Face Turns</span>
+              <span id="freeMovesCountBadge" class="badge">0 turns</span>
+            </div>
+          </summary>
+          <div class="free-moves-body">
           <div class="free-moves-keypad">
             <div class="free-moves-row free-moves-rot">
               <span class="free-moves-row-label">Rotate:</span>
@@ -250,16 +227,22 @@
             </div>
           </div>
         </div>
-      </details>
-      <p id="empty-state" class="empty-state" hidden>
-        No cases selected. Open <strong>Cases &amp; options</strong> and pick some.
-      </p>
+        </details>
+        <div class="free-moves-header-actions">
+          <button type="button" id="freeMoveUndoBtn" class="btn btn-xs" title="Undo last face turn" aria-label="Undo last face turn" disabled>↶ Undo</button>
+          <button type="button" id="freeMoveReverseBtn" class="btn btn-xs" title="Reverse all user turns back to initial state" aria-label="Reverse all user turns" disabled>↺ Reverse</button>
+          <button type="button" id="freeMoveResetScrambleBtn" class="btn btn-xs" title="Reset cube to scramble" aria-label="Reset cube to scramble">Reset Scramble</button>
+          <button type="button" id="freeMoveResetSolvedBtn" class="btn btn-xs" title="Reset cube to solved" aria-label="Reset cube to solved">Reset Solved</button>
+        </div>
+      </div>
     </div>
+
+    <p id="empty-state" class="empty-state" hidden>
+      No cases selected. Open <strong>Active Cases</strong> above and pick some.
+    </p>
 
     <!-- Practice View Container (Recognition & Inspection planning drills, below 3D cube) -->
     <div id="practiceViewContainer" class="practice-container" hidden></div>
-
-    <div id="case-info-container" class="case-info" hidden></div>
 
     <!-- Simulate mode: input, stepping, scrubber, and playback controls -->
     <div id="simulatePanel" class="simulate-panel" hidden>
@@ -271,8 +254,8 @@
 
         <div class="sim-input-row">
           <div class="sim-input-wrap">
-            <input type="text" id="simScrambleInput" class="sim-input" placeholder="Enter scramble (e.g. R U' R2 F R F' R U2 R' U2)" spellcheck="false" autocomplete="off" />
-            <button type="button" id="simClearBtn" class="sim-btn-clear" title="Clear input">&times;</button>
+            <input type="text" id="simScrambleInput" class="sim-input" placeholder="Enter scramble (e.g. R U' R2 F R F' R U2 R' U2)" aria-label="Enter scramble or algorithm to simulate" spellcheck="false" autocomplete="off" />
+            <button type="button" id="simClearBtn" class="sim-btn-clear" title="Clear input" aria-label="Clear simulator input">&times;</button>
           </div>
           <button type="button" id="simLoadBtn" class="btn btn-primary sim-btn-load">Load</button>
         </div>
@@ -280,8 +263,8 @@
         <div class="sim-preset-row">
           <button type="button" id="simUseCurrentBtn" class="btn btn-small">Current Scramble</button>
           <div class="sim-case-select-wrap">
-            <select id="simCaseSelect" class="sim-select" aria-label="Select a CLL case to simulate">
-              <option value="">Load a CLL case...</option>
+            <select id="simCaseSelect" class="sim-select" aria-label="Select a case to simulate">
+              <option value="">Load a case to simulate...</option>
             </select>
           </div>
           <div class="sim-scramble-select-wrap" id="simScrambleSelectWrap" hidden>
@@ -310,21 +293,21 @@
         <!-- Playback Controls -->
         <div class="sim-controls-card">
           <div class="sim-btn-group">
-            <button type="button" id="simBtnStart" class="btn btn-ctrl" title="Jump to start (Home)">
-              <span class="ctrl-icon" aria-hidden="true">&#x23EE;</span>
+            <button type="button" id="simBtnStart" class="btn btn-ctrl" data-tooltip="Jump to start (Home)" aria-label="Jump to start">
+              <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3.2" width="1.6" height="9.6" rx="0.5"/><polygon points="8.6,3.4 4.1,8 8.6,12.6"/><polygon points="13.8,3.4 9.3,8 13.8,12.6"/></svg></span>
             </button>
-            <button type="button" id="simBtnPrev" class="btn btn-ctrl" title="Step backward (Left arrow)">
-              <span class="ctrl-icon" aria-hidden="true">&#x25C0;</span>
+            <button type="button" id="simBtnPrev" class="btn btn-ctrl" data-tooltip="Step backward (Left arrow)" aria-label="Step backward">
+              <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="9.8,3.2 4,8 9.8,12.8"/><rect x="10.8" y="3.2" width="1.8" height="9.6" rx="0.5"/></svg></span>
             </button>
-            <button type="button" id="simBtnPlay" class="btn btn-primary btn-play" title="Play / Pause (Space)">
-              <span id="simPlayIcon" class="ctrl-icon" aria-hidden="true">&#x25B6;</span>
+            <button type="button" id="simBtnPlay" class="btn btn-primary btn-play" data-tooltip="Play / Pause (Space)">
+              <span id="simPlayIcon" class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="4.5,2.8 13.2,8 4.5,13.2"/></svg></span>
               <span id="simPlayText">Play</span>
             </button>
-            <button type="button" id="simBtnNext" class="btn btn-ctrl" title="Step forward (Right arrow)">
-              <span class="ctrl-icon" aria-hidden="true">&#x25B6;</span>
+            <button type="button" id="simBtnNext" class="btn btn-ctrl" data-tooltip="Step forward (Right arrow)" aria-label="Step forward">
+              <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="3.4" y="3.2" width="1.8" height="9.6" rx="0.5"/><polygon points="6.4,3.2 12.2,8 6.4,12.8"/></svg></span>
             </button>
-            <button type="button" id="simBtnEnd" class="btn btn-ctrl" title="Jump to end (End)">
-              <span class="ctrl-icon" aria-hidden="true">&#x23ED;</span>
+            <button type="button" id="simBtnEnd" class="btn btn-ctrl" data-tooltip="Jump to end (End)" aria-label="Jump to end">
+              <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="2.2,3.4 6.7,8 2.2,12.6"/><polygon points="7.4,3.4 11.9,8 7.4,12.6"/><rect x="12.4" y="3.2" width="1.6" height="9.6" rx="0.5"/></svg></span>
             </button>
           </div>
 
@@ -332,6 +315,7 @@
             <span id="simStepCounter" class="sim-counter">Move 0 / 0</span>
             <div class="sim-speed-group" role="group" aria-label="Playback speed">
               <span class="sim-speed-label">Speed:</span>
+              <button type="button" class="sim-speed-btn" data-speed="0.25">0.25x</button>
               <button type="button" class="sim-speed-btn" data-speed="0.5">0.5x</button>
               <button type="button" class="sim-speed-btn active" data-speed="1">1x</button>
               <button type="button" class="sim-speed-btn" data-speed="1.5">1.5x</button>
@@ -345,8 +329,8 @@
           <div class="sim-timeline-head">
             <div class="sim-timeline-title-wrap">
               <span>Move Sequence</span>
-              <button type="button" id="simTimelineResetBtn" class="sim-timeline-reset-btn" title="Reset to beginning (|<<)">
-                <span class="ctrl-icon" aria-hidden="true">&#x23EE;</span> Reset
+              <button type="button" id="simTimelineResetBtn" class="sim-timeline-reset-btn" data-tooltip="Reset to beginning">
+                <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3.2" width="1.6" height="9.6" rx="0.5"/><polygon points="8.6,3.4 4.1,8 8.6,12.6"/><polygon points="13.8,3.4 9.3,8 13.8,12.6"/></svg></span><span>Reset</span>
               </button>
             </div>
             <span class="sim-timeline-hint">Tap any move to jump</span>
@@ -358,49 +342,6 @@
 
         <p class="kbd-hint">Keyboard: &larr; / &rarr; step moves &bull; Space to play/pause &bull; Home/End start/finish</p>
       </div>
-    </div>
-
-    <div id="guessing-container" class="guess">
-      <p class="guess-label">Which case is it?</p>
-      <div class="seg" role="group" aria-label="Guess the group">
-        <button type="button" class="group-btn" data-group="H">H</button>
-        <button type="button" class="group-btn" data-group="P">P</button>
-        <button type="button" class="group-btn" data-group="U">U</button>
-        <button type="button" class="group-btn" data-group="T">T</button>
-        <button type="button" class="group-btn" data-group="L">L</button>
-        <button type="button" class="group-btn" data-group="S">S</button>
-        <button type="button" class="group-btn" data-group="A">A</button>
-      </div>
-      <div class="seg" role="group" aria-label="Guess the case number">
-        <button type="button" class="case-btn" data-case="1">1</button>
-        <button type="button" class="case-btn" data-case="2">2</button>
-        <button type="button" class="case-btn" data-case="3">3</button>
-        <button type="button" class="case-btn" data-case="4">4</button>
-        <button type="button" class="case-btn" data-case="5">5</button>
-        <button type="button" class="case-btn" data-case="6">6</button>
-      </div>
-      <button type="button" id="verifyBtn" class="btn btn-primary btn-block">Verify</button>
-      <div id="verify-message" class="verify-message" role="status" hidden></div>
-      <div id="timedFeedback" class="verify-message" role="status" hidden></div>
-      <p class="kbd-hint">Keyboard: letter, number, Enter</p>
-    </div>
-
-    <div id="timedSetup" class="timed-setup" hidden>
-      <p class="timed-title">Timed session</p>
-      <p class="hint">Answers are checked as soon as you pick a letter and a number, and the next case appears right away.</p>
-      <div class="minutes-row">
-        <button type="button" id="minutesDec" class="btn" aria-label="One minute less">&minus;</button>
-        <label class="minutes-field">
-          <input type="number" id="minutesInput" min="1" max="60" step="1" inputmode="numeric" value="3" aria-label="Minutes">
-          <span>min</span>
-        </label>
-        <button type="button" id="minutesInc" class="btn" aria-label="One minute more">+</button>
-      </div>
-      <button type="button" id="startSessionBtn" class="btn btn-primary btn-block">Start</button>
-    </div>
-
-    <div id="timedSummary" class="timed-summary" role="status" hidden>
-      <!-- Populated by JavaScript when a session ends -->
     </div>
 
     <!-- Solve mode: timer area (hold here on touch devices) and recorded times -->
@@ -436,7 +377,7 @@
       </div>
       <div id="solvePostSummary" class="solve-post-summary" hidden>
         <button type="button" id="solvePostReplayBtn" class="btn btn-primary btn-small">
-          <span aria-hidden="true">&#x25B6;</span> Replay Solve (3D)
+          <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="4.5,2.8 13.2,8 4.5,13.2"/></svg></span><span>Replay Solve (3D)</span>
         </button>
       </div>
       <p class="solve-hint solve-hint-key">Hold <kbd>Space</kbd>, release to start. Any key stops.</p>
@@ -455,8 +396,8 @@
       <div class="layer-solutions-body">
         <div class="layer-mode-switch" role="group" aria-label="2x2 solution goal">
           <span class="layer-faces-label">Goal:</span>
-          <button type="button" id="layerModeLayerBtn" class="btn btn-xs layer-mode-btn active" data-layer-mode="layer" aria-pressed="true">1st Layer (CLL)</button>
-          <button type="button" id="layerModeFaceBtn" class="btn btn-xs layer-mode-btn" data-layer-mode="face" aria-pressed="false">1st Face (Ortega)</button>
+          <button type="button" id="layerModeFaceBtn" class="btn btn-xs layer-mode-btn" data-layer-mode="face" aria-pressed="false" data-tooltip="Ortega method: match any 4 stickers of one color on the bottom face (faster, fewer moves)">1st Face (Ortega)</button>
+          <button type="button" id="layerModeLayerBtn" class="btn btn-xs layer-mode-btn active" data-layer-mode="layer" aria-pressed="true" data-tooltip="CLL method: solve all 4 bottom corners permuted correctly around the layer">1st Layer (CLL)</button>
         </div>
         <div class="layer-faces-picker" role="group" aria-label="Select faces to solve">
           <div class="layer-faces-header">
@@ -512,21 +453,9 @@
     </details>
 
     <div id="solveTimes" class="panel solve-times" hidden>
-      <div class="section-head solve-times-head">
-        <div class="solve-times-title-wrap">
-          <h2>Solve Times</h2>
-          <span id="solveSessionBadge" class="session-badge"></span>
-        </div>
-        <div class="solve-times-actions">
-          <button type="button" id="exportSolvesCsvBtn" class="btn btn-small" title="Export session solves to CSV">📥 Export CSV</button>
-          <button type="button" id="clearSolvesBtn" class="btn btn-small btn-danger" hidden>Clear Session</button>
-        </div>
-      </div>
-      <div id="solveSummary" class="solve-summary"></div>
       <div id="solveStatsBar" class="solve-stats-bar">
         <!-- Populated by JavaScript: Ao5, Ao12, Ao100, Single Best, Mean -->
       </div>
-      <div id="solveList" class="solve-list"></div>
     </div>
 
     <button type="button" id="regenerateBtn" class="btn btn-outline btn-block">New scramble</button>
@@ -541,14 +470,14 @@
         <span class="panel-meta" id="statsScopeBadge">2x2 &bull; CLL</span>
       </button>
       <div class="stats-head-actions">
-        <button type="button" id="statsExportCsvBtn" class="btn btn-small" title="Export session solves to CSV">📥 Export CSV</button>
+        <button type="button" id="statsExportCsvBtn" class="btn btn-small" data-tooltip="Export recorded solves from the active session as a CSV spreadsheet">📥 Export CSV</button>
         <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger">Reset</button>
       </div>
     </div>
     <div id="statsBody" class="stats-body">
       <div class="seg stats-seg" role="group" aria-label="Stats type">
         <button type="button" class="stats-tab-btn" id="statsTabLog" data-stats="log" aria-pressed="true">⏱️ Solve Log</button>
-        <button type="button" class="stats-tab-btn" id="statsTabCll" data-stats="cll" aria-pressed="false">🧩 Case Solves</button>
+        <button type="button" class="stats-tab-btn" id="statsTabCll" data-stats="cll" aria-pressed="false">🧩 Case Times</button>
         <button type="button" class="stats-tab-btn" id="statsTabRecog" data-stats="recog" aria-pressed="false">🎯 Recognition</button>
       </div>
       <div id="stats-table-container"></div>
@@ -556,17 +485,6 @@
   </section>
 
 </main>
-
-<!-- Case overview: every case with its top-view diagram, opposite case and alg -->
-<div id="overview" class="overview" role="dialog" aria-modal="true" aria-labelledby="overviewTitle" hidden>
-  <div class="overview-header">
-    <h2 id="overviewTitle" class="overview-title">CLL case overview</h2>
-    <button type="button" id="overviewClose" class="header-btn">Close</button>
-  </div>
-  <div id="overviewBody" class="overview-body">
-    <!-- Populated by JavaScript on first open -->
-  </div>
-</div>
 
 <!-- Solve mode: full-screen timer while armed / running -->
 <div id="solveOverlay" class="solve-overlay" hidden>
@@ -632,13 +550,13 @@
     </div>
     <div class="solve-modal-actions">
       <button type="button" id="solveModalReplayBtn" class="btn btn-primary btn-small" hidden>
-        <span aria-hidden="true">&#x25B6;</span> Replay Solve (3D)
+        <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="4.5,2.8 13.2,8 4.5,13.2"/></svg></span><span>Replay Solve (3D)</span>
       </button>
       <button type="button" id="solveModalReattemptBtn" class="btn btn-small">
-        <span aria-hidden="true">&#x21ba;</span> Reattempt solve
+        <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.8 7.5A4.9 4.9 0 1 0 11.4 11.4"/><polyline points="13.5,4.2 12.9,7.7 9.5,6.8"/></svg></span><span>Reattempt solve</span>
       </button>
       <button type="button" id="solveModalSimBtn" class="btn btn-small">
-        <span aria-hidden="true">&#x25B6;</span> Simulate in 3D
+        <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.8 3.2H3.6A1.2 1.2 0 0 0 2.4 4.4v8a1.2 1.2 0 0 0 1.2 1.2h8a1.2 1.2 0 0 0 1.2-1.2V9.2"/><polyline points="9.6,2.4 13.6,2.4 13.6,6.4"/><line x1="8" y1="8" x2="13.4" y2="2.6"/></svg></span><span>Open in Full Simulator</span>
       </button>
       <button type="button" id="solveModalDismissBtn" class="btn btn-small">Close</button>
     </div>
@@ -695,8 +613,8 @@
         <button type="button" id="btVirtualBtn" class="btn btn-secondary" title="Simulate turns with keyboard without physical hardware">
           ⌨️ Virtual / Keyboard Cube
         </button>
-        <button type="button" id="btDemoSolveBtn" class="btn btn-small" title="Load sample solve with tracked turns">
-          ▶ Load Demo Replay
+        <button type="button" id="btDemoSolveBtn" class="btn btn-small" data-tooltip="Load sample solve with tracked turns">
+          <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="4.5,2.8 13.2,8 4.5,13.2"/></svg></span><span>Load Demo Replay</span>
         </button>
       </div>
 
@@ -716,7 +634,7 @@
           <div class="bt-field-group">
             <label for="btCustomMacInput" class="bt-field-label">Cube Bluetooth MAC Address (optional, for GAN &amp; MoYu if auto-detect fails):</label>
             <div class="bt-input-row">
-              <input type="text" id="btCustomMacInput" class="bt-mac-input" placeholder="e.g. AA:BB:CC:DD:EE:FF or 12 hex digits" spellcheck="false" autocomplete="off" />
+              <input type="text" id="btCustomMacInput" class="bt-mac-input" aria-label="Cube Bluetooth MAC address" placeholder="e.g. AA:BB:CC:DD:EE:FF or 12 hex digits" spellcheck="false" autocomplete="off" />
               <button type="button" id="btSaveMacBtn" class="btn btn-small btn-primary">Save MAC</button>
             </div>
             <p class="bt-field-hint">For GAN cubes (e.g. <code>GANic4_5927</code>), the MAC address is printed on the barcode/box sticker. The last digits usually match your device name.</p>
@@ -839,21 +757,21 @@
       <!-- Playback Controls Bar -->
       <div class="replay-controls-bar">
         <div class="replay-btn-group">
-          <button type="button" id="replayBtnStart" class="btn btn-ctrl" title="Jump to start (|◀)">
-            <span class="ctrl-icon" aria-hidden="true">&#x23EE;</span>
+          <button type="button" id="replayBtnStart" class="btn btn-ctrl" data-tooltip="Jump to start (Home)" aria-label="Jump to start">
+            <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3.2" width="1.6" height="9.6" rx="0.5"/><polygon points="8.6,3.4 4.1,8 8.6,12.6"/><polygon points="13.8,3.4 9.3,8 13.8,12.6"/></svg></span>
           </button>
-          <button type="button" id="replayBtnPrev" class="btn btn-ctrl" title="Previous move (Left arrow)">
-            <span class="ctrl-icon" aria-hidden="true">&#x25C0;</span>
+          <button type="button" id="replayBtnPrev" class="btn btn-ctrl" data-tooltip="Previous move (Left arrow)" aria-label="Previous move">
+            <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="9.8,3.2 4,8 9.8,12.8"/><rect x="10.8" y="3.2" width="1.8" height="9.6" rx="0.5"/></svg></span>
           </button>
-          <button type="button" id="replayBtnPlay" class="btn btn-primary btn-play" title="Play / Pause (Space)">
-            <span id="replayPlayIcon" class="ctrl-icon" aria-hidden="true">&#x25B6;</span>
+          <button type="button" id="replayBtnPlay" class="btn btn-primary btn-play" data-tooltip="Play / Pause (Space)">
+            <span id="replayPlayIcon" class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="4.5,2.8 13.2,8 4.5,13.2"/></svg></span>
             <span id="replayPlayText">Play</span>
           </button>
-          <button type="button" id="replayBtnNext" class="btn btn-ctrl" title="Next move (Right arrow)">
-            <span class="ctrl-icon" aria-hidden="true">&#x25B6;</span>
+          <button type="button" id="replayBtnNext" class="btn btn-ctrl" data-tooltip="Next move (Right arrow)" aria-label="Next move">
+            <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="3.4" y="3.2" width="1.8" height="9.6" rx="0.5"/><polygon points="6.4,3.2 12.2,8 6.4,12.8"/></svg></span>
           </button>
-          <button type="button" id="replayBtnEnd" class="btn btn-ctrl" title="Jump to end (▶|)">
-            <span class="ctrl-icon" aria-hidden="true">&#x23ED;</span>
+          <button type="button" id="replayBtnEnd" class="btn btn-ctrl" data-tooltip="Jump to end (End)" aria-label="Jump to end">
+            <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="2.2,3.4 6.7,8 2.2,12.6"/><polygon points="7.4,3.4 11.9,8 7.4,12.6"/><rect x="12.4" y="3.2" width="1.6" height="9.6" rx="0.5"/></svg></span>
           </button>
         </div>
 
@@ -886,80 +804,68 @@
   </div>
 </div>
 
-<!-- 1st Layer & Inspection Guide Modal -->
-<div id="guideModal" class="overview guide-modal" role="dialog" aria-modal="true" aria-labelledby="guideTitle" hidden>
-  <div class="overview-header">
-    <h2 id="guideTitle" class="overview-title">1st Layer Efficiency &amp; Inspection Guide</h2>
-    <button type="button" id="guideCloseBtn" class="header-btn">Close</button>
-  </div>
-  <div class="overview-body guide-body">
-    <div class="guide-grid">
-      <section class="guide-card">
-        <h3 class="guide-card-title">&#x1F3AF; 1. Move Count Benchmarks</h3>
-        <p>On a 2x2, corner permutations and orientations have far fewer states than 3x3:</p>
-        <ul class="guide-list">
-          <li><strong>1st Face (Ortega):</strong> 99.8% of all scrambles can be solved in <strong>&le; 4 moves</strong> (average optimal: 3.1 moves).</li>
-          <li><strong>1st Layer (CLL/LBL):</strong> 95.4% of all scrambles can be solved in <strong>&le; 5 moves</strong> (average optimal: 3.8 moves).</li>
-          <li><em>Rule of thumb:</em> If your planned layer takes 6 or more moves, there is almost certainly a 2- or 3-move solution on another face!</li>
-        </ul>
-      </section>
-
-      <section class="guide-card">
-        <h3 class="guide-card-title">&#x1F308; 2. Full Color Neutrality (CN)</h3>
-        <p>Unlike 3x3 where centers are fixed and cross planning across 6 colors takes months, 2x2 has <strong>no fixed centers</strong>:</p>
-        <ul class="guide-list">
-          <li>Every face can be built around whichever corner is already oriented or paired.</li>
-          <li>Being color neutral means you check 6 colors. On average, at least one color already has a pre-formed 2-piece bar!</li>
-          <li>Start by practicing Opposite Neutrality (White + Yellow), then expand to All 6 faces.</li>
-        </ul>
-      </section>
-
-      <section class="guide-card">
-        <h3 class="guide-card-title">&#x23F1;&#xFE0F; 3. 15-Second WCA Inspection Routine</h3>
-        <p>In 2x2, world-class cubers plan the <em>entire 1st layer</em> before making their first move:</p>
-        <ol class="guide-list guide-steps">
-          <li><strong>0 &ndash; 3s (Scan):</strong> Rotate the cube quickly. Look for already-made 2-corner bars or matching colors on any side.</li>
-          <li><strong>3 &ndash; 8s (Select &amp; Trace):</strong> Pick the face with the shortest move count. Locate the remaining 2 corners.</li>
-          <li><strong>8 &ndash; 12s (Rehearse Blind):</strong> Visualize every turn in your head. Know where the pieces will land.</li>
-          <li><strong>12 &ndash; 15s (Grip):</strong> Place the cube down, set your fingers on your starting grip, and start the timer ready to execute with zero pauses!</li>
-        </ol>
-      </section>
-
-      <section class="guide-card">
-        <h3 class="guide-card-title">&#x1F6E0;&#xFE0F; 4. Bar Preservation vs. Direct Insertion</h3>
-        <p>Never break an existing 2-piece bar unless it saves moves overall:</p>
-        <ul class="guide-list">
-          <li><strong>Direct Insertion:</strong> If an isolated corner has its sticker facing the side, use a 3-move trigger like <code>R U R'</code> or <code>F' U' F</code>.</li>
-          <li><strong>Sledgehammer (<code>R' F R F'</code>):</strong> When a corner has its target color facing up or needs reorientation, a sledgehammer can insert it while preserving bottom pieces and often orienting top corners!</li>
-          <li><strong>Keyhole Technique:</strong> Leave one corner unsolved while you quickly orient the other three, then insert the last corner with a quick trigger.</li>
-        </ul>
-      </section>
-
-      <section class="guide-card">
-        <h3 class="guide-card-title">&#x26A1; 5. Face vs. Layer (The Ortega Transition)</h3>
-        <p>When solving under time pressure:</p>
-        <ul class="guide-list">
-          <li>If building a complete layer requires awkward rotations or &ge; 5 moves, build a <strong>Face</strong> instead (takes 2&ndash;3 moves)!</li>
-          <li>Orient the top with OLL (or any CLL alg), then finish with one of the <strong>5 Ortega PBL algorithms</strong>.</li>
-          <li>Once comfortable with Ortega, use the 1st Layer Solver in this app to analyze optimal layer solutions and bridge to 1-look CLL.</li>
-        </ul>
-      </section>
+<!-- In-Place 3D Quick-Simulate Popup Modal -->
+<div id="quickSimModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="quickSimTitle" hidden>
+  <div class="solve-modal-card quick-sim-card">
+    <div class="solve-modal-header quick-sim-header">
+      <div class="quick-sim-title-block">
+        <h3 id="quickSimTitle" class="solve-modal-title">3D Solution Simulator</h3>
+        <div id="quickSimBadges" class="quick-sim-badges"></div>
+      </div>
+      <button type="button" id="quickSimCloseBtn" class="solve-modal-close" aria-label="Close simulator popup">&times;</button>
     </div>
-  </div>
-</div>
 
-<!-- Ortega PBL Modal -->
-<div id="pblModal" class="overview pbl-modal" role="dialog" aria-modal="true" aria-labelledby="pblTitle" hidden>
-  <div class="overview-header">
-    <h2 id="pblTitle" class="overview-title">Ortega PBL (Permute Both Layers)</h2>
-    <button type="button" id="pblCloseBtn" class="header-btn">Close</button>
-  </div>
-  <div class="overview-body pbl-body">
-    <p class="overview-hint">
-      The 5 PBL cases permute both layers in one algorithm after OLL. Select your favorite algorithm, customize trigger labels, or simulate in 3D.
-    </p>
-    <div id="pblCardsContainer" class="pbl-cards-grid">
-      <!-- Populated dynamically by JavaScript -->
+    <div id="quickSimSwitcher" class="quick-sim-switcher" hidden>
+      <div class="quick-sim-switcher-top">
+        <button type="button" id="quickSimPrevSolBtn" class="btn btn-xs" title="Previous solution ([)">&larr; Prev Solution</button>
+        <span id="quickSimSolCounter" class="quick-sim-sol-counter">1 / 1</span>
+        <button type="button" id="quickSimNextSolBtn" class="btn btn-xs" title="Next solution (])">Next Solution &rarr;</button>
+      </div>
+      <div id="quickSimSolPills" class="quick-sim-sol-pills" role="group" aria-label="Available solutions"></div>
+    </div>
+
+    <div class="solve-modal-body quick-sim-body">
+      <div class="quick-sim-visual-col">
+        <div id="quickSim3dWrap" class="quick-sim-3d-wrap"></div>
+        <div class="quick-sim-visual-foot">
+          <button type="button" id="quickSimResetCamBtn" class="btn btn-xs" data-tooltip="Reset 3D camera orientation" aria-label="Reset 3D camera orientation"><span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.8 7.5A4.9 4.9 0 1 0 11.4 11.4"/><polyline points="13.5,4.2 12.9,7.7 9.5,6.8"/></svg></span><span>Reset 3D Angle</span></button>
+          <span id="quickSimStepCounter" class="quick-sim-step-counter">Ready</span>
+        </div>
+      </div>
+
+      <div class="quick-sim-controls-col">
+        <div class="quick-sim-transport">
+          <button type="button" id="quickSimBtnScrambleStart" class="btn btn-xs" data-tooltip="Jump to before scramble">Scramble Start</button>
+          <button type="button" id="quickSimBtnStart" class="btn btn-ctrl" data-tooltip="Reset to solution start (Home)" aria-label="Reset to solution start"><span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3.2" width="1.6" height="9.6" rx="0.5"/><polygon points="8.6,3.4 4.1,8 8.6,12.6"/><polygon points="13.8,3.4 9.3,8 13.8,12.6"/></svg></span></button>
+          <button type="button" id="quickSimBtnPrev" class="btn btn-ctrl" data-tooltip="Previous move (Left Arrow)" aria-label="Previous move"><span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="9.8,3.2 4,8 9.8,12.8"/><rect x="10.8" y="3.2" width="1.8" height="9.6" rx="0.5"/></svg></span></button>
+          <button type="button" id="quickSimBtnPlay" class="btn btn-primary btn-play" data-tooltip="Play / Pause (Space)">
+            <span id="quickSimPlayIcon" class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="4.5,2.8 13.2,8 4.5,13.2"/></svg></span>
+            <span id="quickSimPlayText">Play</span>
+          </button>
+          <button type="button" id="quickSimBtnNext" class="btn btn-ctrl" data-tooltip="Next move (Right Arrow)" aria-label="Next move"><span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="3.4" y="3.2" width="1.8" height="9.6" rx="0.5"/><polygon points="6.4,3.2 12.2,8 6.4,12.8"/></svg></span></button>
+          <button type="button" id="quickSimBtnEnd" class="btn btn-ctrl" data-tooltip="Jump to solved end (End)" aria-label="Jump to solved end"><span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="2.2,3.4 6.7,8 2.2,12.6"/><polygon points="7.4,3.4 11.9,8 7.4,12.6"/><rect x="12.4" y="3.2" width="1.6" height="9.6" rx="0.5"/></svg></span></button>
+        </div>
+
+        <div class="quick-sim-speed-row" role="group" aria-label="Simulation speed">
+          <span class="quick-sim-speed-label">Speed:</span>
+          <button type="button" class="quick-sim-speed-btn" data-speed="0.25">0.25x</button>
+          <button type="button" class="quick-sim-speed-btn" data-speed="0.5">0.5x</button>
+          <button type="button" class="quick-sim-speed-btn active" data-speed="1">1x</button>
+          <button type="button" class="quick-sim-speed-btn" data-speed="1.5">1.5x</button>
+          <button type="button" class="quick-sim-speed-btn" data-speed="2">2x</button>
+        </div>
+
+        <p id="quickSimNote" class="quick-sim-note" hidden></p>
+
+        <div id="quickSimMoveList" class="quick-sim-timeline" aria-label="Solution move sequence"></div>
+        <p class="kbd-hint" style="margin:0;">Space play/pause &bull; &larr;/&rarr; step &bull; [ / ] switch solution</p>
+      </div>
+    </div>
+
+    <div class="solve-modal-actions">
+      <button type="button" id="quickSimCopyBtn" class="btn btn-small">Copy Solution</button>
+      <button type="button" id="quickSimFullSimBtn" class="btn btn-small" data-tooltip="Load this solution into the dedicated Simulate workspace"><svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.8 3.2H3.6A1.2 1.2 0 0 0 2.4 4.4v8a1.2 1.2 0 0 0 1.2 1.2h8a1.2 1.2 0 0 0 1.2-1.2V9.2"/><polyline points="9.6,2.4 13.6,2.4 13.6,6.4"/><line x1="8" y1="8" x2="13.4" y2="2.6"/></svg><span>Open in Full Simulator</span></button>
+      <button type="button" id="quickSimDismissBtn" class="btn btn-primary btn-small">Close</button>
     </div>
   </div>
 </div>
@@ -1006,9 +912,12 @@
         <label for="sessionDefaultTarget" class="solve-modal-label">Solve Target</label>
         <select id="sessionDefaultTarget" class="sim-select">
           <option value="full">Full Solve</option>
-          <option value="layer">1st Layer Only (2x2)</option>
-          <option value="face">1st Face Only (Ortega 2x2)</option>
+          <option value="face">1st Face (Ortega / EG 2x2)</option>
+          <option value="layer">1st Layer (CLL / LBL 2x2)</option>
+          <option value="lbl">LBL Case (2x2)</option>
           <option value="cll">CLL Case (2x2)</option>
+          <option value="eg1">EG-1 Case (2x2)</option>
+          <option value="eg2">EG-2 Case (2x2)</option>
           <option value="cross">White Cross (3x3)</option>
           <option value="f2l">F2L Case (3x3)</option>
           <option value="oll">OLL Case (3x3)</option>
@@ -1045,22 +954,21 @@
       <button type="button" id="settingsModalCloseBtn" class="solve-modal-close" aria-label="Close dialog">&times;</button>
     </div>
     <div class="solve-modal-body settings-modal-body">
-      <!-- Cube Colors Customizer -->
+      <!-- Getting Started & Help -->
       <div class="settings-section">
         <div class="settings-section-head">
-          <h4 class="settings-section-title">🎨 Cube Colors (2D Diagrams &amp; Badges)</h4>
-          <span class="settings-section-desc">Adjust HEX values to match your cube or visual preference</span>
+          <h4 class="settings-section-title">🧭 Getting Started &amp; Help</h4>
+          <span class="settings-section-desc">Configure your recommended study/practice workflow or toggle UI hover tooltips</span>
         </div>
-
-        <div class="settings-presets-row">
-          <button type="button" class="preset-btn" data-preset="bright">3D Cube Bright (Default)</button>
-          <button type="button" class="preset-btn" data-preset="fluro">High Contrast Neon</button>
-          <button type="button" class="preset-btn" data-preset="matte">Competition Matte</button>
+        <div class="settings-toggles-list">
+          <div style="margin-bottom: 4px;">
+            <button type="button" id="settingsOpenWizardBtn" class="btn btn-small btn-outline">🧭 Launch Setup Wizard</button>
+          </div>
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="settingsShowTooltips" checked>
+            <span>Show helpful UI tooltips on hover &amp; focus</span>
+          </label>
         </div>
-
-        <div class="color-picker-grid" id="colorPickerGrid"></div>
-
-        <button type="button" id="resetColorsBtn" class="btn btn-small" style="margin-top: 10px;">Reset Colors to Default</button>
       </div>
 
       <!-- Trainer Preferences -->
@@ -1074,27 +982,81 @@
             <input type="checkbox" id="settingsDarkTheme">
             <span>Dark theme</span>
           </label>
-          <label class="solve-toggle-label">
-            <input type="checkbox" id="settingsAlwaysWhiteBottom">
-            <span>Always white bottom (z2 CFOP / CLL orientation)</span>
-          </label>
-          <label class="solve-toggle-label">
-            <input type="checkbox" id="settingsAllowAUF">
-            <span>Allow AUF (Adjust Upper Face in case scrambles)</span>
-          </label>
+          <div class="toggle-with-tip">
+            <label class="solve-toggle-label">
+              <input type="checkbox" id="settingsAlwaysWhiteBottom">
+              <span>Always white bottom (z2 CFOP / CLL orientation)</span>
+            </label>
+            <button type="button" class="info-tip-btn" data-tooltip="Prepends z2 on case setups so your first layer / cross sits on the bottom (D) and the last layer stays on top (U), matching speedsolving grips" aria-label="Explain Always white bottom">?</button>
+          </div>
+          <div class="toggle-with-tip">
+            <label class="solve-toggle-label">
+              <input type="checkbox" id="settingsAllowAUF">
+              <span>Allow AUF (Adjust Upper Face in case scrambles)</span>
+            </label>
+            <button type="button" class="info-tip-btn" data-tooltip="Adds a random U, U', or U2 pre-turn to last-layer drills so you learn to recognize cases from any top-layer angle" aria-label="Explain Allow AUF">?</button>
+          </div>
           <label class="solve-toggle-label">
             <input type="checkbox" id="settingsShowReflection">
             <span>Show reflection facelets (backs &amp; bottom on 3D cube)</span>
           </label>
+          <div class="settings-oh-hand-row">
+            <span class="settings-oh-label"><strong>3x3 One-Handed (OH) Hand:</strong></span>
+            <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Solving Hand">
+              <button type="button" id="settingsOhHandLeftBtn" class="oh-hand-btn active" data-settings-oh-hand="left" aria-pressed="true">&#x1F91A; Left Hand (&lt;R, U&gt;)</button>
+              <button type="button" id="settingsOhHandRightBtn" class="oh-hand-btn" data-settings-oh-hand="right" aria-pressed="false">&#x270B; Right Hand (Mirror &lt;L, U&gt; / z')</button>
+            </div>
+          </div>
+          <div class="settings-speed-row">
+            <span class="settings-oh-label"><strong>3D Playback Pace:</strong></span>
+            <div class="settings-speed-group" role="group" aria-label="Default 3D playback pace">
+              <button type="button" class="settings-speed-btn" data-settings-speed="0.25" aria-pressed="false">0.25x</button>
+              <button type="button" class="settings-speed-btn" data-settings-speed="0.5" aria-pressed="false">0.5x</button>
+              <button type="button" class="settings-speed-btn active" data-settings-speed="1" aria-pressed="true">1x</button>
+              <button type="button" class="settings-speed-btn" data-settings-speed="1.5" aria-pressed="false">1.5x</button>
+              <button type="button" class="settings-speed-btn" data-settings-speed="2" aria-pressed="false">2x</button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- 3x3 Cross Colors & 2x2 Layer Target Colors -->
+      <!-- 2x2 Layer & 3x3 Cross Solver Target Colors -->
       <div class="settings-section">
         <div class="settings-section-head">
-          <h4 class="settings-section-title">🧩 3x3 Cross &amp; 2x2 Layer Solver Colors</h4>
-          <span class="settings-section-desc">Choose which cross colors to compute for 3x3 Cross / Cross+1 solutions and 2x2 1st Layer solutions</span>
+          <h4 class="settings-section-title">🧩 2x2 Layer &amp; 3x3 Cross Solver Colors</h4>
+          <span class="settings-section-desc">Choose target starting colors for 2x2 1st Layer / Face hints and 3x3 Cross / Cross+1 solutions</span>
         </div>
+        <div class="settings-subsection">
+          <div class="layer-faces-header" style="margin-bottom: 6px;">
+            <span class="layer-faces-label"><strong>2x2 1st Layer / Face Colors:</strong></span>
+            <div class="layer-faces-presets">
+              <button type="button" id="settingsLayerPresetWhiteBtn" class="btn btn-xs">White Only</button>
+              <button type="button" id="settingsLayerPresetOppositeBtn" class="btn btn-xs">W / Y (Dual CN)</button>
+              <button type="button" id="settingsLayerPresetAllBtn" class="btn btn-xs">All 6 (Full CN)</button>
+            </div>
+          </div>
+          <div class="layer-faces-chips" id="settingsLayerFacesChips">
+            <button type="button" class="face-chip face-chip-white active" data-layer-face="white" aria-pressed="true">
+              <span class="face-chip-dot face-dot-white"></span> White
+            </button>
+            <button type="button" class="face-chip face-chip-yellow" data-layer-face="yellow" aria-pressed="false">
+              <span class="face-chip-dot face-dot-yellow"></span> Yellow
+            </button>
+            <button type="button" class="face-chip face-chip-green" data-layer-face="green" aria-pressed="false">
+              <span class="face-chip-dot face-dot-green"></span> Green
+            </button>
+            <button type="button" class="face-chip face-chip-blue" data-layer-face="blue" aria-pressed="false">
+              <span class="face-chip-dot face-dot-blue"></span> Blue
+            </button>
+            <button type="button" class="face-chip face-chip-red" data-layer-face="red" aria-pressed="false">
+              <span class="face-chip-dot face-dot-red"></span> Red
+            </button>
+            <button type="button" class="face-chip face-chip-orange" data-layer-face="orange" aria-pressed="false">
+              <span class="face-chip-dot face-dot-orange"></span> Orange
+            </button>
+          </div>
+        </div>
+
         <div class="settings-subsection">
           <div class="layer-faces-header" style="margin-bottom: 6px;">
             <span class="layer-faces-label"><strong>3x3 Cross Colors:</strong></span>
@@ -1127,6 +1089,24 @@
         </div>
       </div>
 
+      <!-- Cube Colors Customizer -->
+      <div class="settings-section">
+        <div class="settings-section-head">
+          <h4 class="settings-section-title">🎨 Cube Colors (2D Diagrams &amp; Badges)</h4>
+          <span class="settings-section-desc">Adjust HEX values to match your cube or visual preference</span>
+        </div>
+
+        <div class="settings-presets-row">
+          <button type="button" class="preset-btn" data-preset="bright">3D Cube Bright (Default)</button>
+          <button type="button" class="preset-btn" data-preset="fluro">High Contrast Neon</button>
+          <button type="button" class="preset-btn" data-preset="matte">Competition Matte</button>
+        </div>
+
+        <div class="color-picker-grid" id="colorPickerGrid"></div>
+
+        <button type="button" id="resetColorsBtn" class="btn btn-small" style="margin-top: 10px;">Reset Colors to Default</button>
+      </div>
+
       <!-- Smart Cube Diagnostics & Reset -->
       <div class="settings-section">
         <div class="settings-section-head">
@@ -1142,6 +1122,28 @@
     </div>
     <div class="solve-modal-actions">
       <button type="button" id="settingsDoneBtn" class="btn btn-primary btn-small">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Optional 3-Step Onboarding Setup Wizard Modal -->
+<div id="onboardingModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="onboardingModalTitle" hidden>
+  <div class="solve-modal-card onboarding-modal-card">
+    <div class="solve-modal-header">
+      <h3 id="onboardingModalTitle" class="solve-modal-title">🧭 Quick Setup Guide</h3>
+      <button type="button" id="onboardingCloseBtn" class="solve-modal-close" aria-label="Close setup wizard">&times;</button>
+    </div>
+    <div class="solve-modal-body" id="onboardingBody">
+      <!-- Populated dynamically by onboardingWizard.js -->
+    </div>
+    <div class="solve-modal-actions">
+      <div class="onboarding-actions">
+        <button type="button" id="onboardingBackBtn" class="btn btn-small" hidden>&larr; Back</button>
+        <div class="onboarding-actions-right">
+          <button type="button" id="onboardingSkipBtn" class="btn btn-small">Skip for now</button>
+          <button type="button" id="onboardingNextBtn" class="btn btn-primary btn-small">Next &rarr;</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

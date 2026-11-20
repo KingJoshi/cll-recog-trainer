@@ -1,0 +1,393 @@
+@layer features {
+/* --------------------------------------------------------------------------
+   Settings panel (collapsible on narrow screens)
+   -------------------------------------------------------------------------- */
+
+.panel-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: var(--tap);
+    padding: 8px 14px;
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    text-align: left;
+    cursor: pointer;
+}
+
+.panel-title {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.panel-meta {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: .9rem;
+    white-space: nowrap;
+}
+
+.chevron {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    margin: 0 6px 3px 2px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(45deg);
+    transition: transform .2s ease;
+}
+
+.panel.collapsed .chevron {
+    transform: rotate(-45deg);
+    margin-bottom: 0;
+}
+
+.panel-body {
+    padding: 0 14px 14px;
+}
+
+.settings.collapsed .panel-body {
+    display: none;
+}
+
+.section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 6px 0 6px;
+}
+
+.section-head h2,
+.section-title {
+    margin: 0;
+    font-size: .8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+}
+
+.section-title {
+    margin: 18px 0 8px;
+}
+
+.bulk-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.hint {
+    margin: 0 0 8px;
+    font-size: .8rem;
+    color: var(--muted);
+}
+
+/* Case picker: flowing group clusters so small groups share rows compactly */
+
+.case-picker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.case-row {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-subtle, var(--surface-2));
+    flex: 0 1 auto;
+    max-width: 100%;
+    box-sizing: border-box;
+    transition: border-color .15s ease;
+}
+
+.case-row[data-state="all"] {
+    border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+}
+
+.case-row[data-state="some"] {
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+
+.case-row-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+.group-toggle,
+.case-chip {
+    min-height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    cursor: pointer;
+    user-select: none;
+    transition: all .15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    box-sizing: border-box;
+}
+
+.group-toggle {
+    width: 100%;
+    min-height: 26px;
+    padding: 3px 8px;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.group-toggle-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.group-toggle-count {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--muted);
+    flex-shrink: 0;
+}
+
+.group-toggle:hover {
+    border-color: var(--primary);
+    color: var(--text);
+}
+
+.group-toggle[data-state="all"] {
+    background: var(--primary);
+    border-color: var(--primary-dark);
+    color: #fff;
+}
+
+.group-toggle[data-state="all"] .group-toggle-count {
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+}
+
+.group-toggle[data-state="some"] {
+    border: 1.5px dashed var(--primary);
+    color: var(--primary-dark);
+}
+
+.group-toggle[data-state="some"] .group-toggle-count {
+    background: var(--primary-soft);
+    color: var(--primary-dark);
+}
+
+.case-chip {
+    font-weight: 600;
+    color: var(--text);
+    background: var(--surface-2);
+    min-width: 38px;
+    position: relative;
+}
+
+.case-chip:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+.case-chip[aria-pressed="true"] {
+    background: var(--primary) !important;
+    border-color: var(--primary-dark) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+}
+
+/* Option switches */
+
+#caseTagModeBtn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.settings.tag-mode-active .case-chip {
+    border-style: dashed;
+    border-color: var(--primary);
+}
+
+/* --------------------------------------------------------------------------
+   Case Tag Filtering & Tags (Learning, Review, Mastered)
+   -------------------------------------------------------------------------- */
+
+.case-tag-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.tag-filter-label {
+    font-size: 0.75rem;
+    color: var(--text-muted, #888);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.tag-filter-btn {
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    border-radius: 12px;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tag-filter-btn:hover {
+    background: var(--border);
+    color: var(--text);
+}
+
+.tag-filter-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.tag-filter-none.active {
+    background: #64748b !important;
+    border-color: #64748b !important;
+}
+
+.tag-filter-learning.active {
+    background: #eab308 !important;
+    border-color: #ca8a04 !important;
+    color: #111827 !important;
+}
+
+.tag-filter-review.active {
+    background: #ea580c !important;
+    border-color: #f97316 !important;
+}
+
+.tag-filter-mastered.active {
+    background: #059669 !important;
+    border-color: #10b981 !important;
+}
+
+.case-chip {
+    position: relative;
+}
+
+.case-chip-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    pointer-events: none;
+    box-sizing: border-box;
+}
+
+.tag-dot-none {
+    background: transparent;
+    border: 1.5px solid #94a3b8;
+}
+
+.case-chip[aria-pressed="true"] .tag-dot-none {
+    border-color: rgba(255, 255, 255, 0.65);
+}
+
+.tag-dot-learning {
+    background: #facc15;
+    border: 1px solid #ca8a04;
+}
+
+.tag-dot-review {
+    background: #f97316;
+    border: 1px solid #c2410c;
+}
+
+.tag-dot-mastered {
+    background: #22c55e;
+    border: 1px solid #15803d;
+}
+
+.case-chip[aria-pressed="true"] .tag-dot-learning,
+.case-chip[aria-pressed="true"] .tag-dot-review,
+.case-chip[aria-pressed="true"] .tag-dot-mastered {
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.35);
+}
+
+/* 3x3 Active Cases Overview Thumbnail Chips (F2L, OLL, PLL) */
+.case-chip-with-svg {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 52px;
+    min-height: 58px;
+    padding: 5px 6px 4px;
+    position: relative;
+}
+
+.case-chip-svg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    pointer-events: none;
+}
+
+.case-chip-svg svg.case-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.case-chip-label {
+    font-size: 0.74rem;
+    font-weight: 700;
+    line-height: 1.05;
+    white-space: nowrap;
+}
+
+.case-chip-with-svg .case-chip-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .case-chip-with-svg {
+        min-width: 48px;
+        min-height: 54px;
+        padding: 4px 5px;
+    }
+    .case-chip-svg {
+        width: 30px;
+        height: 30px;
+    }
+}
+
+}

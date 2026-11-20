@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { SolveReplayViewer } from '../src/replayView.js';
+import { createModalManager } from '../src/ui/modalManager.js';
 
 test('SolveReplayViewer instantiation and initialization', () => {
   const viewer = new SolveReplayViewer();
@@ -53,4 +54,34 @@ test('SolveReplayViewer play and pause state management', () => {
 
   viewer.pause();
   assert.strictEqual(viewer.isPlaying, false);
+});
+
+test('SolveReplayViewer formats +2 / DNF headers with getSolveTime and integrates with modalManager', () => {
+  const modal = { hidden: true, addEventListener() {}, removeEventListener() {}, querySelectorAll: () => [], querySelector: () => null };
+  const body = { style: {} };
+  const mgr = createModalManager({ doc: { activeElement: null }, body });
+  const timeEl = { textContent: '' };
+  const metaEl = { textContent: '' };
+
+  const viewer = new SolveReplayViewer();
+  viewer.init({ modal, timeEl, metaEl }, null, mgr);
+
+  viewer.open({
+    puzzle: '333',
+    rawMs: 5250,
+    penalty: '+2',
+    scramble: "R U R' U'",
+    moves: [{ move: 'R', t: 1000, split: 1000 }]
+  });
+  assert.strictEqual(viewer.isOpen(), true);
+  assert.strictEqual(timeEl.textContent, '7.25s+');
+  assert.strictEqual(body.style.overflow, 'hidden');
+
+  viewer.close();
+  assert.strictEqual(viewer.isOpen(), false);
+  assert.strictEqual(body.style.overflow, '');
+
+  viewer.open({ puzzle: '333', rawMs: 4100, penalty: 'DNF', scramble: "R U", moves: [] });
+  assert.strictEqual(timeEl.textContent, 'DNF');
+  viewer.close();
 });

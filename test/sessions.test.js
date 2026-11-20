@@ -103,3 +103,32 @@ test('exportSolvesToCSV exports clean CSV with headers and solve records', () =>
   assert.ok(csv.includes("2,16.00,+2,14000,333,pll,Ja,pll,\"R U R' F'\""));
   assert.ok(csv.includes("3,DNF,DNF,18500,444,parity,444-oll-parity,parity,\"Rw U2\""));
 });
+
+test('sessionStore saves/loads cllTrainerSessions and migrates legacy cllTrainerSolves', async () => {
+  const { loadSessions, saveSessions } = await import('../src/state/sessionStore.js');
+  const store = {};
+  const prevStorage = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: k => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: k => { delete store[k]; }
+  };
+
+  try {
+    // 1. Legacy migration from cllTrainerSolves
+    store['cllTrainerSolves'] = JSON.stringify([{ ms: 1850, id: 'H1', scramble: "R U R'" }]);
+    const migrated = loadSessions();
+    assert.ok(Array.isArray(migrated) && migrated.length >= 1);
+    assert.strictEqual(migrated[0].solves.length, 1);
+    assert.strictEqual(migrated[0].solves[0].id, 'H1');
+
+    // 2. Roundtrip cllTrainerSessions save/load
+    const custom = [{ id: 'sess-custom', puzzle: '333', name: '3x3 Main', target: 'full', inspection: true, showCube: true, solves: [{ ms: 9900 }] }];
+    saveSessions(custom);
+    const loaded = loadSessions();
+    assert.strictEqual(loaded[0].id, 'sess-custom');
+    assert.strictEqual(loaded[0].solves[0].ms, 9900);
+  } finally {
+    globalThis.localStorage = prevStorage;
+  }
+});

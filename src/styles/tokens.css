@@ -1,0 +1,141 @@
+@layer tokens {
+  :root {
+    --bg: #eef1f5;
+    --surface: #ffffff;
+    --surface-2: #f4f6f9;
+    --bg-panel: #ffffff;
+    --bg-card: #ffffff;
+    --bg-surface: #f4f6f9;
+    --bg-subtle: #f8fafc;
+
+    --text: #1f2933;
+    --ink: #1f2933;
+    --muted: #667085;
+    --text-muted: #667085;
+
+    --border: #d5dbe3;
+    --border-subtle: #e2e8f0;
+
+    --primary: #007bff;
+    --accent: #007bff;
+    --primary-dark: #0062cc;
+    --primary-soft: #e6f0ff;
+    --accent-soft: #e6f0ff;
+    --accent-subtle: rgba(0, 123, 255, 0.08);
+
+    --success: #28a745;
+    --warning: #ffc107;
+    --danger: #dc3545;
+    --danger-soft: #fdecee;
+
+    --radius: 10px;
+    --radius-sm: 6px;
+    --radius-xs: 4px;
+    --tap: 44px;
+    --gap: 12px;
+    --shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+
+    /* Strictly ordered z-index ladder */
+    --z-base: 1;
+    --z-sticky: 100;
+    --z-overlay: 400;
+    --z-modal: 600;
+    --z-modal-nested: 700;
+    --z-tooltip: 850;
+    --z-toast: 900;
+
+    /* Canonical High-Contrast Speedcube Colors (Default matches 3D Cube) */
+    --cube-white: #ffffff;
+    --cube-yellow: #ffff00;
+    --cube-green: #32cd32;
+    --cube-blue: #2266ff;
+    --cube-red: #ff0000;
+    --cube-orange: #ff8000;
+    --cube-slate: #374151;
+
+    /* Fluid typography & semantic CFOP step tokens */
+    --font-2xs: 0.68rem;
+    --font-xs: 0.74rem;
+    --font-sm: 0.82rem;
+    --font-md: 0.92rem;
+    --font-lg: 1.08rem;
+    --font-xl: 1.35rem;
+
+    --step-cross-bg: #f8fafc;
+    --step-cross-border: #cbd5e1;
+    --step-cross-text: #334155;
+
+    --step-f2l-bg: #f1f5f9;
+    --step-f2l-border: #cbd5e1;
+    --step-f2l-text: #1e293b;
+
+    --step-f2lsum-bg: rgba(37, 99, 235, 0.1);
+    --step-f2lsum-border: rgba(37, 99, 235, 0.35);
+    --step-f2lsum-text: #1d4ed8;
+
+    --step-oll-bg: rgba(234, 179, 8, 0.16);
+    --step-oll-border: rgba(234, 179, 8, 0.48);
+    --step-oll-text: #854d0e;
+
+    --step-pll-bg: rgba(168, 85, 247, 0.14);
+    --step-pll-border: rgba(168, 85, 247, 0.42);
+    --step-pll-text: #6b21a8;
+
+    --step-pause-bg: rgba(245, 158, 11, 0.14);
+    --step-pause-border: rgba(245, 158, 11, 0.42);
+    --step-pause-text: #b45309;
+  }
+
+  [data-theme="dark"] {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-2: #283548;
+    --bg-panel: #1e293b;
+    --bg-card: #1e293b;
+    --bg-surface: #283548;
+    --bg-subtle: #162032;
+
+    --text: #f1f5f9;
+    --ink: #f1f5f9;
+    --muted: #94a3b8;
+    --text-muted: #94a3b8;
+
+    --border: #334155;
+    --border-subtle: #334155;
+
+    --primary: #3b82f6;
+    --accent: #3b82f6;
+    --primary-dark: #60a5fa;
+    --primary-soft: rgba(59, 130, 246, 0.2);
+    --accent-soft: rgba(59, 130, 246, 0.2);
+    --accent-subtle: rgba(59, 130, 246, 0.14);
+
+    --danger: #ef4444;
+    --danger-soft: rgba(239, 68, 68, 0.2);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
+
+    --step-cross-bg: #1e293b;
+    --step-cross-border: #475569;
+    --step-cross-text: #e2e8f0;
+
+    --step-f2l-bg: #0f172a;
+    --step-f2l-border: #334155;
+    --step-f2l-text: #f1f5f9;
+
+    --step-f2lsum-bg: rgba(59, 130, 246, 0.18);
+    --step-f2lsum-border: rgba(59, 130, 246, 0.45);
+    --step-f2lsum-text: #93c5fd;
+
+    --step-oll-bg: rgba(234, 179, 8, 0.22);
+    --step-oll-border: rgba(234, 179, 8, 0.48);
+    --step-oll-text: #fde047;
+
+    --step-pll-bg: rgba(168, 85, 247, 0.24);
+    --step-pll-border: rgba(168, 85, 247, 0.48);
+    --step-pll-text: #e9d5ff;
+
+    --step-pause-bg: rgba(245, 158, 11, 0.2);
+    --step-pause-border: rgba(245, 158, 11, 0.45);
+    --step-pause-text: #fcd34d;
+  }
+}

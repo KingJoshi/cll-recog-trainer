@@ -1,0 +1,68 @@
+@layer components {
+  .app-tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: var(--z-tooltip, 850);
+    max-width: min(270px, calc(100vw - 16px));
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    background: #0f172a;
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.28);
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.4;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    word-wrap: break-word;
+  }
+
+  .app-tooltip.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  [data-theme="dark"] .app-tooltip {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: rgba(15, 23, 42, 0.18);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  }
+
+  .toggle-with-tip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .info-tip-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    flex: none;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+
+  .info-tip-btn:hover,
+  .info-tip-btn:focus-visible {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--primary-soft);
+  }
+}

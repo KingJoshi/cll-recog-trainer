@@ -1,0 +1,431 @@
+@layer layout {
+.app {
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: var(--gap);
+    display: grid;
+    gap: var(--gap);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+        "stage"
+        "stats";
+}
+
+.stage    { grid-area: stage; width: 100%; max-width: 100%; }
+.stats    { grid-area: stats; width: 100%; max-width: 100%; }
+
+.panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+/* --------------------------------------------------------------------------
+   Very narrow screens (folded fold-phones, small phones)
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 360px) {
+    .app {
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .panel-body {
+        padding: 0 10px 10px;
+    }
+
+    .case-row {
+        gap: 3px;
+    }
+
+    .group-toggle,
+    .case-chip {
+        min-height: 38px;
+    }
+
+    #stats-table-container table {
+        font-size: .8rem;
+    }
+
+    #stats-table-container th,
+    #stats-table-container td {
+        padding: 5px 2px;
+    }
+
+    .stats-seg {
+        margin: 0 8px 8px;
+    }
+
+    .stats-seg > button {
+        min-height: 32px;
+        font-size: .8rem;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Landscape phones: cube left, guessing UI right
+   -------------------------------------------------------------------------- */
+
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 899.98px) {
+    .app-header {
+        min-height: 36px;
+        padding-top: calc(4px + env(safe-area-inset-top));
+        padding-bottom: 4px;
+    }
+
+    .app-title {
+        font-size: 1rem;
+    }
+
+    .app {
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .stage {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+    }
+
+    .track-bar,
+    .mode-seg,
+    .timed-bar,
+    .solve-scramble {
+        grid-column: 1 / -1;
+    }
+
+    .solve-surface {
+        min-height: 0;
+    }
+
+    .cube-card {
+        grid-column: 1;
+        grid-row: span 8;
+        width: 100%;
+        max-width: min(240px, calc(var(--vh) - 80px));
+        padding: 6px;
+    }
+
+    .cube-card #display-container {
+        width: min(200px, calc(var(--vh) - 120px));
+    }
+
+    .stage {
+        --cube-w: calc((var(--vh) - 4rem) * 1.5);
+    }
+
+    .guess {
+        gap: 6px;
+    }
+
+    .guess-label {
+        display: none;
+    }
+}
+
+@media (min-width: 900px) {
+    .app {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "stage"
+            "stats";
+        align-items: start;
+        padding: 20px;
+        gap: 20px;
+    }
+
+    .cube-card {
+        padding: 12px;
+    }
+
+    /* fit cube + guessing UI into the viewport height */
+    .stage {
+        width: 100%;
+        max-width: 100%;
+        --cube-w: 100%;
+    }
+
+    /* Desktop Solve mode: side-by-side 3D cube & timer layout matching full widget width */
+    .stage.mode-solve {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: stretch;
+        --cube-w: 100%;
+        width: 100%;
+        max-width: 100%;
+        gap: 14px;
+        margin: 0;
+    }
+
+    .stage.mode-solve > * {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .stage.mode-solve .track-bar,
+    .stage.mode-solve .mode-seg,
+    .stage.mode-solve > .settings,
+    .stage.mode-solve .solve-scramble,
+    .stage.mode-solve .layer-solutions-widget,
+    .stage.mode-solve .solve-times {
+        grid-column: 1 / -1;
+    }
+
+    .stage.mode-solve .cube-card {
+        grid-column: 1;
+        height: 100%;
+        width: 100%;
+        max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 10px 14px;
+        box-sizing: border-box;
+    }
+
+    .stage.mode-solve .cube-card #display-container {
+        width: min(100%, var(--solve-cube-max-w));
+    }
+
+    .stage.mode-solve .cube-card scramble-display {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1 / 1;
+    }
+
+    .stage.mode-solve .cube-card-controls {
+        justify-content: center;
+        gap: 6px;
+        margin-top: 6px;
+        width: 100%;
+        max-width: var(--solve-cube-max-w);
+    }
+
+    .stage.mode-solve .solve-surface {
+        grid-column: 2;
+        height: 100%;
+        min-height: var(--solve-timer-min-h);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 14px;
+        box-sizing: border-box;
+    }
+
+    /* When 3D Cube is hidden in solve mode, timer spans both columns */
+    .stage.mode-solve.solve-cube-hidden .solve-surface {
+        grid-column: 1 / -1;
+        max-width: 100%;
+        margin: 0;
+        width: 100%;
+    }
+
+    /* Desktop Practice & Simulate modes: 2-column layout (3D cube left, controls right) */
+    .stage.mode-practice,
+    .stage.mode-simulate {
+        grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
+        align-items: start;
+        gap: 16px;
+        width: 100%;
+        max-width: 100%;
+        --cube-w: 100%;
+    }
+
+    .stage.mode-practice > .mode-seg,
+    .stage.mode-practice > .track-bar,
+    .stage.mode-practice > .settings,
+    .stage.mode-simulate > .mode-seg,
+    .stage.mode-simulate > .track-bar,
+    .stage.mode-simulate > .settings,
+    .stage.mode-simulate > .layer-solutions-widget {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+
+    .stage.mode-practice > .cube-card,
+    .stage.mode-practice > .empty-state,
+    .stage.mode-simulate > .cube-card {
+        grid-column: 1;
+        align-self: start;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .stage.mode-practice > #regenerateBtn {
+        grid-column: 1;
+        align-self: start;
+        width: 100%;
+    }
+
+    .stage.mode-practice > .practice-container,
+    .stage.mode-simulate > .simulate-panel {
+        grid-column: 2;
+        grid-row: span 2;
+        align-self: start;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .stage.mode-practice .cube-card,
+    .stage.mode-simulate .cube-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .stage.mode-practice .cube-card #display-container,
+    .stage.mode-simulate .cube-card #display-container {
+        width: min(100%, 360px);
+    }
+
+    .stage.mode-practice .cube-card-controls,
+    .stage.mode-simulate .cube-card-controls {
+        width: 100%;
+        max-width: 360px;
+        justify-content: center;
+    }
+
+    /* Full-width Study stage */
+    .stage.mode-study {
+        grid-template-columns: 1fr;
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        justify-items: stretch;
+        --cube-w: 100%;
+    }
+
+    .stage:not(.mode-solve) > * {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .stage:not(.mode-solve) .cube-card {
+        width: 100%;
+        max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+    }
+
+    .stage:not(.mode-solve) .cube-card #display-container {
+        width: min(100%, var(--cube-card-max-w, 360px));
+    }
+
+    .stage:not(.mode-solve) .cube-card-controls {
+        width: 100%;
+        max-width: var(--cube-card-max-w, 360px);
+        justify-content: center;
+    }
+}
+
+/* Large screens */
+
+@media (min-width: 1400px) {
+    :root {
+        font-size: 17px;
+    }
+
+    .app {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 28px;
+        gap: 28px;
+    }
+
+    .stage.mode-solve {
+        --cube-w: 100%;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .stage:not(.mode-solve) {
+        --cube-w: 100%;
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+@media (min-width: 2000px) {
+    :root {
+        font-size: 18px;
+    }
+
+    .app {
+        max-width: 1920px;
+    }
+
+    .stage.mode-solve {
+        --cube-w: 100%;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .stage:not(.mode-solve) {
+        --cube-w: 100%;
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+@media (min-width: 2500px) {
+    .app {
+        max-width: 2240px;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Dual-screen / fold-phones spanning two segments with a vertical hinge:
+   put the two columns onto the two segments so nothing sits under the hinge.
+   -------------------------------------------------------------------------- */
+
+@media (horizontal-viewport-segments: 2) {
+    .app {
+        max-width: none;
+        padding-left: 0;
+        padding-right: 0;
+        grid-template-columns: env(viewport-segment-width 0 0) env(viewport-segment-width 1 0);
+        grid-template-areas:
+            "stage stats";
+        column-gap: calc(env(viewport-segment-left 1 0) - env(viewport-segment-right 0 0));
+    }
+
+    .stage {
+        padding-left: var(--gap);
+    }
+
+    .stats {
+        margin-right: var(--gap);
+    }
+
+    .settings.collapsed .panel-body {
+        display: block;
+    }
+
+    .settings .panel-toggle {
+        pointer-events: none;
+    }
+
+    .settings .chevron {
+        display: none;
+    }
+}
+
+  @media (max-width: 640px) {
+    .app {
+      padding: 10px;
+      gap: 10px;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .app {
+      padding: 4px;
+      gap: 6px;
+    }
+  }
+}

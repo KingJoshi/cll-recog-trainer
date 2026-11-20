@@ -1,0 +1,284 @@
+@layer features {
+[data-theme="dark"] .app-header,
+[data-theme="dark"] .overview-header {
+    background: #1e293b;
+    border-bottom: 1px solid var(--border);
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .header-btn {
+    border-color: var(--border);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text);
+}
+
+[data-theme="dark"] .header-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+/* --------------------------------------------------------------------------
+   Header
+   -------------------------------------------------------------------------- */
+
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    padding: 8px 16px;
+    padding-top: calc(8px + env(safe-area-inset-top));
+    background: var(--primary);
+    color: #fff;
+}
+
+.app-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: .01em;
+}
+
+.header-btn {
+    min-height: 36px;
+    padding: 4px 12px;
+    border: 1px solid rgba(255, 255, 255, .7);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.header-btn:hover {
+    background: rgba(255, 255, 255, .24);
+}
+
+/* --------------------------------------------------------------------------
+   Header Actions & Navigation
+   -------------------------------------------------------------------------- */
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   Multi-Puzzle & Multi-Track Navigation (2x2 / 3x3)
+   -------------------------------------------------------------------------- */
+
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.puzzle-seg {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 3px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.puzzle-btn {
+    padding: 5px 14px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    transition: all 0.16s ease;
+    line-height: 1.2;
+}
+
+.puzzle-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+}
+
+.puzzle-btn.active {
+    background: #ffffff;
+    color: #0056b3;
+    font-weight: 800;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .puzzle-seg {
+    background: rgba(0, 0, 0, 0.35);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .puzzle-btn {
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .puzzle-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .puzzle-btn.active {
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.track-bar {
+    display: flex;
+    align-items: center;
+    justify-content: stretch;
+    gap: 4px;
+    padding: 3px 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    width: 100%;
+    box-sizing: border-box;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    margin: 0 auto;
+}
+
+.track-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    border-radius: var(--radius-xs, 4px);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.15s ease;
+}
+
+.track-btn:hover {
+    color: var(--text);
+    background: var(--surface-2);
+}
+
+.track-btn.active,
+.track-btn[aria-pressed="true"] {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+}
+
+.track-btn-short {
+    display: none;
+}
+
+.track-bar.is-dense .track-btn-full {
+    display: none;
+}
+
+.track-bar.is-dense .track-btn-short {
+    display: inline;
+}
+
+@media (max-width: 680px) {
+    .track-btn-full {
+        display: none;
+    }
+    .track-btn-short {
+        display: inline;
+    }
+    .track-btn {
+        padding: 5px 6px;
+        font-size: 0.8rem;
+    }
+}
+
+  .app-header {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+    padding-top: max(8px, env(safe-area-inset-top));
+    flex-wrap: wrap;
+  }
+
+  .puzzle-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .track-bar {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .track-btn {
+    flex: 1 0 auto;
+    min-width: fit-content;
+  }
+
+  @media (max-width: 680px) {
+    .app-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      padding: max(8px, env(safe-area-inset-top)) 10px 8px;
+    }
+
+    .header-brand {
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .app-title {
+      font-size: 0.96rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .puzzle-seg {
+      max-width: 100%;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .puzzle-seg::-webkit-scrollbar {
+      display: none;
+    }
+
+    .puzzle-btn {
+      padding: 5px 10px;
+      font-size: 0.82rem;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .header-actions .header-btn {
+      flex: 1 1 auto;
+      min-height: 34px;
+      padding: 4px 8px;
+      font-size: 0.8rem;
+      justify-content: center;
+      text-align: center;
+    }
+  }
+}

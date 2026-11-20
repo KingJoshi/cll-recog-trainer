@@ -125,6 +125,7 @@ export const ortegaCases = [
   {
     "id": "ortega-pbl-adj-adj",
     "name": "Ortega PBL: Both Adjacent (Bar Top & Bar Bottom)",
+    "shortName": "Adj / Adj",
     "group": "PBL (Permute Both Layers)",
     "description": "Hold both bars in the BACK (or match them in back). Solves both layers at once.",
     "setup": "R2' U R2 U2' B2' U R2'",
@@ -152,6 +153,7 @@ export const ortegaCases = [
   {
     "id": "ortega-pbl-opp-opp",
     "name": "Ortega PBL: Both Opposite (Diag Top & Diag Bottom)",
+    "shortName": "Opp / Opp",
     "group": "PBL (Permute Both Layers)",
     "description": "No bars on top or bottom layer (both need diagonal corner swap). Fast 3-move solve!",
     "setup": "R2' F2' R2'",
@@ -167,18 +169,13 @@ export const ortegaCases = [
         "alg": "y2 R2 B2 R2",
         "note": "Back-face variant with rotation",
         "isDefault": false
-      },
-      {
-        "id": "opp-opp-3",
-        "alg": "R2' F2 R2",
-        "note": "Alternative execution",
-        "isDefault": false
       }
     ]
   },
   {
     "id": "ortega-pbl-adj-opp",
     "name": "Ortega PBL: Top Adjacent / Bottom Opposite",
+    "shortName": "Adj / Opp",
     "group": "PBL (Permute Both Layers)",
     "description": "Bar on top layer (hold in FRONT), bottom layer has diagonal swap (no bar).",
     "setup": "R U' R F2' R' U R'",
@@ -206,6 +203,7 @@ export const ortegaCases = [
   {
     "id": "ortega-pbl-adj-solved",
     "name": "Ortega PBL: Top Adjacent / Bottom Solved",
+    "shortName": "Adj / Solved (T-Perm / J-Perm)",
     "group": "PBL (Permute Both Layers)",
     "description": "Bar on top layer, bottom layer is already fully solved. Standard 2x2 PLL.",
     "setup": "F R U' R' U R U R2' F' R U R U' R'",
@@ -233,6 +231,7 @@ export const ortegaCases = [
   {
     "id": "ortega-pbl-opp-solved",
     "name": "Ortega PBL: Top Opposite / Bottom Solved",
+    "shortName": "Opp / Solved (Y-Perm)",
     "group": "PBL (Permute Both Layers)",
     "description": "Diagonal corner swap on top layer, bottom layer is already solved. Standard 2x2 Y-Perm.",
     "setup": "F R' F' R U R U' R' F R U' R' U R U R' F'",
@@ -260,3 +259,15 @@ export const ortegaCases = [
 ];
 
 export const ortegaCaseById = new Map(ortegaCases.map(c => [c.id, c]));
+
+// Backwards-compatible normalized PBL list for legacy consumers (e.g. simulator & settings)
+export const pblCases = ortegaCases
+  .filter(c => c.group && c.group.startsWith("PBL"))
+  .map(c => ({
+    ...c,
+    id: c.id.replace(/^ortega-pbl-/, ""),
+    scramble: c.setup,
+    algs: (c.algs || []).map(a => ({ ...a, label: a.label || a.alg }))
+  }));
+
+export const pblCaseById = new Map(pblCases.map(c => [c.id, c]));

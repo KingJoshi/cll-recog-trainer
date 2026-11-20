@@ -1,0 +1,91 @@
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@layer components {
+  .toast-container,
+  .app-toast-container {
+    position: fixed;
+    right: 16px;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: var(--z-toast);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: min(380px, calc(100vw - 24px));
+    pointer-events: none;
+  }
+
+  .toast-item,
+  .app-toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+    font-size: 0.86rem;
+    line-height: 1.35;
+    pointer-events: auto;
+    animation: toastSlideIn 0.16s ease-out;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .toast-item.toast-leaving {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  .toast-icon {
+    font-weight: 800;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+  }
+
+  .toast-message {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+  }
+
+  .toast-dismiss {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    flex-shrink: 0;
+  }
+
+  .toast-dismiss:hover {
+    color: var(--text);
+  }
+
+  .toast-success { border-left: 4px solid var(--success); }
+  .toast-success .toast-icon { color: var(--success); }
+
+  .toast-warning { border-left: 4px solid var(--warning); }
+  .toast-warning .toast-icon { color: #b45309; }
+  [data-theme="dark"] .toast-warning .toast-icon { color: #fbbf24; }
+
+  .toast-error { border-left: 4px solid var(--danger); }
+  .toast-error .toast-icon { color: var(--danger); }
+
+  .toast-info { border-left: 4px solid var(--primary); }
+  .toast-info .toast-icon { color: var(--primary); }
+
+  @media (max-width: 520px) {
+    .toast-container,
+    .app-toast-container {
+      left: 12px;
+      right: 12px;
+      max-width: none;
+    }
+  }
+}

@@ -3,7 +3,7 @@
 export const PLL_TWO_SIDED_GUIDE = [
   {
     category: "No Headlights & No Bars",
-    cases: ["E", "V", "Y", "Na", "Nb", "H", "Z"],
+    cases: ["E", "V", "Y", "Na", "Nb"],
     summary: "Recognized by comparing corner-corner bookends and edge opposites across Front & Right faces.",
     rules: [
       {
@@ -28,20 +28,6 @@ export const PLL_TWO_SIDED_GUIDE = [
         rightSight: "Alternating colors, no headlights"
       },
       {
-        caseId: "H",
-        name: "H-Perm (Opposite Edges)",
-        cue: "Headlights on ALL corners! All 4 edges are opposite to their corner colors (pure checkerboard on all sides).",
-        frontSight: "Matching corners + opposite center edge (Checker)",
-        rightSight: "Matching corners + opposite center edge (Checker)"
-      },
-      {
-        caseId: "Z",
-        name: "Z-Perm (Adjacent Edges)",
-        cue: "Headlights on ALL corners! The front edge matches the right corners, and the right edge matches the front corners.",
-        frontSight: "Matching corners + edge belongs to adjacent face",
-        rightSight: "Matching corners + edge belongs to front face"
-      },
-      {
         caseId: "Na",
         name: "Na-Perm (Opposite 1x2 Bars on L/B)",
         cue: "Checker pattern on Front. Two opposite corners are swapped with adjacent edges.",
@@ -54,6 +40,27 @@ export const PLL_TWO_SIDED_GUIDE = [
         cue: "1x2 bar on Back-Right and Front-Left. Checker pattern visible on Right face.",
         frontSight: "Opposite bookends",
         rightSight: "Full alternating color checker"
+      }
+    ]
+  },
+  {
+    category: "All Headlights (Edges Only)",
+    cases: ["H", "Z"],
+    summary: "All four sides show matching corner headlights; distinguish H vs Z by the center edge color.",
+    rules: [
+      {
+        caseId: "H",
+        name: "H-Perm (Opposite Edges)",
+        cue: "Headlights on ALL corners! All 4 edges are opposite to their corner colors (pure checkerboard on all sides).",
+        frontSight: "Matching corners + opposite center edge (Checker)",
+        rightSight: "Matching corners + opposite center edge (Checker)"
+      },
+      {
+        caseId: "Z",
+        name: "Z-Perm (Adjacent Edges)",
+        cue: "Headlights on ALL corners! The front edge matches the right corners, and the right edge matches the front corners.",
+        frontSight: "Matching corners + edge belongs to adjacent face",
+        rightSight: "Matching corners + edge belongs to front face"
       }
     ]
   },
@@ -204,12 +211,17 @@ export const OLL_TWO_SIDED_GUIDE = [
         recognition: "Top: Cross only. Front: 2 yellow headlights. Right: 1 yellow facing right."
       },
       {
-        caseName: "Chameleon (OLL 25 / T)",
-        cue: "2 adjacent corners oriented on top. Front face has 1 yellow sticker on left, Right face has 1 yellow on right.",
-        recognition: "Top: 2 adjacent corners yellow. Front: Left corner yellow."
+        caseName: "Headlights (OLL 23 / U)",
+        cue: "2 adjacent corners oriented on top with yellow headlights facing Front (or Back).",
+        recognition: "Top: 2 adjacent corners yellow. Front: 2 yellow headlights."
       },
       {
-        caseName: "Bowtie (OLL 24 / L)",
+        caseName: "Chameleon (OLL 24 / T)",
+        cue: "2 adjacent corners oriented on top. Front face has 1 yellow sticker on left, Back face has 1 yellow sticker on left (sideways T).",
+        recognition: "Top: 2 adjacent corners yellow. Front: Left corner yellow facing front."
+      },
+      {
+        caseName: "Bowtie (OLL 25 / L)",
         cue: "2 diagonal corners oriented on top. Front face has 1 yellow sticker facing front.",
         recognition: "Top: Diagonal corners yellow. Front: 1 corner yellow."
       }

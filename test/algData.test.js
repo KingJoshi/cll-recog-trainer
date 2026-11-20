@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { PUZZLES, getTrack } from '../src/data/algRegistry.js';
+import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg, formatCaseDisplayId, getSolveTargetsForPuzzle, getSolveTargetInfo } from '../src/data/algRegistry.js';
 import { pllCases } from '../src/data/pllData.js';
 import { ollCases } from '../src/data/ollData.js';
 import { f2lCases } from '../src/data/f2lData.js';
 import { ortegaCases } from '../src/data/ortegaData.js';
+import { lbl222Cases } from '../src/data/lbl222Data.js';
+import { eg1Cases, eg2Cases } from '../src/data/egData.js';
 import { cllCases } from '../src/data/cllData.js';
 import { parity444Cases, parity555Cases } from '../src/data/parityData.js';
 import { PLL_TWO_SIDED_GUIDE, OLL_TWO_SIDED_GUIDE } from '../src/data/twoSidedRecogData.js';
@@ -16,7 +18,7 @@ test('PUZZLES registry structure', () => {
   assert.ok(PUZZLES['333oh'], 'Must have 333oh');
   assert.ok(PUZZLES['444'], 'Must have 444');
   assert.ok(PUZZLES['555'], 'Must have 555');
-  assert.strictEqual(PUZZLES['222'].tracks.length, 3);
+  assert.strictEqual(PUZZLES['222'].tracks.length, 7);
   assert.strictEqual(PUZZLES['333'].tracks.length, 4);
   assert.strictEqual(PUZZLES['333oh'].tracks.length, 4);
   assert.strictEqual(PUZZLES['444'].tracks.length, 1);
@@ -25,6 +27,41 @@ test('PUZZLES registry structure', () => {
   const pllTrack = getTrack('333', 'pll');
   assert.ok(pllTrack);
   assert.strictEqual(pllTrack.cases.length, 21);
+
+  assert.deepStrictEqual(PUZZLES['222'].tracks.map(t => t.id), ['face', 'layer', 'lbl', 'ortega', 'cll', 'eg1', 'eg2']);
+  assert.strictEqual(PUZZLES['222'].defaultTrack, 'lbl');
+  assert.deepStrictEqual(PUZZLES['333'].tracks.map(t => t.id), ['cross', 'f2l', 'oll', 'pll']);
+  assert.deepStrictEqual(PUZZLES['333oh'].tracks.map(t => t.id), ['cross', 'f2l', 'oll', 'pll']);
+  assert.deepStrictEqual(PUZZLES['444'].tracks.map(t => t.id), ['parity']);
+  assert.deepStrictEqual(PUZZLES['555'].tracks.map(t => t.id), ['parity']);
+});
+
+test('getSolveTargetsForPuzzle returns canonical ordered targets per puzzle', () => {
+  assert.deepStrictEqual(
+    getSolveTargetsForPuzzle('222').map(t => t.id),
+    ['timer-drill', 'face', 'layer', 'lbl', 'cll', 'eg1', 'eg2', 'full']
+  );
+  assert.deepStrictEqual(
+    getSolveTargetsForPuzzle('333').map(t => t.id),
+    ['timer-drill', 'f2l', 'oll', 'pll', 'full']
+  );
+  assert.deepStrictEqual(
+    getSolveTargetsForPuzzle('333oh').map(t => t.id),
+    ['timer-drill', 'f2l', 'oll', 'pll', 'full']
+  );
+  assert.deepStrictEqual(
+    getSolveTargetsForPuzzle('444').map(t => t.id),
+    ['timer-drill', 'parity', 'full']
+  );
+  assert.deepStrictEqual(
+    getSolveTargetsForPuzzle('555').map(t => t.id),
+    ['timer-drill', 'parity', 'full']
+  );
+
+  assert.strictEqual(getSolveTargetInfo('222', 'cll')?.usesCases, true);
+  assert.strictEqual(getSolveTargetInfo('222', 'face')?.usesCases, false);
+  assert.strictEqual(getSolveTargetInfo('333', 'pll')?.usesCases, true);
+  assert.strictEqual(getSolveTargetInfo('333', 'nonexistent'), null);
 });
 
 test('PLL 21 cases integrity', () => {
@@ -68,19 +105,20 @@ test('F2L 41 cases integrity', () => {
   }
 });
 
-test('Ortega and CLL 2x2 cases integrity', () => {
+test('Ortega, LBL, CLL, EG-1, and EG-2 2x2 cases integrity', () => {
+  assert.strictEqual(lbl222Cases.length, 9, '2x2 LBL must have 7 OLL + 2 PLL = 9 cases');
   assert.strictEqual(ortegaCases.length, 12, 'Ortega must have 7 OLL + 5 PBL = 12 cases');
   assert.strictEqual(cllCases.length, 40, 'CLL must have 40 cases');
+  assert.strictEqual(eg1Cases.length, 40, 'EG-1 must have 40 cases');
+  assert.strictEqual(eg2Cases.length, 40, 'EG-2 must have 40 cases');
 
-  for (const c of ortegaCases) {
-    for (const a of c.algs) {
-      assert.doesNotThrow(() => new Alg(a.alg), `Alg ${a.alg} in ${c.id} must parse`);
-    }
-  }
-
-  for (const c of cllCases) {
-    for (const a of c.algs) {
-      assert.doesNotThrow(() => new Alg(a.alg), `Alg ${a.alg} in ${c.id} must parse`);
+  for (const list of [lbl222Cases, ortegaCases, cllCases, eg1Cases, eg2Cases]) {
+    for (const c of list) {
+      assert.ok(c.algs?.length > 0, `${c.id} must have algs`);
+      assert.doesNotThrow(() => new Alg(c.setup), `Setup in ${c.id} must parse`);
+      for (const a of c.algs) {
+        assert.doesNotThrow(() => new Alg(a.alg), `Alg ${a.alg} in ${c.id} must parse`);
+      }
     }
   }
 });
@@ -220,6 +258,55 @@ test('Full mathematical simulation verification of all algorithms', async () => 
     }
   }
 
+  // 2b. 2x2 LBL (7 OLL + 2 PLL)
+  for (const c of lbl222Cases) {
+    const isOll = c.group.includes('OLL');
+    for (const a of c.algs) {
+      const algStr = `${c.setup} ${a.startAuf ? a.startAuf + ' ' : ''}${a.alg}`;
+      if (isOll) {
+        const pat = def2.applyAlg(new Alg(algStr));
+        assert.ok(pat.patternData.CORNERS.orientation.slice(0, 4).every(o => o === 0), `LBL OLL ${c.id} ${a.id} must orient U`);
+      } else {
+        let solved = false;
+        for (const auf of ['', 'U', 'U2', "U'"]) {
+          const pat = def2.applyAlg(new Alg(`${algStr} ${auf}`));
+          if (solvedPats2.some(sp => pat.isIdentical(sp))) { solved = true; break; }
+        }
+        assert.ok(solved, `LBL PLL ${c.id} ${a.id} must solve 2x2`);
+      }
+    }
+  }
+
+  // 2c. 2x2 EG-1 (40 cases, Back Bar D=[5,4,6,7]) & EG-2 (40 cases, Diag Swap D=[4,7,6,5])
+  for (const c of eg1Cases) {
+    const setupPat = def2.applyAlg(new Alg(c.setup));
+    assert.deepStrictEqual(setupPat.patternData.CORNERS.pieces.slice(4), [5, 4, 6, 7], `EG-1 ${c.id} must have Back Bar on D`);
+    assert.deepStrictEqual(setupPat.patternData.CORNERS.orientation.slice(4), [0, 0, 0, 0], `EG-1 ${c.id} D corners must be oriented`);
+    for (const a of c.algs) {
+      const algStr = `${c.setup} ${a.startAuf ? a.startAuf + ' ' : ''}${a.alg}`;
+      let solved = false;
+      for (const auf of ['', 'U', 'U2', "U'"]) {
+        const pat = def2.applyAlg(new Alg(`${algStr} ${auf}`));
+        if (solvedPats2.some(sp => pat.isIdentical(sp))) { solved = true; break; }
+      }
+      assert.ok(solved, `EG-1 ${c.id} ${a.id} must solve 2x2`);
+    }
+  }
+  for (const c of eg2Cases) {
+    const setupPat = def2.applyAlg(new Alg(c.setup));
+    assert.deepStrictEqual(setupPat.patternData.CORNERS.pieces.slice(4), [4, 7, 6, 5], `EG-2 ${c.id} must have Diag swap on D`);
+    assert.deepStrictEqual(setupPat.patternData.CORNERS.orientation.slice(4), [0, 0, 0, 0], `EG-2 ${c.id} D corners must be oriented`);
+    for (const a of c.algs) {
+      const algStr = `${c.setup} ${a.startAuf ? a.startAuf + ' ' : ''}${a.alg}`;
+      let solved = false;
+      for (const auf of ['', 'U', 'U2', "U'"]) {
+        const pat = def2.applyAlg(new Alg(`${algStr} ${auf}`));
+        if (solvedPats2.some(sp => pat.isIdentical(sp))) { solved = true; break; }
+      }
+      assert.ok(solved, `EG-2 ${c.id} ${a.id} must solve 2x2`);
+    }
+  }
+
   // 3. 3x3 PLL
   for (const c of pllCases) {
     for (const a of c.algs) {
@@ -253,5 +340,35 @@ test('Full mathematical simulation verification of all algorithms', async () => 
       }
       assert.ok(ollOk, `OLL ${c.number} ${a.id} must orient top corners and edges`);
     }
+  }
+});
+
+test('getTrack returns null for unknown tracks and formatCaseDisplayId formats 444/555 ids', () => {
+  assert.strictEqual(getTrack('333', 'nonexistent'), null);
+  assert.strictEqual(getTrack('999', 'cll'), null);
+  assert.strictEqual(formatCaseDisplayId('444-oll-parity'), '4x4-OLL-parity');
+  assert.strictEqual(formatCaseDisplayId('444-pll-parity-opp'), '4x4-PLL-parity-opp');
+  assert.strictEqual(formatCaseDisplayId('555-edge-parity-flip'), '5x5-edge-parity-flip');
+  assert.strictEqual(formatCaseDisplayId('555-wing-swap'), '5x5-wing-swap');
+});
+
+test('getPreferredAlg and setPreferredAlg scope preferences independently by puzzleId', () => {
+  const store = {};
+  const prevStorage = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: k => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: k => { delete store[k]; }
+  };
+  try {
+    setPreferredAlg('Ua', 'ua-alg-333', '333');
+    setPreferredAlg('Ua', 'ua-alg-oh-left', '333oh', 'left');
+    setPreferredAlg('Ua', 'ua-alg-oh-right', '333oh', 'right');
+    assert.strictEqual(getPreferredAlg('Ua', 'fallback', '333'), 'ua-alg-333');
+    assert.strictEqual(getPreferredAlg('Ua', 'fallback', '333oh', 'left'), 'ua-alg-oh-left');
+    assert.strictEqual(getPreferredAlg('Ua', 'fallback', '333oh', 'right'), 'ua-alg-oh-right');
+    assert.strictEqual(getPreferredAlg('Ub', 'fallback', '333oh', 'right'), 'fallback');
+  } finally {
+    globalThis.localStorage = prevStorage;
   }
 });

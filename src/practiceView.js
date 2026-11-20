@@ -2,8 +2,9 @@
 // Supports both Casual Practice and Timed Sprints (consolidated)
 
 import { getTrack } from './data/algRegistry.js';
-import { findLayerSolutions } from './layerSolver.js';
+import { findLayerSolutions, findFaceSolutions } from './layerSolver.js';
 import { findCrossSolutions } from './crossSolver.js';
+import { ICON_POPUP_SIM } from './ui/transportIcons.js';
 
 export class PracticeView {
   constructor(options) {
@@ -12,13 +13,19 @@ export class PracticeView {
     this.onApplyScrambleToDisplay = options.onApplyScrambleToDisplay; // (scramble) => void
     this.onRecordRecognition = options.onRecordRecognition; // (caseId, isCorrect) => void
     this.onFlashCube = options.onFlashCube; // (result) => void
+    this.onTwoSidedModeChange = options.onTwoSidedModeChange || null; // (enabled) => void
+    this.onQuickSimSolutions = options.onQuickSimSolutions || null; // (payload) => void
     this.getCrossTargetFaces = options.getCrossTargetFaces || (() => ['white']);
     this.getLayerTargetFaces = options.getLayerTargetFaces || (() => ['white']);
+    this.getOhHand = options.getOhHand || (() => 'left');
+    this.onSetOhHand = options.onSetOhHand || null;
 
     this.currentPuzzle = "222";
     this.currentTrackId = "cll";
     this.practiceMode = "casual"; // "casual" | "timed"
     this.twoSidedMode = false;
+    this._gen = 0;
+    this._submittingSprint = false;
 
     // Inspection drill state (for 1st Layer / White Cross)
     this.inspectionRunning = false;
@@ -45,9 +52,46 @@ export class PracticeView {
     this.sprintTimerId = null;
   }
 
+  /**
+   * Stop active drill/sprint timers, invalidate async scramble fetches, and release 2-sided lock.
+   */
+  deactivate() {
+    this._gen++;
+    this._submittingSprint = false;
+    this.stopInspectionTimer();
+    if (this.sprintTimerId) {
+      clearInterval(this.sprintTimerId);
+      this.sprintTimerId = null;
+    }
+    this.sprintRunning = false;
+    this.onTwoSidedModeChange?.(false);
+  }
+
+  isInspectionTrack() {
+    return (this.currentPuzzle === "222" && ["face", "layer"].includes(this.currentTrackId)) ||
+      ((this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && this.currentTrackId === "cross");
+  }
+
+  isGroupNumberTrack(trackId = this.currentTrackId) {
+    return ["cll", "eg1", "eg2"].includes(trackId);
+  }
+
+  getCaseIdPrefix(trackId = this.currentTrackId) {
+    if (trackId === "eg1") return "EG1-";
+    if (trackId === "eg2") return "EG2-";
+    return "";
+  }
+
+  isTwoSidedActive() {
+    const is3x3Recog = (this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && ["pll", "oll"].includes(this.currentTrackId);
+    return Boolean(!this.isInspectionTrack() && is3x3Recog && this.twoSidedMode);
+  }
+
   async setTrack(puzzleId, trackId) {
+    const gen = ++this._gen;
     this.currentPuzzle = puzzleId;
     this.currentTrackId = trackId;
+    this._submittingSprint = false;
     this.stopInspectionTimer();
     if (this.sprintRunning) {
       this.finishSprint();
@@ -57,9 +101,12 @@ export class PracticeView {
     this.guessGroup = null;
     this.guessCase = null;
     this.lastResult = null;
+    this.selectWarning = false;
+    this.onTwoSidedModeChange?.(this.isTwoSidedActive());
 
     if (this.onGenerateScramble) {
       const res = await this.onGenerateScramble(this.currentTrackId);
+      if (gen !== this._gen) return;
       if (typeof res === 'object' && res?.caseObj) {
         this.currentCase = res.caseObj;
       } else {
@@ -73,6 +120,7 @@ export class PracticeView {
   setPracticeMode(mode) {
     if (this.practiceMode === mode) return;
     this.practiceMode = mode;
+    this._submittingSprint = false;
     this.stopInspectionTimer();
     if (this.sprintRunning) {
       this.finishSprint();
@@ -81,13 +129,15 @@ export class PracticeView {
     this.guessGroup = null;
     this.guessCase = null;
     this.lastResult = null;
+    this.onTwoSidedModeChange?.(this.isTwoSidedActive());
     this.render();
   }
 
   render() {
     if (!this.container) return;
-    const isInspectionDrill = (this.currentPuzzle === "222" && this.currentTrackId === "layer") ||
-                             (this.currentPuzzle === "333" && this.currentTrackId === "cross");
+    const isInspectionDrill = this.isInspectionTrack();
+    const isOh = this.currentPuzzle === "333oh";
+    const ohHand = this.getOhHand();
 
     this.container.innerHTML = `
       <div class="practice-header">
@@ -95,14 +145,22 @@ export class PracticeView {
           <h2 class="practice-title">${isInspectionDrill ? 'Inspection Planning Drill' : 'Case Recognition Drill'}</h2>
           <span class="practice-subtext">
             ${isInspectionDrill
-              ? 'Plan your solution under 15s WCA inspection, then verify with the optimal solver'
+              ? `Plan your ${this.currentTrackId === "face" ? "1st Face (Ortega/EG)" : this.currentTrackId === "layer" ? "1st Layer" : "White Cross"} under 15s WCA inspection, then verify with the optimal solver`
               : 'Identify the case from the 3D cube and test your recognition speed'}
           </span>
         </div>
 
-        <div class="practice-subnav" role="group" aria-label="Practice Mode">
-          <button type="button" class="practice-subnav-btn ${this.practiceMode === 'casual' ? 'active' : ''}" data-mode="casual">Casual Practice</button>
-          <button type="button" class="practice-subnav-btn ${this.practiceMode === 'timed' ? 'active' : ''}" data-mode="timed">Timed Sprint</button>
+        <div class="practice-header-controls">
+          ${isOh ? `
+            <div class="oh-hand-switcher oh-hand-switcher-compact" role="group" aria-label="One-Handed Solving Hand">
+              <button type="button" class="oh-hand-btn ${ohHand === 'left' ? 'active' : ''}" data-oh-hand="left" aria-pressed="${ohHand === 'left'}" data-tooltip="Left-Handed OH (standard <R, U>)">🤚 Left OH</button>
+              <button type="button" class="oh-hand-btn ${ohHand === 'right' ? 'active' : ''}" data-oh-hand="right" aria-pressed="${ohHand === 'right'}" data-tooltip="Right-Handed OH (mirror <L, U> / z')">✋ Right OH</button>
+            </div>
+          ` : ''}
+          <div class="practice-subnav" role="group" aria-label="Practice Mode">
+            <button type="button" class="practice-subnav-btn ${this.practiceMode === 'casual' ? 'active' : ''}" data-mode="casual" data-tooltip="Untimed practice: pick the case or inspect at your own pace">Casual Practice</button>
+            <button type="button" class="practice-subnav-btn ${this.practiceMode === 'timed' ? 'active' : ''}" data-mode="timed" data-tooltip="Timed sprint: recognize as many cases accurately as possible before time runs out">Timed Sprint</button>
+          </div>
         </div>
       </div>
 
@@ -120,7 +178,7 @@ export class PracticeView {
   // Casual Inspection Drill (White Cross / 1st Layer)
   // ---------------------------------------------------------------------------
   renderInspectionDrill() {
-    const is3x3 = this.currentPuzzle === "333";
+    const is3x3 = this.currentPuzzle === "333" || this.currentPuzzle === "333oh";
     return `
       <div class="inspection-drill-card">
         <div class="inspection-timer-box">
@@ -149,7 +207,7 @@ export class PracticeView {
   // Timed Inspection Drill (Sprint through scrambles with automatic 15s timer)
   // ---------------------------------------------------------------------------
   renderTimedInspectionDrill() {
-    const is3x3 = this.currentPuzzle === "333";
+    const is3x3 = this.currentPuzzle === "333" || this.currentPuzzle === "333oh";
     return `
       <div class="inspection-drill-card">
         <div class="inspection-timer-box">
@@ -175,10 +233,13 @@ export class PracticeView {
 
   renderInspectionSolutionsList(is3x3) {
     const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : 'White';
+    const heading = is3x3
+      ? 'Optimal Cross Solutions:'
+      : (this.currentTrackId === 'face' ? 'Optimal 1st Face (Ortega / EG) Solutions:' : 'Optimal 1st Layer Solutions:');
     return `
       <div class="inspection-solutions-reveal">
         <h4 class="inspection-reveal-title">
-          Optimal ${is3x3 ? 'Cross' : '1st Layer'} Solutions:
+          ${heading}
         </h4>
         <div class="inspection-solutions-list">
           ${this.inspectionSolutions.length === 0
@@ -189,10 +250,12 @@ export class PracticeView {
                 <span class="face-badge face-badge-${sol.face || 'white'}">${cap(sol.face || 'white')}</span>
                 <span class="sol-badge">#${idx + 1} (${sol.moveCount} moves)</span>
                 <span class="sol-insp">Inspection: <strong>${sol.insp || 'none'}</strong></span>
+                ${sol.bottomPerm ? `<span class="sol-chip chip-perm">D: ${sol.bottomPerm}</span>` : ''}
                 ${sol.crossPlus1?.hasPair ? `<span class="sol-chip chip-cross1">${sol.crossPlus1.description}</span>` : ''}
                 ${sol.eoSummary ? `<span class="sol-chip chip-eo">${sol.eoSummary.note}</span>` : ''}
+                ${this.onQuickSimSolutions ? `<button type="button" class="btn btn-xs inspection-sol-sim-btn" data-idx="${idx}" data-tooltip="Simulate this solution in an interactive 3D popup" aria-label="Simulate solution ${idx + 1} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>` : ''}
               </div>
-              <div class="inspection-sol-moves">${sol.moves}</div>
+              <div class="inspection-sol-moves">${sol.moves || '(already solved)'}</div>
             </div>
           `).join('')}
         </div>
@@ -219,7 +282,7 @@ export class PracticeView {
           </div>
           ${is3x3Recog ? `
             <div class="recognition-mode-toggle-wrap" style="margin-left: auto;">
-              <button type="button" class="btn btn-xs btn-twosided-toggle ${this.twoSidedMode ? 'active' : ''}" id="toggleTwoSidedModeBtn">
+              <button type="button" class="btn btn-xs btn-twosided-toggle ${this.twoSidedMode ? 'active' : ''}" id="toggleTwoSidedModeBtn" data-tooltip="Lock the 3D cube camera to Front + Right faces to train fast 2-sided recognition without cube rotations">
                 👀 2-Sided Recog: <strong>${this.twoSidedMode ? 'ON' : 'OFF'}</strong>
               </button>
             </div>
@@ -285,6 +348,7 @@ export class PracticeView {
 
   renderActiveSprint() {
     const track = getTrack(this.currentPuzzle, this.currentTrackId);
+    const is3x3Recog = (this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && ["pll", "oll"].includes(this.currentTrackId);
     const remaining = Math.max(0, this.sprintSession.endTime - Date.now());
     const pct = Math.max(0, Math.min(100, (remaining / this.sprintSession.durationMs) * 100));
 
@@ -298,12 +362,24 @@ export class PracticeView {
                 ? `${this.sprintSession.correct} / ${this.sprintSession.attempts} correct`
                 : 'Select an answer to begin'}
             </span>
+            ${is3x3Recog ? `
+              <button type="button" class="btn btn-xs btn-twosided-toggle ${this.twoSidedMode ? 'active' : ''}" id="toggleTwoSidedModeBtn">
+                👀 2-Sided: <strong>${this.twoSidedMode ? 'ON' : 'OFF'}</strong>
+              </button>
+            ` : ''}
             <button type="button" id="endSprintBtn" class="btn btn-small">End</button>
           </div>
           <div class="timed-progress">
             <div id="sprintProgress" class="timed-progress-fill" style="width: ${pct}%"></div>
           </div>
         </div>
+
+        ${is3x3Recog && this.twoSidedMode ? `
+          <div class="twosided-banner">
+            <span class="twosided-banner-icon">👀</span>
+            <span><strong>2-Sided Recognition Drill Active:</strong> Identify the ${this.currentTrackId.toUpperCase()} case looking only at the <strong>Front and Right</strong> faces without rotating the cube!</span>
+          </div>
+        ` : ''}
 
         ${this.sprintSession.lastResult ? `
           <div class="recognition-feedback ${this.sprintSession.lastResult.isCorrect ? 'correct' : 'incorrect'}">
@@ -350,95 +426,85 @@ export class PracticeView {
     `;
   }
 
+  getCllKeypadMeta(track) {
+    const cases = track?.cases || [];
+    const groupCasesMap = new Map();
+    const allNums = new Set();
+    for (const c of cases) {
+      const m = String(c.id || "").match(/^(?:EG[12]-)?([A-Z]+)(\d+)$/i);
+      const grp = m ? m[1].toUpperCase() : String(c.group || c.id || "").charAt(0).toUpperCase();
+      const num = m ? m[2] : "";
+      if (!grp) continue;
+      if (!groupCasesMap.has(grp)) groupCasesMap.set(grp, new Set());
+      if (num) {
+        groupCasesMap.get(grp).add(num);
+        allNums.add(num);
+      }
+    }
+    const preferredOrder = ["H", "P", "U", "T", "L", "S", "A"];
+    const groups = [
+      ...preferredOrder.filter(g => groupCasesMap.has(g)),
+      ...[...groupCasesMap.keys()].filter(g => !preferredOrder.includes(g))
+    ];
+    const numbers = [...allNums].sort((a, b) => Number(a) - Number(b));
+    return { groups, numbers, groupCasesMap };
+  }
+
   renderKeypadForTrack(track) {
     if (!track) return '';
 
     if (track.id === "parity") {
-      const parityCases = this.currentPuzzle === "444"
-        ? [
-            { id: "444-oll-parity", label: "OLL Parity (Single Dedge)" },
-            { id: "444-pll-parity-opp", label: "PLL Parity (Opposite)" },
-            { id: "444-pll-parity-adj", label: "PLL Parity (Adjacent)" }
-          ]
-        : [
-            { id: "555-edge-parity-flip", label: "Lucas Parity (Middle Flip)" },
-            { id: "555-wing-swap", label: "Wing Swap (Slice-Flip-Slice)" }
-          ];
+      const parityCases = track.cases || [];
       return `
         <p class="guess-label">Which ${this.currentPuzzle === "444" ? "4x4" : "5x5"} Parity is it?</p>
         <div class="ortega-pill-row" style="flex-wrap: wrap; gap: 8px;">
           ${parityCases.map(c => `
-            <button type="button" class="btn-recog-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${c.label}</button>
+            <button type="button" class="btn-recog-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${c.shortName || c.name}</button>
           `).join('')}
         </div>
       `;
     }
 
     if (track.id === "pll") {
-      const pllNames = ["Ua", "Ub", "H", "Z", "Aa", "Ab", "Ja", "Jb", "Ra", "Rb", "T", "F", "V", "Y", "E", "Na", "Nb", "Ga", "Gb", "Gc", "Gd"];
+      const pllCases = track.cases || [];
       return `
         <p class="guess-label">Which PLL is it?</p>
         <div class="pll-keypad-grid">
-          ${pllNames.map(name => `
-            <button type="button" class="btn-recog-key pll-key ${this.guessCase === name ? 'active' : ''}" data-case="${name}">${name}</button>
+          ${pllCases.map(c => `
+            <button type="button" class="btn-recog-key pll-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${c.id}</button>
           `).join('')}
         </div>
       `;
     }
 
-    if (track.id === "ortega") {
-      const ortegaOll = [
-        { id: "ortega-oll-h", label: "H" },
-        { id: "ortega-oll-pi", label: "Pi" },
-        { id: "ortega-oll-antisune", label: "Antisune" },
-        { id: "ortega-oll-sune", label: "Sune" },
-        { id: "ortega-oll-l", label: "L" },
-        { id: "ortega-oll-t", label: "T" },
-        { id: "ortega-oll-u", label: "U" }
-      ];
-      const ortegaPbl = [
-        { id: "ortega-pbl-adj-adj", label: "Adj/Adj" },
-        { id: "ortega-pbl-opp-opp", label: "Opp/Opp" },
-        { id: "ortega-pbl-adj-opp", label: "Adj/Opp" },
-        { id: "ortega-pbl-adj-solved", label: "Adj/Solved" },
-        { id: "ortega-pbl-opp-solved", label: "Opp/Solved" }
-      ];
+    if (track.id === "ortega" || track.id === "lbl") {
+      const groups = track.groups || [];
+      const cases = track.cases || [];
+      const title = track.id === "lbl" ? "Select the LBL case:" : "Select the Ortega case:";
       return `
-        <p class="guess-label">Select the Ortega case:</p>
+        <p class="guess-label">${title}</p>
         <div class="ortega-keypad-sections">
-          <div class="ortega-keypad-group">
-            <span class="ortega-group-label">OLL:</span>
-            <div class="ortega-pill-row">
-              ${ortegaOll.map(c => `
-                <button type="button" class="btn-recog-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${c.label}</button>
-              `).join('')}
-            </div>
-          </div>
-          <div class="ortega-keypad-group" style="margin-top: 8px;">
-            <span class="ortega-group-label">PBL:</span>
-            <div class="ortega-pill-row">
-              ${ortegaPbl.map(c => `
-                <button type="button" class="btn-recog-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${c.label}</button>
-              `).join('')}
-            </div>
-          </div>
+          ${groups.map((g, idx) => {
+            const sectionLabel = g.split(" ")[0] || g;
+            const groupCases = cases.filter(c => c.group === g);
+            return `
+              <div class="ortega-keypad-group" ${idx > 0 ? 'style="margin-top: 8px;"' : ''}>
+                <span class="ortega-group-label">${sectionLabel}:</span>
+                <div class="ortega-pill-row">
+                  ${groupCases.map(c => {
+                    const label = (c.shortName || String(c.name || c.id).replace(/^(Ortega|LBL) (OLL|PBL|PLL):\s*/i, "").replace(/\s*\([^)]*\)$/, "") || c.id).replace(/^(OLL|PLL):\s*/i, "");
+                    return `<button type="button" class="btn-recog-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${label}</button>`;
+                  }).join('')}
+                </div>
+              </div>
+            `;
+          }).join('')}
         </div>
       `;
     }
 
     if (track.id === "oll") {
       const allOlls = (track.cases || []).slice().sort((a, b) => (a.number || 0) - (b.number || 0));
-      const crossCases = allOlls.filter(c => c.group === "All Edges Oriented (Cross)");
-      if (this.currentCase && this.currentCase.group === "All Edges Oriented (Cross)" && crossCases.length > 0) {
-        return `
-          <p class="guess-label">Select OLL Cross case:</p>
-          <div class="ortega-pill-row" style="flex-wrap: wrap;">
-            ${crossCases.map(c => `
-              <button type="button" class="btn-recog-key ${this.guessCase === c.id ? 'active' : ''}" data-case="${c.id}">${c.drillLabel || c.name}</button>
-            `).join('')}
-          </div>
-        `;
-      }
       return `
         <p class="guess-label">Which OLL case is it?</p>
         <div class="pll-keypad-grid">
@@ -463,18 +529,21 @@ export class PracticeView {
       `;
     }
 
-    // Default CLL: Group buttons + Number buttons
+    // Default CLL: Group buttons + dynamic valid case number buttons
+    const { groups, numbers, groupCasesMap } = this.getCllKeypadMeta(track);
+    const validForSelectedGroup = this.guessGroup ? groupCasesMap.get(this.guessGroup) : null;
     return `
       <p class="guess-label">Which case is it?</p>
       <div class="seg seg-group" role="group" aria-label="Guess the group">
-        ${["H", "P", "U", "T", "L", "S", "A"].map(g => `
+        ${groups.map(g => `
           <button type="button" class="group-btn ${this.guessGroup === g ? 'active' : ''}" data-group="${g}">${g}</button>
         `).join('')}
       </div>
       <div class="seg seg-case" role="group" aria-label="Guess the case number">
-        ${[1, 2, 3, 4, 5, 6].map(n => `
-          <button type="button" class="case-btn ${this.guessCase === String(n) ? 'active' : ''}" data-case="${n}">${n}</button>
-        `).join('')}
+        ${numbers.map(n => {
+          const disabled = validForSelectedGroup ? !validForSelectedGroup.has(n) : false;
+          return `<button type="button" class="case-btn ${this.guessCase === String(n) ? 'active' : ''}" data-case="${n}" ${disabled ? 'disabled aria-disabled="true"' : ''}>${n}</button>`;
+        }).join('')}
       </div>
     `;
   }
@@ -486,6 +555,14 @@ export class PracticeView {
     this.container.querySelectorAll('.practice-subnav-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         this.setPracticeMode(btn.dataset.mode);
+      });
+    });
+
+    this.container.querySelectorAll('.oh-hand-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.ohHand && this.onSetOhHand) {
+          this.onSetOhHand(btn.dataset.ohHand);
+        }
       });
     });
 
@@ -511,6 +588,26 @@ export class PracticeView {
       if (newBtn) {
         newBtn.addEventListener('click', () => this.advanceInspectionScramble());
       }
+
+      this.container.querySelectorAll('.inspection-sol-sim-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.dataset.idx);
+          const is3x3 = this.currentPuzzle === "333" || this.currentPuzzle === "333oh";
+          const title = is3x3
+            ? "3x3 White Cross Solution Simulator"
+            : (this.currentTrackId === "face" ? "2x2 1st Face (Ortega / EG) Simulator" : "2x2 1st Layer Simulator");
+          this.onQuickSimSolutions?.({
+            puzzle: this.currentPuzzle,
+            scramble: this.inspectionScramble,
+            solutions: this.inspectionSolutions.map(s => ({
+              ...s,
+              inspection: s.insp || s.inspection || "none"
+            })),
+            activeIndex: Number.isNaN(idx) ? 0 : idx,
+            title
+          });
+        });
+      });
       return;
     }
 
@@ -543,6 +640,15 @@ export class PracticeView {
         const endBtn = this.container.querySelector('#endSprintBtn');
         if (endBtn) endBtn.addEventListener('click', () => this.finishSprint());
 
+        const twoSidedToggle = this.container.querySelector('#toggleTwoSidedModeBtn');
+        if (twoSidedToggle) {
+          twoSidedToggle.addEventListener('click', () => {
+            this.twoSidedMode = !this.twoSidedMode;
+            this.onTwoSidedModeChange?.(this.isTwoSidedActive());
+            this.render();
+          });
+        }
+
         // Instant answer submission buttons
         this.container.querySelectorAll('.btn-recog-key').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -553,8 +659,13 @@ export class PracticeView {
         this.container.querySelectorAll('.group-btn').forEach(btn => {
           btn.addEventListener('click', () => {
             this.guessGroup = btn.dataset.group;
+            const { groupCasesMap } = this.getCllKeypadMeta(getTrack(this.currentPuzzle, this.currentTrackId));
+            const validCases = groupCasesMap.get(this.guessGroup);
+            if (this.guessCase && validCases && !validCases.has(this.guessCase)) {
+              this.guessCase = null;
+            }
             if (this.guessCase) {
-              this.submitSprintAnswer(`${this.guessGroup}${this.guessCase}`);
+              this.submitSprintAnswer(`${this.getCaseIdPrefix()}${this.guessGroup}${this.guessCase}`);
             } else {
               this.render();
             }
@@ -565,7 +676,7 @@ export class PracticeView {
           btn.addEventListener('click', () => {
             this.guessCase = btn.dataset.case;
             if (this.guessGroup) {
-              this.submitSprintAnswer(`${this.guessGroup}${this.guessCase}`);
+              this.submitSprintAnswer(`${this.getCaseIdPrefix()}${this.guessGroup}${this.guessCase}`);
             } else {
               this.render();
             }
@@ -591,6 +702,7 @@ export class PracticeView {
     if (twoSidedToggle) {
       twoSidedToggle.addEventListener('click', () => {
         this.twoSidedMode = !this.twoSidedMode;
+        this.onTwoSidedModeChange?.(this.isTwoSidedActive());
         this.render();
       });
     }
@@ -606,6 +718,11 @@ export class PracticeView {
     this.container.querySelectorAll('.group-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         this.guessGroup = btn.dataset.group;
+        const { groupCasesMap } = this.getCllKeypadMeta(getTrack(this.currentPuzzle, this.currentTrackId));
+        const validCases = groupCasesMap.get(this.guessGroup);
+        if (this.guessCase && validCases && !validCases.has(this.guessCase)) {
+          this.guessCase = null;
+        }
         this.selectWarning = false;
         this.render();
       });
@@ -630,12 +747,36 @@ export class PracticeView {
     }
   }
 
+  onKeyDown(e) {
+    if (this.isInspectionTrack() || this.practiceMode !== "casual") return false;
+
+    if (e.key === "Enter") {
+      e.preventDefault?.();
+      if (!this.answered) {
+        this.verifyCasualGuess();
+      } else {
+        this.advanceCasualScramble();
+      }
+      return true;
+    }
+
+    if (e.code === "Space" && this.answered) {
+      e.preventDefault?.();
+      this.advanceCasualScramble();
+      return true;
+    }
+
+    return false;
+  }
+
   // ---------------------------------------------------------------------------
   // Sprint Management
   // ---------------------------------------------------------------------------
   startSprint() {
+    this._submittingSprint = false;
     this.sprintRunning = true;
     this.sprintSummary = null;
+    this.onTwoSidedModeChange?.(this.isTwoSidedActive());
     const durationMs = this.sprintMinutes * 60 * 1000;
     const now = Date.now();
     this.sprintSession = {
@@ -671,47 +812,53 @@ export class PracticeView {
   }
 
   async advanceSprintScramble() {
+    const gen = ++this._gen;
     this.guessGroup = null;
     this.guessCase = null;
     if (this.onGenerateScramble) {
       const res = await this.onGenerateScramble(this.currentTrackId);
+      if (gen !== this._gen) return;
       this.currentCase = typeof res === 'object' ? res?.caseObj : null;
     }
     this.render();
   }
 
-  submitSprintAnswer(guess) {
-    if (!this.sprintRunning || !this.sprintSession || !this.currentCase) return;
+  async submitSprintAnswer(guess) {
+    if (this._submittingSprint || !this.sprintRunning || !this.sprintSession || !this.currentCase) return;
+    this._submittingSprint = true;
+    try {
+      const isCorrect = this.checkAnswerMatch(guess);
+      this.sprintSession.attempts++;
+      if (isCorrect) {
+        this.sprintSession.correct++;
+      } else {
+        this.sprintSession.wrong++;
+      }
 
-    const isCorrect = this.checkAnswerMatch(guess);
-    this.sprintSession.attempts++;
-    if (isCorrect) {
-      this.sprintSession.correct++;
-    } else {
-      this.sprintSession.wrong++;
+      const grp = this.currentCase.group || this.currentCase.id;
+      if (grp) {
+        const gTally = this.sprintSession.perGroup[grp] || (this.sprintSession.perGroup[grp] = { attempts: 0, correct: 0 });
+        gTally.attempts++;
+        if (isCorrect) gTally.correct++;
+      }
+
+      this.sprintSession.lastResult = {
+        isCorrect,
+        correctId: this.currentCase.name || this.currentCase.id,
+        guessedId: guess
+      };
+
+      if (this.onRecordRecognition) {
+        this.onRecordRecognition(this.currentCase.id, isCorrect);
+      }
+      if (this.onFlashCube) {
+        this.onFlashCube(isCorrect ? "correct" : "incorrect");
+      }
+
+      await this.advanceSprintScramble();
+    } finally {
+      this._submittingSprint = false;
     }
-
-    const grp = this.currentCase.group || this.currentCase.id;
-    if (grp) {
-      const gTally = this.sprintSession.perGroup[grp] || (this.sprintSession.perGroup[grp] = { attempts: 0, correct: 0 });
-      gTally.attempts++;
-      if (isCorrect) gTally.correct++;
-    }
-
-    this.sprintSession.lastResult = {
-      isCorrect,
-      correctId: this.currentCase.name || this.currentCase.id,
-      guessedId: guess
-    };
-
-    if (this.onRecordRecognition) {
-      this.onRecordRecognition(this.currentCase.id, isCorrect);
-    }
-    if (this.onFlashCube) {
-      this.onFlashCube(isCorrect ? "correct" : "incorrect");
-    }
-
-    this.advanceSprintScramble();
   }
 
   finishSprint() {
@@ -720,6 +867,7 @@ export class PracticeView {
       this.sprintTimerId = null;
     }
     this.sprintRunning = false;
+    this._submittingSprint = false;
     if (!this.sprintSession) return;
 
     const finished = this.sprintSession;
@@ -737,13 +885,13 @@ export class PracticeView {
   verifyCasualGuess() {
     if (this.answered) return;
     let guess = this.guessCase;
-    if (this.currentTrackId === "cll") {
+    if (this.isGroupNumberTrack()) {
       if (!this.guessGroup || !this.guessCase) {
         this.selectWarning = true;
         this.render();
         return;
       }
-      guess = `${this.guessGroup}${this.guessCase}`;
+      guess = `${this.getCaseIdPrefix()}${this.guessGroup}${this.guessCase}`;
     }
     if (!guess) {
       this.selectWarning = true;
@@ -777,6 +925,7 @@ export class PracticeView {
   }
 
   async advanceCasualScramble() {
+    const gen = ++this._gen;
     this.answered = false;
     this.guessGroup = null;
     this.guessCase = null;
@@ -784,6 +933,7 @@ export class PracticeView {
     this.selectWarning = false;
     if (this.onGenerateScramble) {
       const res = await this.onGenerateScramble(this.currentTrackId);
+      if (gen !== this._gen) return;
       this.currentCase = typeof res === 'object' ? res?.caseObj : null;
     }
     this.render();
@@ -842,22 +992,26 @@ export class PracticeView {
   }
 
   async advanceInspectionScramble() {
+    const gen = ++this._gen;
     this.stopInspectionTimer();
     this.solutionRevealed = false;
     this.inspectionSeconds = 15;
     if (this.onGenerateScramble) {
       const res = await this.onGenerateScramble(this.currentTrackId);
+      if (gen !== this._gen) return;
       this.inspectionScramble = typeof res === 'string' ? res : (res?.scramble || '');
     }
     this.render();
   }
 
   async revealInspectionSolutions() {
+    const gen = ++this._gen;
     this.stopInspectionTimer();
     this.solutionRevealed = true;
 
     if (!this.inspectionScramble && this.onGenerateScramble) {
       const res = await this.onGenerateScramble(this.currentTrackId);
+      if (gen !== this._gen) return;
       this.inspectionScramble = typeof res === 'string' ? res : (res?.scramble || '');
     }
 
@@ -865,6 +1019,7 @@ export class PracticeView {
       try {
         const faces = this.getCrossTargetFaces();
         const res = await findCrossSolutions(this.inspectionScramble, faces, 6);
+        if (gen !== this._gen) return;
         const list = Array.isArray(res) ? res : (res?.solutions || []);
         this.inspectionSolutions = list.map(s => ({
           face: s.face || 'white',
@@ -875,21 +1030,29 @@ export class PracticeView {
           eoSummary: s.eoSummary || (res.eo ? { note: res.eo.badCrossEdgesCount === 0 ? 'EO: All 4 edges oriented' : `EO: ${res.eo.goodCrossEdgesCount}/4 cross edges oriented` } : null)
         }));
       } catch (e) {
+        if (gen !== this._gen) return;
         this.inspectionSolutions = [];
       }
     } else {
       try {
         const faces = this.getLayerTargetFaces();
-        const sols = await findLayerSolutions(this.inspectionScramble, faces, 5);
+        const isFaceMode = this.currentTrackId === "face";
+        const sols = isFaceMode
+          ? await findFaceSolutions(this.inspectionScramble, faces, 4)
+          : await findLayerSolutions(this.inspectionScramble, faces, 5);
+        if (gen !== this._gen) return;
         this.inspectionSolutions = (sols || []).map(s => ({
           face: s.face || 'white',
           moves: s.moves,
           moveCount: s.moveCount,
           insp: s.inspection && s.inspection !== "none" ? s.inspection : "none",
+          bottomPerm: s.bottomPerm || null,
+          caseId: s.caseId || null,
           crossPlus1: null,
           eoSummary: null
         }));
       } catch (e) {
+        if (gen !== this._gen) return;
         this.inspectionSolutions = [];
       }
     }

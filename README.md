@@ -1,113 +1,71 @@
-# 2x2 CLL Recognition Trainer - PWA
+# Speedcube Trainer (2x2 · 3x3 · OH · 4x4 · 5x5) — PWA
 
-A Progressive Web App for practicing 2x2 CLL (Corner Last Layer) recognition offline on any device.
-Uses: https://github.com/cubing/scramble-display
+An offline-ready Progressive Web App for multi-puzzle algorithm study, recognition drills, smart cube solve tracking, CFOP analytics, optimal first-layer/cross analysis, and 3D move-by-move replay across **2x2, 3x3, 3x3 One-Handed (OH), 4x4, and 5x5**.
 
-## Features
+Built with vanilla ES modules, Vite, [`cubing`](https://github.com/cubing/cubing.js), [`scramble-display`](https://github.com/cubing/scramble-display), and [`smartcube-web-bluetooth`](https://github.com/poliva/smartcube-web-bluetooth).
 
-✅ **Offline Support** - Works completely offline with service worker caching
-✅ **Installable** - Install on your phone/tablet home screen
-✅ **3D Visualization** - See the cube state with 3D rendering
-✅ **Customizable Cases** - Pick whole groups (A, H, L, P, S, T, U) or single cases
-✅ **All 40 CLL Cases** - Practice with the complete set
-✅ **Random Rotations** - Optional AUF and random cube rotations
-✅ **Responsive Design** - Works great on mobile and desktop
+## Supported Puzzles & Tracks
+
+| Puzzle | Tracks & Training Focus |
+| :--- | :--- |
+| **2x2** | **CLL (40 cases)**, **Ortega (12 OLL + PBL cases)**, **1st Layer & Face** optimal CN solver |
+| **3x3** | **Cross / Cross+1 / EO** inspection planner, **F2L (41)**, **OLL (57)**, **PLL (21)** + 2-sided recognition guide |
+| **3x3 OH** | Dedicated session & puzzle-scoped preferred algorithms for Cross, F2L, OLL, and PLL |
+| **4x4** | **OLL & PLL Parity** algorithms & wide/slice trainer |
+| **5x5** | **L2E & Lucas Parity** algorithms |
+
+## Modes & Key Capabilities
+
+- **Study**: Browse full case grids or side-by-side **Grid + 3D** flashcards, preview starting AUF angles, star preferred algorithms (`★`, scoped independently per puzzle such as 3x3 vs 3x3 OH), attach custom trigger/mnemonic labels, view 2-sided PLL/OLL recognition cues, and read puzzle-specific Reference Guides.
+- **Practice**: Run **Casual Practice** or **Timed Sprints** with dynamic track keypads, **2-Sided Recognition** view lock on 3x3 OLL/PLL, and 15-second **WCA Inspection Planning Drills** backed by optimal 2x2 Layer/Face and 3x3 Cross solvers.
+- **Solve**: Multi-session WCA timer (Spacebar / touch hold-to-arm, optional 15s inspection, compact rolling Best / Median / Trim 10% / Mean / Ao5 / Ao12 / Ao100 strip), 2x2 Layer & 3x3 Cross solver widgets, **Timer & Pickup/Putdown Drills**, and automatic CFOP step splits.
+- **Simulate**: Interactive 3D algorithm & scramble timeline with playback speed control, preset scrambles, solver sequence loading, Free Face Turns, and live `window.cllSimulator` scripting hooks.
+- **Bluetooth Smart Cube & GAN Timer**: Real-time turn tracking, Scramble Assistant with off-track undo recovery, Virtual Keyboard Cube fallback, automatic CFOP phase analysis, GAN Timer Pickup/Cube/Putdown splits, 3D Solve Replay Viewer, Diagnostics logging, and CSV export in **Stats & History**.
+- **Settings & Offline Support**: Dark/Light theme, Always White Bottom (`z2`) & AUF options, floating reflection facelets toggle, 2D diagram color customization (`Bright`, `High Contrast Neon`, `Competition Matte`, or custom HEX), and full offline PWA caching.
 
 ## Getting Started
 
-### Development
-
 ```bash
-npm install    # Install dependencies
-npm run dev    # Start dev server (http://localhost:5173)
+npm install    # Install dependencies & apply smartcube BLE patches (postinstall)
+npm run dev    # Start Vite dev server (http://localhost:5173)
+npm test       # Run Node test suite (node --test test/**/*.test.js)
+npm run build  # Build production bundle & Workbox service worker into dist/
+npm run preview
 ```
-
-### Production Build
-
-```bash
-npm run build   # Build for production
-npm run preview # Preview the production build
-```
-
-The built files will be in the `dist/` directory.
-
-## Deployment
-
-### Deploy to Netlify
-
-```bash
-npm run build
-# Upload the dist/ folder to Netlify
-```
-
-### Deploy to Vercel
-
-```bash
-vercel --prod
-```
-
-### Deploy to GitHub Pages
-
-1. Update `vite.config.js` with your repository name as `base`
-2. Run `npm run build`
-3. Push the `dist/` folder to your `gh-pages` branch
-
-## PWA Installation
-
-### On iOS
-
-1. Open in Safari
-2. Tap Share → Add to Home Screen
-3. Name the shortcut and add
-
-### On Android
-
-1. Open in Chrome
-2. Tap menu (three dots) → Install app
-3. Confirm installation
-
-## How to Use
-
-1. **Pick cases** - Open "Cases & options" (always visible in the sidebar on wide screens). Each row is a group: tap the letter to add or remove the whole group, tap a number to add or remove a single case. "Add all" / "Clear all" select or deselect every group and case.
-2. **Toggle options** - "Always white bottom" for a consistent orientation, "Allow AUF" for random U turns before and after the case.
-3. **Pick a mode** (above the cube):
-   - **Study** - shows the case name, solution and the opposite case (the case you get by doing the alg on a solved cube). "New scramble" for the next case.
-   - **Practice** - untimed recognition test: tap a group letter and a case number, then "Verify". "New scramble" for the next case.
-   - **Timed** - choose the minutes and press Start. A countdown runs; each answer is checked the moment a letter and a number are picked, the result is shown, and the next case appears immediately. When time is up you get your tally (answered, correct, partial, wrong, accuracy, seconds per case, per group). Timed answers also count in the stats table.
-   - **Solve** - for a real cube: the 3D cube is hidden and the scramble is shown as text (hold white on the bottom). Hold Space and release to start the timer, press any key to stop; on a phone, touch and hold the timer area, release to start, tap anywhere to stop. The case and its solution are revealed after each solve, the next scramble appears immediately, and times are kept with best and mean.
-   On a keyboard in Practice, type the letter, the number, and Enter.
-4. **Case overview** - "Case overview" in the header opens a full-screen sheet with every case: top view of the cube (with the side stickers of the top layer), case ID, opposite case and alg.
-5. **Stats** - Correct/attempted counts per case and per group are kept on the device; "Reset" clears them. Tap the "Stats" header to hide or show the table, for example while just practicing memorization.
-
-Case selection and options are remembered between visits.
-
-The layout adapts to the screen: a single column on phones (cube and guessing controls first, settings collapsed), cube beside the controls on landscape phones, and a sidebar with settings and stats on unfolded fold-phones, laptops and large screens.
 
 ## Project Structure
 
 ```
-├── index.html          # Main HTML file
+├── index.html                  # App shell, lean header, stage & modals
+├── vite.config.js              # Vite + Workbox PWA config
+├── scripts/
+│   ├── patch-smartcube.js      # BLE driver fixes applied via postinstall
+│   └── generators/             # Algorithm & data generation helpers
 ├── src/
-│   ├── main.js        # App logic and initialization
-│   └── style.css      # Styling
-├── public/            # Static assets: icons, favicon
-├── vite.config.js     # Vite and PWA plugin configuration
-└── package.json       # Dependencies
+│   ├── main.js                 # Composition root wiring stores, UI & features
+│   ├── studyView.js            # Study Grid, Grid+3D Flashcard, Guides
+│   ├── practiceView.js         # Casual/Timed recognition & inspection drills
+│   ├── replayView.js           # Interactive 3D solve replay modal
+│   ├── crossSolver.js          # 3x3 multi-color Cross / Cross+1 / EO solver
+│   ├── layerSolver.js          # 2x2 optimal 1st Layer / 1st Face CN solver
+│   ├── cfopAnalyzer.js         # 3x3 CFOP step, OLL/PLL & pause analyzer
+│   ├── smartCube.js            # Bluetooth Smart Cube manager
+│   ├── ganTimer.js             # Bluetooth GAN Smart Timer manager
+│   ├── state/                  # appStore, sessionStore, storage adapters
+│   ├── services/               # scrambleService, solveStats, audioService, htmlUtils
+│   ├── cube/                   # cubeUtils, cubeColors, caseSvgRenderer, bleLoader
+│   ├── data/                   # algRegistry, cllData, ortegaData, f2l/oll/pll/parity/2-sided data
+│   ├── ui/                     # navController, keyboardRouter, modalManager, cubeStage, casePicker, freeMoves, toast
+│   ├── features/               # solve/, bluetooth/, stats/, simulator/, modals/
+│   └── styles/                 # Modular @layer CSS (tokens, base, layout, components/, features/, utilities)
+└── test/                       # Unit & solver verification tests (node:test)
 ```
 
-## Technologies
+## Notes & Compatibility
 
-- **Vite** - Fast build tool and dev server
-- **Scramble Display** - 3D cube visualization (from cubing.net)
-- **Vite PWA Plugin** - Service worker and PWA generation
-- **Vanilla JavaScript** - No frameworks, lightweight
-
-## Notes
-
-- The app uses Scramble Display v0.59.1 which is bundled with your app for offline use
-- All CLL cases are stored locally in the app
-- Service worker caches the app shell and assets for offline functionality
-- Works offline after the first load
+- Uses `cubing` (`cubing.js`) and `scramble-display` for canonical WCA puzzle definitions, math verification, and 3D WebGL rendering.
+- Web Bluetooth Smart Cube & GAN Timer connections require a Web Bluetooth browser (Chrome, Edge, Opera, or Bluefy on iOS).
+- Local settings, sessions, stats, tags, custom labels, and cube MAC caches persist locally in browser storage.
 
 ## License
 

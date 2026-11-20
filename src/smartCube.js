@@ -1,10 +1,10 @@
 // Smart Cube Manager - Web Bluetooth connection, live tracking, and puzzle state verification
 import { connectSmartPuzzle, KeyboardPuzzle } from 'cubing/bluetooth';
-import { puzzles } from 'cubing/puzzles';
 import { Alg } from 'cubing/alg';
+import { getSolvedOrientations } from './cube/cubeUtils.js';
+import { loadSmartCubeBluetooth, getConnectSmartCubeFn } from './cube/bleLoader.js';
 
-let connectSmartCubeFn = null;
-let preloadPromise = null;
+const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
 export function formatMacAddress(str) {
   if (!str || typeof str !== "string") return null;
@@ -49,21 +49,8 @@ export function checkFaceletsSolved(facelets) {
 }
 
 export function preloadSmartCube() {
-  if (connectSmartCubeFn) return Promise.resolve(connectSmartCubeFn);
-  if (preloadPromise) return preloadPromise;
   if (typeof window !== "undefined") {
-    preloadPromise = import('smartcube-web-bluetooth')
-      .then(mod => {
-        connectSmartCubeFn = mod.connectSmartCube || mod.default?.connectSmartCube;
-        if (!connectSmartCubeFn) preloadPromise = null;
-        return connectSmartCubeFn;
-      })
-      .catch(e => {
-        console.warn("Could not preload smartcube-web-bluetooth:", e);
-        preloadPromise = null;
-        return null;
-      });
-    return preloadPromise;
+    return loadSmartCubeBluetooth().then(() => getConnectSmartCubeFn());
   }
   return Promise.resolve(null);
 }
@@ -74,64 +61,30 @@ if (typeof window !== "undefined") {
 }
 
 export async function getConnectSmartCube() {
-  if (connectSmartCubeFn) return connectSmartCubeFn;
-  if (typeof window !== "undefined") {
-    return preloadSmartCube();
-  } else if (typeof process !== "undefined" && process.versions?.node) {
-    try {
-      const moduleName = 'node' + ':module';
-      const nodeModule = await import(/* @vite-ignore */ moduleName);
-      const req = nodeModule.createRequire(import.meta.url);
-      const mod = req('smartcube-web-bluetooth');
-      connectSmartCubeFn = mod.connectSmartCube;
-    } catch (e) {
-      // Node test environment
-    }
-  }
-  return connectSmartCubeFn;
+  return getConnectSmartCubeFn();
 }
 
-// Precomputed solved patterns cache for 3x3 and 2x2 in all 24 orientations
-const solvedPatternsCache = new Map();
-
 export async function getSolvedPatterns(puzzleId = "333") {
-  const normId = puzzleId === "222" ? "2x2x2" : "3x3x3";
-  if (solvedPatternsCache.has(normId)) {
-    return solvedPatternsCache.get(normId);
-  }
   try {
-    const pLoader = puzzles[normId];
-    if (!pLoader) return [];
-    const kpuzzle = await pLoader.kpuzzle();
-    const defaultPat = await kpuzzle.defaultPattern();
-    const patterns = [defaultPat];
-    const visited = new Set([JSON.stringify(defaultPat.patternData)]);
-
-    function addRotations(pat) {
-      for (const rot of ["x", "y", "z"]) {
-        const next = pat.applyAlg(new Alg(rot));
-        const json = JSON.stringify(next.patternData);
-        if (!visited.has(json)) {
-          visited.add(json);
-          patterns.push(next);
-          addRotations(next);
-        }
-      }
-    }
-    addRotations(defaultPat);
-    solvedPatternsCache.set(normId, { kpuzzle, defaultPat, patterns });
-    return { kpuzzle, defaultPat, patterns };
+    const info = await getSolvedOrientations(puzzleId);
+    if (!info) return null;
+    return {
+      kpuzzle: info.kpuzzle,
+      defaultPat: info.defaultPat,
+      patterns: info.patterns
+    };
   } catch (err) {
-    console.warn("Could not precompute solved patterns for", normId, err);
+    console.warn("Could not precompute solved patterns:", puzzleId, err);
     return null;
   }
 }
 
 export class SmartCubeManager extends EventTarget {
-  constructor() {
+  constructor({ connectSmartCubeFn = null, onRequestMac = null } = {}) {
     super();
     this.status = "disconnected"; // "disconnected" | "connecting" | "connected"
     this.connectedPuzzle = null;
+    this._cubingPuzzleDevice = null;
     this.smartCubeConn = null;
     this.connSubscription = null;
     this.deviceName = "";
@@ -144,6 +97,9 @@ export class SmartCubeManager extends EventTarget {
     this.recentMoves = []; // { move, timeStamp }
     this.manualMac = "";
     this.latestFacelets = "";
+    this._lastFaceletsSolved = false;
+    this.connectSmartCubeFn = connectSmartCubeFn;
+    this.onRequestMac = onRequestMac;
 
     // Diagnostics logger (rolling ring buffer + explicit start/stop recording)
     this.diagRecording = false;
@@ -155,6 +111,10 @@ export class SmartCubeManager extends EventTarget {
     this._onAlgLeaf = this._onAlgLeaf.bind(this);
     this._onOrientation = this._onOrientation.bind(this);
     this._onDisconnect = this._onDisconnect.bind(this);
+  }
+
+  setOnRequestMac(handler) {
+    this.onRequestMac = typeof handler === "function" ? handler : null;
   }
 
   logDiag(type, data = {}) {
@@ -260,32 +220,29 @@ export class SmartCubeManager extends EventTarget {
       }
     } catch {}
 
-    // Auto-seed from existing cll_cube_mac_<deviceName> entries in localStorage
-    let changed = false;
+    // Read-only merge with any existing cll_cube_mac_<deviceName> entries in localStorage
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (k && k.startsWith("cll_cube_mac_") && !k.startsWith("cll_cube_mac_suffix_")) {
           const devName = k.slice("cll_cube_mac_".length).trim();
           if (!devName || deletedSet.has(devName)) continue;
-          const mac = localStorage.getItem(k) || "";
+          const rawMac = localStorage.getItem(k) || "";
+          const validMac = this._isVendorMatch(rawMac, devName)
+            ? (formatMacAddress(rawMac) || rawMac)
+            : "";
           const existing = list.find(c => c.name === devName);
           if (!existing) {
             list.push({
               name: devName,
-              mac: formatMacAddress(mac) || mac,
+              mac: validMac,
               protocol: this._inferProtocolLabel(devName),
               lastConnected: Date.now()
             });
-            changed = true;
-          } else if (mac && !existing.mac) {
-            existing.mac = formatMacAddress(mac) || mac;
-            changed = true;
+          } else if (validMac && !existing.mac) {
+            existing.mac = validMac;
           }
         }
-      }
-      if (changed) {
-        localStorage.setItem("cll_saved_smart_cubes", JSON.stringify(list));
       }
     } catch {}
 
@@ -369,7 +326,6 @@ export class SmartCubeManager extends EventTarget {
     }
     return this.connect({
       ...extraOptions,
-      preferredDeviceName: entry.name || undefined,
       manualMac: mac || extraOptions.manualMac || undefined
     });
   }
@@ -475,14 +431,13 @@ export class SmartCubeManager extends EventTarget {
         return autoMoyuMac;
       }
 
-      if (typeof window !== "undefined" && typeof window.prompt === "function") {
+      const promptHandler = this._activeOnRequestMac || this.onRequestMac;
+      if (typeof promptHandler === "function") {
         const hint = devName.includes("GAN") ? " (printed on GAN box / barcode / Bluetooth settings)" : "";
-        const entered = window.prompt(
-          `Unable to auto-detect MAC address for "${devName}"${hint}.\nPlease enter the 6-byte Bluetooth MAC address (e.g. AA:BB:CC:DD:EE:FF or 12 hex digits):`,
-          ""
-        );
-        if (entered && entered.trim()) {
-          const clean = formatMacAddress(entered.trim()) || entered.trim().toUpperCase();
+        const entered = await promptHandler({ deviceName: devName, device, hint });
+        if (entered && String(entered).trim()) {
+          const trimmed = String(entered).trim();
+          const clean = formatMacAddress(trimmed) || trimmed.toUpperCase();
           this.cacheMacAddress(device, clean);
           return clean;
         }
@@ -504,11 +459,23 @@ export class SmartCubeManager extends EventTarget {
   }
 
   async connect(options = {}) {
+    if (this.status === "connecting") {
+      return this.getStatus();
+    }
     if (this.status === "connected") {
       this.disconnect();
     }
 
-    if (!this.isBluetoothSupported()) {
+    const {
+      connectSmartCubeFn: optConnectFn = null,
+      onRequestMac = null,
+      manualMac = null,
+      engine = null,
+      ...libraryOptions
+    } = options || {};
+    const injectedConnectFn = optConnectFn || this.connectSmartCubeFn;
+
+    if (!injectedConnectFn && !this.isBluetoothSupported()) {
       const err = new Error(
         "Web Bluetooth is not supported in this browser. Please use Chrome, Edge, Opera, or Bluefy (iOS), or use the Virtual / Keyboard Cube."
       );
@@ -518,16 +485,18 @@ export class SmartCubeManager extends EventTarget {
 
     this.status = "connecting";
     this._emitStatusChange();
+    this._activeOnRequestMac = typeof onRequestMac === "function" ? onRequestMac : null;
 
     try {
-      if (options.manualMac) {
-        this.setManualMac(options.manualMac);
+      if (manualMac) {
+        this.setManualMac(manualMac);
       }
 
       // Check if user specifically requested cubing/bluetooth legacy engine
-      if (options.engine === "cubing") {
-        const puzzle = await connectSmartPuzzle(options);
+      if (engine === "cubing") {
+        const puzzle = await connectSmartPuzzle(libraryOptions);
         this.connectedPuzzle = puzzle;
+        this._cubingPuzzleDevice = puzzle.server?.device || null;
         this.deviceName = puzzle.name() || "Smart Cube";
         this.isVirtual = false;
         this.status = "connected";
@@ -542,9 +511,11 @@ export class SmartCubeManager extends EventTarget {
         if (typeof puzzle.getBattery === "function") {
           try { this.battery = await puzzle.getBattery(); } catch { this.battery = null; }
         }
-        puzzle.addEventListener("disconnect", this._onDisconnect);
-        if (puzzle.server?.device) {
-          puzzle.server.device.addEventListener("gattserverdisconnected", this._onDisconnect);
+        if (typeof puzzle.addEventListener === "function") {
+          puzzle.addEventListener("disconnect", this._onDisconnect);
+        }
+        if (this._cubingPuzzleDevice && typeof this._cubingPuzzleDevice.addEventListener === "function") {
+          this._cubingPuzzleDevice.addEventListener("gattserverdisconnected", this._onDisconnect);
         }
         this._emitStatusChange();
         this.dispatchEvent(new CustomEvent("connected", { detail: this.getStatus() }));
@@ -552,19 +523,19 @@ export class SmartCubeManager extends EventTarget {
       }
 
       // Standard modern driver via smartcube-web-bluetooth (GAN Gen1-Gen4, MoYu V10 AI/MY32, QiYi, etc.)
-      const connectSmartCube = await getConnectSmartCube();
+      const connectSmartCube = injectedConnectFn || await getConnectSmartCube();
       if (typeof connectSmartCube !== "function") {
         throw new Error("Smart cube connection library is not loaded. Please try again.");
       }
 
       const connectOptions = {
         enableAddressSearch: true, // Enables candidate probing for MoYu WeiLong V10 AI (WCU_MY32_xxxx)
-        deviceSelection: options.deviceSelection || "filtered",
+        deviceSelection: libraryOptions.deviceSelection || "filtered",
         onStatus: (msg) => {
           this.dispatchEvent(new CustomEvent("progress", { detail: { message: msg } }));
         },
         macAddressProvider: (dev, isFallback) => this.resolveMacAddress(dev, isFallback),
-        ...options
+        ...libraryOptions
       };
 
       const conn = await connectSmartCube(connectOptions);
@@ -594,7 +565,7 @@ export class SmartCubeManager extends EventTarget {
         this.connSubscription = conn.events$.subscribe((event) => {
           if (!event) return;
           if (event.type === "MOVE") {
-            const timeStamp = event.localTimestamp || event.timestamp || performance.now();
+            const timeStamp = event.localTimestamp || event.timestamp || nowMs();
             this.logDiag("BLE_MOVE_RAW", {
               move: event.move,
               serial: event.serial,
@@ -637,12 +608,15 @@ export class SmartCubeManager extends EventTarget {
     } catch (err) {
       this.status = "disconnected";
       this.connectedPuzzle = null;
+      this._cubingPuzzleDevice = null;
       this.smartCubeConn = null;
       this.deviceName = "";
       this._emitStatusChange();
       // Important: do not chain a secondary requestDevice call here, as that triggers
       // "Must be handling a user gesture to show a permission request" in Web Bluetooth
       throw err;
+    } finally {
+      this._activeOnRequestMac = null;
     }
   }
 
@@ -689,6 +663,26 @@ export class SmartCubeManager extends EventTarget {
     }
   }
 
+  _cleanupConnectedPuzzle(puzzle) {
+    if (!puzzle) return;
+    try {
+      if (typeof puzzle.removeAlgLeafListener === "function") {
+        puzzle.removeAlgLeafListener(this._onAlgLeaf);
+      }
+      if (typeof puzzle.removeOrientationListener === "function") {
+        puzzle.removeOrientationListener(this._onOrientation);
+      }
+      if (typeof puzzle.removeEventListener === "function") {
+        puzzle.removeEventListener("disconnect", this._onDisconnect);
+      }
+      const dev = puzzle.server?.device || this._cubingPuzzleDevice;
+      if (dev && typeof dev.removeEventListener === "function") {
+        dev.removeEventListener("gattserverdisconnected", this._onDisconnect);
+      }
+    } catch {}
+    this._cubingPuzzleDevice = null;
+  }
+
   disconnect(reason = "manual") {
     if (this.connSubscription) {
       try {
@@ -709,9 +703,11 @@ export class SmartCubeManager extends EventTarget {
     }
 
     if (this.connectedPuzzle) {
+      const puzzle = this.connectedPuzzle;
+      this._cleanupConnectedPuzzle(puzzle);
       try {
-        if (typeof this.connectedPuzzle.disconnect === "function") {
-          this.connectedPuzzle.disconnect();
+        if (typeof puzzle.disconnect === "function") {
+          puzzle.disconnect();
         }
       } catch (e) {
         console.warn("Error disconnecting smart puzzle:", e);
@@ -723,6 +719,13 @@ export class SmartCubeManager extends EventTarget {
   }
 
   hardReset() {
+    const wasConnected = this.status !== "disconnected";
+    this.manualMac = "";
+    this.latestFacelets = "";
+    this._lastFaceletsSolved = false;
+    this.recentMoves = [];
+    this.currentPattern = null;
+
     this.disconnect("manual");
 
     // Clear all MAC caches, saved cubes, and Bluetooth hints from localStorage
@@ -760,22 +763,15 @@ export class SmartCubeManager extends EventTarget {
       }).catch(() => {});
     }
 
-    this.manualMac = "";
-    this.latestFacelets = "";
-    this.recentMoves = [];
-    this.currentPattern = null;
     this.status = "disconnected";
     this.deviceName = "";
     this.battery = null;
     this.isVirtual = false;
 
-    if (typeof document !== "undefined") {
-      document.body.style.overflow = "";
+    if (!wasConnected) {
+      this._emitStatusChange();
     }
-
-    this._emitStatusChange();
     this.dispatchEvent(new CustomEvent("savedcubeschange", { detail: { cubes: [] } }));
-    this.dispatchEvent(new CustomEvent("disconnected", { detail: { reason: "manual", deviceName: "" } }));
     this.dispatchEvent(new CustomEvent("hardreset"));
     return true;
   }
@@ -791,10 +787,14 @@ export class SmartCubeManager extends EventTarget {
       } catch (e) {}
       this.connSubscription = null;
     }
+    if (this.connectedPuzzle) {
+      this._cleanupConnectedPuzzle(this.connectedPuzzle);
+    }
     this.smartCubeConn = null;
     this.connectedPuzzle = null;
     this.deviceName = "";
     this.latestFacelets = "";
+    this._lastFaceletsSolved = false;
     this.battery = null;
     this.isVirtual = false;
     this.logDiag("DISCONNECT", { reason, deviceName: prevDeviceName });
@@ -808,7 +808,7 @@ export class SmartCubeManager extends EventTarget {
     if (!event || !event.latestAlgLeaf) return;
     const moveStr = event.latestAlgLeaf.toString();
     if (!moveStr) return;
-    const timeStamp = event.timeStamp || performance.now();
+    const timeStamp = event.timeStamp || nowMs();
     this.handleMove(moveStr, timeStamp);
   }
 
@@ -828,8 +828,13 @@ export class SmartCubeManager extends EventTarget {
           this.currentPattern = this.solvedPatterns[0];
         }
       }
-      this.dispatchEvent(new CustomEvent("solved", { detail: { facelets, isSolved: true } }));
-      this.dispatchEvent(new CustomEvent("move", { detail: { move: null, isSolved: true, facelets } }));
+      if (!this._lastFaceletsSolved) {
+        this._lastFaceletsSolved = true;
+        this.dispatchEvent(new CustomEvent("solved", { detail: { facelets, isSolved: true } }));
+        this.dispatchEvent(new CustomEvent("move", { detail: { move: null, isSolved: true, facelets } }));
+      }
+    } else {
+      this._lastFaceletsSolved = false;
     }
   }
 
@@ -837,13 +842,14 @@ export class SmartCubeManager extends EventTarget {
     return checkFaceletsSolved(facelets);
   }
 
-  handleMove(moveStr, timeStamp = performance.now()) {
+  handleMove(moveStr, timeStamp = nowMs()) {
     if (!moveStr) return;
     const prevMoveTs = this.lastMoveTimeStamp;
     const dtMs = prevMoveTs > 0 ? Math.round(timeStamp - prevMoveTs) : null;
     this.lastMoveTimeStamp = timeStamp;
     // Clear cached facelets on a new move so stale facelets never falsely mark a moved cube as solved
     this.latestFacelets = "";
+    this._lastFaceletsSolved = false;
 
     // Maintain recent moves stream
     this.recentMoves.push({ move: moveStr, timeStamp });
@@ -888,6 +894,8 @@ export class SmartCubeManager extends EventTarget {
   async setScramble(scrambleStr, puzzleId = "333") {
     this.currentPuzzleId = puzzleId;
     this.recentMoves = [];
+    this.latestFacelets = "";
+    this._lastFaceletsSolved = false;
     this.logDiag("SET_SCRAMBLE", { scramble: scrambleStr, puzzleId });
     try {
       const info = await getSolvedPatterns(puzzleId);

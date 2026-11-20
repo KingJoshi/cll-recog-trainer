@@ -86,21 +86,28 @@ for (const file of filesToPatch) {
     totalPatches++;
   }
 
-  // 3b. GAN Gen4 0x01 multi-chunk guard: prevent trailing garbage bytes at off >= 72 from corrupting this.serial or pushing phantom moves
-  const ganGen4ChunkPattern = /let\s+cubeTimestamp\s*=\s*msg\.getBitWord\(off\s*\+\s*16,\s*32,\s*true\);\s*let\s+serial\s*=\s*msg\.getBitWord\(off\s*\+\s*48,\s*16,\s*true\);\s*this\.serial\s*=\s*serial;\s*let\s+direction\s*=\s*msg\.getBitWord\(off\s*\+\s*64,\s*2\);\s*let\s+face\s*=\s*\[2,\s*32,\s*8,\s*1,\s*16,\s*4\]\.indexOf\(msg\.getBitWord\(off\s*\+\s*66,\s*6\)\);\s*let\s+move\s*=\s*"URFDLB"\.charAt\(face\)\s*\+\s*" '2"\.charAt\(direction\);\s*if\s*\(face\s*<\s*0\)\s*\{\s*break;\s*\}/g;
+  // 3b. GAN Gen4 0x01 multi-chunk guard: prevent trailing garbage bytes at off >= 72 from corrupting this.serial or pushing phantom moves (allowing direction 0, 1, 2 for CW, CCW, Double)
+  const ganGen4ChunkPattern = /let\s+cubeTimestamp\s*=\s*msg\.getBitWord\(off\s*\+\s*16,\s*32,\s*true\);\s*let\s+serial\s*=\s*msg\.getBitWord\(off\s*\+\s*48,\s*16,\s*true\);\s*this\.serial\s*=\s*serial;\s*let\s+direction\s*=\s*msg\.getBitWord\(off\s*\+\s*64,\s*2\);\s*let\s+face\s*=\s*\[2,\s*32,\s*8,\s*1,\s*16,\s*4\]\.indexOf\(msg\.getBitWord\(off\s*\+\s*66,\s*6\)\);\s*let\s+move\s*=\s*"URFDLB"\.charAt\(face\)\s*\+\s*" '2?"\.charAt\(direction\);\s*if\s*\(face\s*<\s*0\)\s*\{\s*break;\s*\}/g;
   const ganGen4ChunkReplacement = `let cubeTimestamp = msg.getBitWord(off + 16, 32, true);
                     let serial = msg.getBitWord(off + 48, 16, true);
                     let direction = msg.getBitWord(off + 64, 2);
                     let face = [2, 32, 8, 1, 16, 4].indexOf(msg.getBitWord(off + 66, 6));
-                    if (face < 0 || direction > 1 || (off > 0 && (msg.getBitWord(off + 8, 8) !== 7 || serial !== ((this.serial + 1) & 0xFFFF)))) {
+                    if (face < 0 || direction > 2 || (off > 0 && (msg.getBitWord(off + 8, 8) !== 7 || serial !== ((this.serial + 1) & 0xFFFF)))) {
                         break;
                     }
                     this.serial = serial;
                     let move = "URFDLB".charAt(face) + " '2".charAt(direction);`;
+  const ganGen4ChunkFixDirPattern = /if\s*\(face\s*<\s*0\s*\|\|\s*direction\s*>\s*1\s*\|\|\s*\(off\s*>\s*0\s*&&\s*\(msg\.getBitWord\(off\s*\+\s*8,\s*8\)\s*!==\s*7\s*\|\|\s*serial\s*!==\s*\(\(this\.serial\s*\+\s*1\)\s*&\s*0xFFFF\)\)\)\)/g;
+  const ganGen4ChunkFixDirReplacement = 'if (face < 0 || direction > 2 || (off > 0 && (msg.getBitWord(off + 8, 8) !== 7 || serial !== ((this.serial + 1) & 0xFFFF))))';
   if (ganGen4ChunkPattern.test(content)) {
     content = content.replace(ganGen4ChunkPattern, ganGen4ChunkReplacement);
     modified = true;
     console.log(`[patch-smartcube] Patched GAN Gen4 0x01 trailing chunk validation in ${path.relative(rootDir, file)}`);
+    totalPatches++;
+  } else if (ganGen4ChunkFixDirPattern.test(content)) {
+    content = content.replace(ganGen4ChunkFixDirPattern, ganGen4ChunkFixDirReplacement);
+    modified = true;
+    console.log(`[patch-smartcube] Upgraded GAN Gen4 0x01 chunk validation to allow direction 2 in ${path.relative(rootDir, file)}`);
     totalPatches++;
   }
 

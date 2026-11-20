@@ -50,10 +50,10 @@ export const cllCases = [
     "opposite": "S2",
     "setup": "R U R' U' R' F R F' R U' R' F R' F' R",
     "scrambles": [
-      "F2 U' F R' U' R2 F R' U R",
-      "R U2 F R' U2 R2 U' F U2 R",
-      "R U2 F R U2 R2 U F U2 R",
-      "F2 R F U2 F U2 F2 R U' F'"
+      "F2 U' F R' U' R2 F R' U R U'",
+      "R U2 F R' U2 R2 U' F U2 R U'",
+      "R U2 F R U2 R2 U F U2 R U'",
+      "F2 R F U2 F U2 F2 R U' F' U'"
     ],
     "description": "CLL A2 ((Sledge) (R U R') (Hedge) (*Righty)). Opposite case: S2",
     "algs": [
@@ -185,10 +185,10 @@ export const cllCases = [
     "opposite": "S5",
     "setup": "R U R' U' R' F R F' R U R' U R U2' R'",
     "scrambles": [
-      "R2 F' U' R2 U' F U R2 F R'",
-      "R' F U2 R U R' U2 R' F' R2",
-      "R2 F' U2 F' U F R' F R U R'",
-      "R2 U' R' U' F' U F2 R F' U R'"
+      "R2 F' U' R2 U' F U R2 F R' U'",
+      "R' F U2 R U R' U2 R' F' R2 U'",
+      "R2 F' U2 F' U F R' F R U R' U'",
+      "R2 U' R' U' F' U F2 R F' U R' U'"
     ],
     "description": "CLL A5 ((Anti-sune1a) (Hedge) (*Righty)). Opposite case: S5",
     "algs": [

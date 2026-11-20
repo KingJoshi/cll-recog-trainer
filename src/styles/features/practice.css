@@ -1,0 +1,659 @@
+@layer features {
+.guess {
+    display: grid;
+    gap: 8px;
+}
+
+.guess-label {
+    margin: 0;
+    font-size: .85rem;
+    color: var(--muted);
+    text-align: center;
+}
+
+/* Segmented control for group / case guesses */
+
+.seg {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    user-select: none;
+}
+
+.seg > button {
+    min-height: var(--tap);
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+
+.seg > button:first-child {
+    border-left: 0;
+}
+
+.seg > button:hover {
+    background: var(--surface-2);
+}
+
+.seg > button.active,
+.seg > button[aria-pressed="true"] {
+    background: var(--primary);
+    color: #fff;
+}
+
+.seg > button:disabled {
+    cursor: default;
+    color: var(--muted);
+}
+
+.seg > button:disabled.active {
+    color: #fff;
+}
+
+.verify-message {
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    font-size: 1.05rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.verify-stats {
+    margin-top: 6px;
+    font-size: .9rem;
+    font-weight: 400;
+}
+
+.verify-message.correct {
+    background: var(--success);
+    color: #fff;
+}
+
+.verify-message.partial {
+    background: var(--warning);
+    color: #222;
+}
+
+.verify-message.incorrect {
+    background: var(--danger);
+    color: #fff;
+}
+
+.timed-bar {
+    padding: 8px 12px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.timed-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.countdown {
+    min-width: 4.2ch;
+    font-size: 1.6rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.countdown.urgent {
+    color: var(--danger);
+}
+
+.live-tally {
+    flex: 1;
+    min-width: 0;
+    color: var(--muted);
+    font-size: .95rem;
+}
+
+.timed-progress {
+    height: 4px;
+    margin-top: 8px;
+    border-radius: 2px;
+    background: var(--border);
+    overflow: hidden;
+}
+
+.timed-progress-fill {
+    height: 100%;
+    width: 100%;
+    background: var(--primary);
+    transition: width .2s linear;
+}
+
+.timed-setup,
+.timed-summary {
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+
+.timed-title,
+.summary-title {
+    margin: 0 0 4px;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.timed-setup .hint {
+    margin-bottom: 10px;
+}
+
+.minutes-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 4px 0 12px;
+}
+
+.minutes-row .btn {
+    width: var(--tap);
+    padding: 0;
+    font-size: 1.3rem;
+}
+
+.minutes-field {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    color: var(--muted);
+}
+
+.minutes-field input {
+    width: 4.5ch;
+    padding: 6px 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-align: center;
+    color: var(--text);
+    background: var(--surface);
+}
+
+.summary-time {
+    margin-left: 6px;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.summary-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.stat {
+    padding: 8px 4px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+}
+
+.stat b {
+    display: block;
+    font-size: 1.4rem;
+    line-height: 1.1;
+}
+
+.stat span {
+    font-size: .75rem;
+    color: var(--muted);
+}
+
+.stat-correct b {
+    color: var(--success);
+}
+
+.stat-partial b {
+    color: #b8860b;
+}
+
+.stat-incorrect b {
+    color: var(--danger);
+}
+
+.summary-groups {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: .9rem;
+}
+
+.summary-group {
+    padding: 3px 9px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+}
+
+.summary-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   Practice Recognition & Inspection Planning
+   -------------------------------------------------------------------------- */
+
+.practice-container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-sizing: border-box;
+}
+
+.practice-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    flex-wrap: wrap;
+    gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.practice-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.practice-title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.practice-subtext {
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.practice-subnav {
+    display: inline-flex;
+    gap: 6px;
+}
+
+.practice-subnav-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.practice-subnav-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.practice-body {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.recognition-drill-card {
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.recognition-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-weight: 600;
+}
+
+.pll-keypad-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+    gap: 6px;
+}
+
+.pll-key {
+    padding: 8px 4px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pll-key.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.inspection-drill-card {
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+
+.inspection-clock {
+    font-size: 3.5rem;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    transition: color 0.2s ease;
+}
+
+.inspection-clock.warning {
+    color: #f59e0b;
+}
+
+.inspection-clock.danger {
+    color: #ef4444;
+}
+
+.inspection-solutions-reveal {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.inspection-sol-item {
+    padding: 10px 12px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.inspection-sol-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.inspection-sol-moves {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--primary);
+}
+
+.chip-cross1 {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.chip-eo {
+    background: rgba(59, 130, 246, 0.12);
+    color: #3b82f6;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.cross-eo-summary {
+    margin-bottom: 12px;
+}
+
+.cross-eo-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    font-size: 0.85rem;
+}
+
+.cross-eo-label {
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* Recognition & Stats Badges */
+.badge-green {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+    font-weight: 600;
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 999px;
+}
+
+.badge-yellow {
+    background: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    font-weight: 600;
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 999px;
+}
+
+[data-theme="dark"] .badge-yellow {
+    color: #fbbf24;
+}
+
+.badge-red {
+    background: rgba(220, 53, 69, 0.15);
+    color: #dc3545;
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    font-weight: 600;
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 999px;
+}
+
+.recog-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.recog-table th,
+.recog-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+}
+
+.recog-table th {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.recog-table tbody tr:hover {
+    background: var(--surface-2);
+}
+
+.stats-subfilter-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.stats-subfilter-btn {
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.stats-subfilter-btn.active {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+}
+
+/* --------------------------------------------------------------------------
+   Practice Recognition Drill Buttons & Feedback
+   -------------------------------------------------------------------------- */
+
+.btn-recog-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-recog-key:hover {
+    background: var(--surface-2);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+.btn-recog-key.active {
+    background: var(--primary) !important;
+    border-color: var(--primary-dark) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 2px var(--primary-soft), 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+    transform: scale(1.02);
+}
+
+[data-theme="dark"] .btn-recog-key {
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-recog-key:hover {
+    background: #334155;
+    border-color: #60a5fa;
+}
+
+[data-theme="dark"] .btn-recog-key.active {
+    background: #2563eb !important;
+    border-color: #60a5fa !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4) !important;
+}
+
+.recognition-feedback.warning {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid #f59e0b;
+    color: #b45309;
+}
+
+[data-theme="dark"] .recognition-feedback.warning {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: #f59e0b;
+    color: #fcd34d;
+}
+
+[data-theme="dark"] .case-chip {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+}
+
+[data-theme="dark"] .case-chip:hover {
+    background: #334155;
+    border-color: #60a5fa;
+}
+
+[data-theme="dark"] .case-chip[aria-pressed="true"] {
+    background: #2563eb !important;
+    border-color: #60a5fa !important;
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .group-toggle {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .group-toggle:hover {
+    border-color: #60a5fa;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .group-toggle[data-state="all"] {
+    background: #2563eb;
+    border-color: #60a5fa;
+    color: #fff;
+}
+
+}

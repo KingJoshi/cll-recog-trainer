@@ -1,99 +1,60 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { getTrack } from '../src/data/algRegistry.js';
-import { cllCases } from '../src/casesData.js';
-
-const GROUPS = ["A", "H", "L", "P", "S", "T", "U"];
-const casesByGroup = Object.fromEntries(
-  GROUPS.map(g => [g, cllCases.cases.filter(c => c.group === g)])
-);
-
-function getCasesInGroup(group, puzzle = "222", trackId = "cll") {
-  if (puzzle === "222" && trackId === "cll") {
-    if (casesByGroup[group]) return casesByGroup[group];
-    const track = getTrack("222", "cll");
-    return track?.cases?.filter(c => c.group === group || c.group === `${group}-Group` || c.id.startsWith(group)) || [];
-  }
-  const track = getTrack(puzzle, trackId);
-  if (!track || !track.cases) return casesByGroup[group] || [];
-  return track.cases.filter(c => c.group === group || c.group === `${group}-Group` || (group && group.length === 1 && c.group && c.group.startsWith(group)));
-}
-
-function simulateToggleGroup(group, currentSelected, puzzle = "222", trackId = "cll") {
-  const casesInGroup = getCasesInGroup(group, puzzle, trackId);
-  const ids = casesInGroup.map(c => c.id);
-  const allSelected = ids.every(id => currentSelected.has(id));
-  const next = new Set(currentSelected);
-  ids.forEach(id => (allSelected ? next.delete(id) : next.add(id)));
-  return next;
-}
+import { getCasesInGroup, toggleGroupSelection } from '../src/ui/casePickerController.js';
 
 test('getCasesInGroup accurately resolves all CLL groups by single letter', () => {
-  for (const group of GROUPS) {
-    const cases = getCasesInGroup(group, "222", "cll");
-    assert.ok(cases.length > 0, `Group ${group} must contain cases`);
-    for (const c of cases) {
-      assert.ok(c.id.startsWith(group), `Case ${c.id} must belong to group ${group}`);
-    }
-  }
-  assert.strictEqual(getCasesInGroup("H", "222", "cll").length, 4);
-  assert.strictEqual(getCasesInGroup("P", "222", "cll").length, 6);
-  assert.strictEqual(getCasesInGroup("A", "222", "cll").length, 6);
-});
+  const hCases = getCasesInGroup('H', '222', 'cll');
+  assert.strictEqual(hCases.length, 4);
+  assert.deepStrictEqual(hCases.map(c => c.id).sort(), ['H1', 'H2', 'H3', 'H4']);
 
-test('toggleGroup clears all cases when all cases of the group are selected', () => {
-  const allCllIds = new Set(cllCases.cases.map(c => c.id));
-  assert.strictEqual(allCllIds.size, 40);
-
-  // When all 40 cases are selected, clicking H should remove H1..H4
-  const afterH = simulateToggleGroup("H", allCllIds, "222", "cll");
-  assert.strictEqual(afterH.size, 36);
-  for (let i = 1; i <= 4; i++) {
-    assert.strictEqual(afterH.has(`H${i}`), false);
-  }
-
-  // When H is cleared, clicking H should add back H1..H4
-  const afterHReadded = simulateToggleGroup("H", afterH, "222", "cll");
-  assert.strictEqual(afterHReadded.size, 40);
-  for (let i = 1; i <= 4; i++) {
-    assert.strictEqual(afterHReadded.has(`H${i}`), true);
+  for (const g of ['A', 'L', 'P', 'S', 'T', 'U']) {
+    const cases = getCasesInGroup(g, '222', 'cll');
+    assert.strictEqual(cases.length, 6, `${g}-Group must have 6 CLL cases`);
   }
 });
 
-test('toggleGroup selects all cases of the group when partially selected', () => {
-  const allCllIds = new Set(cllCases.cases.map(c => c.id));
-  // Deselect P1 from full selection
-  allCllIds.delete("P1");
-  assert.strictEqual(allCllIds.size, 39);
+test('toggleGroupSelection clears all cases when all cases of the group are selected', () => {
+  let selected = new Set(['H1', 'H2', 'H3', 'H4', 'A1']);
+  selected = toggleGroupSelection('H', selected, '222', 'cll');
 
-  // Group P is partially selected; clicking P should select all P cases
-  const afterP = simulateToggleGroup("P", allCllIds, "222", "cll");
-  assert.strictEqual(afterP.size, 40);
-  assert.strictEqual(afterP.has("P1"), true);
+  assert.strictEqual(selected.has('H1'), false);
+  assert.strictEqual(selected.has('H2'), false);
+  assert.strictEqual(selected.has('H3'), false);
+  assert.strictEqual(selected.has('H4'), false);
+  assert.strictEqual(selected.has('A1'), true, 'Other group cases should remain unchanged');
+});
 
-  // Now that all P cases are selected, clicking P should clear all of them
-  const afterPCleared = simulateToggleGroup("P", afterP, "222", "cll");
-  assert.strictEqual(afterPCleared.size, 34); // 40 - 6
-  for (let i = 1; i <= 6; i++) {
-    assert.strictEqual(afterPCleared.has(`P${i}`), false);
+test('toggleGroupSelection selects all cases of the group when partially or newly selected', () => {
+  let selected = new Set(['H1', 'H2']);
+  selected = toggleGroupSelection('H', selected, '222', 'cll');
+  for (const id of ['H1', 'H2', 'H3', 'H4']) {
+    assert.strictEqual(selected.has(id), true);
+  }
+
+  selected = toggleGroupSelection('A', selected, '222', 'cll');
+  for (const id of ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']) {
+    assert.strictEqual(selected.has(id), true);
   }
 });
 
-test('toggleGroup functions properly on other puzzle tracks (333 PLL)', () => {
-  const pllTrack = getTrack("333", "pll");
-  const allPllIds = new Set(pllTrack.cases.map(c => c.id));
-  assert.strictEqual(allPllIds.size, 21);
+test('toggleGroupSelection filters by tag when active tag filter matches subset of group', () => {
+  const tags = { H1: 'learning', H2: 'learning', H3: 'mastered', H4: 'none' };
+  const selected = toggleGroupSelection('H', new Set(['A1']), '222', 'cll', 'learning', id => tags[id] || 'none');
+  assert.strictEqual(selected.has('H1'), true);
+  assert.strictEqual(selected.has('H2'), true);
+  assert.strictEqual(selected.has('H3'), false);
+  assert.strictEqual(selected.has('H4'), false);
+  assert.strictEqual(selected.has('A1'), true);
+});
 
-  // Toggle Edges Only (Ua, Ub, H, Z)
-  const afterEdges = simulateToggleGroup("Edges Only", allPllIds, "333", "pll");
-  assert.strictEqual(afterEdges.size, 17); // 21 - 4
-  assert.strictEqual(afterEdges.has("Ua"), false);
-  assert.strictEqual(afterEdges.has("Ub"), false);
-  assert.strictEqual(afterEdges.has("H"), false);
-  assert.strictEqual(afterEdges.has("Z"), false);
+test('getCasesInGroup & toggleGroupSelection work on 333 PLL and 444 Parity tracks', () => {
+  const gPerms = getCasesInGroup('G-Permutation', '333', 'pll');
+  assert.strictEqual(gPerms.length, 4);
+  const selected = toggleGroupSelection('G-Permutation', new Set(), '333', 'pll');
+  for (const gp of ['Ga', 'Gb', 'Gc', 'Gd']) {
+    assert.strictEqual(selected.has(gp), true);
+  }
 
-  // Re-toggle Edges Only
-  const afterEdgesReadded = simulateToggleGroup("Edges Only", afterEdges, "333", "pll");
-  assert.strictEqual(afterEdgesReadded.size, 21);
-  assert.strictEqual(afterEdgesReadded.has("Ua"), true);
+  const pllParity = getCasesInGroup('PLL Parity', '444', 'parity');
+  assert.strictEqual(pllParity.length, 2);
 });

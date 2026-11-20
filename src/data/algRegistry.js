@@ -1,12 +1,16 @@
 // Central Registry of Puzzles and Algorithm Sets
-// Supports 2x2x2 (CLL, Ortega, 1st Layer) and 3x3x3 (CFOP: F2L, OLL, PLL, Cross)
+// Supports 2x2x2 (1st Face, 1st Layer, LBL, Ortega, CLL, EG-1, EG-2), 3x3x3 / 3x3 OH (Cross, F2L, OLL, PLL), and 4x4/5x5 Parity
 
 import { cllCases, cllCaseById } from './cllData.js';
 import { ortegaCases, ortegaCaseById } from './ortegaData.js';
+import { lbl222Cases, lbl222CaseById } from './lbl222Data.js';
+import { eg1Cases, eg1CaseById, eg2Cases, eg2CaseById } from './egData.js';
 import { pllCases, pllCaseById } from './pllData.js';
 import { ollCases, ollCaseById } from './ollData.js';
 import { f2lCases, f2lCaseById } from './f2lData.js';
 import { parity444Cases, parity444CaseById, parity555Cases, parity555CaseById } from './parityData.js';
+
+const C222_CASE_GROUPS = ["H-Group", "P-Group", "U-Group", "T-Group", "L-Group", "S-Group", "A-Group"];
 
 export const PUZZLES = {
   "222": {
@@ -14,34 +18,70 @@ export const PUZZLES = {
     name: "2x2x2 Cube",
     shortName: "2x2",
     wcaEvent: "222",
-    defaultTrack: "cll",
+    defaultTrack: "lbl",
     tracks: [
       {
-        id: "cll",
-        name: "CLL (40 Cases)",
-        shortName: "CLL",
-        description: "Corners of the Last Layer: solves orientation and permutation at once",
-        cases: cllCases,
-        caseById: cllCaseById,
-        groups: ["A-Group", "H-Group", "L-Group", "P-Group", "S-Group", "T-Group", "U-Group"]
+        id: "face",
+        name: "1st Face (Ortega / EG)",
+        shortName: "1st Face",
+        description: "Build any 4-sticker face in ≤4 moves and recognize Bar, Adj, and Diag bottom outcomes",
+        cases: [],
+        caseById: new Map(),
+        groups: ["Face Spotting", "Bottom Outcomes", "Color Neutrality"]
+      },
+      {
+        id: "layer",
+        name: "1st Layer (123 Cases by Bottom Pieces)",
+        shortName: "1st Layer",
+        description: "Organized by pieces solved on bottom: 1 in Bottom (9) · 2 Bottom Bar (70) · 2 Bottom Diagonal (39) · 3 in Bottom (5) · 4 solved → CLL",
+        cases: [],
+        caseById: new Map(),
+        groups: ["1 in Bottom", "2 Bottom: Bar", "2 Bottom: Diagonal", "3 in Bottom"]
+      },
+      {
+        id: "lbl",
+        name: "Beginner LBL (7 OLL + 2 PLL)",
+        shortName: "LBL (9)",
+        description: "Layer-by-Layer last layer: orient top corners (7 OLL) then permute corners (T/Jb-Perm & Y-Perm)",
+        cases: lbl222Cases,
+        caseById: lbl222CaseById,
+        groups: ["OLL (Orient Last Layer)", "PLL (Permute Last Layer)"]
       },
       {
         id: "ortega",
-        name: "Ortega Method (OLL + PBL)",
-        shortName: "Ortega",
-        description: "Build 1st face, orient last layer (OLL), and permute both layers (PBL)",
+        name: "Ortega (OLL + PBL)",
+        shortName: "Ortega (12)",
+        description: "Build 1st face (Bar/Diag), orient last layer (OLL), and permute both layers (5 PBL)",
         cases: ortegaCases,
         caseById: ortegaCaseById,
         groups: ["OLL (Orient Last Layer)", "PBL (Permute Both Layers)"]
       },
       {
-        id: "layer",
-        name: "1st Layer & Face",
-        shortName: "1st Layer",
-        description: "Inspection planning, bar preservation, and 1-4 move optimal solutions",
-        cases: [],
-        caseById: new Map(),
-        groups: ["Fundamentals", "Bar Preservation", "Inspection Planning"]
+        id: "cll",
+        name: "CLL (40 Cases)",
+        shortName: "CLL (40)",
+        description: "Corners of the Last Layer: solves top orientation and permutation in one alg over a solved 1st layer",
+        cases: cllCases,
+        caseById: cllCaseById,
+        groups: C222_CASE_GROUPS
+      },
+      {
+        id: "eg1",
+        name: "EG-1 (40 Cases · Back Bar)",
+        shortName: "EG-1 (40)",
+        description: "1-Look Last Layer with an adjacent swapped bottom face (hold solved bar in Back DBL+DBR)",
+        cases: eg1Cases,
+        caseById: eg1CaseById,
+        groups: C222_CASE_GROUPS
+      },
+      {
+        id: "eg2",
+        name: "EG-2 (40 Cases · Diag Swap)",
+        shortName: "EG-2 (40)",
+        description: "1-Look Last Layer with diagonal bottom swap (no bottom bars · includes Anti-CLL variants)",
+        cases: eg2Cases,
+        caseById: eg2CaseById,
+        groups: C222_CASE_GROUPS
       }
     ]
   },
@@ -124,13 +164,28 @@ export const PUZZLES = {
     defaultTrack: "pll",
     tracks: [
       {
-        id: "pll",
-        name: "PLL (OH Optimized)",
-        shortName: "PLL",
-        description: "Permutation of the Last Layer: RU-gen and table-abuse friendly algorithms for one-handed solving",
-        cases: pllCases,
-        caseById: pllCaseById,
-        groups: ["Edges Only", "Adjacent Corner Swap", "Diagonal Corner Swap", "G-Permutation"]
+        id: "cross",
+        name: "White Cross",
+        shortName: "Cross",
+        description: "Inspection planning and rotationless cross execution for OH",
+        cases: [],
+        caseById: new Map(),
+        groups: ["Cross Planning", "Edge Orientation", "Cross+1"]
+      },
+      {
+        id: "f2l",
+        name: "F2L (41 Cases)",
+        shortName: "F2L",
+        description: "First Two Layers: rotationless and ergonomic one-handed corner-edge pairs",
+        cases: f2lCases,
+        caseById: f2lCaseById,
+        groups: [
+          "Basic Inserts",
+          "Corner in U, Edge in U",
+          "Corner in Slot, Edge in U",
+          "Corner in U, Edge in Slot",
+          "Both in Slot"
+        ]
       },
       {
         id: "oll",
@@ -157,28 +212,13 @@ export const PUZZLES = {
         ]
       },
       {
-        id: "f2l",
-        name: "F2L (41 Cases)",
-        shortName: "F2L",
-        description: "First Two Layers: rotationless and ergonomic one-handed corner-edge pairs",
-        cases: f2lCases,
-        caseById: f2lCaseById,
-        groups: [
-          "Basic Inserts",
-          "Corner in U, Edge in U",
-          "Corner in Slot, Edge in U",
-          "Corner in U, Edge in Slot",
-          "Both in Slot"
-        ]
-      },
-      {
-        id: "cross",
-        name: "White Cross",
-        shortName: "Cross",
-        description: "Inspection planning and rotationless cross execution for OH",
-        cases: [],
-        caseById: new Map(),
-        groups: ["Cross Planning", "Edge Orientation", "Cross+1"]
+        id: "pll",
+        name: "PLL (OH Optimized)",
+        shortName: "PLL",
+        description: "Permutation of the Last Layer: RU-gen and table-abuse friendly algorithms for one-handed solving",
+        cases: pllCases,
+        caseById: pllCaseById,
+        groups: ["Edges Only", "Adjacent Corner Swap", "Diagonal Corner Swap", "G-Permutation"]
       }
     ]
   },
@@ -221,33 +261,75 @@ export const PUZZLES = {
 };
 
 const PREFERRED_ALG_STORAGE_KEY = "cll_preferred_algs_v1";
+let preferredAlgsCache = null;
 
-export function getPreferredAlg(caseId, defaultAlgId) {
+function loadPreferredAlgsMap() {
+  if (preferredAlgsCache) return preferredAlgsCache;
+  if (typeof localStorage === "undefined") {
+    preferredAlgsCache = {};
+    return preferredAlgsCache;
+  }
   try {
     const raw = localStorage.getItem(PREFERRED_ALG_STORAGE_KEY);
-    if (!raw) return defaultAlgId;
-    const map = JSON.parse(raw);
-    return map[caseId] || defaultAlgId;
-  } catch (e) {
-    return defaultAlgId;
+    const parsed = raw ? JSON.parse(raw) : {};
+    preferredAlgsCache = parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    preferredAlgsCache = {};
   }
+  return preferredAlgsCache;
 }
 
-export function setPreferredAlg(caseId, algId) {
-  try {
-    const raw = localStorage.getItem(PREFERRED_ALG_STORAGE_KEY);
-    const map = raw ? JSON.parse(raw) : {};
+export function clearPreferredAlgsCache() {
+  preferredAlgsCache = null;
+}
+
+export function getPreferredAlg(caseId, defaultAlgId, puzzleId = null, subScope = null) {
+  const map = loadPreferredAlgsMap();
+  if (puzzleId && subScope) {
+    const subScoped = map[`${puzzleId}:${subScope}:${caseId}`];
+    if (subScoped) return subScoped;
+    // Only fall back to unscoped puzzle key for standard left hand (don't leak RU star into RH LU)
+    if (subScope === "left") {
+      const scoped = map[`${puzzleId}:${caseId}`];
+      if (scoped) return scoped;
+    }
+    return defaultAlgId;
+  }
+  if (puzzleId) {
+    const scoped = map[`${puzzleId}:${caseId}`];
+    if (scoped) return scoped;
+  }
+  return map[caseId] || defaultAlgId;
+}
+
+export function setPreferredAlg(caseId, algId, puzzleId = null, subScope = null) {
+  const map = loadPreferredAlgsMap();
+  if (puzzleId && subScope) {
+    map[`${puzzleId}:${subScope}:${caseId}`] = algId;
+  } else if (puzzleId) {
+    map[`${puzzleId}:${caseId}`] = algId;
+  } else {
     map[caseId] = algId;
+  }
+  if (typeof localStorage === "undefined") return;
+  try {
     localStorage.setItem(PREFERRED_ALG_STORAGE_KEY, JSON.stringify(map));
   } catch (e) {
     console.error("Failed to save preferred algorithm", e);
   }
 }
 
+export function getDefaultTrack(puzzleId) {
+  const p = PUZZLES[puzzleId];
+  if (!p) return null;
+  return p.tracks.find(t => t.id === p.defaultTrack) || p.tracks[0] || null;
+}
+
 export function getTrack(puzzleId, trackId) {
   const p = PUZZLES[puzzleId];
   if (!p) return null;
-  return p.tracks.find(t => t.id === trackId) || p.tracks[0];
+  if (!trackId) return getDefaultTrack(puzzleId);
+  return p.tracks.find(t => t.id === trackId) || null;
 }
 
 export function formatCaseDisplayId(id) {
@@ -256,8 +338,14 @@ export function formatCaseDisplayId(id) {
     .replace(/^oll-/i, "OLL-")
     .replace(/^pll-/i, "PLL-")
     .replace(/^f2l-/i, "F2L-")
+    .replace(/^lbl-oll-/i, "LBL-OLL-")
+    .replace(/^lbl-pll-/i, "LBL-PLL-")
     .replace(/^ortega-oll-/i, "Ortega-OLL-")
-    .replace(/^ortega-pbl-/i, "Ortega-PBL-");
+    .replace(/^ortega-pbl-/i, "Ortega-PBL-")
+    .replace(/^444-oll-/i, "4x4-OLL-")
+    .replace(/^444-pll-/i, "4x4-PLL-")
+    .replace(/^444-/i, "4x4-")
+    .replace(/^555-/i, "5x5-");
 }
 
 export function getDistinctCaseName(caseObj) {
@@ -267,4 +355,200 @@ export function getDistinctCaseName(caseObj) {
   const idNoZero = idNorm.replace(/([a-z])0+(\d+)/g, "$1$2");
   if (!nameNorm || nameNorm === idNorm || nameNorm === idNoZero) return "";
   return caseObj.name;
+}
+
+const SOLVE_TARGETS_BY_PUZZLE = {
+  "222": [
+    {
+      id: "timer-drill",
+      name: "⏱️ Timer & Handling Drill",
+      shortName: "⏱️ Timer Drill",
+      description: "Practice cube pickup & putdown splits from a solved cube using fixed triggers",
+      usesCases: false
+    },
+    {
+      id: "face",
+      name: "1st Face (Ortega / EG)",
+      shortName: "1st Face",
+      description: "Drill building your 1st face quickly for Ortega / EG solves (adjacent colors flexible)",
+      usesCases: false
+    },
+    {
+      id: "layer",
+      name: "1st Layer (CLL / LBL)",
+      shortName: "1st Layer",
+      description: "Drill building a complete 1st layer with matched side bars for LBL & CLL",
+      usesCases: false
+    },
+    {
+      id: "lbl",
+      name: "LBL Case (9)",
+      shortName: "LBL (9)",
+      description: "Timed scrambles for your Active Cases Beginner LBL selection (7 OLL + 2 PLL)",
+      usesCases: true
+    },
+    {
+      id: "cll",
+      name: "CLL Case (40)",
+      shortName: "CLL (40)",
+      description: "Timed scrambles restricted to your Active Cases CLL selection",
+      usesCases: true
+    },
+    {
+      id: "eg1",
+      name: "EG-1 Case (40)",
+      shortName: "EG-1 (40)",
+      description: "Timed scrambles restricted to your Active Cases EG-1 (Back Bar) selection",
+      usesCases: true
+    },
+    {
+      id: "eg2",
+      name: "EG-2 Case (40)",
+      shortName: "EG-2 (40)",
+      description: "Timed scrambles restricted to your Active Cases EG-2 (Diag Swap) selection",
+      usesCases: true
+    },
+    {
+      id: "full",
+      name: "Full Solve (2x2)",
+      shortName: "Full Solve",
+      description: "Full random-state 2x2 WCA scrambles with 15s inspection and 1st-layer / 1st-face solver hints",
+      usesCases: false
+    }
+  ],
+  "333": [
+    {
+      id: "timer-drill",
+      name: "⏱️ Timer & Handling Drill",
+      shortName: "⏱️ Timer Drill",
+      description: "Practice cube pickup & putdown splits from a solved cube using fixed triggers",
+      usesCases: false
+    },
+    {
+      id: "f2l",
+      name: "F2L Case (41)",
+      shortName: "F2L (41)",
+      description: "Timed setup scrambles for your Active Cases F2L selection",
+      usesCases: true
+    },
+    {
+      id: "oll",
+      name: "OLL Case (57)",
+      shortName: "OLL (57)",
+      description: "Timed setup scrambles for your Active Cases OLL selection",
+      usesCases: true
+    },
+    {
+      id: "pll",
+      name: "PLL Case (21)",
+      shortName: "PLL (21)",
+      description: "Timed setup scrambles for your Active Cases PLL selection",
+      usesCases: true
+    },
+    {
+      id: "full",
+      name: "Full Solve (3x3)",
+      shortName: "Full Solve",
+      description: "Full WCA 3x3 scrambles with White Cross & Cross+1 solver hints",
+      usesCases: false
+    }
+  ],
+  "333oh": [
+    {
+      id: "timer-drill",
+      name: "⏱️ Timer & Handling Drill",
+      shortName: "⏱️ Timer Drill",
+      description: "Practice cube pickup & putdown splits from a solved cube using fixed triggers",
+      usesCases: false
+    },
+    {
+      id: "f2l",
+      name: "F2L Case (41)",
+      shortName: "F2L (41)",
+      description: "Timed OH setup scrambles for your Active Cases F2L selection",
+      usesCases: true
+    },
+    {
+      id: "oll",
+      name: "OLL Case (57)",
+      shortName: "OLL (57)",
+      description: "Timed OH setup scrambles for your Active Cases OLL selection",
+      usesCases: true
+    },
+    {
+      id: "pll",
+      name: "PLL Case (21)",
+      shortName: "PLL (21)",
+      description: "Timed OH setup scrambles for your Active Cases PLL selection",
+      usesCases: true
+    },
+    {
+      id: "full",
+      name: "Full Solve (3x3 OH)",
+      shortName: "Full Solve",
+      description: "Full WCA 3x3 One-Handed scrambles with Cross solver hints",
+      usesCases: false
+    }
+  ],
+  "444": [
+    {
+      id: "timer-drill",
+      name: "⏱️ Timer & Handling Drill",
+      shortName: "⏱️ Timer Drill",
+      description: "Practice cube pickup & putdown splits from a solved cube using fixed triggers",
+      usesCases: false
+    },
+    {
+      id: "parity",
+      name: "Parity Case",
+      shortName: "Parity",
+      description: "Timed setup scrambles for your Active Cases 4x4 OLL/PLL parity selection",
+      usesCases: true
+    },
+    {
+      id: "full",
+      name: "Full Solve (4x4)",
+      shortName: "Full Solve",
+      description: "Full WCA 4x4 scrambles with wide-move tracking",
+      usesCases: false
+    }
+  ],
+  "555": [
+    {
+      id: "timer-drill",
+      name: "⏱️ Timer & Handling Drill",
+      shortName: "⏱️ Timer Drill",
+      description: "Practice cube pickup & putdown splits from a solved cube using fixed triggers",
+      usesCases: false
+    },
+    {
+      id: "parity",
+      name: "Parity Case",
+      shortName: "Parity",
+      description: "Timed setup scrambles for your Active Cases 5x5 L2E parity selection",
+      usesCases: true
+    },
+    {
+      id: "full",
+      name: "Full Solve (5x5)",
+      shortName: "Full Solve",
+      description: "Full WCA 5x5 scrambles with wide-move tracking",
+      usesCases: false
+    }
+  ]
+};
+
+/**
+ * Return ordered Solve Focus targets for a puzzle (used across TrackBar, Session modal, Stats scope & Onboarding).
+ */
+export function getSolveTargetsForPuzzle(puzzleId) {
+  return SOLVE_TARGETS_BY_PUZZLE[puzzleId] || SOLVE_TARGETS_BY_PUZZLE["222"];
+}
+
+/**
+ * Look up a specific Solve Focus target entry for a puzzle (returns null if invalid).
+ */
+export function getSolveTargetInfo(puzzleId, targetId) {
+  const list = getSolveTargetsForPuzzle(puzzleId);
+  return list.find(t => t.id === targetId) || null;
 }

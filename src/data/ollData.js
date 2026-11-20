@@ -1,5 +1,5 @@
 // 3x3x3 OLL (Orientation of the Last Layer) - All 57 Cases
-// Verified with cubing.js + SpeedCubeDB community alternatives
+// Automatically formatted and verified with cubing.js
 
 export const ollCases = [
   {
@@ -13,12 +13,6 @@ export const ollCases = [
         "alg": "R U2 R2' F R F' U2 R' F R F'",
         "note": "Standard",
         "isDefault": true,
-        "startAuf": ""
-      },
-      {
-        "id": "oll-01-2",
-        "alg": "R U2 R2 F R F' U2 R' F R F'",
-        "note": "Community Alt",
         "startAuf": ""
       },
       {
@@ -442,12 +436,6 @@ export const ollCases = [
         "startAuf": ""
       },
       {
-        "id": "oll-13-3",
-        "alg": "F U R U' R2 F' R U R U' R'",
-        "note": "Community Alt",
-        "startAuf": ""
-      },
-      {
         "id": "oll-13-4",
         "alg": "r U' r' U' r U r' F' U F",
         "note": "Community Alt",
@@ -578,12 +566,6 @@ export const ollCases = [
         "startAuf": ""
       },
       {
-        "id": "oll-17-2",
-        "alg": "(R U R' U) (R' F R F') U2 (R' F R F')",
-        "note": "Alternative grouping",
-        "startAuf": ""
-      },
-      {
         "id": "oll-17-3",
         "alg": "F R' F' R U S' R U' R' S",
         "note": "Community Alt",
@@ -622,12 +604,6 @@ export const ollCases = [
         "alg": "R U2 R2 F R F' U2 M' U R U' r'",
         "note": "Community Alt",
         "startAuf": "U"
-      },
-      {
-        "id": "oll-18-3",
-        "alg": "r U R' U R U2 r2 U' R U' R' U2 r",
-        "note": "Community Alt",
-        "startAuf": ""
       },
       {
         "id": "oll-18-4",
@@ -674,12 +650,6 @@ export const ollCases = [
         "alg": "R' U2 F R U R' U' F2 U2 F R",
         "note": "Community Alt",
         "startAuf": ""
-      },
-      {
-        "id": "oll-19-5",
-        "alg": "r' R U R U R' U' r R2 F R F'",
-        "note": "Community Alt",
-        "startAuf": ""
       }
     ],
     "setup": "F R' F' R2 r' U R U' R' U' R' r"
@@ -701,12 +671,6 @@ export const ollCases = [
         "id": "oll-20-2",
         "alg": "M U R U R' U' M2' U R U' r'",
         "note": "Alternative",
-        "startAuf": ""
-      },
-      {
-        "id": "oll-20-3",
-        "alg": "r U R' U' M2 U R U' R' U' M'",
-        "note": "Community Alt",
         "startAuf": ""
       },
       {
@@ -757,12 +721,6 @@ export const ollCases = [
         "startAuf": "U"
       },
       {
-        "id": "oll-21-4",
-        "alg": "F R U R' U' R U R' U' R U R' U' F'",
-        "note": "Community Alt",
-        "startAuf": ""
-      },
-      {
         "id": "oll-21-5",
         "alg": "R' U' R U' R' U R U' R' U2 R",
         "note": "Community Alt",
@@ -792,12 +750,6 @@ export const ollCases = [
         "startAuf": ""
       },
       {
-        "id": "oll-22-3",
-        "alg": "R U2 R2 U' R2 U' R2 U2 R",
-        "note": "Community Alt",
-        "startAuf": ""
-      },
-      {
         "id": "oll-22-4",
         "alg": "R' U2 R2 U R2 U R2 U2 R'",
         "note": "Community Alt",
@@ -806,12 +758,6 @@ export const ollCases = [
       {
         "id": "oll-22-5",
         "alg": "f R U R' U' S' R U R' U' F'",
-        "note": "Community Alt",
-        "startAuf": ""
-      },
-      {
-        "id": "oll-22-6",
-        "alg": "f R U R' U' f' F R U R' U' F'",
         "note": "Community Alt",
         "startAuf": ""
       }
@@ -1259,12 +1205,6 @@ export const ollCases = [
         "startAuf": "U'"
       },
       {
-        "id": "oll-34-3",
-        "alg": "R U R2 U' R' F R U R U' F'",
-        "note": "Community Alt",
-        "startAuf": ""
-      },
-      {
         "id": "oll-34-4",
         "alg": "F R U R' U' R' F' r U R U' r'",
         "note": "Community Alt",
@@ -1290,12 +1230,6 @@ export const ollCases = [
         "alg": "R U2 R2' F R F' R U2 R'",
         "note": "Standard",
         "isDefault": true,
-        "startAuf": ""
-      },
-      {
-        "id": "oll-35-2",
-        "alg": "R U2 R2 F R F' R U2 R'",
-        "note": "Community Alt",
         "startAuf": ""
       },
       {
@@ -1787,12 +1721,6 @@ export const ollCases = [
         "startAuf": ""
       },
       {
-        "id": "oll-49-2",
-        "alg": "r U' r2 U r2 U r2 U' r",
-        "note": "Community Alt",
-        "startAuf": ""
-      },
-      {
         "id": "oll-49-3",
         "alg": "l U' l2 U l2 U l2 U' l",
         "note": "Community Alt",
@@ -1824,12 +1752,6 @@ export const ollCases = [
         "alg": "r' U r2 U' r2' U' r2 U r'",
         "note": "Standard wide r",
         "isDefault": true,
-        "startAuf": ""
-      },
-      {
-        "id": "oll-50-2",
-        "alg": "r' U r2 U' r2 U' r2 U r'",
-        "note": "Community Alt",
         "startAuf": ""
       },
       {
@@ -2019,12 +1941,6 @@ export const ollCases = [
         "alg": "R' F R U R U' R2 F' R2 U' R' U R U R'",
         "note": "Community Alt",
         "startAuf": "U"
-      },
-      {
-        "id": "oll-55-4",
-        "alg": "R U2 R2 U' R U' R' U2 F R F'",
-        "note": "Community Alt",
-        "startAuf": ""
       },
       {
         "id": "oll-55-5",

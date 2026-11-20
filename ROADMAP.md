@@ -1,106 +1,52 @@
-# 2x2 Speedcubing Trainer — Roadmap & Idea Tracker
+# Speedcube Trainer — Roadmap & Architecture Tracker
 
-This document tracks the vision, feature roadmap, and training progression for this 2x2 speedcubing trainer. The project is tailored as a high-performance personal training environment to master 2x2 (from Ortega and efficient 1st Layer building to full CLL recognition and sub-3/sub-2 execution) before expanding into 3x3.
+This document tracks the implemented training platform across **2x2, 3x3, 3x3 OH, 4x4, and 5x5** and upcoming user-experience additions planned after core refactoring.
 
 ---
 
-## 🧭 Training Progression & Philosophy
+## Training Progression Supported Today
 
 ```
-  [ Step 1: Ortega / LBL Foundation ]
-       │  • 1st Face (Any color, <= 4 moves)
-       │  • OLL (7 cases, orient top face)
-       │  • PBL (5 permutation cases for both layers)
-       ▼
-  [ Step 2: 1st Layer Efficiency & Color Neutrality ]
-       │  • Full 1st Layer (matching sides, <= 5 moves)
-       │  • 15s Inspection: plan whole layer in inspection
-       │  • Full Color Neutrality (CN on all 6 faces)
-       │  • Bar preservation vs direct corner insertion
-       ▼
-  [ Step 3: Full CLL (Corner of Last Layer) ]
-       │  • 42 cases (7 groups: H, Pi, U, T, L, Sune, Anti-Sune)
-       │  • Instant 2-sided and 3-sided recognition
-       │  • Sub-1s execution of optimal CLL algs
-       │  • 1-look solves: plan 1st layer + predict CLL in inspection
-       ▼
-  [ Future: Transition to 3x3 ]
-          • Cross planning in inspection
-          • F2L lookahead and algorithmic efficiency
-          • 3x3 OLL & PLL
+  [ 2x2 Foundation & Full CLL ]
+       • Ortega (1st Face <= 4 moves, 7 OLL, 5 PBL) & 1st Layer CN Solver
+       • 40 CLL cases (H, Pi, U, T, L, S, Anti-Sune) + Custom Trigger Labels
+
+  [ 3x3 & 3x3 One-Handed (CFOP) ]
+       • Cross / Cross+1 / EO 15s Inspection Planner & Multi-Color CN Solver
+       • 41 F2L + 57 OLL + 21 PLL study flashcards & independent OH algs
+       • 2-Sided PLL / OLL Recognition Drills & 3D Camera View Lock
+
+  [ Big Cubes (4x4 / 5x5) ]
+       • 4x4 OLL / PLL Parity & 5x5 Lucas / L2E Wing Parity Reference & Sim
+
+  [ Live Smart Cube, GAN Timer & Analytics ]
+       • Multi-vendor Web Bluetooth cubes + GAN Smart Timer Pickup/Cube/Putdown splits
+       • Automatic CFOP Solve Analyzer, 3D Replay Timeline & CSV Session Export
 ```
 
 ---
 
-## 📌 Feature Roadmap & Status Tracker
+## Completed Milestones
 
-### 1. 3D World Interaction & Controls
-- [x] **Virtual 3D Cube Display** (via `TwistyPlayer` / `ScrambleDisplay`)
-- [x] **Camera Orientation Reset** button and canonical views
-- [x] **Keyboard 3D World Rotation (`x, y, z` and `Shift+x, y, z`)**:
-  - Rotate the 3D cube viewpoint around X, Y, and Z axes without altering the scramble's logical state, case identification, or solve statistics.
-  - Inverses on Shift (`x'`, `y'`, `z'`).
+### 1. Multi-Puzzle Study, Practice & 3D Interaction
+- [x] **Interactive 3D Cube Display** (`scramble-display` / `TwistyPlayer`), camera reset, reflection facelet toggle, and Free Face Turns (`U/D/L/R/F/B`, wide moves on `4x4`/`5x5`, whole-cube `x/y/z`).
+- [x] **Study Mode Views**: Case Grid, compact **Grid + 3D** flashcard with AUF starting-angle preview, 2-Sided OLL/PLL recognition guides, integrated 2x2/3x3/4x4/5x5 Reference Guides, preferred `★` algorithm selection per puzzle (`333` vs `333oh`), and custom trigger/mnemonic labels.
+- [x] **Practice Mode Drills**: Casual Practice & Timed Sprints with dynamic `algRegistry`-driven keypads, 2-Sided camera lock overlay, and 15s Inspection Planning drills checked against optimal solvers.
+- [x] **Algorithm Tagging & Filtering**: Tag cases (`Pending`, `Learning`, `Review`, `Mastered`) and filter drills or case grids.
 
-### 2. Ortega Method & PBL (Permute Both Layers)
-- [x] **5 PBL Algorithm Reference & Simulator**:
-  - Case 1: Both Adjacent (Adj / Adj)
-  - Case 2: Both Opposite (Opp / Opp)
-  - Case 3: Top Adjacent / Bottom Opposite (Adj / Opp)
-  - Case 4: Top Adjacent / Bottom Solved (Adj / Solved — T/J-perm)
-  - Case 5: Top Opposite / Bottom Solved (Opp / Solved — Y-perm)
-- [x] **Multiple Algorithms per PBL Case**:
-  - Curated list of popular, ergonomic algorithms for each case.
-- [x] **Customizable Algorithm Labels & Trigger Breakdowns**:
-  - Let cubers customize the display label with triggers `(R U R' U')`, `(Sledge)`, `(Hedge)`, or custom mnemonics while keeping the raw notation clean for execution and 3D simulation.
-  - Select preferred / favorite algorithm per case.
-- [x] **OLL / CLL Algorithm Customization**:
-  - Support custom trigger labeling and favorite algorithm selection across CLL/OLL cases.
+### 2. Solve Timer, Optimal Solvers & Multi-Session Tracking
+- [x] **Unified Solve Mode**: `Full Solve`, `1st Layer`, `1st Face`, `CLL`, `F2L/OLL/PLL`, `Parity`, and `Timer & Handling Drills` with multi-session create/edit/switch/delete.
+- [x] **Optimal Solvers**: Color-neutral 2x2 Layer/Face solver and 3x3 Cross / Cross+1 / EO solver with one-click 3D Simulate & copy export.
+- [x] **Rolling Statistics & History**: Compact Solve strip (`Best`, `Median`, `Trim 10%`, `Mean`, `Ao5`, `Ao12`, `Ao100`), paginated Solve Log, Case Solve metrics, Recognition accuracy tables, and single-click CSV export.
 
-### 3. 1st Layer & Face Efficiency Guide
-- [x] **In-App Efficiency Guide & Inspection Tips**:
-  - Optimal move count targets (1st face: $\le 4$ moves; 1st layer: $\le 5$ moves).
-  - Inspection breakdown: spending the 15s on finding pieces, picking the best color, planning the full layer blindfolded.
-  - Bar preservation vs piece-by-piece insertion.
-  - Predicting OLL/CLL during inspection.
-- [x] **1st Layer Solver Integration**:
-  - Real-time optimal solver generating shortest solutions for selected faces (White, W/Y opposite, or all 6 CN).
-  - Multi-face filtering and step-by-step playback in 3D simulator.
-
-### 4. Case Management, Rating & Tagging
-- [x] **Case Rating & Learning Status**:
-  - Tag cases as: `Learning`, `Review`, `Mastered`.
-  - Filter practice and overview by status tag.
-  - Visual badges on case picker and overview cards.
-
-### 5. Session Management & Solve Modes
-- [x] **Unified Solve Mode**:
-  - Solve targets:
-    - `1st Layer Only` (scrambled cube $\rightarrow$ solve layer)
-    - `1st Face Only` (Ortega face)
-    - `CLL Case` (solve CLL alg)
-    - `Full Solve` (complete 2x2 solve from WCA scramble)
-  - Configurable options:
-    - Show 3D virtual cube vs Hide (text-only scramble for physical cube)
-    - Enable/disable 15-second WCA inspection countdown
-- [x] **Multi-Session Management**:
-  - Create, switch, rename, and clear independent solve sessions (e.g. "Full Solves", "1st Layer Practice", "CLL Timed").
-  - Independent times and averages per session.
-
-### 6. Statistics & Speedcubing Analytics
-- [x] **Rolling Averages**:
-  - Current & Best **Ao5** (Average of 5)
-  - Current & Best **Ao12** (Average of 12)
-  - Current & Best **Ao100** (Average of 100)
-  - Session Mean & Single Best
-- [x] **Balanced Stats Engine**:
-  - Separate rolling averages for general solves from per-case recognition accuracy & time in CLL flashcards.
-  - Reattempt previous solves with 1 click.
-  - Export / Import session data.
+### 3. Hardware Integration, CFOP Analysis & Modular Refactor
+- [x] **Bluetooth Smart Cube & GAN Timer**: Multi-vendor cube support with live Scramble Assistant, diagnostics logging, Virtual Cube testing keypad, and GAN Timer hardware split tracking.
+- [x] **CFOP Analyzer & 3D Solve Replay**: Step/pause segmentation, OLL/PLL recognition detection, speed-controlled 3D timeline scrubbing, and `Reattempt Scramble`.
+- [x] **Modular Architecture & Design System**: Decoupled ES controllers (`state/`, `services/`, `cube/`, `ui/`, `features/`) and layered CSS (`src/styles/` `@layer` architecture) with desktop 2-column Practice/Simulate layouts, accessible modal stack, and full `node:test` verification.
 
 ---
 
-## 🚀 Post-2x2 Future Horizons (3x3 Preparation)
-Once the 2x2 feature set is complete and fully mastered:
-1. **Inspection Planner for 3x3 Cross**: Predicting and tracking cross piece movements within 15 seconds.
-2. **F2L Pair Recognition & Angles**: Developing muscle memory for 41 F2L cases from standard and non-standard angles without cube rotations.
-3. **OLL / PLL Flashcard Recog Trainer**: Applying this same recognition engine to the 57 OLL and 21 PLL algorithms of 3x3.
+## Upcoming UX Enhancements (Post-Refactor Roadmap)
+
+1. **New-User Onboarding Guide**: Optional first-visit walkthrough asking which cube size (`2x2`–`5x5`), stage (`Beginner`, `Intermediate`, `Advanced`), and goal (`Learn Algorithms` vs. `Practice & Timed Solves`) the user prefers, pre-configuring their initial track and workspace.
+2. **Contextual Tooltips & Interactive Tutorials**: Lightweight discoverability hints for Smart Cube Scramble Assistant, Free Face Turns shortcuts, 2-Sided Recognition lock, and solver widgets.

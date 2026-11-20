@@ -1,0 +1,714 @@
+@layer features {
+/* --------------------------------------------------------------------------
+   Stats
+   -------------------------------------------------------------------------- */
+
+.stats-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-right: 14px;
+}
+
+@media (max-width: 560px) {
+    .stats-head {
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 0 12px 8px 0;
+    }
+
+    .stats-head .panel-toggle {
+        flex: 1 1 100%;
+        padding-right: 0;
+    }
+
+    .stats-head-actions {
+        margin-left: 34px;
+        width: calc(100% - 34px);
+        justify-content: flex-end;
+    }
+}
+
+.stats-head .panel-toggle {
+    flex: 1;
+    min-width: 0;
+}
+
+.stats-head .chevron {
+    margin-left: 2px;
+}
+
+.stats.collapsed .stats-body,
+.stats.collapsed .stats-head-actions {
+    display: none;
+}
+
+.stats-seg {
+    margin: 0 10px 10px;
+}
+
+.stats-seg > button {
+    min-height: 34px;
+    font-size: .85rem;
+}
+
+#stats-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 10px 10px;
+}
+
+#stats-table-container table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .9rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+#stats-table-container th,
+#stats-table-container td {
+    padding: 6px 4px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+#stats-table-container th {
+    background: var(--surface-2);
+    font-weight: 600;
+}
+
+#stats-table-container td.total {
+    background: var(--surface-2);
+    font-weight: 600;
+}
+
+#stats-table-container tfoot th,
+#stats-table-container tfoot td {
+    background: var(--surface-2);
+    font-weight: 600;
+    border-top: 2px solid var(--border);
+}
+
+#stats-table-container th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+#stats-table-container th.sortable:hover {
+    background: var(--surface-2);
+}
+
+.sort-icon {
+    display: inline-block;
+    margin-left: 3px;
+    font-size: .7rem;
+    opacity: .75;
+}
+
+#stats-table-container .empty-stats {
+    padding: 18px 8px;
+    color: var(--muted);
+    font-style: italic;
+    background: none;
+}
+
+/* 1st Layer Stats */
+.layer-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 560px) {
+    .layer-stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.layer-stat-card {
+    min-width: 0;
+    overflow: hidden;
+    padding: 10px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    text-align: center;
+}
+
+.layer-stat-card.highlight-best {
+    background: var(--primary-soft);
+    border-color: rgba(0, 123, 255, 0.25);
+}
+
+.layer-stat-card.highlight-best .layer-stat-val {
+    color: var(--primary);
+}
+
+.layer-stat-val {
+    display: block;
+    font-size: clamp(1.05rem, 4vw, 1.35rem);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+}
+
+.layer-stat-lbl {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+}
+
+.layer-log-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 12px 0 8px;
+    padding: 0 2px;
+}
+
+.layer-log-title-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.layer-log-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.layer-log-hint {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-style: italic;
+}
+
+.layer-log-count {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.layer-log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.layer-log-table th {
+    padding: 6px 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+}
+
+.layer-log-table td {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.layer-log-row {
+    cursor: pointer;
+    transition: background .12s ease;
+}
+
+.layer-log-row:hover {
+    background: rgba(0, 123, 255, 0.08) !important;
+}
+
+.layer-time-cell {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.layer-scramble-cell {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    text-align: left !important;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.layer-date-cell {
+    font-size: 0.78rem;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.layer-log-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.btn-reattempt-solve {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--primary);
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-reattempt-solve:hover {
+    background: var(--primary-soft);
+    border-color: #bfdbfe;
+    color: var(--primary-dark);
+    transform: scale(1.1);
+}
+
+.btn-del-solve {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-del-solve:hover {
+    background: var(--danger-soft);
+    border-color: #fca5a5;
+    color: var(--danger);
+}
+
+/* --------------------------------------------------------------------------
+   CSV Export & Header Actions
+   -------------------------------------------------------------------------- */
+
+.solve-times-actions,
+.stats-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Solve Log Pagination Controls (Dropdown + |< < > >| buttons) */
+.layer-log-header-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 16px 0 10px;
+}
+
+.layer-log-pagination-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.pagination-size-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.pagination-size-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted, #64748b);
+}
+
+.pagination-size-select {
+    height: 30px;
+    padding: 2px 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--border, #cbd5e1);
+    background: var(--surface, #ffffff);
+    color: var(--text, #1e293b);
+    cursor: pointer;
+}
+
+.pagination-status-text {
+    font-size: 0.8rem;
+    color: var(--muted, #64748b);
+    white-space: nowrap;
+}
+
+.pagination-nav-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pagination-nav-btn {
+    min-width: 32px;
+    height: 30px;
+    padding: 0 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    font-weight: 700;
+    border-radius: 6px;
+}
+
+.pagination-nav-btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+}
+
+/* CFOP Solve Log Table */
+.cfop-solve-log-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.cfop-solve-log-table th,
+.cfop-solve-log-table td {
+    padding: 7px 6px;
+    font-size: 0.82rem;
+    vertical-align: middle;
+}
+
+.cfop-cell-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    line-height: 1.15;
+}
+
+.cfop-split-val {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.cfop-sub-meta {
+    font-size: 0.66rem;
+    color: var(--muted, #64748b);
+    white-space: nowrap;
+}
+
+.badge-oll-case,
+.badge-pll-case {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.badge-oll-case {
+    background: rgba(234, 179, 8, 0.16);
+    color: #a16207;
+    border: 1px solid rgba(234, 179, 8, 0.4);
+}
+
+.badge-pll-case {
+    background: rgba(168, 85, 247, 0.15);
+    color: #7e22ce;
+    border: 1px solid rgba(168, 85, 247, 0.38);
+}
+
+.badge-priority-improve {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.64rem;
+    font-weight: 700;
+    background: rgba(239, 68, 68, 0.14);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.pause-cell-warn {
+    color: #d97706;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.pause-cell-clean {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+/* OLL & PLL Case Breakdown Section */
+.cfop-cases-improvement-section {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.cfop-cases-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+.cfop-case-breakdown-card {
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 10px;
+    padding: 12px 14px;
+    overflow-x: auto;
+}
+
+.cfop-case-breakdown-head,
+.cfop-case-breakdown-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.cfop-case-breakdown-head h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.cfop-case-breakdown-sub,
+.cfop-case-breakdown-hint {
+    font-size: 0.78rem;
+    color: var(--muted, #64748b);
+}
+
+.cfop-cases-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+}
+
+.cfop-cases-table th,
+.cfop-cases-table td {
+    padding: 6px 8px;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.cfop-cases-table th:first-child,
+.cfop-cases-table td:first-child {
+    text-align: left;
+}
+
+.cfop-case-group-cell {
+    color: var(--muted, #64748b);
+    font-size: 0.82rem;
+    text-align: left !important;
+}
+
+.case-svg-cell {
+    width: 44px;
+    padding: 3px 6px !important;
+    text-align: center;
+}
+
+.case-table-svg {
+    width: 38px;
+    height: 38px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.case-table-svg svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Compact Clock Icon & Hover/Click Date Pop-up in Solve Log */
+.layer-date-cell {
+    position: relative;
+    text-align: center;
+    padding: 4px 6px !important;
+}
+
+.solve-date-clock-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-solve-date-clock {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted, #64748b);
+    font-size: 0.98rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+}
+
+.btn-solve-date-clock:hover,
+.solve-date-clock-wrap.is-open .btn-solve-date-clock {
+    background: var(--surface-2, #f1f5f9);
+    border-color: var(--border, #cbd5e1);
+    color: var(--text, #0f172a);
+    transform: scale(1.06);
+}
+
+.solve-date-popover {
+    position: absolute;
+    right: calc(100% + 6px);
+    top: 50%;
+    transform: translateY(-50%) scale(0.96);
+    z-index: 60;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 7px;
+    background: #0f172a;
+    color: #f8fafc;
+    border: 1px solid #334155;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.28);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.76rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+}
+
+/* Invisible bridge between clock button and pop-up so cursor movement doesn't drop hover */
+.solve-date-popover::after {
+    content: "";
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    right: -10px;
+    width: 10px;
+}
+
+.solve-date-clock-wrap:hover .solve-date-popover,
+.solve-date-clock-wrap.is-open .solve-date-popover {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(-50%) scale(1);
+}
+
+.solve-date-popover-icon {
+    font-size: 0.82rem;
+    line-height: 1;
+}
+
+[data-theme="dark"] .btn-solve-date-clock:hover,
+[data-theme="dark"] .solve-date-clock-wrap.is-open .btn-solve-date-clock {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .solve-date-popover {
+    background: #020617;
+    color: #f8fafc;
+    border-color: #475569;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+}
+
+/* Collapsible sub-widgets inside Stats (CFOP Summary, Solve Log, OLL Cases, PLL Cases) */
+.stats-subwidget-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.stats-subwidget-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 4px 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.stats-subwidget-toggle:hover .stats-subwidget-title,
+.stats-subwidget-toggle:hover .layer-log-title,
+.stats-subwidget-toggle:hover .cfop-averages-title {
+    color: var(--accent, #2563eb);
+}
+
+.stats-subwidget-title {
+    font-weight: 700;
+    font-size: 0.96rem;
+    color: var(--ink);
+}
+
+.stats-subwidget-toggle .chevron {
+    margin: 0 2px 2px 0;
+    flex: none;
+}
+
+.stats-subwidget.is-collapsed .stats-subwidget-toggle .chevron {
+    transform: rotate(-45deg);
+    margin-bottom: 0;
+}
+
+.stats-subwidget.is-collapsed .stats-subwidget-body {
+    display: none;
+}
+
+.stats-subwidget-log .stats-subwidget-head {
+    margin-bottom: 8px;
+}
+
+.stats-subwidget-log.is-collapsed .stats-subwidget-head {
+    margin-bottom: 0;
+}
+
+}

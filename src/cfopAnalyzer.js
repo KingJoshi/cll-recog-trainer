@@ -4,44 +4,47 @@
 // and tracks hesitation/recognition pauses per phase and per case.
 
 import { Alg } from 'cubing/alg';
-import { puzzles } from 'cubing/puzzles';
 import { ollCases } from './data/ollData.js';
 import { pllCases } from './data/pllData.js';
+import {
+  ORIENTATIONS_24,
+  CORNER_FACES_333,
+  EDGE_FACES_333,
+  F2L_SLOTS,
+  CENTER_COLOR_NAMES,
+  CENTER_FACE_LETTERS,
+  getSolvedOrientations
+} from './cube/cubeUtils.js';
 
 export const DEFAULT_PAUSE_THRESHOLD_MS = 400;
 
 let kp333 = null;
 let defaultPat = null;
 let solvedOrientations = []; // All 24 solved cube orientations
+let solvedOrientationsByCenterKey = null;
 let ollKeyMap = new Map();   // canonical orientation key -> ollCase object
 let pllKeyMap = new Map();   // canonical permutation key -> pllCase object
 let initPromise = null;
 
-const CENTER_COLOR_NAMES = {
-  0: "White",
-  1: "Orange",
-  2: "Green",
-  3: "Red",
-  4: "Blue",
-  5: "Yellow"
-};
-
 // Candidate rotations that bring each of the 6 centers to the D face (slot 5)
 const CANDIDATE_ROTATIONS = [
-  { rot: "z2", inv: "z2" }, // WCA U (White) -> D
-  { rot: "",   inv: ""   }, // WCA D (Yellow) -> D
-  { rot: "x'", inv: "x"  }, // WCA F (Green) -> D
-  { rot: "x",  inv: "x'" }, // WCA B (Blue) -> D
-  { rot: "z",  inv: "z'" }, // WCA R (Red) -> D
-  { rot: "z'", inv: "z"  }  // WCA L (Orange) -> D
+  { rot: "z2", inv: "z2", uFace: "D", yAxis: "y", transCache: new Map(), rotTrans: null, invTrans: null }, // WCA U (White) -> D
+  { rot: "",   inv: "",   uFace: "U", yAxis: "y", transCache: new Map(), rotTrans: null, invTrans: null }, // WCA D (Yellow) -> D
+  { rot: "x'", inv: "x",  uFace: "B", yAxis: "z", transCache: new Map(), rotTrans: null, invTrans: null }, // WCA F (Green) -> D
+  { rot: "x",  inv: "x'", uFace: "F", yAxis: "z", transCache: new Map(), rotTrans: null, invTrans: null }, // WCA B (Blue) -> D
+  { rot: "z",  inv: "z'", uFace: "L", yAxis: "x", transCache: new Map(), rotTrans: null, invTrans: null }, // WCA R (Red) -> D
+  { rot: "z'", inv: "z",  uFace: "R", yAxis: "x", transCache: new Map(), rotTrans: null, invTrans: null }  // WCA L (Orange) -> D
 ];
 
-const F2L_SLOTS = [
-  { name: "FR", c: 4, e: 8 },
-  { name: "FL", c: 5, e: 9 },
-  { name: "BL", c: 6, e: 11 },
-  { name: "BR", c: 7, e: 10 }
-];
+function getCandMoveTrans(cand, mStr) {
+  let tr = cand.transCache.get(mStr);
+  if (!tr && kp333) {
+    const conjStr = cand.rot ? `${cand.inv} ${mStr} ${cand.rot}` : mStr;
+    tr = kp333.algToTransformation(new Alg(conjStr));
+    cand.transCache.set(mStr, tr);
+  }
+  return tr;
+}
 
 export function computeOllCanonicalKey(cornerOri4, edgeOri4) {
   const keys = [];
@@ -65,24 +68,6 @@ export function computePllCanonicalKey(cornerHome4, edgeHome4) {
   }
   keys.sort();
   return keys[0];
-}
-
-function buildSolvedOrientations(basePat) {
-  const list = [basePat];
-  const visited = new Set([JSON.stringify(basePat.patternData.CENTERS.pieces)]);
-  function dfs(pat) {
-    for (const r of ["x", "y", "z"]) {
-      const next = pat.applyAlg(new Alg(r));
-      const key = JSON.stringify(next.patternData.CENTERS.pieces);
-      if (!visited.has(key)) {
-        visited.add(key);
-        list.push(next);
-        dfs(next);
-      }
-    }
-  }
-  dfs(basePat);
-  return list;
 }
 
 function buildOllAndPllTables(basePat) {
@@ -127,15 +112,16 @@ function buildOllAndPllTables(basePat) {
         : basePat.applyAlg(new Alg(c.setup));
 
       let aligned = rawPat;
-      for (const rot of ["", "y", "y2", "y'", "x", "x2", "x'", "z", "z2", "z'"]) {
-        const cand = rot ? rawPat.applyAlg(new Alg(rot)) : rawPat;
-        if (
-          cand.patternData.CENTERS.pieces[0] === 0 &&
-          cand.patternData.CENTERS.pieces[5] === 5 &&
-          cand.patternData.CENTERS.pieces[2] === 2
-        ) {
-          aligned = cand;
-          break;
+      // Rotate rawPat into canonical orientation (U=0, D=5, F=2) across all 24 orientations
+      const rCenters = rawPat.patternData.CENTERS.pieces;
+      if (!(rCenters[0] === 0 && rCenters[5] === 5 && rCenters[2] === 2)) {
+        for (const r of ORIENTATIONS_24) {
+          const cand = r ? rawPat.applyAlg(new Alg(r)) : rawPat;
+          const cc = cand.patternData.CENTERS.pieces;
+          if (cc[0] === 0 && cc[5] === 5 && cc[2] === 2) {
+            aligned = cand;
+            break;
+          }
         }
       }
       const cp = aligned.patternData.CORNERS.pieces.slice(0, 4);
@@ -166,9 +152,12 @@ export async function initCfopAnalyzer() {
   if (initPromise) return initPromise;
   initPromise = (async () => {
     try {
-      kp333 = await puzzles['3x3x3'].kpuzzle();
-      defaultPat = kp333.defaultPattern();
-      solvedOrientations = buildSolvedOrientations(defaultPat);
+      const solvedData = await getSolvedOrientations('3x3x3');
+      if (!solvedData) return false;
+      kp333 = solvedData.kpuzzle;
+      defaultPat = solvedData.defaultPat;
+      solvedOrientations = solvedData.patterns;
+      solvedOrientationsByCenterKey = solvedData.byCenterKey;
       buildOllAndPllTables(defaultPat);
       return true;
     } catch (e) {
@@ -188,30 +177,30 @@ export function isCfopAnalyzerReady() {
 
 function getMatchingSolvedPattern(pat) {
   const centers = pat.patternData.CENTERS.pieces;
-  if (
-    centers[0] === 0 &&
-    centers[1] === 1 &&
-    centers[2] === 2 &&
-    centers[3] === 3 &&
-    centers[4] === 4 &&
-    centers[5] === 5
-  ) {
-    return defaultPat;
-  }
-  for (const sp of solvedOrientations) {
-    const sc = sp.patternData.CENTERS.pieces;
-    if (
-      sc[0] === centers[0] &&
-      sc[1] === centers[1] &&
-      sc[2] === centers[2] &&
-      sc[3] === centers[3] &&
-      sc[4] === centers[4] &&
-      sc[5] === centers[5]
-    ) {
-      return sp;
+  return solvedOrientationsByCenterKey?.get(centers.join(",")) || defaultPat;
+}
+
+function getCanonicalOllOrientations(pat, ref) {
+  const cp = pat.patternData.CORNERS.pieces;
+  const co = pat.patternData.CORNERS.orientation;
+  const ep = pat.patternData.EDGES.pieces;
+  const eo = pat.patternData.EDGES.orientation;
+  const uFace = CENTER_FACE_LETTERS[ref.patternData.CENTERS.pieces[0]] || "U";
+
+  const canonCo = [0, 1, 2, 3].map(s => {
+    const faces = CORNER_FACES_333[cp[s]];
+    for (let k = 0; k < 3; k++) {
+      if (faces[(k - co[s] + 3) % 3] === uFace) return k;
     }
-  }
-  return defaultPat;
+    return 0;
+  });
+
+  const canonEo = [0, 1, 2, 3].map(s => {
+    const faces = EDGE_FACES_333[ep[s]];
+    return faces[(0 - eo[s] + 2) % 2] === uFace ? 0 : 1;
+  });
+
+  return { canonCo, canonEo };
 }
 
 function evaluateCfopState(pat) {
@@ -270,10 +259,9 @@ function evaluateCfopState(pat) {
     };
   }
 
-  // 3. Check OLL (all 4 U-corners and 4 U-edges oriented)
-  const ollOk =
-    co[0] === rco[0] && co[1] === rco[1] && co[2] === rco[2] && co[3] === rco[3] &&
-    eo[0] === reo[0] && eo[1] === reo[1] && eo[2] === reo[2] && eo[3] === reo[3];
+  // 3. Check OLL (all 4 U-corners and 4 U-edges oriented relative to ref's U center)
+  const { canonCo, canonEo } = getCanonicalOllOrientations(pat, ref);
+  const ollOk = canonCo.every(o => o === 0) && canonEo.every(o => o === 0);
 
   if (!ollOk) {
     return {
@@ -304,10 +292,9 @@ function evaluateCfopState(pat) {
 }
 
 export function identifyOllCaseFromState(state) {
-  if (!state || !state.pat) return null;
-  const co = state.pat.patternData.CORNERS.orientation.slice(0, 4);
-  const eo = state.pat.patternData.EDGES.orientation.slice(0, 4);
-  const key = computeOllCanonicalKey(co, eo);
+  if (!state || !state.pat || !state.ref) return null;
+  const { canonCo, canonEo } = getCanonicalOllOrientations(state.pat, state.ref);
+  const key = computeOllCanonicalKey(canonCo, canonEo);
   return ollKeyMap.get(key) || null;
 }
 
@@ -327,14 +314,19 @@ export function identifyPllCaseFromState(state) {
   return pllKeyMap.get(key) || null;
 }
 
-function isUMove(moveStr) {
+function isCrossUMove(moveStr, cand) {
   if (!moveStr) return false;
-  return /^[Uu][2']?$/.test(moveStr.trim());
+  const uFace = cand?.uFace || "U";
+  const m = moveStr.trim();
+  return new RegExp(`^${uFace}[2']?$`).test(m);
 }
 
-function isSetupMove(moveStr) {
+function isCrossSetupMove(moveStr, cand) {
   if (!moveStr) return false;
-  return /^[UuYy][2']?$/.test(moveStr.trim());
+  const uFace = cand?.uFace || "U";
+  const yAxis = cand?.yAxis || "y";
+  const m = moveStr.trim();
+  return new RegExp(`^(?:${uFace}|${yAxis}|${yAxis.toUpperCase()})[2']?$`).test(m);
 }
 
 export function collapseDoubleFlickMoves(moveList = []) {
@@ -468,23 +460,32 @@ export function analyzeCfopSolveSync(solve, options = {}) {
   // Evaluate all 6 candidate cross faces to find the one the cuber solved
   const N = normMoves.length;
   let bestCandidate = null;
+  let scrAlg = null;
+  let rawScrPat = null;
+  try {
+    scrAlg = new Alg(solve.scramble);
+    rawScrPat = defaultPat.applyAlg(scrAlg);
+  } catch (e) {
+    return null;
+  }
 
   for (const cand of CANDIDATE_ROTATIONS) {
     try {
-      const scrStr = cand.rot
-        ? `${cand.inv} ${solve.scramble} ${cand.rot}`
-        : solve.scramble;
-      let curPat = defaultPat.applyAlg(new Alg(scrStr));
-      const rawScrPat = defaultPat.applyAlg(new Alg(solve.scramble));
-      const orientedScrPat = cand.rot ? rawScrPat.applyAlg(new Alg(cand.rot)) : rawScrPat;
+      if (cand.rot && !cand.rotTrans) {
+        cand.rotTrans = kp333.algToTransformation(new Alg(cand.rot));
+        cand.invTrans = kp333.algToTransformation(new Alg(cand.inv));
+      }
+      let curPat = cand.rot
+        ? defaultPat.applyTransformation(cand.invTrans).applyAlg(scrAlg).applyTransformation(cand.rotTrans)
+        : rawScrPat;
+      const orientedScrPat = cand.rot ? rawScrPat.applyTransformation(cand.rotTrans) : rawScrPat;
       const dCenterPiece = orientedScrPat.patternData.CENTERS.pieces[5];
       const crossColor = CENTER_COLOR_NAMES[dCenterPiece] || "White";
 
       const states = [evaluateCfopState(curPat)];
       for (let i = 0; i < N; i++) {
-        const mStr = normMoves[i].move;
-        const conjStr = cand.rot ? `${cand.inv} ${mStr} ${cand.rot}` : mStr;
-        curPat = curPat.applyAlg(new Alg(conjStr));
+        const trans = getCandMoveTrans(cand, normMoves[i].move);
+        curPat = curPat.applyTransformation(trans);
         states.push(evaluateCfopState(curPat));
       }
 
@@ -577,27 +578,32 @@ export function analyzeCfopSolveSync(solve, options = {}) {
     }
     crossEnd = foundCross;
 
-    let foundOll = f2l4End;
-    for (let i = f2l4End; i <= N; i++) {
-      if (states[i].ollOk) {
-        foundOll = i;
-        break;
+    let foundOll = -1;
+    if (foundF2l4 !== -1) {
+      for (let i = f2l4End; i <= N; i++) {
+        if (states[i].ollOk) {
+          foundOll = i;
+          break;
+        }
       }
     }
-    ollEnd = foundOll;
+    ollEnd = foundOll !== -1 ? foundOll : N;
   }
 
-  const isFullCfop = !startedAtPll && !startedAtOll && states[f2l4End]?.f2lCount === 4;
+  const crossSolved = startedAtOll || startedAtPll || states.some(s => s.crossOk);
+  const f2l4Solved = startedAtOll || startedAtPll || (states[f2l4End]?.crossOk && states[f2l4End]?.f2lCount === 4);
+  const ollSolved = startedAtPll || (f2l4Solved && states[ollEnd]?.ollOk);
+  const isFullCfop = !startedAtPll && !startedAtOll && f2l4Solved && ollSolved;
 
   // Build the 7 phase step definitions
   const rawPhases = [
-    { key: "cross", label: "Cross", startIdx: 0,       endIdx: crossEnd, active: !startedAtOll && !startedAtPll },
-    { key: "f2l1",  label: "F2L 1", startIdx: crossEnd, endIdx: f2l1End,  active: !startedAtOll && !startedAtPll },
-    { key: "f2l2",  label: "F2L 2", startIdx: f2l1End,  endIdx: f2l2End,  active: !startedAtOll && !startedAtPll },
-    { key: "f2l3",  label: "F2L 3", startIdx: f2l2End,  endIdx: f2l3End,  active: !startedAtOll && !startedAtPll },
-    { key: "f2l4",  label: "F2L 4", startIdx: f2l3End,  endIdx: f2l4End,  active: !startedAtOll && !startedAtPll },
-    { key: "oll",   label: "OLL",   startIdx: f2l4End,  endIdx: ollEnd,   active: !startedAtPll },
-    { key: "pll",   label: "PLL",   startIdx: ollEnd,   endIdx: pllEnd,   active: !startedAtOll || ollEnd < pllEnd }
+    { key: "cross", label: "Cross", startIdx: 0,       endIdx: crossEnd, active: !startedAtOll && !startedAtPll && crossSolved },
+    { key: "f2l1",  label: "F2L 1", startIdx: crossEnd, endIdx: f2l1End,  active: !startedAtOll && !startedAtPll && crossSolved && (f2l1End > crossEnd || f2l4Solved) },
+    { key: "f2l2",  label: "F2L 2", startIdx: f2l1End,  endIdx: f2l2End,  active: !startedAtOll && !startedAtPll && crossSolved && (f2l2End > f2l1End || f2l4Solved) },
+    { key: "f2l3",  label: "F2L 3", startIdx: f2l2End,  endIdx: f2l3End,  active: !startedAtOll && !startedAtPll && crossSolved && (f2l3End > f2l2End || f2l4Solved) },
+    { key: "f2l4",  label: "F2L 4", startIdx: f2l3End,  endIdx: f2l4End,  active: !startedAtOll && !startedAtPll && crossSolved && (f2l4End > f2l3End || f2l4Solved) },
+    { key: "oll",   label: "OLL",   startIdx: f2l4End,  endIdx: ollEnd,   active: !startedAtPll && f2l4Solved },
+    { key: "pll",   label: "PLL",   startIdx: ollEnd,   endIdx: pllEnd,   active: ollSolved && (!startedAtOll || ollEnd < pllEnd) }
   ];
 
   const splits = {
@@ -659,10 +665,10 @@ export function analyzeCfopSolveSync(solve, options = {}) {
       caseId = detectedPll ? detectedPll.shortName : (durationMs === 0 ? "PLL Skip" : "-");
     }
 
-    // Separate pre-AUF / rotation setup moves (e.g. U, U', U2) at the start of the step from execution moves
+    // Separate pre-AUF / rotation setup moves (cross-relative U/y) at the start of the step from execution moves
     let setupMoveCount = 0;
     if (ph.key !== "cross" && phaseMoves.length > 0) {
-      while (setupMoveCount < phaseMoves.length && isSetupMove(phaseMoves[setupMoveCount].move)) {
+      while (setupMoveCount < phaseMoves.length && isCrossSetupMove(phaseMoves[setupMoveCount].move, bestCandidate.cand)) {
         setupMoveCount++;
       }
     }
@@ -678,7 +684,7 @@ export function analyzeCfopSolveSync(solve, options = {}) {
     if (ph.key !== "cross" && phaseMoves.length > 0) {
       for (let mIdx = 0; mIdx < phaseMoves.length; mIdx++) {
         recogMs += phaseMoves[mIdx].split;
-        if (!isUMove(phaseMoves[mIdx].move)) {
+        if (!isCrossUMove(phaseMoves[mIdx].move, bestCandidate.cand)) {
           break;
         }
       }

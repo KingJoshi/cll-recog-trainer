@@ -1,6 +1,9 @@
 // Solve Replay Viewer - Interactive 3D replay, scrubber timeline, move tape, and reconstruction
 import { parseScrambleInput } from './algParser.js';
 import { ensureSolveCfop, DEFAULT_PAUSE_THRESHOLD_MS } from './cfopAnalyzer.js';
+import { applyColorsTo3DCube } from './caseVisualizer.js';
+import { getSolveTime } from './services/solveStats.js';
+import { ICON_PLAY, ICON_PAUSE, ICON_REPLAY } from './ui/transportIcons.js';
 
 let ScrambleDisplayClass = null;
 async function getScrambleDisplay() {
@@ -26,35 +29,68 @@ export class SolveReplayViewer {
     this.totalDurationMs = 0;
     this.scrambleMoveCount = 0;
     this.onReattemptCallback = null;
+    this.getSimSpeed = null;
+    this.onSetSimSpeed = null;
+    this.getShowReflection = null;
+    this.modalManager = null;
+    this._mountGen = 0;
+    this._mountPromise = null;
+    this._copyTimerId = null;
+    this._copyOrigText = null;
 
     // Bound handlers
     this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
-  init(elements = {}, onReattempt = null) {
-    this.modal = elements.modal || document.getElementById("solveReplayModal");
-    this.cubeContainer = elements.cubeContainer || document.getElementById("replayCubeContainer");
-    this.titleEl = elements.titleEl || document.getElementById("replayModalTitle");
-    this.timeEl = elements.timeEl || document.getElementById("replayModalTime");
-    this.metaEl = elements.metaEl || document.getElementById("replayModalMeta");
-    this.scrubber = elements.scrubber || document.getElementById("replayScrubber");
-    this.timeDisplay = elements.timeDisplay || document.getElementById("replayTimeDisplay");
-    this.moveCounter = elements.moveCounter || document.getElementById("replayMoveCounter");
-    this.liveTps = elements.liveTps || document.getElementById("replayLiveTps");
-    this.moveTape = elements.moveTape || document.getElementById("replayMoveTape");
-    this.btnPlay = elements.btnPlay || document.getElementById("replayBtnPlay");
-    this.btnPrev = elements.btnPrev || document.getElementById("replayBtnPrev");
-    this.btnNext = elements.btnNext || document.getElementById("replayBtnNext");
-    this.btnStart = elements.btnStart || document.getElementById("replayBtnStart");
-    this.btnEnd = elements.btnEnd || document.getElementById("replayBtnEnd");
-    this.btnCopy = elements.btnCopy || document.getElementById("replayCopyBtn");
-    this.btnReattempt = elements.btnReattempt || document.getElementById("replayModalReattemptBtn");
-    this.btnClose = elements.btnClose || document.getElementById("replayModalCloseBtn");
-    this.btnDismiss = elements.btnDismiss || document.getElementById("replayModalDismissBtn");
-    this.speedButtons = typeof document !== "undefined" ? Array.from(document.querySelectorAll(".replay-speed-btn")) : [];
+  init(elements = {}, onReattempt = null, modalManager = null, speedOpts = {}) {
+    const doc = typeof document !== "undefined" ? document : null;
+    this.modal = elements.modal || doc?.getElementById("solveReplayModal") || null;
+    this.cubeContainer = elements.cubeContainer || doc?.getElementById("replayCubeContainer") || null;
+    this.titleEl = elements.titleEl || doc?.getElementById("replayModalTitle") || null;
+    this.timeEl = elements.timeEl || doc?.getElementById("replayModalTime") || null;
+    this.metaEl = elements.metaEl || doc?.getElementById("replayModalMeta") || null;
+    this.scrubber = elements.scrubber || doc?.getElementById("replayScrubber") || null;
+    this.timeDisplay = elements.timeDisplay || doc?.getElementById("replayTimeDisplay") || null;
+    this.moveCounter = elements.moveCounter || doc?.getElementById("replayMoveCounter") || null;
+    this.liveTps = elements.liveTps || doc?.getElementById("replayLiveTps") || null;
+    this.moveTape = elements.moveTape || doc?.getElementById("replayMoveTape") || null;
+    this.btnPlay = elements.btnPlay || doc?.getElementById("replayBtnPlay") || null;
+    this.btnPrev = elements.btnPrev || doc?.getElementById("replayBtnPrev") || null;
+    this.btnNext = elements.btnNext || doc?.getElementById("replayBtnNext") || null;
+    this.btnStart = elements.btnStart || doc?.getElementById("replayBtnStart") || null;
+    this.btnEnd = elements.btnEnd || doc?.getElementById("replayBtnEnd") || null;
+    this.btnCopy = elements.btnCopy || doc?.getElementById("replayCopyBtn") || null;
+    this.btnReattempt = elements.btnReattempt || doc?.getElementById("replayModalReattemptBtn") || null;
+    this.btnClose = elements.btnClose || doc?.getElementById("replayModalCloseBtn") || null;
+    this.btnDismiss = elements.btnDismiss || doc?.getElementById("replayModalDismissBtn") || null;
+    this.speedButtons = doc ? Array.from(doc.querySelectorAll(".replay-speed-btn")) : [];
     this.onReattemptCallback = onReattempt;
+    this.getSimSpeed = typeof speedOpts.getSimSpeed === "function" ? speedOpts.getSimSpeed : null;
+    this.onSetSimSpeed = typeof speedOpts.onSetSimSpeed === "function" ? speedOpts.onSetSimSpeed : null;
+    this.getShowReflection = typeof speedOpts.getShowReflection === "function" ? speedOpts.getShowReflection : (() => true);
+    this.modalManager = modalManager || elements.modalManager || null;
 
+    if (this.getSimSpeed) {
+      this.syncPlaybackSpeed(this.getSimSpeed());
+    }
     this._bindControls();
+  }
+
+  syncPlaybackSpeed(spd) {
+    const next = Number(spd);
+    if (!Number.isFinite(next) || next <= 0) return;
+    this.playbackSpeed = next;
+    this.speedButtons.forEach(b => {
+      const match = parseFloat(b.dataset.speed) === this.playbackSpeed;
+      b.classList.toggle("active", match);
+      b.setAttribute("aria-pressed", String(match));
+    });
+  }
+
+  isOpen() {
+    if (!this.modal) return false;
+    if (this.modalManager) return this.modalManager.isOpen(this.modal);
+    return !this.modal.hidden;
   }
 
   _bindControls() {
@@ -99,9 +135,9 @@ export class SolveReplayViewer {
     this.speedButtons.forEach(btn => {
       btn.addEventListener("click", () => {
         const spd = parseFloat(btn.dataset.speed);
-        if (!isNaN(spd)) {
-          this.playbackSpeed = spd;
-          this.speedButtons.forEach(b => b.classList.toggle("active", b === btn));
+        if (!isNaN(spd) && spd > 0) {
+          this.syncPlaybackSpeed(spd);
+          this.onSetSimSpeed?.(spd);
         }
       });
     });
@@ -127,7 +163,7 @@ export class SolveReplayViewer {
       this.btnDismiss.addEventListener("click", () => this.close());
     }
 
-    if (this.modal) {
+    if (this.modal && !this.modalManager) {
       this.modal.addEventListener("click", (e) => {
         if (e.target === this.modal) this.close();
       });
@@ -136,19 +172,26 @@ export class SolveReplayViewer {
 
   open(solve, title = "Solve Replay") {
     if (!solve || !this.modal) return;
+    const gen = ++this._mountGen;
     this.activeSolve = solve;
     this.scramble = solve.scramble || "";
     this.moves = Array.isArray(solve.moves) ? [...solve.moves] : [];
     this.currentMoveIndex = 0;
     this.isPlaying = false;
+    this.syncPlaybackSpeed(this.getSimSpeed ? this.getSimSpeed() : this.playbackSpeed);
     this.totalDurationMs = solve.cubeMs || solve.rawMs || solve.ms || (this.moves.length > 0 ? this.moves[this.moves.length - 1].t : 0);
 
-    // Update Header
+    // Update Header (effective penalty time for display, physical duration for TPS/scrubber)
     if (this.titleEl) this.titleEl.textContent = title;
-    const finalSec = (this.totalDurationMs / 1000).toFixed(2);
     if (this.timeEl) {
-      const penaltyStr = solve.penalty === "+2" ? "+2 " : (solve.penalty === "DNF" ? "DNF " : "");
-      this.timeEl.textContent = `${penaltyStr}${finalSec}s`;
+      if (solve.penalty === "DNF") {
+        this.timeEl.textContent = "DNF";
+      } else {
+        const effectiveMs = getSolveTime(solve);
+        const displayMs = effectiveMs != null && Number.isFinite(effectiveMs) ? effectiveMs : this.totalDurationMs;
+        const finalSec = (displayMs / 1000).toFixed(2);
+        this.timeEl.textContent = solve.penalty === "+2" ? `${finalSec}s+` : `${finalSec}s`;
+      }
     }
     const moveCount = this.moves.length;
     const tps = solve.tps || (moveCount > 0 && this.totalDurationMs > 0 ? (moveCount / (this.totalDurationMs / 1000)).toFixed(2) : "0.00");
@@ -158,7 +201,8 @@ export class SolveReplayViewer {
     }
 
     // Mount 3D cube
-    this._mountCube(solve.puzzle || "333");
+    const mountPromise = this._mountCube(solve.puzzle || "333", gen);
+    this._mountPromise = mountPromise;
 
     // Build timeline tape
     this._renderMoveTape();
@@ -173,22 +217,53 @@ export class SolveReplayViewer {
     // Set play button state
     this._updatePlayButton();
 
-    // Show modal and listen for keyboard events
-    this.modal.hidden = false;
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", this.handleKeyDown);
+    // Show modal via unified modalManager when available
+    if (this.modalManager) {
+      this.modalManager.open(this.modal, {
+        initialFocus: this.btnPlay || this.btnClose,
+        onClose: () => this._teardown()
+      });
+    } else {
+      this.modal.hidden = false;
+      if (typeof document !== "undefined" && document.body?.style) {
+        document.body.style.overflow = "hidden";
+      }
+      if (typeof window !== "undefined") {
+        window.addEventListener("keydown", this.handleKeyDown);
+      }
+    }
 
-    // Position cube at start
+    // Sync UI counters immediately, then position mounted cube at start once ready
     this.jumpToMove(0);
+    mountPromise.then(() => {
+      if (this._mountPromise === mountPromise) this._mountPromise = null;
+      if (gen === this._mountGen && this.activeSolve) {
+        this.jumpToMove(this.currentMoveIndex);
+      }
+    }).catch(() => {});
   }
 
-  close() {
+  _teardown() {
+    this._mountGen++;
+    this._mountPromise = null;
     this.pause();
-    if (this.modal) {
-      this.modal.hidden = true;
+    if (this._copyTimerId) {
+      clearTimeout(this._copyTimerId);
+      this._copyTimerId = null;
     }
-    document.body.style.overflow = "";
-    window.removeEventListener("keydown", this.handleKeyDown);
+    if (this.btnCopy && this._copyOrigText != null) {
+      this.btnCopy.textContent = this._copyOrigText;
+      this._copyOrigText = null;
+    }
+    if (!this.modalManager) {
+      if (this.modal) this.modal.hidden = true;
+      if (typeof document !== "undefined" && document.body?.style) {
+        document.body.style.overflow = "";
+      }
+      if (typeof window !== "undefined") {
+        window.removeEventListener("keydown", this.handleKeyDown);
+      }
+    }
     if (this.cubeContainer) {
       this.cubeContainer.innerHTML = "";
     }
@@ -196,17 +271,28 @@ export class SolveReplayViewer {
     this.activeSolve = null;
   }
 
-  async _mountCube(puzzle = "333") {
+  close() {
+    if (this.modalManager && this.modal && this.modalManager.isOpen(this.modal)) {
+      this.modalManager.close(this.modal);
+      return;
+    }
+    this._teardown();
+  }
+
+  async _mountCube(puzzle = "333", gen = this._mountGen) {
     if (!this.cubeContainer) return;
     this.cubeContainer.innerHTML = "";
 
     try {
       const SD = await getScrambleDisplay();
-      if (!SD) return;
-      this.display = new SD();
-      this.display.event = puzzle === "333oh" ? "333" : (puzzle || "333");
-      this.display.visualization = "3D";
-      this.display.player.hintFacelets = "floating";
+      if (!SD || gen !== this._mountGen || !this.activeSolve) return;
+      const disp = new SD();
+      disp.event = puzzle === "333oh" ? "333" : (puzzle || "333");
+      disp.visualization = "3D";
+      if (disp.player) {
+        const showRefl = this.getShowReflection ? this.getShowReflection() : true;
+        disp.player.hintFacelets = showRefl ? "floating" : "none";
+      }
 
       // Combine scramble and solve moves into sequence
       const parsedScr = parseScrambleInput(this.scramble);
@@ -215,9 +301,12 @@ export class SolveReplayViewer {
 
       const solveMoveTokens = this.moves.map(m => m.move);
       const fullSequence = [...scrMoves, ...solveMoveTokens].join(" ");
-      this.display.scramble = fullSequence;
+      disp.scramble = fullSequence;
 
-      this.cubeContainer.appendChild(this.display);
+      if (gen !== this._mountGen || !this.cubeContainer) return;
+      this.display = disp;
+      this.cubeContainer.appendChild(disp);
+      applyColorsTo3DCube(disp);
     } catch (e) {
       console.warn("Could not mount Replay ScrambleDisplay:", e);
     }
@@ -295,6 +384,16 @@ export class SolveReplayViewer {
       this.scrubber.value = String(targetIndex);
     }
 
+    if (this._mountPromise) {
+      const pendingMount = this._mountPromise;
+      const mountGen = this._mountGen;
+      try {
+        await pendingMount;
+      } catch {}
+      if (mountGen !== this._mountGen || !this.activeSolve) return;
+      targetIndex = this.currentMoveIndex;
+    }
+
     // Update 3D cube player position
     if (this.display && this.display.player) {
       try {
@@ -306,7 +405,7 @@ export class SolveReplayViewer {
           this.display.player.controller?.jumpToStart?.({ flash: false }) || this.display.player.jumpToStart?.();
         } else {
           const indexer = await this.display.player.experimentalModel.indexer.get();
-          if (indexer) {
+          if (indexer && this.activeSolve) {
             const endTimestamp = indexer.indexToMoveStartTimestamp(targetScrambleIdx) + indexer.moveDuration(targetScrambleIdx);
             this.display.player.experimentalModel.timestampRequest.set(endTimestamp);
           }
@@ -338,8 +437,7 @@ export class SolveReplayViewer {
       chips.forEach((c) => {
         const isActive = c.dataset.index === String(targetIndex);
         c.classList.toggle("active", isActive);
-        if (isActive) {
-          // Scroll active chip into view smoothly
+        if (isActive && typeof c.scrollIntoView === "function") {
           c.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
         }
       });
@@ -360,6 +458,21 @@ export class SolveReplayViewer {
   }
 
   play() {
+    if (this.moves.length === 0) return;
+    if (this._mountPromise) {
+      const pendingMount = this._mountPromise;
+      const mountGen = this._mountGen;
+      pendingMount.then(() => {
+        if (mountGen === this._mountGen && this.activeSolve) {
+          this._startPlayback();
+        }
+      }).catch(() => {});
+      return;
+    }
+    this._startPlayback();
+  }
+
+  _startPlayback() {
     if (this.moves.length === 0) return;
     if (this.currentMoveIndex >= this.moves.length) {
       this.jumpToMove(0);
@@ -404,13 +517,15 @@ export class SolveReplayViewer {
     if (typeof document === "undefined") return;
     const playIcon = document.getElementById("replayPlayIcon");
     const playText = document.getElementById("replayPlayText");
-    if (playIcon) playIcon.innerHTML = this.isPlaying ? "&#x23F8;" : "&#x25B6;";
-    if (playText) playText.textContent = this.isPlaying ? "Pause" : "Play";
+    const atEnd = this.moves.length > 0 && this.currentMoveIndex >= this.moves.length && !this.isPlaying;
+    if (playIcon) playIcon.innerHTML = this.isPlaying ? ICON_PAUSE : (atEnd ? ICON_REPLAY : ICON_PLAY);
+    if (playText) playText.textContent = this.isPlaying ? "Pause" : (atEnd ? "Replay" : "Play");
   }
 
   handleKeyDown(e) {
     if (!this.modal || this.modal.hidden) return;
-    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    const tag = String(e.target?.tagName || "").toUpperCase();
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
     if (e.code === "Space") {
       e.preventDefault();
@@ -439,11 +554,14 @@ export class SolveReplayViewer {
 
   copyReconstruction() {
     if (!this.activeSolve) return;
-    const finalSec = (this.totalDurationMs / 1000).toFixed(2);
+    const effectiveMs = getSolveTime(this.activeSolve);
+    const displayTime = this.activeSolve.penalty === "DNF"
+      ? "DNF"
+      : `${(((effectiveMs != null && Number.isFinite(effectiveMs) ? effectiveMs : this.totalDurationMs)) / 1000).toFixed(2)}s${this.activeSolve.penalty === "+2" ? "+" : ""}`;
     const moveCount = this.moves.length;
     const tps = moveCount > 0 && this.totalDurationMs > 0 ? (moveCount / (this.totalDurationMs / 1000)).toFixed(2) : "0.00";
-    
-    let text = `Solve Time: ${finalSec}s\n`;
+
+    let text = `Solve Time: ${displayTime}\n`;
     text += `Moves (ETM): ${moveCount} | TPS: ${tps}\n`;
     if (this.scramble) {
       text += `Scramble: ${this.scramble}\n`;
@@ -455,12 +573,23 @@ export class SolveReplayViewer {
       text += `${idx + 1}. ${m.move.padEnd(4)}  ${tSec}s (+${splitSec}s)\n`;
     });
 
-    if (navigator.clipboard) {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => {
         if (this.btnCopy) {
-          const orig = this.btnCopy.textContent;
+          if (this._copyTimerId) {
+            clearTimeout(this._copyTimerId);
+          }
+          if (this._copyOrigText == null) {
+            this._copyOrigText = this.btnCopy.textContent;
+          }
           this.btnCopy.textContent = "✓ Copied!";
-          setTimeout(() => { if (this.btnCopy) this.btnCopy.textContent = orig; }, 1800);
+          this._copyTimerId = setTimeout(() => {
+            if (this.btnCopy && this._copyOrigText != null) {
+              this.btnCopy.textContent = this._copyOrigText;
+            }
+            this._copyOrigText = null;
+            this._copyTimerId = null;
+          }, 1800);
         }
       }).catch(() => {});
     }

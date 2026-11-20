@@ -3,7 +3,40 @@
 import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg, formatCaseDisplayId, getDistinctCaseName } from './data/algRegistry.js';
 import { renderCaseSvg, applyColorsTo3DCube } from './caseVisualizer.js';
 import { PLL_TWO_SIDED_GUIDE, OLL_TWO_SIDED_GUIDE } from './data/twoSidedRecogData.js';
-import { ScrambleDisplay } from 'scramble-display';
+import { escapeHtml } from './services/htmlUtils.js';
+import { getEffectiveAlgsForCase } from './cube/algMirror.js';
+import { parseScrambleInput, cleanAlg } from './algParser.js';
+import { SIM_SPEED_OPTIONS } from './state/appStore.js';
+import {
+  ICON_SKIP_START,
+  ICON_STEP_BACK,
+  ICON_PLAY,
+  ICON_PAUSE,
+  ICON_REPLAY,
+  ICON_STEP_FORWARD,
+  ICON_SKIP_END,
+  ICON_RESET_ANGLE,
+  ICON_POPUP_SIM,
+  ICON_DIAGRAM
+} from './ui/transportIcons.js';
+import {
+  renderFirstFaceStudyHtml,
+  bindFirstFaceStudyEvents,
+  createFirstLayerExplorerState,
+  renderFirstLayerStudyHtml,
+  bindFirstLayerStudyEvents,
+  syncFirstLayerExplorerSpeed,
+  teardownFirstLayerExplorer3d
+} from './features/study/firstLayerExplorer.js';
+
+let ScrambleDisplayClass = null;
+async function getScrambleDisplay() {
+  if (!ScrambleDisplayClass && typeof window !== "undefined") {
+    const mod = await import('scramble-display');
+    ScrambleDisplayClass = mod.ScrambleDisplay;
+  }
+  return ScrambleDisplayClass;
+}
 
 export class StudyView {
   constructor(options) {
@@ -11,9 +44,16 @@ export class StudyView {
     this.onSelectCase = options.onSelectCase; // (caseObj) => void
     this.onSimulateCase = options.onSimulateCase; // (caseObj, algObj) => void
     this.onPracticeCase = options.onPracticeCase; // (caseObj) => void
+    this.onEditLabel = options.onEditLabel; // (caseObj, algObj) => void
+    this.onQuickSimSolutions = options.onQuickSimSolutions || null; // (payload) => void
+    this.getAlgCustomLabel = options.getAlgCustomLabel; // (caseObj, algObj) => string
     this.getSelectedCaseIds = options.getSelectedCaseIds || (() => new Set());
     this.getAlwaysWhiteBottom = options.getAlwaysWhiteBottom || (() => true);
     this.getShowReflection = options.getShowReflection || (() => true);
+    this.getOhHand = options.getOhHand || (() => "left");
+    this.onSetOhHand = options.onSetOhHand || null;
+    this.getSimSpeed = options.getSimSpeed || (() => 1);
+    this.onSetSimSpeed = options.onSetSimSpeed || null;
 
     this.currentPuzzle = "222";
     this.currentTrackId = "cll";
@@ -23,6 +63,168 @@ export class StudyView {
     this.selectedCaseId = null;
     this.previewAlgId = null;
     this.activeDisplay3d = null;
+    this.firstLayerExplorerState = createFirstLayerExplorerState();
+    this._renderToken = 0;
+
+    this._miniSetupCount = 0;
+    this._miniAlgMoves = [];
+    this._miniCombinedMoves = [];
+    this._miniMoveCount = 0;
+    this._miniIndexer = null;
+    this._miniPendingSeek = false;
+    this._miniLoadGen = 0;
+    this._miniListenersEl = null;
+    this._miniMountedPuzzle = null;
+  }
+
+  getCaseAlgs(track, c) {
+    return getEffectiveAlgsForCase(this.currentPuzzle, this.currentTrackId, c, {
+      ohHand: this.getOhHand(),
+      trackCases: track?.cases || []
+    });
+  }
+
+  getPrefSubScope() {
+    return this.currentPuzzle === "333oh" ? this.getOhHand() : null;
+  }
+
+  getPreferredAlgObj(track, c) {
+    const algs = this.getCaseAlgs(track, c);
+    const defaultAlg = algs.find(a => a.isDefault) || algs[0];
+    const prefId = getPreferredAlg(c.id, defaultAlg?.id, this.currentPuzzle, this.getPrefSubScope());
+    return {
+      algs,
+      prefAlgId: prefId,
+      preferredAlg: algs.find(a => a.id === prefId) || defaultAlg
+    };
+  }
+
+  buildCaseQuickSimPayload(track, c, activeAlgId = null) {
+    const { algs: resolvedAlgs, prefAlgId, preferredAlg } = this.getPreferredAlgObj(track, c);
+    const fallbackAlg = c?.alg || c?.solutionAlg || '';
+    const algs = resolvedAlgs.length > 0
+      ? resolvedAlgs
+      : (fallbackAlg ? [{ id: `${c.id}-default`, alg: fallbackAlg, note: '' }] : []);
+
+    const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
+    const needsZ2 = whiteBottom && ["lbl", "cll", "ortega", "eg1", "eg2", "f2l", "oll", "pll", "parity"].includes(this.currentTrackId);
+    const displayId = formatCaseDisplayId(c.id);
+    const distinctName = getDistinctCaseName(c);
+    const baseTitle = `${displayId}${distinctName ? ` — ${distinctName}` : ''}`;
+    const ohSuffix = this.currentPuzzle === '333oh'
+      ? ` (${this.getOhHand() === 'right' ? 'Right OH' : 'Left OH'})`
+      : '';
+
+    const solutions = algs.map((a, idx) => {
+      const baseSetup = a.mirroredSetup || c.setup || c.scramble || '';
+      const rawSetupWithAuf = `${baseSetup}${a.startAuf ? ' ' + a.startAuf : ''}`.trim();
+      const scramble = `${needsZ2 && rawSetupWithAuf && !/^z2\b/i.test(rawSetupWithAuf) ? 'z2 ' : ''}${rawSetupWithAuf}`.trim();
+      const cleanMoves = cleanAlg(a.alg || '');
+      const parsed = cleanMoves ? parseScrambleInput(cleanMoves) : { ok: false };
+      const moveCount = parsed.ok
+        ? parsed.moves.length
+        : (cleanMoves ? cleanMoves.split(/\s+/).filter(Boolean).length : 0);
+      const customLabel = this.getAlgCustomLabel ? this.getAlgCustomLabel(c, a) : '';
+      const isPref = a.id === prefAlgId;
+      const shortName = a.ohBadge
+        || (customLabel ? customLabel.slice(0, 18) : (idx === 0 ? 'Primary' : `Alg ${idx + 1}`));
+      const pillLabel = `${isPref ? '★ ' : ''}${shortName}${moveCount ? ` · ${moveCount}m` : ''}`;
+      const note = [customLabel, a.note].filter(Boolean).join(' · ');
+
+      return {
+        label: `${baseTitle}${ohSuffix}`,
+        shortLabel: shortName,
+        pillLabel,
+        moves: cleanMoves,
+        moveCount,
+        inspection: 'none',
+        scramble,
+        note,
+        group: c.group || null,
+        ohBadge: a.ohBadge || null,
+        startAuf: a.startAuf || null,
+        _algObj: a,
+        _rawSetupWithAuf: rawSetupWithAuf
+      };
+    });
+
+    const targetAlgId = activeAlgId || prefAlgId;
+    let activeIndex = targetAlgId ? algs.findIndex(a => a.id === targetAlgId) : 0;
+    if (activeIndex < 0) activeIndex = 0;
+
+    return {
+      puzzle: this.currentPuzzle,
+      scramble: solutions[activeIndex]?.scramble || '',
+      solutions,
+      activeIndex,
+      title: `${baseTitle}${ohSuffix}`,
+      onOpenFullSim: this.onSimulateCase
+        ? (_payload, activeSol) => {
+            const chosenAlg = activeSol?._algObj || preferredAlg || algs[0];
+            const setup = activeSol?._rawSetupWithAuf ?? '';
+            this.onSimulateCase({ ...c, setup }, chosenAlg);
+          }
+        : null
+    };
+  }
+
+  openCaseQuickSim(track, c, activeAlgId = null) {
+    if (!c) return;
+    const payload = this.buildCaseQuickSimPayload(track, c, activeAlgId);
+    if (this.onQuickSimSolutions && payload.solutions.length > 0) {
+      this.onQuickSimSolutions(payload);
+      return;
+    }
+    if (this.onSimulateCase) {
+      const targetSol = payload.solutions[payload.activeIndex] || payload.solutions[0];
+      const algObj = targetSol?._algObj || this.getPreferredAlgObj(track, c).preferredAlg;
+      const setup = targetSol?._rawSetupWithAuf || c.setup || '';
+      this.onSimulateCase({ ...c, setup }, algObj);
+    }
+  }
+
+  _teardownMiniPlayer() {
+    teardownFirstLayerExplorer3d();
+    this._miniLoadGen++;
+    this._miniPendingSeek = false;
+    this._miniIndexer = null;
+    this._miniListenersEl = null;
+    this._miniMountedPuzzle = null;
+    this._miniSetupCount = 0;
+    this._miniAlgMoves = [];
+    this._miniCombinedMoves = [];
+    this._miniMoveCount = 0;
+    if (this.activeDisplay3d) {
+      try {
+        this.activeDisplay3d.player?.pause?.();
+        this.activeDisplay3d.remove?.();
+      } catch {}
+      this.activeDisplay3d = null;
+    }
+  }
+
+  /**
+   * Tear down active 3D cube instances and cancel pending async renders when leaving Study mode.
+   */
+  deactivate() {
+    this._renderToken++;
+    this._teardownMiniPlayer();
+  }
+
+  syncPlaybackSpeed(spd) {
+    const next = Number(spd);
+    if (!Number.isFinite(next) || next <= 0) return;
+    if (this.activeDisplay3d?.player) {
+      try {
+        this.activeDisplay3d.player.tempoScale = next;
+      } catch {}
+    }
+    const speedBtn = this.container?.querySelector?.('#studyMiniSpeedBtn');
+    if (speedBtn) {
+      speedBtn.textContent = `${next}x`;
+      speedBtn.setAttribute('aria-label', `Playback pace ${next}x`);
+    }
+    syncFirstLayerExplorerSpeed(next);
   }
 
   getTrackSelectedCases(track) {
@@ -92,17 +294,16 @@ export class StudyView {
   }
 
   render() {
-    if (this.activeDisplay3d) {
-      try {
-        this.activeDisplay3d.remove?.();
-      } catch (e) {}
-      this.activeDisplay3d = null;
-    }
+    this._renderToken++;
+    this._teardownMiniPlayer();
     if (!this.container) return;
     const track = getTrack(this.currentPuzzle, this.currentTrackId);
     if (!track) return;
 
     const activeView = this.currentView === 'detail' ? 'hybrid' : this.currentView;
+    const is222FaceOrLayer = this.currentPuzzle === "222" && (this.currentTrackId === "face" || this.currentTrackId === "layer");
+    const isOh = this.currentPuzzle === "333oh";
+    const ohHand = this.getOhHand();
 
     this.container.innerHTML = `
       <div class="study-header">
@@ -110,27 +311,42 @@ export class StudyView {
           <h2 class="study-track-title">${track.name}</h2>
           <span class="study-track-desc">${track.description}</span>
         </div>
-        <div class="study-subnav" role="group" aria-label="Study view">
-          ${track.cases.length > 0 ? `
-            <button type="button" class="study-subnav-btn ${activeView === 'grid' ? 'active' : ''}" data-view="grid">📋 Case Grid (${track.cases.length})</button>
-            <button type="button" class="study-subnav-btn ${activeView === 'hybrid' ? 'active' : ''}" data-view="hybrid">🧩 Grid + 3D</button>
-          ` : ''}
-          ${(this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && (this.currentTrackId === "pll" || this.currentTrackId === "oll") ? `
-            <button type="button" class="study-subnav-btn ${activeView === 'twosided' ? 'active' : ''}" data-view="twosided">👀 2-Sided Recognition</button>
-          ` : ''}
-          <button type="button" class="study-subnav-btn ${activeView === 'guide' ? 'active' : ''}" data-view="guide">📖 Reference Guide</button>
-        </div>
+        ${isOh ? `
+          <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Solving Hand">
+            <span class="oh-hand-label">Solving Hand:</span>
+            <button type="button" class="oh-hand-btn ${ohHand === 'left' ? 'active' : ''}" data-oh-hand="left" aria-pressed="${ohHand === 'left'}" data-tooltip="Cube held in left hand (standard <R, U> algorithms)">&#x1F91A; Left Hand (RU)</button>
+            <button type="button" class="oh-hand-btn ${ohHand === 'right' ? 'active' : ''}" data-oh-hand="right" aria-pressed="${ohHand === 'right'}" data-tooltip="Cube held in right hand (verified <L, U> mirrors & z' <U, L> variants)">&#x270B; Right Hand (Mirror / z')</button>
+          </div>
+        ` : ''}
+        ${!is222FaceOrLayer ? `
+          <div class="study-subnav" role="group" aria-label="Study view">
+            ${track.cases.length > 0 ? `
+              <button type="button" class="study-subnav-btn ${activeView === 'grid' ? 'active' : ''}" data-view="grid" data-tooltip="Browse all cases in a filterable visual card grid">📋 Case Grid (${track.cases.length})</button>
+              <button type="button" class="study-subnav-btn ${activeView === 'hybrid' ? 'active' : ''}" data-view="hybrid" data-tooltip="Compact case sidebar alongside an interactive 3D flashcard & alternative algs">🧩 Grid + 3D</button>
+            ` : ''}
+            ${(this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && (this.currentTrackId === "pll" || this.currentTrackId === "oll") ? `
+              <button type="button" class="study-subnav-btn ${activeView === 'twosided' ? 'active' : ''}" data-view="twosided" data-tooltip="Learn Front + Right sticker patterns to recognize cases without rotating">👀 2-Sided Recognition</button>
+            ` : ''}
+            <button type="button" class="study-subnav-btn ${activeView === 'guide' ? 'active' : ''}" data-view="guide" data-tooltip="Method fundamentals, overview tables, and training tips for this track">📖 Reference Guide</button>
+          </div>
+        ` : ''}
       </div>
 
       <div class="study-content">
-        ${activeView === 'grid' ? this.renderGridView(track) : ''}
-        ${activeView === 'hybrid' ? this.renderHybridView(track) : ''}
-        ${activeView === 'twosided' ? this.renderTwoSidedView(track) : ''}
-        ${activeView === 'guide' ? this.renderGuideView(track) : ''}
+        ${is222FaceOrLayer
+          ? (this.currentTrackId === 'face'
+              ? renderFirstFaceStudyHtml()
+              : renderFirstLayerStudyHtml(this.firstLayerExplorerState, this.getSimSpeed ? this.getSimSpeed() : 1))
+          : `
+            ${activeView === 'grid' ? this.renderGridView(track) : ''}
+            ${activeView === 'hybrid' ? this.renderHybridView(track) : ''}
+            ${activeView === 'twosided' ? this.renderTwoSidedView(track) : ''}
+            ${activeView === 'guide' ? this.renderGuideView(track) : ''}
+          `}
       </div>
     `;
 
-    this.bindEvents(track);
+    this.bindEvents(track, is222FaceOrLayer);
   }
 
   renderGroupFilterBar(track) {
@@ -143,7 +359,7 @@ export class StudyView {
         <span class="study-filter-label">Group:</span>
         <button type="button" class="study-group-pill ${isAll ? 'active' : ''}" data-group="all" aria-pressed="${isAll}">All (${cases.length})</button>
         ${selectedInTrack.length > 0 && selectedInTrack.length < cases.length ? `
-          <button type="button" class="study-group-pill study-selected-pill ${this.onlySelectedFilter ? 'active' : ''}" data-only-selected="1" aria-pressed="${this.onlySelectedFilter}" title="Show only cases selected in Active Cases">★ Selected (${selectedInTrack.length})</button>
+          <button type="button" class="study-group-pill study-selected-pill ${this.onlySelectedFilter ? 'active' : ''}" data-only-selected="1" aria-pressed="${this.onlySelectedFilter}" data-tooltip="Show only cases selected in Active Cases">★ Selected (${selectedInTrack.length})</button>
         ` : ''}
         ${groups.map(g => {
           const count = cases.filter(c => c.group === g).length;
@@ -176,16 +392,17 @@ export class StudyView {
     const showGroupHeaders = sections.length > 1;
 
     const renderCard = (c) => {
-      const prefAlgId = getPreferredAlg(c.id, c.algs[0]?.id);
-      const activeAlg = c.algs.find(a => a.id === prefAlgId) || c.algs[0];
+      const { algs, preferredAlg: activeAlg } = this.getPreferredAlgObj(track, c);
       const displayId = formatCaseDisplayId(c.id);
       const distinctName = getDistinctCaseName(c);
+      const customLabel = activeAlg && this.getAlgCustomLabel ? this.getAlgCustomLabel(c, activeAlg) : "";
+      const noteText = customLabel || activeAlg?.note || "";
 
       return `
         <div class="study-card ${this.selectedCaseId === c.id ? 'selected' : ''}" data-case-id="${c.id}">
           <div class="study-card-head">
             <span class="study-card-id">${displayId}</span>
-            <span class="study-card-group">${c.group}</span>
+            ${activeAlg?.ohBadge ? `<span class="oh-alg-badge">${escapeHtml(activeAlg.ohBadge)}</span>` : (!showGroupHeaders ? `<span class="study-card-group">${c.group}</span>` : '')}
           </div>
           <div class="study-card-visual" id="studyCardVisual_${c.id}" data-case-id="${c.id}">
             <span class="study-visual-loading">Loading diagram...</span>
@@ -193,16 +410,16 @@ export class StudyView {
           ${distinctName ? `<div class="study-card-name">${distinctName}</div>` : ''}
           <div class="study-card-alg-box">
             <div class="study-card-alg-primary">${activeAlg ? activeAlg.alg : 'No alg'}</div>
-            ${activeAlg && activeAlg.note ? `<div class="study-card-alg-note">${activeAlg.note}</div>` : ''}
+            ${noteText ? `<div class="study-card-alg-note">${escapeHtml(noteText)}</div>` : ''}
           </div>
 
-          ${c.algs.length > 1 ? `
-            <div class="study-card-algs-count">${c.algs.length} alg variants available</div>
+          ${algs.length > 1 ? `
+            <div class="study-card-algs-count">${algs.length} alg variants available</div>
           ` : ''}
 
           <div class="study-card-actions">
-            <button type="button" class="btn btn-xs btn-study-view" data-case-id="${c.id}">Detail (3D)</button>
-            <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${c.id}">Simulate</button>
+            <button type="button" class="btn btn-xs btn-study-view" data-case-id="${c.id}" data-tooltip="Open Grid + 3D to compare all algorithms, starting angles &amp; labels" aria-label="View algorithms for ${escapeHtml(displayId)}">${ICON_DIAGRAM}<span>Algs</span></button>
+            <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${c.id}" data-tooltip="Simulate in an interactive 3D popup (switch across all ${algs.length} alg variant${algs.length === 1 ? '' : 's'})" aria-label="Simulate ${escapeHtml(displayId)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
           </div>
         </div>
       `;
@@ -213,14 +430,16 @@ export class StudyView {
         ${this.renderGroupFilterBar(track)}
         ${sections.length === 0
           ? `<p class="empty-state" style="padding: 20px;">No cases match the active filter.</p>`
-          : sections.map(sec => `
-              <div class="study-group-section">
-                ${showGroupHeaders ? `<div class="study-group-section-title">${sec.group} <span class="study-group-section-count">(${sec.cases.length})</span></div>` : ''}
-                <div class="study-case-grid">
-                  ${sec.cases.map(renderCard).join('')}
+          : `<div class="study-groups-flow ${showGroupHeaders ? 'is-grouped' : 'is-flat'}">
+              ${sections.map(sec => `
+                <div class="study-group-section">
+                  ${showGroupHeaders ? `<div class="study-group-section-title">${sec.group} <span class="study-group-section-count">(${sec.cases.length})</span></div>` : ''}
+                  <div class="study-case-grid">
+                    ${sec.cases.map(renderCard).join('')}
+                  </div>
                 </div>
-              </div>
-            `).join('')}
+              `).join('')}
+            </div>`}
       </div>
     `;
   }
@@ -239,7 +458,7 @@ export class StudyView {
       const isSelected = this.selectedCaseId === c.id;
       const inPool = this.getTrackSelectedCases(track).some(sc => sc.id === c.id);
       return `
-        <button type="button" class="study-hybrid-card ${isSelected ? 'selected' : ''} ${inPool ? 'in-pool' : ''}" data-case-id="${c.id}" aria-selected="${isSelected}" title="${c.name || displayId}">
+        <button type="button" class="study-hybrid-card ${isSelected ? 'selected' : ''} ${inPool ? 'in-pool' : ''}" data-case-id="${c.id}" aria-selected="${isSelected}" data-tooltip="${escapeHtml(c.name || displayId)}">
           <span class="study-hybrid-card-id">${displayId}</span>
           <span class="study-card-visual study-hybrid-visual" data-case-id="${c.id}">
             <span class="study-visual-loading">...</span>
@@ -252,7 +471,7 @@ export class StudyView {
       <div class="study-hybrid-wrap">
         ${this.renderGroupFilterBar(track)}
         <div class="study-hybrid-layout ${isSingleGroup ? 'is-single-group' : ''}">
-          <div class="study-hybrid-grid-pane" role="listbox" aria-label="Cases">
+          <div class="study-hybrid-grid-pane ${isSingleGroup ? 'is-single-group' : 'is-grouped'}" role="listbox" aria-label="Cases">
             ${sections.length === 0
               ? `<p class="empty-state" style="padding: 18px;">No cases match the active filter.</p>`
               : sections.map(sec => `
@@ -282,8 +501,8 @@ export class StudyView {
       ? `${navIdx >= 0 ? navIdx + 1 : 1} / ${navCases.length}`
       : '';
 
-    const prefAlgId = getPreferredAlg(c.id, c.algs[0]?.id);
-    const activePreviewAlg = c.algs.find(a => a.id === this.previewAlgId) || c.algs.find(a => a.id === prefAlgId) || c.algs[0];
+    const { algs, prefAlgId, preferredAlg } = this.getPreferredAlgObj(track, c);
+    const activePreviewAlg = algs.find(a => a.id === this.previewAlgId) || preferredAlg || algs[0];
     const displayId = formatCaseDisplayId(c.id);
     const distinctName = getDistinctCaseName(c);
     const formatAufBadge = (auf) => {
@@ -291,6 +510,7 @@ export class StudyView {
       return `Start: ${auf}`;
     };
 
+    const currentSpeed = Number(this.getSimSpeed ? this.getSimSpeed() : 1) || 1;
     return `
       <div class="study-detail-view">
         <div class="study-detail-card">
@@ -302,7 +522,7 @@ export class StudyView {
             </div>
             <div class="study-detail-nav-btns">
               <button type="button" id="studyPrevCaseBtn" class="btn btn-xs">&larr; Prev</button>
-              ${navCountText ? `<span class="study-nav-count" title="Cycling through selected cases">${navCountText}</span>` : ''}
+              ${navCountText ? `<span class="study-nav-count" data-tooltip="Cycling through selected/filtered cases">${navCountText}</span>` : ''}
               <button type="button" id="studyNextCaseBtn" class="btn btn-xs">Next &rarr;</button>
             </div>
           </div>
@@ -315,13 +535,22 @@ export class StudyView {
               <div class="study-visual-3d-wrap" id="studyDetail3dWrap">
                 <span class="study-visual-loading" style="display:flex;height:100%;align-items:center;justify-content:center;">Loading 3D...</span>
               </div>
+              <div class="study-mini-sim-bar" role="group" aria-label="Inline 3D algorithm playback">
+                <button type="button" class="btn btn-xs btn-icon-only study-mini-btn" id="studyMiniStartBtn" data-tooltip="Jump to case start" aria-label="Jump to case start">${ICON_SKIP_START}</button>
+                <button type="button" class="btn btn-xs btn-icon-only study-mini-btn" id="studyMiniPrevBtn" data-tooltip="Step back 1 move" aria-label="Step back 1 move">${ICON_STEP_BACK}</button>
+                <button type="button" class="btn btn-xs btn-icon-only btn-primary study-mini-play-btn" id="studyMiniPlayBtn" data-play-state="play" data-tooltip="Play / Pause algorithm" aria-label="Play algorithm">${ICON_PLAY}</button>
+                <button type="button" class="btn btn-xs btn-icon-only study-mini-btn" id="studyMiniNextBtn" data-tooltip="Step forward 1 move" aria-label="Step forward 1 move">${ICON_STEP_FORWARD}</button>
+                <button type="button" class="btn btn-xs btn-icon-only study-mini-btn" id="studyMiniEndBtn" data-tooltip="Jump to solved end" aria-label="Jump to solved end">${ICON_SKIP_END}</button>
+                <button type="button" class="btn btn-xs study-mini-speed-btn" id="studyMiniSpeedBtn" data-tooltip="Cycle 3D playback pace (site-wide)" aria-label="Playback pace ${currentSpeed}x">${currentSpeed}x</button>
+              </div>
+              <div class="study-mini-step-status" id="studyMiniStepStatus" aria-live="polite">Ready</div>
               <div class="study-start-angle-meta" id="studyStartAngleMeta">
                 <span class="study-auf-pill ${activePreviewAlg?.startAuf ? 'has-auf' : ''}">${formatAufBadge(activePreviewAlg?.startAuf)}</span>
                 <span class="study-auf-alg">${activePreviewAlg ? activePreviewAlg.alg : ''}</span>
               </div>
               <div class="study-visual-3d-controls">
-                <button type="button" class="btn btn-xs" id="studyReset3dBtn" title="Reset camera orientation">&#x21bb; Reset 3D</button>
-                <button type="button" class="btn btn-xs btn-primary" id="studySimulateThisBtn" data-case-id="${c.id}" title="Open in 3D Scramble Simulator">&#x25B6; Full Simulator</button>
+                <button type="button" class="btn btn-xs" id="studyReset3dBtn" data-tooltip="Reset 3D camera orientation" aria-label="Reset 3D camera orientation">${ICON_RESET_ANGLE}<span>Reset 3D</span></button>
+                <button type="button" class="btn btn-xs btn-primary" id="studySimulateThisBtn" data-case-id="${c.id}" data-tooltip="Open interactive 3D popup simulator with clickable move timeline &amp; variant switcher">${ICON_POPUP_SIM}<span>Popup Sim</span></button>
               </div>
             </div>
 
@@ -329,25 +558,31 @@ export class StudyView {
               ${c.description ? `<p class="study-detail-desc">${c.description}</p>` : ''}
 
               <div class="study-algs-section">
-                <h4 class="study-section-title">Algorithms &amp; Fingertricks (${c.algs.length}) <small class="study-alg-hint">Click any option to preview its starting angle</small></h4>
+                <h4 class="study-section-title">Algorithms &amp; Fingertricks (${algs.length}) <small class="study-alg-hint">Click any option to preview its starting angle</small></h4>
                 <div class="study-alg-list">
-                  ${c.algs.map(a => {
+                  ${algs.map(a => {
                     const isPref = a.id === prefAlgId;
                     const isPreview = activePreviewAlg && a.id === activePreviewAlg.id;
                     const aufText = a.startAuf ? `Start: ${a.startAuf}` : 'Start: Standard';
+                    const customLabel = this.getAlgCustomLabel ? this.getAlgCustomLabel(c, a) : "";
                     return `
-                      <div class="study-alg-row ${isPref ? 'preferred' : ''} ${isPreview ? 'previewing' : ''}" data-case-id="${c.id}" data-alg-id="${a.id}" role="button" tabindex="0" title="Click to preview this algorithm's starting top-layer angle">
-                        <button type="button" class="study-star-btn ${isPref ? 'starred' : ''}" data-case-id="${c.id}" data-alg-id="${a.id}" title="${isPref ? 'Preferred algorithm' : 'Set as preferred algorithm'}">
+                      <div class="study-alg-row ${isPref ? 'preferred' : ''} ${isPreview ? 'previewing' : ''}" data-case-id="${c.id}" data-alg-id="${a.id}" role="button" tabindex="0" data-tooltip="Click to preview this algorithm's starting top-layer angle">
+                        <button type="button" class="study-star-btn ${isPref ? 'starred' : ''}" data-case-id="${c.id}" data-alg-id="${a.id}" data-tooltip="${isPref ? 'Preferred algorithm' : 'Set as preferred algorithm'}" aria-label="${isPref ? 'Preferred algorithm' : 'Set as preferred algorithm'}">
                           ${isPref ? '★' : '☆'}
                         </button>
                         <div class="study-alg-info">
                           <span class="study-alg-text">${a.alg}</span>
                           <div class="study-alg-meta-row">
                             <span class="study-auf-badge ${a.startAuf ? 'has-auf' : ''}">${aufText}</span>
+                            ${a.ohBadge ? `<span class="oh-alg-badge">${escapeHtml(a.ohBadge)}</span>` : ''}
+                            ${customLabel ? `<span class="study-alg-custom-label" data-tooltip="Custom label">${escapeHtml(customLabel)}</span>` : ''}
                             ${a.note ? `<span class="study-alg-note">${a.note}</span>` : ''}
                           </div>
                         </div>
-                        <button type="button" class="btn btn-xs btn-alg-sim" data-case-id="${c.id}" data-alg-id="${a.id}" data-alg="${a.alg}">Simulate</button>
+                        <div class="study-alg-actions">
+                          ${this.onEditLabel ? `<button type="button" class="btn btn-xs btn-alg-label" data-case-id="${c.id}" data-alg-id="${a.id}" data-tooltip="Customize trigger or memory label">Label</button>` : ''}
+                          <button type="button" class="btn btn-xs btn-alg-sim" data-case-id="${c.id}" data-alg-id="${a.id}" data-alg="${a.alg}" data-tooltip="Simulate this algorithm in the 3D popup" aria-label="Simulate algorithm ${escapeHtml(a.alg)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
+                        </div>
                       </div>
                     `;
                   }).join('')}
@@ -367,7 +602,7 @@ export class StudyView {
   }
 
   renderGuideView(track) {
-    if (this.currentPuzzle === "333" && this.currentTrackId === "cross") {
+    if ((this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && this.currentTrackId === "cross") {
       return `
         <div class="guide-card-stack">
           <section class="guide-card">
@@ -404,18 +639,133 @@ export class StudyView {
       `;
     }
 
-    if (this.currentPuzzle === "222" && this.currentTrackId === "layer") {
-      return `
-        <div class="guide-card-stack">
-          <section class="guide-card">
-            <h3 class="guide-card-title">⏱️ 1. 2x2 1st Face (Ortega) &amp; 1st Layer (CLL) Fundamentals</h3>
-            <p>With full color neutrality, <strong>~99.95%</strong> of 2x2 scrambles have a <strong>1st Face (Ortega)</strong> that can be solved in <strong>4 moves or fewer</strong>, whereas a complete <strong>1st Layer (CLL)</strong> requires matching corner permutation as well:</p>
+    if (this.currentPuzzle === "222") {
+      const caseCount = (track.cases || []).length;
+      const groupCount = (track.groups || []).length;
+      let introCard = '';
+      if (this.currentTrackId === "lbl") {
+        introCard = `
+          <section class="guide-card guide-card-full">
+            <h3 class="guide-card-title">&#x1F331; Beginner 2x2 LBL Method (1st Layer + 7 OLL + 2 PLL)</h3>
+            <p>The clearest path from beginner 2x2 to sub-6s solves in just <strong>9 intuitive last-layer algorithms</strong>:</p>
+            <ol class="guide-list guide-steps">
+              <li><strong>1st Layer:</strong> Solve one complete color face <em>with matching side colors</em> (use the <strong>1st Layer</strong> tab to learn fast inserts).</li>
+              <li><strong>OLL (7 cases):</strong> Orient all 4 top corners yellow using the 7 Cross-OLLs (Sune, Antisune, H, Pi, U, T, L).</li>
+              <li><strong>2-Case PLL (Adj T/J-Perm + Diag Y-Perm):</strong> Look for one matching top-layer bar &rarr; put it on Left and run <strong>T-Perm</strong> or <strong>Jb-Perm</strong>. If no bar exists &rarr; run <strong>Y-Perm</strong> from any angle!</li>
+            </ol>
+          </section>
+        `;
+      } else if (this.currentTrackId === "ortega") {
+        introCard = `
+          <section class="guide-card guide-card-full">
+            <h3 class="guide-card-title">&#x26A1; Ortega Method Overview (3 Steps)</h3>
+            <p>The <strong>Ortega (Varasano) Method</strong> solves the 2x2 in three fast steps without needing a complete permuted first layer:</p>
+            <ol class="guide-list guide-steps">
+              <li><strong>1st Face:</strong> Solve any color face (typically in 2&ndash;4 moves) ignoring side permutation.</li>
+              <li><strong>OLL:</strong> Orient the opposite face using one of 7 fast OLL cases.</li>
+              <li><strong>PBL (Permute Both Layers):</strong> Finish both layers simultaneously using one of the <strong>5 PBL algorithms</strong> (Adj/Adj, Opp/Opp, Adj/Opp, Adj/Solved, Opp/Solved). Use the <strong>Case Grid</strong> or <strong>Grid + 3D</strong> view to star favorite algorithms (★) and customize trigger labels.</li>
+            </ol>
+          </section>
+        `;
+      } else if (this.currentTrackId === "eg1") {
+        introCard = `
+          <section class="guide-card guide-card-full">
+            <h3 class="guide-card-title">&#x1F525; EG-1 Overview (${caseCount} Cases &middot; Adjacent Bottom Bar)</h3>
+            <p><strong>EG-1</strong> solves the entire rest of the 2x2 in <strong>1 look</strong> after building an adjacent-swapped 1st Face (1 bar on bottom):</p>
             <ul class="guide-list">
-              <li><strong>Bar Preservation (CLL):</strong> If the scramble already has 2 adjacent solved corners (a 1x2 bar), preserve it when building your 1st layer!</li>
-              <li><strong>Direct Insertion:</strong> Single-move corner insertions (<code>R'</code>, <code>F</code>, <code>R</code>) are fastest.</li>
-              <li><strong>Color Neutrality:</strong> Look at all 6 faces. The shortest face or layer is often not White!</li>
+              <li><strong>Hold the solved Bottom Bar in Back (DBL+DBR)</strong> so the two swapped bottom corners sit in front (DFL&harr;DFR).</li>
+              <li>Each card matches its <strong>CLL counterpart shape</strong> (<code>H, P, U, T, L, S, A</code>) with the <code>D: BAR</code> indicator below the diagram.</li>
+              <li>Notice how spotting a 2- or 3-move Adj Bar face in inspection flows straight into 1-look EG-1!</li>
             </ul>
           </section>
+        `;
+      } else if (this.currentTrackId === "eg2") {
+        introCard = `
+          <section class="guide-card guide-card-full">
+            <h3 class="guide-card-title">&#x26A1; EG-2 Overview (${caseCount} Cases &middot; Diagonal Bottom Swap)</h3>
+            <p><strong>EG-2</strong> finishes the cube in <strong>1 look</strong> when your 1st Face has a <strong>diagonal swap</strong> (no bars on D):</p>
+            <ul class="guide-list">
+              <li>Top-layer recognition mirrors <strong>CLL</strong>, marked with <code>D: DIAG</code> below each card.</li>
+              <li><strong>Anti-CLL Trick:</strong> Every EG-2 case also includes an <code>Anti-CLL (CLL + R2 F2 R2)</code> variant alongside faster direct <code>&lt;R, U, F&gt;</code> EG-2 triggers, letting you start solving EG-2 immediately using CLL knowledge!</li>
+            </ul>
+          </section>
+        `;
+      } else if (this.currentTrackId === "cll") {
+        introCard = `
+          <section class="guide-card guide-card-full">
+            <h3 class="guide-card-title">&#x1F9E9; CLL Overview (${caseCount} Cases &middot; ${groupCount} Groups)</h3>
+            <p><strong>Corners of Last Layer (CLL)</strong> solves the entire top layer in a single algorithm after building a complete 1st layer:</p>
+            <ul class="guide-list">
+              <li>Cases are organized into <strong>${groupCount} OLL-shape groups</strong> (${(track.groups || []).map(g => g.replace(/-Group$/, '')).join(', ')}).</li>
+              <li>Use <strong>Grid + 3D</strong> to inspect each starting AUF angle, ★ your preferred algorithm, or attach custom trigger/memory labels on any row.</li>
+              <li>Combine CLL recognition with <strong>1st Layer Inspection</strong> training to work toward full 1-look 2x2 solves.</li>
+            </ul>
+          </section>
+        `;
+      } else {
+        introCard = `
+          <section class="guide-card guide-card-full">
+            <h3 class="guide-card-title">&#x23F1;&#xFE0F; 2x2 1st Face (Ortega) &amp; 1st Layer (CLL) Fundamentals</h3>
+            <p>With full color neutrality, most 2x2 scrambles have a <strong>1st Face (Ortega)</strong> in <strong>4 moves or fewer</strong>, whereas a complete <strong>1st Layer (CLL)</strong> requires matching corner permutation as well.</p>
+          </section>
+        `;
+      }
+
+      return `
+        <div class="guide-card-stack">
+          ${introCard}
+          <div class="guide-grid">
+            <section class="guide-card">
+              <h3 class="guide-card-title">&#x1F3AF; 1. Move Count Benchmarks</h3>
+              <p>On a 2x2, corner permutations and orientations have far fewer states than 3x3:</p>
+              <ul class="guide-list">
+                <li><strong>1st Face (Ortega):</strong> 99.8% of all scrambles can be solved in <strong>&le; 4 moves</strong> (average optimal: 3.1 moves).</li>
+                <li><strong>1st Layer (CLL/LBL):</strong> 95.4% of all scrambles can be solved in <strong>&le; 5 moves</strong> (average optimal: 3.8 moves).</li>
+                <li><em>Rule of thumb:</em> If your planned layer takes 6 or more moves, there is almost certainly a 2- or 3-move solution on another face!</li>
+              </ul>
+            </section>
+
+            <section class="guide-card">
+              <h3 class="guide-card-title">&#x1F308; 2. Full Color Neutrality (CN)</h3>
+              <p>Unlike 3x3 where centers are fixed and cross planning across 6 colors takes months, 2x2 has <strong>no fixed centers</strong>:</p>
+              <ul class="guide-list">
+                <li>Every face can be built around whichever corner is already oriented or paired.</li>
+                <li>Being color neutral means you check 6 colors. On average, at least one color already has a pre-formed 2-piece bar!</li>
+                <li>Start by practicing Opposite Neutrality (White + Yellow), then expand to All 6 faces.</li>
+              </ul>
+            </section>
+
+            <section class="guide-card">
+              <h3 class="guide-card-title">&#x23F1;&#xFE0F; 3. 15-Second WCA Inspection Routine</h3>
+              <p>In 2x2, world-class cubers plan the <em>entire 1st layer</em> before making their first move:</p>
+              <ol class="guide-list guide-steps">
+                <li><strong>0 &ndash; 3s (Scan):</strong> Rotate the cube quickly. Look for already-made 2-corner bars or matching colors on any side.</li>
+                <li><strong>3 &ndash; 8s (Select &amp; Trace):</strong> Pick the face with the shortest move count. Locate the remaining 2 corners.</li>
+                <li><strong>8 &ndash; 12s (Rehearse Blind):</strong> Visualize every turn in your head. Know where the pieces will land.</li>
+                <li><strong>12 &ndash; 15s (Grip):</strong> Place the cube down, set your fingers on your starting grip, and start the timer ready to execute with zero pauses!</li>
+              </ol>
+            </section>
+
+            <section class="guide-card">
+              <h3 class="guide-card-title">&#x1F6E0;&#xFE0F; 4. Bar Preservation vs. Direct Insertion</h3>
+              <p>Never break an existing 2-piece bar unless it saves moves overall:</p>
+              <ul class="guide-list">
+                <li><strong>Direct Insertion:</strong> If an isolated corner has its sticker facing the side, use a 3-move trigger like <code>R U R'</code> or <code>F' U' F</code>.</li>
+                <li><strong>Sledgehammer (<code>R' F R F'</code>):</strong> When a corner has its target color facing up or needs reorientation, a sledgehammer can insert it while preserving bottom pieces and often orienting top corners!</li>
+                <li><strong>Keyhole Technique:</strong> Leave one corner unsolved while you quickly orient the other three, then insert the last corner with a quick trigger.</li>
+              </ul>
+            </section>
+
+            <section class="guide-card">
+              <h3 class="guide-card-title">&#x26A1; 5. Face vs. Layer (The Ortega Transition)</h3>
+              <p>When solving under time pressure:</p>
+              <ul class="guide-list">
+                <li>If building a complete layer requires awkward rotations or &ge; 5 moves, build a <strong>Face</strong> instead (takes 2&ndash;3 moves)!</li>
+                <li>Orient the top with OLL (or any CLL alg), then finish with one of the <strong>5 Ortega PBL algorithms</strong>.</li>
+                <li>Once comfortable with Ortega, use the 1st Layer Solver in this app to analyze optimal layer solutions and bridge to 1-look CLL.</li>
+              </ul>
+            </section>
+          </div>
         </div>
       `;
     }
@@ -510,8 +860,8 @@ export class StudyView {
                         </div>
                       </div>
                       <div class="twosided-card-actions">
-                        <button type="button" class="btn btn-xs btn-study-view" data-case-id="${r.caseId}">Detail (3D)</button>
-                        <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${r.caseId}">Simulate</button>
+                        <button type="button" class="btn btn-xs btn-study-view" data-case-id="${r.caseId}" data-tooltip="Open Grid + 3D to inspect algorithms &amp; 3D flashcard" aria-label="View algorithms for ${escapeHtml(r.caseId)}">${ICON_DIAGRAM}<span>Algs</span></button>
+                        <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${r.caseId}" data-tooltip="Simulate in an interactive 3D popup" aria-label="Simulate ${escapeHtml(r.caseId)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
                       </div>
                     </div>
                   `).join('')}
@@ -562,7 +912,34 @@ export class StudyView {
     `;
   }
 
-  bindEvents(track) {
+  bindEvents(track, is222FaceOrLayer = false) {
+    // 3x3 OH Hand switcher
+    this.container.querySelectorAll('.oh-hand-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.ohHand && this.onSetOhHand) {
+          this.previewAlgId = null;
+          this.onSetOhHand(btn.dataset.ohHand);
+        }
+      });
+    });
+
+    if (is222FaceOrLayer) {
+      if (this.currentTrackId === 'face') {
+        bindFirstFaceStudyEvents(this.container, {
+          onQuickSimSolutions: this.onQuickSimSolutions
+        });
+      } else {
+        bindFirstLayerStudyEvents(this.container, this.firstLayerExplorerState, {
+          onRerender: () => this.render(),
+          onQuickSimSolutions: this.onQuickSimSolutions,
+          getSimSpeed: this.getSimSpeed,
+          onSetSimSpeed: this.onSetSimSpeed,
+          getShowReflection: this.getShowReflection
+        });
+      }
+      return;
+    }
+
     // Subnav view buttons
     this.container.querySelectorAll('.study-subnav-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -624,16 +1001,23 @@ export class StudyView {
       });
     });
 
-    // Simulate buttons
+    // Simulate buttons -> open in-place #quickSimModal popup with all alg variants
     this.container.querySelectorAll('.btn-study-sim').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const c = track.caseById.get(btn.dataset.caseId);
-        if (c && this.onSimulateCase) {
-          const prefId = getPreferredAlg(c.id, c.algs[0]?.id);
-          const algObj = c.algs.find(a => a.id === prefId) || c.algs[0];
-          const setupWithAuf = `${c.setup || ''}${algObj?.startAuf ? ' ' + algObj.startAuf : ''}`.trim();
-          this.onSimulateCase({ ...c, setup: setupWithAuf }, algObj);
+        if (c) this.openCaseQuickSim(track, c);
+      });
+    });
+
+    this.container.querySelectorAll('.btn-alg-label').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const c = track.caseById.get(btn.dataset.caseId);
+        if (c && this.onEditLabel) {
+          const algs = this.getCaseAlgs(track, c);
+          const algObj = algs.find(a => a.id === btn.dataset.algId) || algs[0];
+          this.onEditLabel(c, algObj);
         }
       });
     });
@@ -642,11 +1026,7 @@ export class StudyView {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const c = track.caseById.get(btn.dataset.caseId);
-        if (c && this.onSimulateCase) {
-          const algObj = c.algs.find(a => a.id === btn.dataset.algId) || { alg: btn.dataset.alg };
-          const setupWithAuf = `${c.setup || ''}${algObj?.startAuf ? ' ' + algObj.startAuf : ''}`.trim();
-          this.onSimulateCase({ ...c, setup: setupWithAuf }, algObj);
-        }
+        if (c) this.openCaseQuickSim(track, c, btn.dataset.algId);
       });
     });
 
@@ -661,7 +1041,7 @@ export class StudyView {
         this.container.querySelectorAll('.study-alg-row').forEach(r => {
           r.classList.toggle('previewing', r.dataset.algId === algId);
         });
-        const algObj = c.algs.find(a => a.id === algId);
+        const algObj = this.getCaseAlgs(track, c).find(a => a.id === algId);
         const metaEl = this.container.querySelector('#studyStartAngleMeta');
         if (metaEl && algObj) {
           metaEl.innerHTML = `
@@ -689,7 +1069,7 @@ export class StudyView {
         e.stopPropagation();
         const caseId = btn.dataset.caseId;
         const algId = btn.dataset.algId;
-        setPreferredAlg(caseId, algId);
+        setPreferredAlg(caseId, algId, this.currentPuzzle, this.getPrefSubScope());
         this.previewAlgId = algId;
         this.render();
       });
@@ -730,48 +1110,45 @@ export class StudyView {
       });
     }
 
-    // Open in simulator button
+    // Open in-place popup simulator button
     const simBtn = this.container.querySelector('#studySimulateThisBtn');
     if (simBtn) {
       simBtn.addEventListener('click', () => {
         const c = track.caseById.get(simBtn.dataset.caseId);
-        if (c && this.onSimulateCase) {
-          const prefId = getPreferredAlg(c.id, c.algs[0]?.id);
-          const algObj = c.algs.find(a => a.id === this.previewAlgId) || c.algs.find(a => a.id === prefId) || c.algs[0];
-          const setupWithAuf = `${c.setup || ''}${algObj?.startAuf ? ' ' + algObj.startAuf : ''}`.trim();
-          this.onSimulateCase({ ...c, setup: setupWithAuf }, algObj);
-        }
+        if (c) this.openCaseQuickSim(track, c, this.previewAlgId || null);
       });
     }
 
     // Populate visual representations
+    const token = this._renderToken;
     if (this.currentView === 'grid') {
-      this.populateGridVisuals(track);
+      this.populateGridVisuals(track, token);
     } else if (this.currentView === 'hybrid') {
-      this.populateGridVisuals(track);
+      this.populateGridVisuals(track, token);
       const c = track.caseById.get(this.selectedCaseId) || track.cases[0];
       if (c) {
-        this.populateDetailVisuals(track, c);
+        this.populateDetailVisuals(track, c, token);
       }
     } else if (this.currentView === 'detail') {
       const c = track.caseById.get(this.selectedCaseId) || track.cases[0];
       if (c) {
-        this.populateDetailVisuals(track, c);
+        this.populateDetailVisuals(track, c, token);
       }
     }
   }
 
-  async populateGridVisuals(track) {
+  async populateGridVisuals(track, token = this._renderToken) {
     const puzzle = this.currentPuzzle;
     const trackId = this.currentTrackId;
     const visualEls = this.container.querySelectorAll('.study-card-visual');
     for (const el of visualEls) {
+      if (token !== this._renderToken) return;
       const caseId = el.dataset.caseId;
       const c = track.caseById.get(caseId);
       if (!c) continue;
       try {
         const svg = await renderCaseSvg(puzzle, trackId, c);
-        if (this.currentPuzzle === puzzle && this.currentTrackId === trackId && (this.currentView === 'grid' || this.currentView === 'hybrid')) {
+        if (token === this._renderToken && this.currentPuzzle === puzzle && this.currentTrackId === trackId && (this.currentView === 'grid' || this.currentView === 'hybrid')) {
           el.innerHTML = svg;
         }
       } catch (err) {
@@ -780,24 +1157,25 @@ export class StudyView {
     }
   }
 
-  async populateDetailVisuals(track, c) {
+  async populateDetailVisuals(track, c, token = this._renderToken) {
     const puzzle = this.currentPuzzle;
     const trackId = this.currentTrackId;
-    const prefId = getPreferredAlg(c.id, c.algs[0]?.id);
-    const activeAlg = c.algs.find(a => a.id === this.previewAlgId) || c.algs.find(a => a.id === prefId) || c.algs[0];
+    const { algs, preferredAlg } = this.getPreferredAlgObj(track, c);
+    const activeAlg = algs.find(a => a.id === this.previewAlgId) || preferredAlg || algs[0];
     const startAuf = activeAlg?.startAuf || "";
-    const baseSetup = c.setup || c.scramble || "";
+    const baseSetup = activeAlg?.mirroredSetup || c.setup || c.scramble || "";
     const setupWithAuf = `${baseSetup}${startAuf ? ' ' + startAuf : ''}`.trim();
 
     // 1. 2D Recognition Diagram (reflects exact starting AUF for the previewed alg)
     const diagramEl = this.container.querySelector('#studyDetailDiagram');
     if (diagramEl) {
       try {
+        const diagramSetup = `${c.setup || c.scramble || ''}${startAuf ? ' ' + startAuf : ''}`.trim();
         const previewCase = startAuf
-          ? { ...c, id: `${c.id}__auf_${startAuf.replace(/[^a-zA-Z0-9]/g, '')}`, setup: setupWithAuf }
+          ? { ...c, id: `${c.id}__auf_${startAuf.replace(/'/g, 'p').replace(/[^a-zA-Z0-9]/g, '_')}`, setup: diagramSetup }
           : c;
         const svg = await renderCaseSvg(puzzle, trackId, previewCase);
-        if (this.currentPuzzle === puzzle && this.currentTrackId === trackId && (this.currentView === 'detail' || this.currentView === 'hybrid') && this.selectedCaseId === c.id) {
+        if (token === this._renderToken && this.currentPuzzle === puzzle && this.currentTrackId === trackId && (this.currentView === 'detail' || this.currentView === 'hybrid') && this.selectedCaseId === c.id) {
           diagramEl.innerHTML = svg;
         }
       } catch (err) {
@@ -805,25 +1183,68 @@ export class StudyView {
       }
     }
 
-    // 2. 3D ScrambleDisplay Flashcard (always White bottom when enabled, including 2x2 CLL/Ortega and 3x3 CFOP)
-    const wrapEl = this.container.querySelector('#studyDetail3dWrap');
+    if (token !== this._renderToken) return;
+
+    // 2. 3D ScrambleDisplay Flashcard with Inline Mini Playback
+    const wrapEl = this.container?.querySelector?.('#studyDetail3dWrap');
     if (wrapEl) {
-      wrapEl.innerHTML = '';
+      const normEvent = puzzle === "333oh" ? "333" : puzzle;
+      const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
+      const needsZ2 = whiteBottom && ["lbl", "cll", "ortega", "eg1", "eg2", "f2l", "oll", "pll", "parity"].includes(trackId);
+      const rawSetup = (needsZ2 && setupWithAuf && !/^z2\b/i.test(setupWithAuf) ? `z2 ${setupWithAuf}` : setupWithAuf).trim();
+      const parsedSetup = rawSetup ? parseScrambleInput(rawSetup) : { ok: false };
+      const setupMoves = parsedSetup.ok ? parsedSetup.moves : (cleanAlg(rawSetup) ? cleanAlg(rawSetup).split(/\s+/).filter(Boolean) : []);
+      const cleanSolution = cleanAlg(activeAlg?.alg || "");
+      const parsedAlg = cleanSolution ? parseScrambleInput(cleanSolution) : { ok: false };
+      const algMoves = parsedAlg.ok ? parsedAlg.moves : (cleanSolution ? cleanSolution.split(/\s+/).filter(Boolean) : []);
+      const combinedMoves = [...setupMoves, ...algMoves];
+
+      const lGen = ++this._miniLoadGen;
+      this._miniSetupCount = setupMoves.length;
+      this._miniAlgMoves = algMoves;
+      this._miniCombinedMoves = combinedMoves;
+      this._miniMoveCount = setupMoves.length;
+      this._updateMiniProgress(setupMoves.length);
+      this._updateMiniPlayingUi(false);
+
+      const canReuse = Boolean(
+        this.activeDisplay3d &&
+        wrapEl.contains(this.activeDisplay3d) &&
+        this._miniMountedPuzzle === normEvent
+      );
+
       try {
-        const el = new ScrambleDisplay();
-        el.event = puzzle === "333oh" ? "333" : puzzle;
-        el.visualization = "3D";
-        const showRefl = this.getShowReflection ? this.getShowReflection() : true;
-        el.hintFacelets = showRefl ? "floating" : "none";
-        const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
-        const needsZ2 = whiteBottom && ["cll", "ortega", "f2l", "oll", "pll"].includes(trackId);
-        el.scramble = (needsZ2 ? `z2 ${setupWithAuf}` : setupWithAuf).trim();
-        wrapEl.appendChild(el);
-        this.activeDisplay3d = el;
+        let el = this.activeDisplay3d;
+        const spd = Number(this.getSimSpeed ? this.getSimSpeed() : 1) || 1;
+        if (!canReuse) {
+          wrapEl.innerHTML = '';
+          const SD = await getScrambleDisplay();
+          if (!SD || token !== this._renderToken || lGen !== this._miniLoadGen) return;
+          el = new SD();
+          el.event = normEvent;
+          el.visualization = "3D";
+          const showRefl = this.getShowReflection ? this.getShowReflection() : true;
+          el.hintFacelets = showRefl ? "floating" : "none";
+          el.scramble = combinedMoves.join(' ');
+          if (el.player) el.player.tempoScale = spd;
+          wrapEl.appendChild(el);
+          this.activeDisplay3d = el;
+          this._miniMountedPuzzle = normEvent;
+          this._miniIndexer = null;
+        } else {
+          el.player?.pause?.();
+          this._miniIndexer = null;
+          el.scramble = combinedMoves.join(' ');
+          if (el.player) el.player.tempoScale = spd;
+        }
+
         this.applyReflection();
         applyColorsTo3DCube(el);
+        this.syncPlaybackSpeed(spd);
+        this._attachMiniPlayerListeners(el);
+        this._bindMiniSimControls();
 
-        const resetBtn = this.container.querySelector('#studyReset3dBtn');
+        const resetBtn = this.container?.querySelector?.('#studyReset3dBtn');
         if (resetBtn) {
           resetBtn.onclick = async () => {
             if (!this.activeDisplay3d || !this.activeDisplay3d.player) return;
@@ -847,10 +1268,219 @@ export class StudyView {
             } catch (e) {}
           };
         }
+
+        if (el?.player?.experimentalModel?.indexer) {
+          this._miniPendingSeek = true;
+          try {
+            const idx = await el.player.experimentalModel.indexer.get();
+            if (token !== this._renderToken || lGen !== this._miniLoadGen) return;
+            this._miniIndexer = idx;
+            this._seekMiniWithIndexer(el, idx, setupMoves.length);
+          } catch {} finally {
+            if (lGen === this._miniLoadGen) this._miniPendingSeek = false;
+          }
+        }
       } catch (err) {
         console.error("Failed to mount 3D ScrambleDisplay:", err);
         wrapEl.innerHTML = `<span class="study-visual-loading">3D view unavailable</span>`;
       }
+    }
+  }
+
+  _updateMiniProgress(moveCount) {
+    const setupCount = this._miniSetupCount;
+    const total = this._miniCombinedMoves.length;
+    const algTotal = this._miniAlgMoves.length;
+    const clamped = Math.max(setupCount, Math.min(total, Number(moveCount) || 0));
+    this._miniMoveCount = clamped;
+
+    const statusEl = this.container?.querySelector?.('#studyMiniStepStatus');
+    const startBtn = this.container?.querySelector?.('#studyMiniStartBtn');
+    const prevBtn = this.container?.querySelector?.('#studyMiniPrevBtn');
+    const nextBtn = this.container?.querySelector?.('#studyMiniNextBtn');
+    const endBtn = this.container?.querySelector?.('#studyMiniEndBtn');
+
+    if (startBtn) startBtn.disabled = clamped <= setupCount || algTotal === 0;
+    if (prevBtn) prevBtn.disabled = clamped <= setupCount || algTotal === 0;
+    if (nextBtn) nextBtn.disabled = clamped >= total || algTotal === 0;
+    if (endBtn) endBtn.disabled = clamped >= total || algTotal === 0;
+
+    if (statusEl) {
+      if (algTotal === 0) {
+        statusEl.textContent = 'No algorithm moves';
+      } else if (clamped >= total) {
+        statusEl.textContent = `Solved! · ${algTotal} / ${algTotal} moves`;
+      } else if (clamped <= setupCount) {
+        statusEl.textContent = `Ready · ${algTotal} move${algTotal === 1 ? '' : 's'}`;
+      } else {
+        const algStep = clamped - setupCount;
+        const mv = this._miniAlgMoves[algStep - 1] || '';
+        statusEl.textContent = `Move ${algStep} / ${algTotal}${mv ? `: ${mv}` : ''}`;
+      }
+    }
+
+    const playBtn = this.container?.querySelector?.('#studyMiniPlayBtn');
+    if (playBtn && !playBtn.classList.contains('is-playing')) {
+      this._updateMiniPlayingUi(false);
+    }
+  }
+
+  _updateMiniPlayingUi(playing) {
+    const playBtn = this.container?.querySelector?.('#studyMiniPlayBtn');
+    if (!playBtn) return;
+    const algTotal = this._miniAlgMoves.length;
+    playBtn.disabled = algTotal === 0;
+    playBtn.classList.toggle('is-playing', Boolean(playing));
+    if (playing) {
+      playBtn.innerHTML = ICON_PAUSE;
+      if (playBtn.dataset) playBtn.dataset.playState = 'pause';
+      playBtn.setAttribute('aria-label', 'Pause algorithm');
+    } else if (algTotal > 0 && this._miniMoveCount >= this._miniCombinedMoves.length) {
+      playBtn.innerHTML = ICON_REPLAY;
+      if (playBtn.dataset) playBtn.dataset.playState = 'replay';
+      playBtn.setAttribute('aria-label', 'Replay algorithm');
+    } else {
+      playBtn.innerHTML = ICON_PLAY;
+      if (playBtn.dataset) playBtn.dataset.playState = 'play';
+      playBtn.setAttribute('aria-label', 'Play algorithm');
+    }
+  }
+
+  _seekMiniWithIndexer(el, idx, targetCount) {
+    const clamped = Math.max(this._miniSetupCount, Math.min(this._miniCombinedMoves.length, targetCount));
+    if (clamped <= 0) {
+      el.player.controller?.jumpToStart?.({ flash: false });
+      this._updateMiniProgress(0);
+      return;
+    }
+    if (clamped >= this._miniCombinedMoves.length) {
+      el.player.controller?.jumpToEnd?.({ flash: false });
+      this._updateMiniProgress(this._miniCombinedMoves.length);
+      return;
+    }
+    const targetIdx = clamped - 1;
+    const endTs = idx.indexToMoveStartTimestamp(targetIdx) + idx.moveDuration(targetIdx);
+    el.player.experimentalModel.timestampRequest.set(endTs);
+    this._updateMiniProgress(clamped);
+  }
+
+  async _jumpMiniToMoveCount(targetCount) {
+    const el = this.activeDisplay3d;
+    if (!el?.player) return;
+    const clamped = Math.max(this._miniSetupCount, Math.min(this._miniCombinedMoves.length, targetCount));
+    const lGen = this._miniLoadGen;
+    this._miniPendingSeek = true;
+    try {
+      el.player.pause();
+      if (!this._miniIndexer) {
+        this._miniIndexer = await el.player.experimentalModel.indexer.get();
+      }
+      if (lGen !== this._miniLoadGen || this.activeDisplay3d !== el) return;
+      this._seekMiniWithIndexer(el, this._miniIndexer, clamped);
+    } catch {} finally {
+      if (lGen === this._miniLoadGen) this._miniPendingSeek = false;
+    }
+  }
+
+  _attachMiniPlayerListeners(el) {
+    if (!el?.player?.experimentalModel || this._miniListenersEl === el) return;
+    this._miniListenersEl = el;
+    try {
+      el.player.experimentalModel.indexer.addFreshListener((idx) => {
+        if (this.activeDisplay3d === el) this._miniIndexer = idx;
+      });
+      el.player.experimentalModel.detailedTimelineInfo.addFreshListener((info) => {
+        if (this.activeDisplay3d !== el || this._miniPendingSeek || !this._miniIndexer || this._miniCombinedMoves.length === 0) return;
+        try {
+          if (info.atStart || info.timestamp <= 0) {
+            if (this._miniSetupCount > 0) {
+              void this._jumpMiniToMoveCount(this._miniSetupCount);
+            } else {
+              this._updateMiniProgress(0);
+            }
+            return;
+          }
+          if (info.atEnd) {
+            this._updateMiniProgress(this._miniCombinedMoves.length);
+            return;
+          }
+          const mIdx = this._miniIndexer.timestampToIndex(info.timestamp);
+          const nextCount = mIdx + 1;
+          if (nextCount < this._miniSetupCount) {
+            void this._jumpMiniToMoveCount(this._miniSetupCount);
+            return;
+          }
+          this._updateMiniProgress(nextCount);
+        } catch {}
+      });
+      el.player.experimentalModel.coarseTimelineInfo.addFreshListener((info) => {
+        if (this.activeDisplay3d !== el) return;
+        this._updateMiniPlayingUi(Boolean(info.playing));
+      });
+    } catch {}
+  }
+
+  _bindMiniSimControls() {
+    const startBtn = this.container?.querySelector?.('#studyMiniStartBtn');
+    const prevBtn = this.container?.querySelector?.('#studyMiniPrevBtn');
+    const playBtn = this.container?.querySelector?.('#studyMiniPlayBtn');
+    const nextBtn = this.container?.querySelector?.('#studyMiniNextBtn');
+    const endBtn = this.container?.querySelector?.('#studyMiniEndBtn');
+    const speedBtn = this.container?.querySelector?.('#studyMiniSpeedBtn');
+
+    if (startBtn) startBtn.onclick = () => void this._jumpMiniToMoveCount(this._miniSetupCount);
+    if (prevBtn) {
+      prevBtn.onclick = () => {
+        const el = this.activeDisplay3d;
+        if (!el?.player?.controller || this._miniMoveCount <= this._miniSetupCount) return;
+        if (this._miniMoveCount <= this._miniSetupCount + 1) {
+          void this._jumpMiniToMoveCount(this._miniSetupCount);
+          return;
+        }
+        try {
+          el.player.pause();
+          el.player.controller.animationController.play({ direction: -1, untilBoundary: "move" });
+        } catch {}
+      };
+    }
+    if (playBtn) {
+      playBtn.onclick = () => {
+        const el = this.activeDisplay3d;
+        if (!el?.player?.controller || this._miniAlgMoves.length === 0) return;
+        if (this._miniMoveCount >= this._miniCombinedMoves.length) {
+          void this._jumpMiniToMoveCount(this._miniSetupCount).then(() => {
+            setTimeout(() => { try { this.activeDisplay3d?.player?.play?.(); } catch {} }, 40);
+          });
+          return;
+        }
+        if (this._miniMoveCount < this._miniSetupCount) {
+          void this._jumpMiniToMoveCount(this._miniSetupCount).then(() => {
+            setTimeout(() => { try { this.activeDisplay3d?.player?.play?.(); } catch {} }, 40);
+          });
+          return;
+        }
+        try { el.player.controller.togglePlay(); } catch {}
+      };
+    }
+    if (nextBtn) {
+      nextBtn.onclick = () => {
+        const el = this.activeDisplay3d;
+        if (!el?.player?.controller || this._miniMoveCount >= this._miniCombinedMoves.length) return;
+        try {
+          el.player.pause();
+          el.player.controller.animationController.play({ direction: 1, untilBoundary: "move" });
+        } catch {}
+      };
+    }
+    if (endBtn) endBtn.onclick = () => void this._jumpMiniToMoveCount(this._miniCombinedMoves.length);
+    if (speedBtn) {
+      speedBtn.onclick = () => {
+        const current = Number(this.getSimSpeed ? this.getSimSpeed() : 1) || 1;
+        const idx = SIM_SPEED_OPTIONS.indexOf(current);
+        const next = SIM_SPEED_OPTIONS[(idx + 1) % SIM_SPEED_OPTIONS.length];
+        this.syncPlaybackSpeed(next);
+        this.onSetSimSpeed?.(next);
+      };
     }
   }
 

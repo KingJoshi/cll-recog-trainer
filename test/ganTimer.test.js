@@ -196,3 +196,28 @@ test('shouldIgnorePrematureTimerStop ignores false timer stops when smart cube i
   assert.strictEqual(recoveredSplits.cubeMs, 10107);
   assert.strictEqual(recoveredSplits.putdownMs, null);
 });
+
+test('ganTimerStateName returns UNKNOWN for empty string and GanTimerManager handles sync disconnect cleanly', async () => {
+  assert.strictEqual(ganTimerStateName(''), 'UNKNOWN');
+
+  let statusHistory = [];
+  const mockTimer = {
+    deviceName: 'GAN-Timer',
+    events$: {
+      subscribe(observer) {
+        observer.next({ state: 5 }); // IDLE
+        observer.next({ state: 0 }); // immediate DISCONNECT during subscribe
+        return { unsubscribe() {} };
+      }
+    },
+    disconnect: async () => {}
+  };
+
+  const mgr = new GanTimerManager({ connectGanTimerFn: async () => mockTimer });
+  mgr.addEventListener('statuschange', (e) => { statusHistory.push(e.detail?.status); });
+
+  await mgr.connect();
+  assert.strictEqual(mgr.isConnected(), false);
+  assert.strictEqual(mgr.status, 'disconnected');
+  assert.strictEqual(statusHistory.at(-1), 'disconnected');
+});

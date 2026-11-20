@@ -31,7 +31,7 @@ export const f2lCases = [
       },
       {
         "id": "f2l-02-2",
-        "alg": "F' U' F",
+        "alg": "U' F' U F",
         "note": "Front-face variant"
       }
     ],
@@ -51,7 +51,7 @@ export const f2lCases = [
       },
       {
         "id": "f2l-03-2",
-        "alg": "F' U F",
+        "alg": "F' U' F",
         "note": "Front-face variant"
       }
     ],

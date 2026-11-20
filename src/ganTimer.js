@@ -8,6 +8,8 @@
 //   cube     = first turn   -> smart cube reaches solved state
 //   put-down = cube solved  -> timer stopped
 
+import { loadSmartCubeBluetooth, getConnectGanTimerFn } from './cube/bleLoader.js';
+
 // Mirrors GanTimerState enum from smartcube-web-bluetooth (kept local so this module
 // can be imported in Node tests without loading Web Bluetooth code).
 export const GAN_TIMER_STATE_NAMES = {
@@ -22,7 +24,7 @@ export const GAN_TIMER_STATE_NAMES = {
 };
 
 export function ganTimerStateName(state) {
-  if (typeof state === "string") return state;
+  if (typeof state === "string") return state || "UNKNOWN";
   return GAN_TIMER_STATE_NAMES[state] || "UNKNOWN";
 }
 
@@ -63,37 +65,51 @@ export function shouldIgnorePrematureTimerStop({
   return false;
 }
 
+function extractValidPhaseValues(solves = [], field = "pickupMs") {
+  return (solves || [])
+    .filter(s => s && s.penalty !== "DNF" && s.penalty !== -1)
+    .map(s => s[field])
+    .filter(v => typeof v === "number" && Number.isFinite(v));
+}
+
 /**
  * Average of a numeric field over solves that have it (ignores DNFs). Returns null if none.
  */
 export function averagePhase(solves = [], field = "pickupMs") {
-  const vals = (solves || [])
-    .filter(s => s && s.penalty !== "DNF" && s.penalty !== -1)
-    .map(s => s[field])
-    .filter(v => typeof v === "number" && Number.isFinite(v));
+  const vals = extractValidPhaseValues(solves, field);
   if (!vals.length) return null;
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
 }
 
-let connectGanTimerFn = null;
-let preloadGanTimerPromise = null;
+/**
+ * Median of a numeric field over solves that have it (ignores DNFs). Returns null if none.
+ */
+export function medianPhase(solves = [], field = "pickupMs") {
+  const vals = extractValidPhaseValues(solves, field).sort((a, b) => a - b);
+  if (!vals.length) return null;
+  const mid = Math.floor(vals.length / 2);
+  return vals.length % 2 !== 0
+    ? Math.round(vals[mid])
+    : Math.round((vals[mid - 1] + vals[mid]) / 2);
+}
+
+/**
+ * 10% trimmed mean of a numeric field over solves that have it (ignores DNFs). Returns null if none.
+ */
+export function trimMeanPhase(solves = [], field = "pickupMs", trimRatio = 0.10) {
+  const vals = extractValidPhaseValues(solves, field).sort((a, b) => a - b);
+  if (!vals.length) return null;
+  if (vals.length < 3) {
+    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  }
+  const trimCount = Math.max(1, Math.min(Math.floor((vals.length - 1) / 2), Math.round(vals.length * trimRatio)));
+  const sliced = vals.slice(trimCount, vals.length - trimCount);
+  return Math.round(sliced.reduce((a, b) => a + b, 0) / sliced.length);
+}
 
 export function preloadGanTimer() {
-  if (connectGanTimerFn) return Promise.resolve(connectGanTimerFn);
-  if (preloadGanTimerPromise) return preloadGanTimerPromise;
   if (typeof window !== "undefined") {
-    preloadGanTimerPromise = import('smartcube-web-bluetooth')
-      .then(mod => {
-        connectGanTimerFn = mod.connectGanTimer || mod.default?.connectGanTimer;
-        if (!connectGanTimerFn) preloadGanTimerPromise = null;
-        return connectGanTimerFn;
-      })
-      .catch(e => {
-        console.warn("Could not preload smartcube-web-bluetooth for GAN timer:", e);
-        preloadGanTimerPromise = null;
-        return null;
-      });
-    return preloadGanTimerPromise;
+    return loadSmartCubeBluetooth().then(() => getConnectGanTimerFn());
   }
   return Promise.resolve(null);
 }
@@ -102,19 +118,8 @@ if (typeof window !== "undefined") {
   preloadGanTimer().catch(() => {});
 }
 
-async function loadConnectGanTimer() {
-  if (connectGanTimerFn) return connectGanTimerFn;
-  if (typeof window !== "undefined") {
-    const fn = await preloadGanTimer();
-    if (fn) return fn;
-  }
-  const mod = await import('smartcube-web-bluetooth');
-  connectGanTimerFn = mod.connectGanTimer || mod.default?.connectGanTimer;
-  return connectGanTimerFn;
-}
-
 export class GanTimerManager extends EventTarget {
-  constructor() {
+  constructor({ connectGanTimerFn = null } = {}) {
     super();
     this.status = "disconnected"; // "disconnected" | "connecting" | "connected"
     this.conn = null;
@@ -123,6 +128,8 @@ export class GanTimerManager extends EventTarget {
     this.deviceName = "";
     this._manualDisconnecting = false;
     this._watchdogInterval = null;
+    this._connectPromise = null;
+    this.connectGanTimerFn = connectGanTimerFn;
     this._boundGattDisconnect = () => this._handleDisconnect("unexpected");
     this._onEvent = this._onEvent.bind(this);
   }
@@ -145,46 +152,65 @@ export class GanTimerManager extends EventTarget {
   }
 
   // Must be called directly from a user gesture (click) because it opens the BLE picker.
-  async connect() {
+  async connect(options = {}) {
     if (this.status === "connected") return this.getStatus();
-    if (!this.isBluetoothSupported()) {
+    if (this.status === "connecting" && this._connectPromise) return this._connectPromise;
+
+    const injectedFn = options?.connectGanTimerFn || this.connectGanTimerFn;
+    if (!injectedFn && !this.isBluetoothSupported()) {
       const err = new Error("Web Bluetooth is not supported in this browser. Please use Chrome, Edge, Opera, or Bluefy (iOS).");
       err.code = "NOT_SUPPORTED";
       throw err;
     }
+
     this._manualDisconnecting = false;
     // Start loading before flipping state so requestDevice stays within the user gesture window.
-    const loader = connectGanTimerFn ? Promise.resolve(connectGanTimerFn) : loadConnectGanTimer();
+    const loader = injectedFn ? Promise.resolve(injectedFn) : getConnectGanTimerFn();
     this._setStatus("connecting");
-    try {
-      const connectGanTimer = await loader;
-      if (typeof connectGanTimer !== "function") {
-        throw new Error("GAN timer library is not loaded. Please try again.");
+
+    this._connectPromise = (async () => {
+      try {
+        const connectGanTimer = await loader;
+        if (typeof connectGanTimer !== "function") {
+          throw new Error("GAN timer library is not loaded. Please try again.");
+        }
+        const conn = await connectGanTimer();
+        if (!conn) {
+          throw new Error("No GAN timer connection returned.");
+        }
+        this.conn = conn;
+        this.deviceName = conn?.device?.name || "GAN Smart Timer";
+        if (conn?.device && typeof conn.device.addEventListener === "function") {
+          conn.device.addEventListener("gattserverdisconnected", this._boundGattDisconnect);
+        }
+        if (conn.events$ && typeof conn.events$.subscribe === "function") {
+          this.subscription = conn.events$.subscribe({
+            next: this._onEvent,
+            error: (err) => {
+              console.warn("GAN timer event error:", err);
+              this._handleDisconnect("unexpected");
+            },
+            complete: () => this._handleDisconnect(this._manualDisconnecting ? "manual" : "unexpected")
+          });
+        }
+        if (!this.conn || this.status !== "connecting") {
+          return this.getStatus();
+        }
+        this._setStatus("connected");
+        this._startWatchdog();
+        this.dispatchEvent(new CustomEvent("connected", { detail: { deviceName: this.deviceName } }));
+        return this.getStatus();
+      } catch (err) {
+        this._stopWatchdog();
+        this.conn = null;
+        this._setStatus("disconnected");
+        throw err;
+      } finally {
+        this._connectPromise = null;
       }
-      const conn = await connectGanTimer();
-      this.conn = conn;
-      this.deviceName = conn?.device?.name || "GAN Smart Timer";
-      if (conn?.device && typeof conn.device.addEventListener === "function") {
-        conn.device.addEventListener("gattserverdisconnected", this._boundGattDisconnect);
-      }
-      this._startWatchdog();
-      this.subscription = conn.events$.subscribe({
-        next: this._onEvent,
-        error: (err) => {
-          console.warn("GAN timer event error:", err);
-          this._handleDisconnect("unexpected");
-        },
-        complete: () => this._handleDisconnect(this._manualDisconnecting ? "manual" : "unexpected")
-      });
-      this._setStatus("connected");
-      this.dispatchEvent(new CustomEvent("connected", { detail: { deviceName: this.deviceName } }));
-      return this.getStatus();
-    } catch (err) {
-      this._stopWatchdog();
-      this.conn = null;
-      this._setStatus("disconnected");
-      throw err;
-    }
+    })();
+
+    return this._connectPromise;
   }
 
   disconnect() {

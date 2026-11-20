@@ -134,16 +134,16 @@ export const parity555Cases = [
     group: "L2E Parity",
     puzzle: "555",
     description: "Swap wing edge pieces between the final two edge groups to complete 5x5 reduction.",
-    setup: "Uw' R U R' F R' F' R Uw",
-    scramble: "Uw' R U R' F R' F' R Uw",
+    setup: "Uw' R' F R F' R U' R' Uw",
+    scramble: "Uw' R' F R F' R U' R' Uw",
     scrambles: [
-      "Uw' R U R' F R' F' R Uw",
-      "U Uw' R U R' F R' F' R Uw U'",
-      "U' Uw' R U R' F R' F' R Uw U",
-      "U2 Uw' R U R' F R' F' R Uw U2",
-      "y Uw' R U R' F R' F' R Uw",
-      "y' Uw' R U R' F R' F' R Uw",
-      "y2 Uw' R U R' F R' F' R Uw"
+      "Uw' R' F R F' R U' R' Uw",
+      "U Uw' R' F R F' R U' R' Uw U'",
+      "U' Uw' R' F R F' R U' R' Uw U",
+      "U2 Uw' R' F R F' R U' R' Uw U2",
+      "y Uw' R' F R F' R U' R' Uw",
+      "y' Uw' R' F R F' R U' R' Uw",
+      "y2 Uw' R' F R F' R U' R' Uw"
     ],
     alg: "Uw' R U R' F R' F' R Uw",
     algs: [
