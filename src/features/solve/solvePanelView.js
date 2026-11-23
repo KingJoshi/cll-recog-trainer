@@ -12,7 +12,7 @@ import { showToast } from '../../ui/toastService.js';
 import { TIMER_DRILL_PRESETS } from '../../ui/navController.js';
 import { renderLastSolveCfopInline, renderSolvePhaseInline } from './cfopBreakdownRenderer.js';
 
-export function renderSolveStatsBar(container, solvesList, { sessionName = "", compact = false, onSelectSolve = null } = {}) {
+export function renderSolveStatsBar(container, solvesList, { sessionName = "", compact = false, stepBreakdownHtml = "", onSelectSolve = null } = {}) {
   if (!container) return;
   if (!solvesList || !solvesList.length) {
     container.innerHTML = "";
@@ -55,44 +55,101 @@ export function renderSolveStatsBar(container, solvesList, { sessionName = "", c
 
   const recentChipsHtml = recentEntries.map(({ sv, num, origIdx, rank }) => {
     const cls = rank > 5 ? "recent-solve-chip is-desktop-extra" : "recent-solve-chip";
-    return `<button type="button" class="${cls}" data-recent-idx="${origIdx}" data-recent-num="${num}" title="Click to inspect solve #${num}">#${num} &middot; <strong>${escapeHtml(formatSolveDisplay(sv))}</strong></button>`;
+    return `<button type="button" class="${cls}" data-recent-idx="${origIdx}" data-recent-num="${num}" title="Click to inspect solve #${num}"><strong>${escapeHtml(formatSolveDisplay(sv))}</strong></button>`;
   }).join("");
 
-  container.innerHTML = `
-    <div class="recent-stats-panel ${compact ? "is-compact" : ""}">
-      <div class="recent-stats-head">
-        <div class="recent-stats-title-wrap">
-          <span class="recent-stats-title">Recent Stats</span>
-          <span class="recent-stats-scope">${scopeText}</span>
+  if (compact) {
+    container.innerHTML = `
+      <div class="solve-basic-grid ${stepBreakdownHtml ? "" : "is-two-col"}">
+        ${stepBreakdownHtml ? `
+          <div class="solve-basic-col solve-basic-col-steps">
+            <div class="solve-basic-col-head">
+              <span class="recent-stats-title">Last Solve</span>
+            </div>
+            ${stepBreakdownHtml}
+          </div>
+        ` : ""}
+        <div class="solve-basic-col solve-basic-col-recent">
+          <div class="solve-basic-col-head">
+            <span class="recent-stats-title">Recent (${recentEntries.length})</span>
+          </div>
+          <div class="recent-solves-col-list" aria-label="Recent solves">${recentChipsHtml}</div>
         </div>
-        ${compact ? `<span class="recent-stats-mode-tag">Basic</span>` : ""}
+        <div class="solve-basic-col solve-basic-col-stats">
+          <div class="solve-basic-col-head">
+            <span class="recent-stats-title">Recent Stats</span>
+            <span class="recent-stats-scope">${scopeText}</span>
+          </div>
+          <table class="recent-stats-vtable" aria-label="Current and best WCA averages">
+            <thead>
+              <tr>
+                <th scope="col">Metric</th>
+                <th scope="col">Current</th>
+                <th scope="col">Best</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Single</th>
+                <td>${latestSolve ? escapeHtml(formatSolveDisplay(latestSolve)) : "-"}</td>
+                <td class="is-best-val">${fmt(bestSingle)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Ao5</th>
+                <td>${fmt(curAo5)}</td>
+                <td class="is-best-val">${fmt(bestAo5)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Ao12</th>
+                <td>${fmt(curAo12)}</td>
+                <td class="is-best-val">${fmt(bestAo12)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Ao100</th>
+                <td>${fmt(curAo100)}</td>
+                <td class="is-best-val">${fmt(bestAo100)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div class="recent-solves-strip" aria-label="Recent solves">${recentChipsHtml}</div>
-      <div class="recent-stats-matrix" role="table" aria-label="Current and best WCA averages">
-        <div class="recent-matrix-row recent-matrix-head" role="row">
-          <span class="recent-matrix-label" role="columnheader">Metric</span>
-          <span role="columnheader">Single</span>
-          <span role="columnheader">Ao5</span>
-          <span role="columnheader">Ao12</span>
-          <span role="columnheader">Ao100</span>
+    `;
+  } else {
+    container.innerHTML = `
+      <div class="recent-stats-panel">
+        <div class="recent-stats-head">
+          <div class="recent-stats-title-wrap">
+            <span class="recent-stats-title">Recent Stats</span>
+            <span class="recent-stats-scope">${scopeText}</span>
+          </div>
         </div>
-        <div class="recent-matrix-row" role="row">
-          <span class="recent-matrix-label" role="rowheader">Current</span>
-          <strong role="cell">${latestSolve ? escapeHtml(formatSolveDisplay(latestSolve)) : "-"}</strong>
-          <strong role="cell">${fmt(curAo5)}</strong>
-          <strong role="cell">${fmt(curAo12)}</strong>
-          <strong role="cell">${fmt(curAo100)}</strong>
-        </div>
-        <div class="recent-matrix-row is-best-row" role="row">
-          <span class="recent-matrix-label" role="rowheader">Best</span>
-          <strong role="cell">${fmt(bestSingle)}</strong>
-          <strong role="cell">${fmt(bestAo5)}</strong>
-          <strong role="cell">${fmt(bestAo12)}</strong>
-          <strong role="cell">${fmt(bestAo100)}</strong>
+        <div class="recent-solves-strip" aria-label="Recent solves">${recentChipsHtml}</div>
+        <div class="recent-stats-matrix" role="table" aria-label="Current and best WCA averages">
+          <div class="recent-matrix-row recent-matrix-head" role="row">
+            <span class="recent-matrix-label" role="columnheader">Metric</span>
+            <span role="columnheader">Single</span>
+            <span role="columnheader">Ao5</span>
+            <span role="columnheader">Ao12</span>
+            <span role="columnheader">Ao100</span>
+          </div>
+          <div class="recent-matrix-row" role="row">
+            <span class="recent-matrix-label" role="rowheader">Current</span>
+            <strong role="cell">${latestSolve ? escapeHtml(formatSolveDisplay(latestSolve)) : "-"}</strong>
+            <strong role="cell">${fmt(curAo5)}</strong>
+            <strong role="cell">${fmt(curAo12)}</strong>
+            <strong role="cell">${fmt(curAo100)}</strong>
+          </div>
+          <div class="recent-matrix-row is-best-row" role="row">
+            <span class="recent-matrix-label" role="rowheader">Best</span>
+            <strong role="cell">${fmt(bestSingle)}</strong>
+            <strong role="cell">${fmt(bestAo5)}</strong>
+            <strong role="cell">${fmt(bestAo12)}</strong>
+            <strong role="cell">${fmt(bestAo100)}</strong>
+          </div>
         </div>
       </div>
-    </div>
-  `;
+    `;
+  }
 
   if (typeof onSelectSolve === "function" && typeof container.querySelectorAll === "function") {
     container.querySelectorAll(".recent-solve-chip").forEach(btn => {
@@ -311,7 +368,7 @@ export function createSolvePanelView({
       if (phaseMeta) metaLine += ` · ${phaseMeta}`;
       if (solveCaseEl) {
         solveCaseEl.innerHTML = `<div class="solve-case-meta">${metaLine}</div>` +
-          (lastSolve.moves && lastSolve.moves.length > 0 ? renderLastSolveCfopInline(lastSolve, { basic: !s.advancedMode }) : "");
+          (s.advancedMode && lastSolve.moves && lastSolve.moves.length > 0 ? renderLastSolveCfopInline(lastSolve, { basic: false }) : "");
       }
       if (solvePostSummary && solvePostReplayBtn) {
         const hasMoves = Boolean(lastSolve.moves && lastSolve.moves.length > 0);
@@ -373,9 +430,13 @@ export function createSolvePanelView({
         const showInline = s.mode === "solve" && solves.length > 0;
         solveInlineRecentStats.hidden = !showInline;
         if (showInline) {
+          const basicStepHtml = (lastSolve && lastSolve.moves && lastSolve.moves.length > 0)
+            ? renderLastSolveCfopInline(lastSolve, { basic: true })
+            : "";
           renderSolveStatsBar(solveInlineRecentStats, solves, {
             sessionName: activeSess?.name || "",
             compact: true,
+            stepBreakdownHtml: basicStepHtml,
             onSelectSolve: openDetail
           });
         } else {

@@ -107,27 +107,27 @@ test('renderCfopStepTable supports simplified Basic (Step/Total/Accum) vs full A
   assert.ok(advHtml.includes('>Recon<'));
 });
 
-test('renderSolveStatsBar renders 12 responsive solve chips, scope label, and Current vs Best Single/Ao5/Ao12/Ao100 matrix', () => {
+test('renderSolveStatsBar renders time-only chips (no #N prefix) and side-by-side Basic vs horizontal Advanced layouts', () => {
   const solves = Array.from({ length: 14 }, (_, i) => makeCfopSolve(i, 10000 + i * 100));
   const container = makeMockContainer();
   let selectedSolve = null;
 
+  // Advanced horizontal bar
   renderSolveStatsBar(container, solves, {
     sessionName: '3x3 Main',
-    compact: true,
+    compact: false,
     onSelectSolve: (sv) => { selectedSolve = sv; }
   });
 
-  assert.strictEqual(container.hidden, false);
-  assert.ok(container.innerHTML.includes('recent-stats-panel is-compact'));
+  assert.ok(container.innerHTML.includes('recent-stats-panel'));
   assert.ok(container.innerHTML.includes('Recent Stats'));
   assert.ok(container.innerHTML.includes('3x3 Main'));
-  assert.ok(container.innerHTML.includes('Basic'));
+  assert.ok(!container.innerHTML.includes('#14 &middot;'));
+  assert.ok(container.innerHTML.includes('><strong>11.30</strong></button>'));
 
-  const allChips = [...container.innerHTML.matchAll(/class="recent-solve-chip([^"]*)"/g)];
-  assert.strictEqual(allChips.length, 12);
-  const desktopExtraChips = allChips.filter(m => m[1].includes('is-desktop-extra'));
-  assert.strictEqual(desktopExtraChips.length, 7);
+  const advChips = [...container.innerHTML.matchAll(/class="recent-solve-chip([^"]*)"/g)];
+  assert.strictEqual(advChips.length, 12);
+  assert.strictEqual(advChips.filter(m => m[1].includes('is-desktop-extra')).length, 7);
 
   assert.ok(container.innerHTML.includes('Single'));
   assert.ok(container.innerHTML.includes('Ao5'));
@@ -136,16 +136,47 @@ test('renderSolveStatsBar renders 12 responsive solve chips, scope label, and Cu
   assert.ok(container.innerHTML.includes('>Current<'));
   assert.ok(container.innerHTML.includes('>Best<'));
 
-  // Clicking newest chip (origIdx 13) passes solves[13] to onSelectSolve
   container.triggerRecentChipClick('13');
   assert.strictEqual(selectedSolve, solves[13]);
+
+  // Basic side-by-side without step table -> 2-column grid + vertical solve list + 3-col Metric/Current/Best table
+  renderSolveStatsBar(container, solves, {
+    sessionName: '3x3 Main',
+    compact: true,
+    onSelectSolve: (sv) => { selectedSolve = sv; }
+  });
+  assert.ok(container.innerHTML.includes('solve-basic-grid is-two-col'));
+  assert.ok(container.innerHTML.includes('recent-solves-col-list'));
+  assert.ok(container.innerHTML.includes('recent-stats-vtable'));
+  assert.ok(container.innerHTML.includes('>Metric<'));
+  assert.ok(container.innerHTML.includes('>Current<'));
+  assert.ok(container.innerHTML.includes('>Best<'));
+  assert.ok(!container.innerHTML.includes('solve-basic-col-steps'));
+  assert.ok(!container.innerHTML.includes('#14 &middot;'));
+
+  selectedSolve = null;
+  container.triggerRecentChipClick('13');
+  assert.strictEqual(selectedSolve, solves[13]);
+
+  // Basic side-by-side WITH step breakdown -> 3-column grid
+  const stepHtml = renderLastSolveCfopInline(solves[13], { basic: true });
+  renderSolveStatsBar(container, solves, {
+    sessionName: '3x3 Main',
+    compact: true,
+    stepBreakdownHtml: stepHtml
+  });
+  assert.ok(container.innerHTML.includes('solve-basic-grid '));
+  assert.ok(!container.innerHTML.includes('is-two-col'));
+  assert.ok(container.innerHTML.includes('solve-basic-col-steps'));
+  assert.ok(container.innerHTML.includes('Last Solve'));
+  assert.ok(container.innerHTML.includes('cfop-step-table-basic'));
 
   // Empty list clears container markup
   renderSolveStatsBar(container, [], { sessionName: '3x3 Main' });
   assert.strictEqual(container.innerHTML, '');
 });
 
-test('createSessionLogView deduplicates Ao metrics, supports Last 5/12/100/Session CFOP phases, and honors Basic vs Advanced mode', () => {
+test('createSessionLogView omits redundant Session Summary, supports Last 5/12/100/Session CFOP phases, and honors Basic vs Advanced mode', () => {
   const store = new AppStore();
   store.state.currentPuzzle = '333';
   const sess = store.getActiveSession();
@@ -160,16 +191,14 @@ test('createSessionLogView deduplicates Ao metrics, supports Last 5/12/100/Sessi
   store.state.advancedMode = true;
   view.render(container);
 
-  assert.ok(container.innerHTML.includes('stats-session-scope-head'));
-  assert.ok(container.innerHTML.includes('Session Summary'));
-  assert.ok(container.innerHTML.includes('3x3 Practice'));
-
-  // Ao5/Ao12/Ao100 summary cards removed from Stats & History grid to eliminate duplication
+  // Redundant Session Summary widget and Ao summary cards removed
+  assert.ok(!container.innerHTML.includes('stats-session-scope-head'));
+  assert.ok(!container.innerHTML.includes('layer-stats-grid'));
+  assert.ok(!container.innerHTML.includes('Session Summary'));
   assert.ok(!container.innerHTML.includes('class="layer-stat-lbl">Ao5<'));
-  assert.ok(!container.innerHTML.includes('class="layer-stat-lbl">Best Ao5<'));
   assert.ok(!container.innerHTML.includes('class="layer-stat-lbl">Ao12<'));
   assert.ok(!container.innerHTML.includes('class="layer-stat-lbl">Ao100<'));
-  assert.ok(container.innerHTML.includes('class="layer-stat-lbl">TrimMean 10%<'));
+  assert.ok(container.innerHTML.includes('3x3 Practice'));
 
   // Expanded CFOP scopes: Last 5, Last 12, Last 100, Session
   assert.ok(container.innerHTML.includes('Last 5'));
@@ -196,10 +225,10 @@ test('createSessionLogView deduplicates Ao metrics, supports Last 5/12/100/Sessi
   store.state.advancedMode = false;
   view.render(container);
 
+  assert.ok(!container.innerHTML.includes('stats-session-scope-head'));
+  assert.ok(!container.innerHTML.includes('layer-stats-grid'));
   assert.ok(!container.innerHTML.includes('cfop-avg-comparison-table'));
   assert.ok(!container.innerHTML.includes('cfop-case-breakdown-card'));
-  assert.ok(!container.innerHTML.includes('class="layer-stat-lbl">TrimMean 10%<'));
-  assert.ok(!container.innerHTML.includes('class="layer-stat-lbl">Avg Pick-up<'));
   assert.ok(container.innerHTML.includes('cfop-solve-log-table is-basic-log'));
   assert.ok(container.innerHTML.includes('data-log-sort="cross"'));
   assert.ok(!container.innerHTML.includes('data-log-sort="f2l1"'));

@@ -916,6 +916,97 @@ button.solve-chip:active,
     color: var(--primary);
 }
 
+/* Basic Mode side-by-side-by-side widget inside #solveSurface */
+.solve-basic-grid {
+    display: grid;
+    grid-template-columns: minmax(210px, 1.2fr) minmax(105px, 0.65fr) minmax(215px, 1fr);
+    gap: 10px;
+    align-items: start;
+    text-align: left;
+}
+
+.solve-basic-grid.is-two-col {
+    grid-template-columns: minmax(120px, 0.75fr) minmax(220px, 1.25fr);
+}
+
+.solve-basic-col {
+    min-width: 0;
+    padding: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.solve-basic-col-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    margin-bottom: 6px;
+}
+
+.solve-basic-col-steps .cfop-step-table-wrap {
+    margin-top: 0;
+}
+
+.recent-solves-col-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.recent-solves-col-list .recent-solve-chip {
+    width: 100%;
+    justify-content: center;
+    padding: 3px 8px;
+}
+
+.recent-stats-vtable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.recent-stats-vtable th,
+.recent-stats-vtable td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.recent-stats-vtable thead th {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: right;
+}
+
+.recent-stats-vtable thead th:first-child,
+.recent-stats-vtable tbody th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.recent-stats-vtable tbody td {
+    text-align: right;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: var(--ink);
+}
+
+.recent-stats-vtable tbody td.is-best-val {
+    color: var(--primary);
+}
+
+.recent-stats-vtable tbody tr:last-child th,
+.recent-stats-vtable tbody tr:last-child td {
+    border-bottom: 0;
+}
+
 @media (max-width: 540px) {
     .solve-header-row {
         flex-direction: column;
@@ -1451,6 +1542,23 @@ button.solve-chip:active,
 .cfop-step-table-basic .cfop-step-table th:first-child,
 .cfop-step-table-basic .cfop-step-table td:first-child {
     text-align: left;
+}
+
+@media (max-width: 780px) {
+    .solve-basic-grid,
+    .solve-basic-grid.is-two-col {
+        grid-template-columns: 1fr;
+    }
+
+    .recent-solves-col-list {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    .recent-solves-col-list .recent-solve-chip {
+        width: auto;
+    }
 }
 
 @media (max-width: 639px) {
