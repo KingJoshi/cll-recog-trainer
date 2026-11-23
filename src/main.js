@@ -249,7 +249,8 @@ smartCubeCtrl = createSmartCubeController({
   solveReplayViewer,
   getTimerCtrl: () => timerCtrl,
   getGanTimerCtrl: () => ganTimerCtrl,
-  getDisconnectAlertView: () => disconnectAlertView
+  getDisconnectAlertView: () => disconnectAlertView,
+  getNavCtrl: () => navCtrl
 });
 
 ganTimerCtrl = createGanTimerController({
@@ -444,9 +445,19 @@ if (appStore.state.mode === "study") {
 
 function refreshAllViewsAfterHydrate() {
   const s = appStore.state;
+  const prev = appStore.lastHydratePrev || {};
+  const puzzleChanged = Boolean(prev.puzzle && prev.puzzle !== s.currentPuzzle);
+  const trackChanged = Boolean(prev.trackId && prev.trackId !== s.currentTrackId);
+  const modeChanged = Boolean(prev.mode && prev.mode !== s.mode);
+  const targetChanged = Boolean(prev.solveTarget && prev.solveTarget !== s.solveTarget);
+
   clearSvgCache();
   cubeStage.applyTheme();
-  cubeStage.mountScrambleDisplay(s.currentPuzzle);
+  if (puzzleChanged || !cubeStage.getDisplay()) {
+    cubeStage.mountScrambleDisplay(s.currentPuzzle);
+  } else {
+    cubeStage.applyReflection();
+  }
   applyColorsTo3DCube(cubeStage.getDisplay());
   if (studyView?.activeDisplay3d) applyColorsTo3DCube(studyView.activeDisplay3d);
 
@@ -486,16 +497,28 @@ function refreshAllViewsAfterHydrate() {
   if (s.onboardingCompleted) onboardingWizard?.close?.({ markComplete: false });
 
   if (s.mode === "study") {
-    studyView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+    if (modeChanged || puzzleChanged || trackChanged) {
+      studyView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+    } else {
+      studyView?.render?.();
+    }
   } else if (s.mode === "practice") {
-    practiceView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+    if (modeChanged || puzzleChanged || trackChanged) {
+      practiceView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+    } else {
+      practiceView?.render?.();
+    }
   } else if (s.mode === "simulate") {
-    simulatorCtrl?.simInit?.();
+    if (modeChanged || puzzleChanged || trackChanged) {
+      simulatorCtrl?.simInit?.();
+    }
   } else {
     if (s.currentPuzzle === "222" && s.solveTarget === "face") {
       solverWidgets?.setLayerSolutionMode?.("face");
     }
-    navCtrl?.regenerateScramble?.();
+    if ((!s.currentSolveScramble || modeChanged || puzzleChanged || targetChanged) && timerCtrl?.getSolveState?.() === "idle") {
+      navCtrl?.regenerateScramble?.();
+    }
   }
 }
 

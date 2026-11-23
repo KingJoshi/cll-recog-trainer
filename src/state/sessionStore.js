@@ -128,3 +128,70 @@ export function setActiveSessionId(id) {
 export function getSessionsForPuzzle(sessions, puzzle) {
   return (sessions || []).filter(s => !s.puzzle || s.puzzle === puzzle);
 }
+
+/**
+ * Resolve which session should be active when selecting a Solve Target for a puzzle.
+ * - Keeps the active session if its puzzle & target already match.
+ * - Switches to the most-recently-active existing session for (puzzle, target) if one exists.
+ * - Retargets the current session if it belongs to `puzzle` and still has 0 solves.
+ * - Otherwise creates a dedicated session for (puzzle, target) so solves never mix across targets.
+ */
+export function resolveSessionForTarget(
+  sessions = [],
+  activeSessionId = "",
+  puzzleId = "222",
+  targetId = "full",
+  { puzzleShortName = "", targetLabel = "" } = {}
+) {
+  const puzzle = puzzleId || "222";
+  const target = targetId || "full";
+  const list = Array.isArray(sessions) ? sessions : [];
+  const current = list.find(s => s && s.id === activeSessionId) || null;
+
+  if (current && (current.puzzle || "222") === puzzle && (current.target || "full") === target) {
+    return { action: "unchanged", session: current };
+  }
+
+  const matching = list.filter(s => s && (s.puzzle || "222") === puzzle && (s.target || "full") === target);
+  if (matching.length > 0) {
+    const ranked = [...matching].sort((a, b) => {
+      const aSolves = Array.isArray(a.solves) ? a.solves : [];
+      const bSolves = Array.isArray(b.solves) ? b.solves : [];
+      const aLastAt = aSolves.length ? (aSolves[aSolves.length - 1]?.at || 0) : (a.updatedAt || 0);
+      const bLastAt = bSolves.length ? (bSolves[bSolves.length - 1]?.at || 0) : (b.updatedAt || 0);
+      if (bLastAt !== aLastAt) return bLastAt - aLastAt;
+      return bSolves.length - aSolves.length;
+    });
+    return { action: "switched", session: ranked[0] };
+  }
+
+  if (current && (current.puzzle || "222") === puzzle && (!current.solves || current.solves.length === 0)) {
+    current.puzzle = puzzle;
+    current.target = target;
+    current.updatedAt = Date.now();
+    return { action: "retargeted", session: current };
+  }
+
+  const baseName = `${puzzleShortName || puzzle} ${targetLabel || target}`.trim();
+  const existingNames = new Set(list.map(s => (s?.name || "").trim().toLowerCase()));
+  let finalName = baseName;
+  let suffix = 2;
+  while (existingNames.has(finalName.toLowerCase())) {
+    finalName = `${baseName} ${suffix}`;
+    suffix++;
+  }
+
+  const newSession = {
+    id: "session-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+    puzzle,
+    name: finalName,
+    target,
+    size: current?.size || "medium",
+    showCube: current?.showCube ?? true,
+    inspection: current?.inspection ?? true,
+    solves: [],
+    updatedAt: Date.now()
+  };
+
+  return { action: "created", session: newSession };
+}

@@ -52,7 +52,12 @@ export function formatSolveTime(ms) {
 
 export function formatSolveDisplay(s) {
   if (!s) return "-";
-  if (s.penalty === "DNF" || s.penalty === -1) return "DNF";
+  if (s.penalty === "DNF" || s.penalty === -1) {
+    const baseMs = (s.rawMs != null && Number.isFinite(s.rawMs))
+      ? s.rawMs
+      : (s.ms != null && Number.isFinite(s.ms) ? s.ms : null);
+    return baseMs != null && baseMs > 0 ? `DNF (${formatSolveTime(baseMs)})` : "DNF";
+  }
   const effective = getSolveTime(s);
   const formatted = formatSolveTime(effective);
   if (s.penalty === "+2" || s.penalty === 2) return `${formatted} (+2)`;

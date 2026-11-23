@@ -10,6 +10,8 @@ import { getSolveFingerprint } from '../../services/syncMerge.js';
 import { recordTombstone } from '../../services/syncStorage.js';
 import { showToast } from '../../ui/toastService.js';
 
+const PARTIAL_CUBE_TARGETS = new Set(["layer", "face", "cross", "f2l", "oll"]);
+
 export function createTimerController({
   appStore,
   solveReplayViewer,
@@ -45,26 +47,37 @@ export function createTimerController({
   let overlayHideOnPointerUp = false;
   let swallowNextClick = false;
 
-  // GAN Timer & Smart Cube split timestamps
+  // GAN Timer, Spacebar/Touch & Smart Cube split timestamps
   let solveTimerDriven = false;
+  let solveTimerSource = ""; // "" | "GAN Smart Timer" | "Spacebar" | "Touch"
   let solveTimerStartTs = 0;
   let solveFirstMoveTs = 0;
   let solveCubeSolvedTs = 0;
   let solveMoveOrigin = 0;
+  let solveInspectionMs = null;
   let trackedSolveMoves = [];
 
   function resetTimerPhaseTracking() {
     solveTimerDriven = false;
+    solveTimerSource = "";
     solveTimerStartTs = 0;
     solveFirstMoveTs = 0;
     solveCubeSolvedTs = 0;
     solveMoveOrigin = 0;
+    solveInspectionMs = null;
   }
 
   function getRunningOverlayHint() {
     if (solveTimerDriven) {
-      if (solveCubeSolvedTs) return "✓ Cube solved · Put it down & stop the GAN timer";
-      const base = "Stop the GAN timer to finish · Esc to cancel";
+      const isGan = solveTimerSource === "GAN Smart Timer";
+      if (solveCubeSolvedTs) {
+        return isGan
+          ? "✓ Cube solved · Put it down & stop the GAN timer"
+          : "✓ Cube solved · Put it down & press Space or tap to stop";
+      }
+      const base = isGan
+        ? "Stop the GAN timer to finish · Esc to cancel"
+        : "Pick up cube & solve · Press any key or tap to stop · Esc to cancel";
       if (solvePenalty === "+2") return `Running (+2 penalty) · ${base}`;
       if (solvePenalty === "DNF") return `Running (DNF) · ${base}`;
       return base;
@@ -174,7 +187,7 @@ export function createTimerController({
     getDisconnectAlertView()?.renderAlerts?.();
   }
 
-  function startSolve(fromSmartCube = false, { timerDriven = false, startTs = null } = {}) {
+  function startSolve(fromSmartCube = false, { timerDriven = false, timerSource = "", startTs = null } = {}) {
     const autoStart = fromSmartCube || timerDriven;
     if (!autoStart && solveState !== "armed") return;
     if (autoStart && solveState !== "inspecting" && solveState !== "idle" && solveState !== "armed") return;
@@ -184,7 +197,10 @@ export function createTimerController({
     clearTimeout(solveArmTimeout);
 
     solveStart = startTs != null ? startTs : performance.now();
-    solveTimerDriven = timerDriven;
+    solveInspectionMs = solveInspectionStart > 0 ? Math.max(0, Math.round(solveStart - solveInspectionStart)) : null;
+    solveInspectionStart = 0;
+    solveTimerDriven = Boolean(timerDriven);
+    solveTimerSource = timerDriven ? (timerSource || "GAN Smart Timer") : "";
     solveTimerStartTs = timerDriven ? solveStart : 0;
     solveCubeSolvedTs = 0;
 
@@ -210,9 +226,9 @@ export function createTimerController({
     const tick = () => {
       if (solveState !== "running") return;
       if (solveOverlayTime) solveOverlayTime.textContent = formatSolveTime(performance.now() - solveStart);
-      solveRaf = requestAnimationFrame(tick);
+      if (typeof requestAnimationFrame === "function") solveRaf = requestAnimationFrame(tick);
     };
-    tick();
+    if (typeof requestAnimationFrame === "function") tick();
   }
 
   function stopSolve(byPointer, { hardwareMs = null, stopTs = null } = {}) {
@@ -222,11 +238,8 @@ export function createTimerController({
     const localMs = localStopTs - solveStart;
     const rawMs = Number.isFinite(hardwareMs) && hardwareMs > 0 ? hardwareMs : localMs;
     solveState = "idle";
-    cancelAnimationFrame(solveRaf);
+    if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(solveRaf);
     clearInterval(solveInspectionInterval);
-
-    let finalMs = Math.round(rawMs);
-    if (solvePenalty === "+2") finalMs += 2000;
 
     const scr = s.scrambleMoves || s.currentSolveScramble || s.scramble;
     const isCaseTarget = ["cll", "pll", "oll", "f2l", "ortega", "parity", "timer-drill"].includes(s.solveTarget);
@@ -234,13 +247,37 @@ export function createTimerController({
     const moveCount = hasMoves ? trackedSolveMoves.length : null;
     const smartCubeName = hasMoves ? (smartCube.deviceName || (smartCube.isVirtual ? "Virtual Keyboard Cube" : "Smart Cube")) : null;
 
-    const hadGanTimerStart = solveTimerDriven || solveTimerStartTs > 0;
+    let finalMs = Math.round(rawMs);
+    if (solvePenalty === "+2") finalMs += 2000;
+
+    // Evaluate unfinished Smart Cube state on full-cube targets (+2 if 1 HTM move away, DNF otherwise)
+    const expectsSolvedCube = !PARTIAL_CUBE_TARGETS.has(s.solveTarget);
+    const smartCubeTracked = smartCube.getStatus().connected && (solveTimerDriven || hasMoves);
+    let unsolvedFinishState = null;
+    if (expectsSolvedCube && smartCubeTracked && !solveCubeSolvedTs) {
+      const finishState = typeof smartCube.evaluateFinishState === "function"
+        ? smartCube.evaluateFinishState()
+        : (smartCube.isCubeSolved() ? "solved" : "DNF");
+      if (finishState === "+2") {
+        unsolvedFinishState = "+2";
+        if (solvePenalty !== "DNF") {
+          if (solvePenalty !== "+2") finalMs += 2000;
+          solvePenalty = "+2";
+        }
+      } else if (finishState === "DNF") {
+        unsolvedFinishState = "DNF";
+        solvePenalty = "DNF";
+        finalMs = Math.round(rawMs);
+      }
+    }
+
+    const hadTimerStart = solveTimerDriven || solveTimerStartTs > 0;
     let phases = null;
-    if (hadGanTimerStart) {
+    if (hadTimerStart) {
       phases = computeSolvePhaseSplits({
         timerStartTs: solveTimerStartTs,
         firstMoveTs: hasMoves ? solveFirstMoveTs : 0,
-        solvedTs: hasMoves ? (solveCubeSolvedTs || (!solveTimerDriven ? localStopTs : 0)) : 0,
+        solvedTs: (hasMoves && !unsolvedFinishState) ? (solveCubeSolvedTs || (!solveTimerDriven ? localStopTs : 0)) : 0,
         timerStopTs: solveTimerDriven ? localStopTs : 0
       });
     }
@@ -263,14 +300,27 @@ export function createTimerController({
       tps,
       smartCube: smartCubeName
     };
-    if (hadGanTimerStart) {
-      lastSolve.timer = "GAN Smart Timer";
+    if (unsolvedFinishState) {
+      lastSolve.finishState = unsolvedFinishState;
+    }
+    if (solveInspectionMs != null) {
+      lastSolve.inspectionMs = solveInspectionMs;
+    }
+    if (hadTimerStart) {
+      lastSolve.timer = solveTimerSource || "GAN Smart Timer";
       lastSolve.pickupMs = phases.pickupMs;
       lastSolve.cubeMs = phases.cubeMs;
       lastSolve.putdownMs = phases.putdownMs;
-      smartCube.logDiag("TIMER_SOLVE_DONE", { rawMs: lastSolve.rawMs, ...phases });
+      smartCube.logDiag("TIMER_SOLVE_DONE", {
+        timer: lastSolve.timer,
+        rawMs: lastSolve.rawMs,
+        inspectionMs: lastSolve.inspectionMs,
+        ...phases
+      });
     }
 
+    solveInspectionStart = 0;
+    solvePenalty = null;
     s.lastSolve = lastSolve;
     resetTimerPhaseTracking();
     ensureSolveCfop(lastSolve);
@@ -296,8 +346,20 @@ export function createTimerController({
     }
 
     const scUi = getSmartCubeUi();
-    scUi?.setSmartCubeStage?.("scrambling");
     getSolvePanel()?.setScrambleSource?.("");
+    if (unsolvedFinishState) {
+      scUi?.setNeedsCubeReset?.(unsolvedFinishState);
+      getSolvePanel()?.renderSolvePanel?.();
+      getStatsCtrl()?.updateStatsTable?.();
+      scUi?.updateSmartCubeIndicator?.();
+      if (unsolvedFinishState === "+2") {
+        showToast("+2 penalty — cube was 1 move away from solved. Finish solving & reset the cube for the next scramble.", "warning", 5000);
+      } else {
+        showToast(`DNF (${formatSolveTime(rawMs)}) — cube was not solved. Solve & reset the cube for the next scramble.`, "error", 5500);
+      }
+      return;
+    }
+    scUi?.setSmartCubeStage?.("scrambling");
     getSolvePanel()?.renderSolvePanel?.();
     getStatsCtrl()?.updateStatsTable?.();
     getNavCtrl()?.regenerateScramble?.();
@@ -308,9 +370,10 @@ export function createTimerController({
     const scUi = getSmartCubeUi();
     scUi?.setSmartCubeStage?.("scrambling");
     scUi?.clearScrambleCorrectionDelay?.();
-    cancelAnimationFrame(solveRaf);
+    if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(solveRaf);
     clearInterval(solveInspectionInterval);
     clearTimeout(solveArmTimeout);
+    solveInspectionStart = 0;
     solvePenalty = null;
     trackedSolveMoves = [];
     resetTimerPhaseTracking();
@@ -326,6 +389,10 @@ export function createTimerController({
   function handleSmartCubeSolved() {
     const s = appStore.state;
     const scUi = getSmartCubeUi();
+    if (s.mode === "solve" && solveState === "idle" && scUi?.getSmartCubeStage?.() === "needs_reset") {
+      scUi.completeCubeReset?.();
+      return;
+    }
     if (s.mode === "solve" && solveState === "idle" && scUi?.getSmartCubeStage?.() === "scrambling") {
       if (scUi?.needsAutoResetOnSolved?.()) {
         scUi.clearScrambleCorrectionDelay();
@@ -391,6 +458,10 @@ export function createTimerController({
     const scUi = getSmartCubeUi();
     if (s.mode !== "solve" || solveState === "running") return;
     if (s.solveTarget === "cll" && !s.currentCaseId) return;
+    if (smartCube.getStatus().connected && scUi?.getSmartCubeStage?.() === "needs_reset") {
+      showToast("Solve & reset your smart cube first (or click ↺ Cube Solved / Reset).", "warning", 3000);
+      return;
+    }
     const cubeTracking = smartCube.getStatus().connected &&
       (scUi?.getSmartCubeStage?.() === "inspecting" || scUi?.getSmartCubeStage?.() === "ready");
     if (cubeTracking) {
@@ -399,10 +470,33 @@ export function createTimerController({
       trackedSolveMoves = [];
       solveFirstMoveTs = 0;
     }
-    startSolve(false, { timerDriven: true, startTs: ts });
+    startSolve(false, { timerDriven: true, timerSource: "GAN Smart Timer", startTs: ts });
     if (!cubeTracking && solveLiveStats) solveLiveStats.hidden = true;
     smartCube.logDiag("TIMER_RUNNING", { cubeTracking, preTurns: trackedSolveMoves.length });
     scUi?.updateSmartCubeIndicator?.();
+  }
+
+  function startManualArmedSolve(source = "Spacebar") {
+    const s = appStore.state;
+    const scUi = getSmartCubeUi();
+    const stage = scUi?.getSmartCubeStage?.();
+    if (smartCube.getStatus().connected && stage === "needs_reset") {
+      solveState = "idle";
+      hideSolveOverlay();
+      showToast("Solve & reset your smart cube first (or click ↺ Cube Solved / Reset).", "warning", 3000);
+      return;
+    }
+    const cubeTracking = smartCube.getStatus().connected &&
+      (stage === "inspecting" || stage === "ready" || s.solveTarget === "timer-drill");
+
+    if (cubeTracking) {
+      scUi?.setSmartCubeStage?.("solving");
+      startSolve(false, { timerDriven: true, timerSource: source });
+      smartCube.logDiag("TIMER_RUNNING", { timerSource: source, cubeTracking: true });
+      scUi?.updateSmartCubeIndicator?.();
+    } else {
+      startSolve(false);
+    }
   }
 
   function onGanTimerDisconnectedMidSolve() {
@@ -422,8 +516,12 @@ export function createTimerController({
     if (s.mode !== "solve") return false;
     if (solveState === "running") {
       e.preventDefault();
-      if (solveTimerDriven) {
+      if (solveTimerDriven && solveTimerSource === "GAN Smart Timer") {
         if (e.key === "Escape") cancelSolve();
+        return true;
+      }
+      if (e.key === "Escape") {
+        cancelSolve();
         return true;
       }
       stopSolve(false);
@@ -438,6 +536,10 @@ export function createTimerController({
       e.preventDefault();
       if (e.repeat) return true;
       if (solveState === "idle") {
+        if (smartCube.getStatus().connected && getSmartCubeUi()?.getSmartCubeStage?.() === "needs_reset") {
+          showToast("Solve & reset your smart cube first (or click ↺ Cube Solved / Reset).", "warning", 3000);
+          return true;
+        }
         if (s.solveInspection) startSolveInspection();
         else armSolve();
         return true;
@@ -459,7 +561,7 @@ export function createTimerController({
       e.preventDefault();
       clearTimeout(solveArmTimeout);
       if (solveState === "armed") {
-        startSolve();
+        startManualArmedSolve("Spacebar");
       }
       return true;
     }
@@ -544,6 +646,10 @@ export function createTimerController({
     if (e.target.closest("button") || e.target.closest("input") || e.target.closest("label") || e.target.closest("select") || e.target.closest(".bt-disconnect-banner")) return;
     if (appStore.state.mode !== "solve" || solveState !== "idle") return;
     e.preventDefault();
+    if (smartCube.getStatus().connected && getSmartCubeUi()?.getSmartCubeStage?.() === "needs_reset") {
+      showToast("Solve & reset your smart cube first (or click ↺ Cube Solved / Reset).", "warning", 3000);
+      return;
+    }
     if (appStore.state.solveInspection) startSolveInspection();
     else armSolve();
   });
@@ -556,7 +662,7 @@ export function createTimerController({
     e.preventDefault();
     if (appStore.state.mode !== "solve") return;
     if (solveState === "running") {
-      if (solveTimerDriven) return;
+      if (solveTimerDriven && solveTimerSource === "GAN Smart Timer") return;
       stopSolve(true);
       return;
     }
@@ -573,7 +679,7 @@ export function createTimerController({
       if (appStore.state.mode !== "solve") return;
       clearTimeout(solveArmTimeout);
       if (solveState === "armed") {
-        startSolve();
+        startManualArmedSolve("Touch");
       } else if (overlayHideOnPointerUp) {
         hideSolveOverlay();
         swallowNextClick = true;
@@ -618,6 +724,7 @@ export function createTimerController({
   return {
     getSolveState: () => solveState,
     isTimerDriven: () => solveTimerDriven,
+    getTimerSource: () => solveTimerSource,
     getSolveStartTs: () => solveStart,
     getTimerStartTs: () => solveTimerStartTs,
     getFirstMoveTs: () => solveFirstMoveTs,

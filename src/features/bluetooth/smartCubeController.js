@@ -5,6 +5,7 @@ import { ganTimer } from '../../ganTimer.js';
 import { ScrambleTracker } from '../../scrambleTracker.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
 import { playScrambleCompleteChime, playDisconnectAlertSound } from '../../services/audioService.js';
+import { showToast } from '../../ui/toastService.js';
 
 const SCRAMBLE_CORRECTION_DELAY_MS = 180;
 
@@ -75,7 +76,8 @@ export function createSmartCubeController({
   solveReplayViewer,
   getTimerCtrl = () => null,
   getGanTimerCtrl = () => null,
-  getDisconnectAlertView = () => null
+  getDisconnectAlertView = () => null,
+  getNavCtrl = () => null
 } = {}) {
   const bluetoothBtn = typeof document !== "undefined" ? document.getElementById("bluetoothBtn") : null;
   const bluetoothHeaderDot = typeof document !== "undefined" ? document.getElementById("bluetoothHeaderDot") : null;
@@ -121,7 +123,8 @@ export function createSmartCubeController({
   const cubeCard = typeof document !== "undefined" ? document.querySelector(".cube-card") : null;
 
   const scrambleTracker = new ScrambleTracker();
-  let smartCubeStage = "scrambling"; // "scrambling" | "inspecting" | "ready" | "solving"
+  let smartCubeStage = "scrambling"; // "scrambling" | "inspecting" | "ready" | "solving" | "needs_reset"
+  let needsResetReason = null; // null | "+2" | "DNF"
   let scrambleCorrectionDelayTimer = null;
   let scrambleSuppressTransient = false;
   let scrambleErrorVisible = false;
@@ -183,18 +186,32 @@ export function createSmartCubeController({
     const timerCtrl = getTimerCtrl();
     const solveState = timerCtrl?.getSolveState?.() || "idle";
     const solveTimerDriven = timerCtrl?.isTimerDriven?.() || false;
+    const solveTimerSource = timerCtrl?.getTimerSource?.() || "GAN Smart Timer";
     const solveFirstMoveTs = timerCtrl?.getFirstMoveTs?.() || 0;
     const solveCubeSolvedTs = timerCtrl?.getCubeSolvedTs?.() || 0;
 
     smartCubeSolveIndicator.hidden = !st.connected || s.mode !== "solve";
     if (!st.connected) return;
 
+    const isNeedsReset = smartCubeStage === "needs_reset";
+    smartCubeSolveIndicator.classList.toggle("is-needs-reset", isNeedsReset);
+    if (smartCubeReadyBtn) smartCubeReadyBtn.hidden = isNeedsReset;
+    if (smartCubeResetSolvedBtn) {
+      smartCubeResetSolvedBtn.textContent = isNeedsReset ? "↺ Cube Solved / Reset" : "↺ Calibrate";
+      smartCubeResetSolvedBtn.title = isNeedsReset
+        ? "Mark cube as solved and generate next scramble"
+        : "Calibrate cube internal orientation to solved";
+    }
+
     const trackerStatus = scrambleTracker.getStatus();
     const devName = escapeHtml(st.deviceName || "Smart Cube");
     const safeCorrections = escapeHtml(trackerStatus.corrections.join(" "));
     const safeNextReq = escapeHtml(trackerStatus.nextRequired || "");
 
-    if (smartCubeStage === "scrambling" && !trackerStatus.isComplete) {
+    if (isNeedsReset) {
+      const reasonLabel = needsResetReason === "+2" ? "+2 (1 move away)" : "DNF (Cube not solved)";
+      smartCubeSolveText.innerHTML = `⚠️ <strong>${devName}</strong> · <strong>${reasonLabel}</strong> · Solve the cube to auto-reset, or click <strong>↺ Cube Solved / Reset</strong>`;
+    } else if (smartCubeStage === "scrambling" && !trackerStatus.isComplete) {
       if (trackerStatus.hasError && !scrambleSuppressTransient) {
         smartCubeSolveText.innerHTML = `⚠️ <strong>${devName}</strong> · Scramble off-track! Undo: <span class="indicator-correction">${safeCorrections}</span>`;
       } else if (!scrambleSuppressTransient && trackerStatus.currentSubAmount > 0 && trackerStatus.nextRequired) {
@@ -210,16 +227,19 @@ export function createSmartCubeController({
     } else if (smartCubeStage === "inspecting" || solveState === "inspecting") {
       smartCubeSolveText.innerHTML = ganTimer.isConnected()
         ? `ᛒ <strong>${devName}</strong> · ✓ Scrambled · <strong>Inspecting (15s)</strong> · Start the GAN timer`
-        : `ᛒ <strong>${devName}</strong> · ✓ Scrambled · <strong>Inspecting (15s)</strong> · Turn cube to start`;
+        : `ᛒ <strong>${devName}</strong> · ✓ Scrambled · <strong>Inspecting (15s)</strong> · Turn cube or hold Space to start`;
     } else if (smartCubeStage === "ready") {
       smartCubeSolveText.innerHTML = ganTimer.isConnected()
         ? `ᛒ <strong>${devName}</strong> · ✓ Scramble Verified · <strong>READY</strong> · Start the GAN timer`
-        : `ᛒ <strong>${devName}</strong> · ✓ Scramble Verified · <strong>READY</strong> · Turn cube to start`;
+        : `ᛒ <strong>${devName}</strong> · ✓ Scramble Verified · <strong>READY</strong> · Turn cube or hold Space to start`;
     } else if (smartCubeStage === "solving" || solveState === "running") {
+      const safeSource = escapeHtml(solveTimerSource || "Timer");
       if (solveTimerDriven && solveCubeSolvedTs) {
-        smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · ✓ Cube solved · Put it down &amp; stop the GAN timer`;
+        smartCubeSolveText.innerHTML = solveTimerSource === "GAN Smart Timer"
+          ? `ᛒ <strong>${devName}</strong> · ✓ Cube solved · Put it down &amp; stop the GAN timer`
+          : `ᛒ <strong>${devName}</strong> · ✓ Cube solved · Put it down &amp; press Space or tap to stop`;
       } else if (solveTimerDriven) {
-        smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · ⏱ GAN timer running · ${solveFirstMoveTs ? "Solving…" : "Pick up the cube!"}`;
+        smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · ⏱ ${safeSource} running · ${solveFirstMoveTs ? "Solving…" : "Pick up the cube!"}`;
       } else {
         smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · Solving in progress… (Solve cube to stop)`;
       }
@@ -232,6 +252,24 @@ export function createSmartCubeController({
     if (!smartCube.getStatus().connected) return;
     if (solveScrambleText) solveScrambleText.innerHTML = getScrambleTrackerHtml();
     updateSmartCubeIndicator();
+  }
+
+  function setNeedsCubeReset(reason = "DNF") {
+    needsResetReason = reason || "DNF";
+    smartCubeStage = "needs_reset";
+    clearScrambleCorrectionDelay();
+    updateSmartCubeIndicator();
+  }
+
+  function completeCubeReset() {
+    if (smartCubeStage !== "needs_reset") return;
+    needsResetReason = null;
+    smartCubeStage = "scrambling";
+    clearScrambleCorrectionDelay();
+    smartCube.setScramble("", appStore.state.currentPuzzle);
+    getNavCtrl()?.regenerateScramble?.();
+    updateSmartCubeIndicator();
+    showToast("✓ Cube solved & reset — ready for next scramble!", "success", 2200);
   }
 
   function onSmartScrambleCompleted() {
@@ -534,6 +572,10 @@ export function createSmartCubeController({
 
   smartCubeReadyBtn?.addEventListener("click", onSmartScrambleCompleted);
   smartCubeResetSolvedBtn?.addEventListener("click", () => {
+    if (smartCubeStage === "needs_reset") {
+      completeCubeReset();
+      return;
+    }
     clearScrambleCorrectionDelay();
     smartCube.logDiag("MANUAL_CALIBRATE_RESET", { scramble: appStore.state.currentSolveScramble });
     smartCube.setScramble("", appStore.state.currentPuzzle);
@@ -605,6 +647,13 @@ export function createSmartCubeController({
       const isRotation = /^[xyz]/i.test(move);
       const solveState = timerCtrl.getSolveState();
 
+      if (smartCubeStage === "needs_reset") {
+        if (isSolved) {
+          completeCubeReset();
+        }
+        return;
+      }
+
       if (smartCubeStage === "scrambling") {
         if (!scrambleTracker.isComplete()) {
           if (!isRotation) {
@@ -650,7 +699,8 @@ export function createSmartCubeController({
         return;
       }
 
-      if (solveState === "inspecting" || smartCubeStage === "inspecting" || (smartCubeStage === "ready" && solveState === "idle")) {
+      if (solveState !== "running" && solveState !== "armed" &&
+          (solveState === "inspecting" || smartCubeStage === "inspecting" || (smartCubeStage === "ready" && solveState === "idle"))) {
         if (isRotation) return;
         smartCubeStage = "solving";
         timerCtrl.startSolveFromFirstSmartMove(move);
@@ -675,7 +725,13 @@ export function createSmartCubeController({
 
   return {
     getSmartCubeStage: () => smartCubeStage,
-    setSmartCubeStage: (st) => { smartCubeStage = st; },
+    setSmartCubeStage: (st) => {
+      smartCubeStage = st;
+      if (st !== "needs_reset") needsResetReason = null;
+    },
+    getNeedsResetReason: () => needsResetReason,
+    setNeedsCubeReset,
+    completeCubeReset,
     isScrambleComplete: () => scrambleTracker.isComplete(),
     needsAutoResetOnSolved: () => {
       const ts = scrambleTracker.getStatus();

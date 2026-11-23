@@ -879,12 +879,19 @@ export function computeCfopAverages(solves = [], options = {}) {
   const pllVals = [];
   const pauseCountVals = [];
   const pauseMsVals = [];
+  const cubeVals = [];
+  const inspectionVals = [];
   const pickupVals = [];
   const putdownVals = [];
 
   let cfopSolveCount = 0;
 
   for (const s of validSolves) {
+    const cubeMsVal = (typeof s.cubeMs === "number" && Number.isFinite(s.cubeMs))
+      ? s.cubeMs
+      : ((Array.isArray(s.moves) && s.moves.length > 0 && Number.isFinite(s.rawMs ?? s.ms)) ? (s.rawMs ?? s.ms) : null);
+    if (cubeMsVal != null) cubeVals.push(cubeMsVal);
+    if (typeof s.inspectionMs === "number" && Number.isFinite(s.inspectionMs)) inspectionVals.push(s.inspectionMs);
     if (typeof s.pickupMs === "number" && Number.isFinite(s.pickupMs)) pickupVals.push(s.pickupMs);
     if (typeof s.putdownMs === "number" && Number.isFinite(s.putdownMs)) putdownVals.push(s.putdownMs);
     const cfop = s.cfop;
@@ -909,6 +916,8 @@ export function computeCfopAverages(solves = [], options = {}) {
     solveCount: validSolves.length,
     cfopSolveCount,
     totalMs: avgOf(totalTimes),
+    cubeMs: avgOf(cubeVals),
+    inspectionMs: avgOf(inspectionVals),
     pickupMs: avgOf(pickupVals),
     putdownMs: avgOf(putdownVals),
     cross: avgOf(crossVals),
@@ -923,6 +932,8 @@ export function computeCfopAverages(solves = [], options = {}) {
     avgPauseMs: avgOf(pauseMsVals),
     median: {
       totalMs: computeMedian(totalTimes),
+      cubeMs: computeMedian(cubeVals),
+      inspectionMs: computeMedian(inspectionVals),
       pickupMs: computeMedian(pickupVals),
       putdownMs: computeMedian(putdownVals),
       cross: computeMedian(crossVals),
@@ -938,6 +949,8 @@ export function computeCfopAverages(solves = [], options = {}) {
     },
     trimMean: {
       totalMs: computeTrimmedMean(totalTimes, 0.10),
+      cubeMs: computeTrimmedMean(cubeVals, 0.10),
+      inspectionMs: computeTrimmedMean(inspectionVals, 0.10),
       pickupMs: computeTrimmedMean(pickupVals, 0.10),
       putdownMs: computeTrimmedMean(putdownVals, 0.10),
       cross: computeTrimmedMean(crossVals, 0.10),

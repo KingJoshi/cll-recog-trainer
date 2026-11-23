@@ -1,6 +1,6 @@
 // Paginated Full Session Solve Log, CFOP Averages, and OLL/PLL Case Performance View
 
-import { getTrack } from '../../data/algRegistry.js';
+import { getTrack, getSolveTargetLabel } from '../../data/algRegistry.js';
 import { ollCases } from '../../data/ollData.js';
 import { pllCases } from '../../data/pllData.js';
 import {
@@ -108,11 +108,26 @@ export function createSessionLogView({
       origIdx: sessSolves.indexOf(sv)
     }));
 
+    const getSolveCubeMs = (sv) => {
+      if (!sv) return null;
+      if (typeof sv.cubeMs === "number" && Number.isFinite(sv.cubeMs)) return sv.cubeMs;
+      if (Array.isArray(sv.moves) && sv.moves.length > 0) {
+        const raw = sv.rawMs != null && Number.isFinite(sv.rawMs) ? sv.rawMs : sv.ms;
+        return Number.isFinite(raw) ? raw : null;
+      }
+      return null;
+    };
+
     const getLogSortValue = (entry, col) => {
       const sv = entry.s;
       if (col === "num" || col === "at") return entry.num;
       if (col === "ms") return getSolveTime(sv);
+      if (col === "cubeMs") {
+        const cm = getSolveCubeMs(sv);
+        return cm != null ? cm : Infinity;
+      }
       if (col === "id") return String(sv.id || sv.target || "").toLowerCase();
+      if (col === "inspectionMs") return sv.inspectionMs != null ? sv.inspectionMs : Infinity;
       if (col === "pickupMs") return sv.pickupMs != null ? sv.pickupMs : Infinity;
       if (col === "putdownMs") return sv.putdownMs != null ? sv.putdownMs : Infinity;
       const cfop = is3x3Puzzle ? ensureSolveCfop(sv) : null;
@@ -168,12 +183,18 @@ export function createSessionLogView({
         <div class="layer-stat-card"><span class="layer-stat-val">${worst != null ? formatSolveTime(worst) : "-"}</span><span class="layer-stat-lbl">Worst</span></div>
     `;
 
+    const logAvgCube = averagePhase(displaySolves, "cubeMs");
+    const logAvgInspection = averagePhase(displaySolves, "inspectionMs");
     const logAvgPickup = averagePhase(displaySolves, "pickupMs");
     const logAvgPutdown = averagePhase(displaySolves, "putdownMs");
-    if (logAvgPickup != null || logAvgPutdown != null) {
+    if (logAvgCube != null || logAvgInspection != null || logAvgPickup != null || logAvgPutdown != null) {
       html += `
-        <div class="layer-stat-card" title="GAN timer start → first smart cube turn"><span class="layer-stat-val">${formatCfopSplitMs(logAvgPickup)}</span><span class="layer-stat-lbl">Avg Pick-up</span></div>
-        <div class="layer-stat-card" title="Smart cube solved → GAN timer stopped"><span class="layer-stat-val">${formatCfopSplitMs(logAvgPutdown)}</span><span class="layer-stat-lbl">Avg Put-down</span></div>
+        ${logAvgCube != null ? `<div class="layer-stat-card" title="First smart cube turn → cube solved"><span class="layer-stat-val">${formatCfopSplitMs(logAvgCube)}</span><span class="layer-stat-lbl">Avg Cube</span></div>` : ""}
+        ${logAvgInspection != null ? `<div class="layer-stat-card" title="WCA inspection duration before timer start"><span class="layer-stat-val">${formatCfopSplitMs(logAvgInspection)}</span><span class="layer-stat-lbl">Avg Insp</span></div>` : ""}
+        ${(logAvgPickup != null || logAvgPutdown != null) ? `
+          <div class="layer-stat-card" title="Timer start → first smart cube turn"><span class="layer-stat-val">${formatCfopSplitMs(logAvgPickup)}</span><span class="layer-stat-lbl">Avg Pick-up</span></div>
+          <div class="layer-stat-card" title="Smart cube solved → timer stopped"><span class="layer-stat-val">${formatCfopSplitMs(logAvgPutdown)}</span><span class="layer-stat-lbl">Avg Put-down</span></div>
+        ` : ""}
       `;
     }
     if (count >= 5) {
@@ -196,6 +217,9 @@ export function createSessionLogView({
         <tr class="${rowClass}">
           <td class="cfop-avg-scope-cell"><strong>${scopeTitle}</strong> ${subMeta ? `<small class="cfop-sub-meta">${subMeta}</small>` : ""}</td>
           <td><strong>${statsObj.totalMs != null ? formatSolveTime(statsObj.totalMs) : "-"}</strong></td>
+          <td><strong>${formatCfopSplitMs(statsObj.cubeMs)}</strong></td>
+          <td>${formatCfopSplitMs(statsObj.inspectionMs)}</td>
+          <td>${formatCfopSplitMs(statsObj.pickupMs)}</td>
           <td>${formatCfopSplitMs(statsObj.cross)}</td>
           <td>${formatCfopSplitMs(statsObj.f2l1)}</td>
           <td>${formatCfopSplitMs(statsObj.f2l2)}</td>
@@ -204,9 +228,8 @@ export function createSessionLogView({
           <td><strong>${formatCfopSplitMs(statsObj.f2lTotal)}</strong></td>
           <td>${formatCfopSplitMs(statsObj.oll)}</td>
           <td>${formatCfopSplitMs(statsObj.pll)}</td>
-          <td>${fmtPauseSummary(pauseCnt, pauseMsVal)}</td>
-          <td>${formatCfopSplitMs(statsObj.pickupMs)}</td>
           <td>${formatCfopSplitMs(statsObj.putdownMs)}</td>
+          <td>${fmtPauseSummary(pauseCnt, pauseMsVal)}</td>
         </tr>
       `;
     };
@@ -228,6 +251,9 @@ export function createSessionLogView({
                   <tr>
                     <th scope="col" class="cfop-avg-scope-cell">Scope / Metric</th>
                     <th scope="col">Total</th>
+                    <th scope="col" title="Pure smart cube solving time (first turn → solved)">Cube</th>
+                    <th scope="col" title="WCA inspection duration before timer start">Insp</th>
+                    <th scope="col" title="Time from timer start to first smart cube turn">Pick-up</th>
                     <th scope="col">Cross</th>
                     <th scope="col">F2L 1</th>
                     <th scope="col">F2L 2</th>
@@ -236,9 +262,8 @@ export function createSessionLogView({
                     <th scope="col">F2L &Sigma;</th>
                     <th scope="col">OLL</th>
                     <th scope="col">PLL</th>
+                    <th scope="col" title="Time from smart cube solved to timer stop">Put-down</th>
                     <th scope="col">Pauses</th>
-                    <th scope="col" title="Time from GAN Bluetooth timer start to first smart cube turn">Pick-up</th>
-                    <th scope="col" title="Time from smart cube solved to GAN Bluetooth timer stop">Put-down</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -295,6 +320,9 @@ export function createSessionLogView({
               <tr>
                 <th scope="col" class="sortable" data-log-sort="num" style="width: 42px;">#<span class="sort-icon">${logSortArrow("num")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="ms">Time<span class="sort-icon">${logSortArrow("ms")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="cubeMs" title="Pure smart cube solving time (first turn → solved)">Cube<span class="sort-icon">${logSortArrow("cubeMs")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="inspectionMs" title="Inspection time before timer start">Insp<span class="sort-icon">${logSortArrow("inspectionMs")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="pickupMs" title="Timer start → first smart cube turn">Pick-up<span class="sort-icon">${logSortArrow("pickupMs")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="cross">Cross<span class="sort-icon">${logSortArrow("cross")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="f2l1">F2L 1<span class="sort-icon">${logSortArrow("f2l1")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="f2l2">F2L 2<span class="sort-icon">${logSortArrow("f2l2")}</span></th>
@@ -303,9 +331,8 @@ export function createSessionLogView({
                 <th scope="col" class="sortable" data-log-sort="f2lTotal">F2L &Sigma;<span class="sort-icon">${logSortArrow("f2lTotal")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="oll">OLL<span class="sort-icon">${logSortArrow("oll")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="pll">PLL<span class="sort-icon">${logSortArrow("pll")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="putdownMs" title="Smart cube solved → timer stopped">Put-down<span class="sort-icon">${logSortArrow("putdownMs")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="pauseMs" title="Pauses ≥0.40s">Pauses<span class="sort-icon">${logSortArrow("pauseMs")}</span></th>
-                <th scope="col" class="sortable" data-log-sort="pickupMs">Pick-up<span class="sort-icon">${logSortArrow("pickupMs")}</span></th>
-                <th scope="col" class="sortable" data-log-sort="putdownMs">Put-down<span class="sort-icon">${logSortArrow("putdownMs")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="at" style="width: 52px; text-align: center;">Date<span class="sort-icon">${logSortArrow("at")}</span></th>
                 <th scope="col" style="width: 78px;">Actions</th>
               </tr>
@@ -314,7 +341,7 @@ export function createSessionLogView({
       `;
 
       if (pageRows.length === 0) {
-        html += `<tr><td colspan="15" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+        html += `<tr><td colspan="17" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
       } else {
         pageRows.forEach(({ s: sv, num, origIdx }) => {
           const cfop = ensureSolveCfop(sv);
@@ -332,10 +359,14 @@ export function createSessionLogView({
             ? `<span class="${pauses.totalCount > 0 ? "pause-cell-warn" : "pause-cell-clean"}">${pauses.totalCount} <small>(${formatCfopSplitMs(pauses.totalMs)})</small></span>`
             : "-";
           const hasReplay = Array.isArray(sv.moves) && sv.moves.length > 0;
+          const cubeMsVal = getSolveCubeMs(sv);
           html += `
             <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click for full CFOP breakdown">
               <td>${num}</td>
               <td class="layer-time-cell"><div class="cfop-cell-stack"><strong>${formatSolveDisplay(sv)}</strong>${sv.tps ? `<small class="cfop-sub-meta">${sv.tps} TPS</small>` : ""}</div></td>
+              <td><strong>${formatCfopSplitMs(cubeMsVal)}</strong></td>
+              <td>${formatCfopSplitMs(sv.inspectionMs)}</td>
+              <td>${formatCfopSplitMs(sv.pickupMs)}</td>
               <td>${formatCfopSplitMs(sp.cross)}</td>
               <td>${formatCfopSplitMs(sp.f2l1)}</td>
               <td>${formatCfopSplitMs(sp.f2l2)}</td>
@@ -344,9 +375,8 @@ export function createSessionLogView({
               <td><strong>${formatCfopSplitMs(sp.f2lTotal)}</strong></td>
               <td>${ollCellHtml}</td>
               <td>${pllCellHtml}</td>
-              <td>${pauseCellHtml}</td>
-              <td>${formatCfopSplitMs(sv.pickupMs)}</td>
               <td>${formatCfopSplitMs(sv.putdownMs)}</td>
+              <td>${pauseCellHtml}</td>
               <td class="layer-date-cell">${renderSolveDateClockHtml(sv.at)}</td>
               <td>
                 <div class="layer-log-actions">
@@ -366,6 +396,9 @@ export function createSessionLogView({
               <tr class="cfop-tfoot-page-avg cfop-trim-highlight-row">
                 <th scope="row">Med</th>
                 <td><div class="cfop-cell-stack"><strong>${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : "-"}</strong><small class="cfop-sub-meta">Page (${pageSolves.length})</small></div></td>
+                <td><strong>${formatCfopSplitMs(pageAvg.median?.cubeMs)}</strong></td>
+                <td>${formatCfopSplitMs(pageAvg.median?.inspectionMs)}</td>
+                <td>${formatCfopSplitMs(pageAvg.median?.pickupMs)}</td>
                 <td>${formatCfopSplitMs(pageAvg.median?.cross)}</td>
                 <td>${formatCfopSplitMs(pageAvg.median?.f2l1)}</td>
                 <td>${formatCfopSplitMs(pageAvg.median?.f2l2)}</td>
@@ -374,14 +407,16 @@ export function createSessionLogView({
                 <td><strong>${formatCfopSplitMs(pageAvg.median?.f2lTotal)}</strong></td>
                 <td>${formatCfopSplitMs(pageAvg.median?.oll)}</td>
                 <td>${formatCfopSplitMs(pageAvg.median?.pll)}</td>
-                <td>${fmtPauseSummary(pageAvg.median?.pauseCount, pageAvg.median?.pauseMs)}</td>
-                <td>${formatCfopSplitMs(pageAvg.median?.pickupMs)}</td>
                 <td>${formatCfopSplitMs(pageAvg.median?.putdownMs)}</td>
+                <td>${fmtPauseSummary(pageAvg.median?.pauseCount, pageAvg.median?.pauseMs)}</td>
                 <td colspan="2"><small class="cfop-sub-meta">Page Median</small></td>
               </tr>
               <tr class="cfop-tfoot-page-avg">
                 <th scope="row">Trim</th>
                 <td><div class="cfop-cell-stack"><strong>${pageAvg.trimMean?.totalMs != null ? formatSolveTime(pageAvg.trimMean.totalMs) : "-"}</strong><small class="cfop-sub-meta">Trim10%</small></div></td>
+                <td><strong>${formatCfopSplitMs(pageAvg.trimMean?.cubeMs)}</strong></td>
+                <td>${formatCfopSplitMs(pageAvg.trimMean?.inspectionMs)}</td>
+                <td>${formatCfopSplitMs(pageAvg.trimMean?.pickupMs)}</td>
                 <td>${formatCfopSplitMs(pageAvg.trimMean?.cross)}</td>
                 <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l1)}</td>
                 <td>${formatCfopSplitMs(pageAvg.trimMean?.f2l2)}</td>
@@ -390,14 +425,16 @@ export function createSessionLogView({
                 <td><strong>${formatCfopSplitMs(pageAvg.trimMean?.f2lTotal)}</strong></td>
                 <td>${formatCfopSplitMs(pageAvg.trimMean?.oll)}</td>
                 <td>${formatCfopSplitMs(pageAvg.trimMean?.pll)}</td>
-                <td>${fmtPauseSummary(pageAvg.trimMean?.pauseCount, pageAvg.trimMean?.pauseMs)}</td>
-                <td>${formatCfopSplitMs(pageAvg.trimMean?.pickupMs)}</td>
                 <td>${formatCfopSplitMs(pageAvg.trimMean?.putdownMs)}</td>
+                <td>${fmtPauseSummary(pageAvg.trimMean?.pauseCount, pageAvg.trimMean?.pauseMs)}</td>
                 <td colspan="2"><small class="cfop-sub-meta">Page TrimMean 10%</small></td>
               </tr>
               <tr class="cfop-tfoot-page-avg">
                 <th scope="row">Mean</th>
                 <td><div class="cfop-cell-stack"><strong>${pageAvg.totalMs != null ? formatSolveTime(pageAvg.totalMs) : "-"}</strong><small class="cfop-sub-meta">Page (${pageSolves.length})</small></div></td>
+                <td><strong>${formatCfopSplitMs(pageAvg.cubeMs)}</strong></td>
+                <td>${formatCfopSplitMs(pageAvg.inspectionMs)}</td>
+                <td>${formatCfopSplitMs(pageAvg.pickupMs)}</td>
                 <td>${formatCfopSplitMs(pageAvg.cross)}</td>
                 <td>${formatCfopSplitMs(pageAvg.f2l1)}</td>
                 <td>${formatCfopSplitMs(pageAvg.f2l2)}</td>
@@ -406,14 +443,13 @@ export function createSessionLogView({
                 <td><strong>${formatCfopSplitMs(pageAvg.f2lTotal)}</strong></td>
                 <td>${formatCfopSplitMs(pageAvg.oll)}</td>
                 <td>${formatCfopSplitMs(pageAvg.pll)}</td>
-                <td>${fmtPauseSummary(pageAvg.avgPauseCount, pageAvg.avgPauseMs)}</td>
-                <td>${formatCfopSplitMs(pageAvg.pickupMs)}</td>
                 <td>${formatCfopSplitMs(pageAvg.putdownMs)}</td>
+                <td>${fmtPauseSummary(pageAvg.avgPauseCount, pageAvg.avgPauseMs)}</td>
                 <td colspan="2"><small class="cfop-sub-meta">Page Mean</small></td>
               </tr>
               <tr class="cfop-tfoot-session-avg">
                 <th scope="row">All</th>
-                <td colspan="14">
+                <td colspan="16">
                   <strong>Median:</strong> ${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : "-"} &bull;
                   <strong>TrimMean (10%):</strong> ${sessionAvg.trimMean?.totalMs != null ? formatSolveTime(sessionAvg.trimMean.totalMs) : "-"} &bull;
                   <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : "-"}
@@ -439,8 +475,10 @@ export function createSessionLogView({
               <tr>
                 <th scope="col" class="sortable" data-log-sort="num" style="width: 44px;">#<span class="sort-icon">${logSortArrow("num")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="ms" style="width: 110px;">Time<span class="sort-icon">${logSortArrow("ms")}</span></th>
-                <th scope="col" class="sortable" data-log-sort="pickupMs" style="width: 78px;">Pick-up<span class="sort-icon">${logSortArrow("pickupMs")}</span></th>
-                <th scope="col" class="sortable" data-log-sort="putdownMs" style="width: 78px;">Put-down<span class="sort-icon">${logSortArrow("putdownMs")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="cubeMs" style="width: 78px;" title="Pure smart cube solving time (first turn → solved)">Cube<span class="sort-icon">${logSortArrow("cubeMs")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="inspectionMs" style="width: 72px;" title="Inspection time before timer start">Insp<span class="sort-icon">${logSortArrow("inspectionMs")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="pickupMs" style="width: 78px;" title="Timer start → first smart cube turn">Pick-up<span class="sort-icon">${logSortArrow("pickupMs")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="putdownMs" style="width: 78px;" title="Smart cube solved → timer stopped">Put-down<span class="sort-icon">${logSortArrow("putdownMs")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="id" style="width: 140px;">Case / Target<span class="sort-icon">${logSortArrow("id")}</span></th>
                 <th scope="col">Scramble</th>
                 <th scope="col" class="sortable" data-log-sort="at" style="width: 56px; text-align: center;">Date<span class="sort-icon">${logSortArrow("at")}</span></th>
@@ -451,17 +489,20 @@ export function createSessionLogView({
       `;
 
       if (pageRows.length === 0) {
-        html += `<tr><td colspan="8" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+        html += `<tr><td colspan="10" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
       } else {
         pageRows.forEach(({ s: sv, num, origIdx }) => {
           const targetBadge = sv.id
             ? `<span class="badge">${escapeHtml(sv.id)}</span>`
-            : `<span class="badge badge-subtle">${escapeHtml(sv.target === "layer" ? "1st Layer" : (sv.target === "face" ? "1st Face" : (sv.target === "parity" ? "Parity Drill" : "Full Solve")))}</span>`;
+            : `<span class="badge badge-subtle">${escapeHtml(getSolveTargetLabel(sv.puzzle || s.currentPuzzle, sv.target))}</span>`;
           const hasReplay = Array.isArray(sv.moves) && sv.moves.length > 0;
+          const cubeMsVal = getSolveCubeMs(sv);
           html += `
             <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click to view solve details">
               <td>${num}</td>
               <td class="layer-time-cell"><div class="cfop-cell-stack"><strong>${formatSolveDisplay(sv)}</strong>${sv.tps ? `<small class="cfop-sub-meta">${sv.tps} TPS</small>` : ""}</div></td>
+              <td><strong>${formatCfopSplitMs(cubeMsVal)}</strong></td>
+              <td>${formatCfopSplitMs(sv.inspectionMs)}</td>
               <td>${formatCfopSplitMs(sv.pickupMs)}</td>
               <td>${formatCfopSplitMs(sv.putdownMs)}</td>
               <td>${targetBadge}</td>
@@ -484,7 +525,7 @@ export function createSessionLogView({
             <tfoot>
               <tr class="cfop-tfoot-page-avg">
                 <th scope="row">Page</th>
-                <td colspan="7">
+                <td colspan="9">
                   <strong>Median:</strong> ${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : "-"} &bull;
                   <strong>TrimMean (10%):</strong> ${pageAvg.trimMean?.totalMs != null ? formatSolveTime(pageAvg.trimMean.totalMs) : "-"} &bull;
                   <strong>Mean:</strong> ${pageAvg.totalMs != null ? formatSolveTime(pageAvg.totalMs) : "-"}
@@ -493,7 +534,7 @@ export function createSessionLogView({
               </tr>
               <tr class="cfop-tfoot-session-avg">
                 <th scope="row">All</th>
-                <td colspan="7">
+                <td colspan="9">
                   <strong>Median:</strong> ${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : "-"} &bull;
                   <strong>TrimMean (10%):</strong> ${sessionAvg.trimMean?.totalMs != null ? formatSolveTime(sessionAvg.trimMean.totalMs) : "-"} &bull;
                   <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : "-"}

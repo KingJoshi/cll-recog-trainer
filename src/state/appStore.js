@@ -1,7 +1,7 @@
 // Centralized App Store & Backward-Compatible Persistence
 // Preserves all existing localStorage/sessionStorage/cookie keys without data loss.
 
-import { PUZZLES, getTrack, getDefaultTrack } from '../data/algRegistry.js';
+import { PUZZLES, getTrack, getDefaultTrack, getSolveTargetLabel } from '../data/algRegistry.js';
 import { cllCases } from '../data/cllData.js';
 import { DEFAULT_CUBE_COLORS, CUBE_COLORS, setCustomCubeColors, applyCubeColorsToCss } from '../caseVisualizer.js';
 import {
@@ -16,7 +16,8 @@ import {
   loadSessions,
   saveSessions,
   getActiveSessionId,
-  setActiveSessionId
+  setActiveSessionId,
+  resolveSessionForTarget
 } from './sessionStore.js';
 
 export const STORAGE_KEYS = {
@@ -253,6 +254,35 @@ export class AppStore {
     saveSessions(this.state.sessions);
     setActiveSessionId(this.state.activeSessionId);
     if (!silent) this._emitPersist("sessions");
+  }
+
+  selectOrCreateSessionForTarget(targetId) {
+    const s = this.state;
+    const puzzle = s.currentPuzzle || "222";
+    const target = targetId || "full";
+    const puzzleShortName = PUZZLES[puzzle]?.shortName || puzzle;
+    const targetLabel = getSolveTargetLabel(puzzle, target);
+    const result = resolveSessionForTarget(
+      s.sessions,
+      s.activeSessionId,
+      puzzle,
+      target,
+      { puzzleShortName, targetLabel }
+    );
+    if (result.action === "created") {
+      s.sessions.push(result.session);
+    }
+    const sess = result.session;
+    s.activeSessionId = sess.id;
+    s.solveTarget = target;
+    s.solveShowCube = sess.showCube ?? true;
+    s.solveInspection = sess.inspection ?? true;
+    s.sessionLogPage = 1;
+    const solves = Array.isArray(sess.solves) ? sess.solves : [];
+    s.lastSolve = solves.length ? solves[solves.length - 1] : null;
+    this.saveSessions();
+    this.saveSettings();
+    return result;
   }
 
   getLayerSession() {
@@ -538,6 +568,12 @@ export class AppStore {
 
   hydrateFromSync(mergedPayload) {
     if (!mergedPayload || typeof mergedPayload !== "object") return;
+    this.lastHydratePrev = {
+      puzzle: this.state.currentPuzzle,
+      trackId: this.state.currentTrackId,
+      mode: this.state.mode,
+      solveTarget: this.state.solveTarget
+    };
     this._isHydrating = true;
     try {
       const savedSettings = mergedPayload.settings && typeof mergedPayload.settings === "object"
@@ -653,7 +689,7 @@ export class AppStore {
       this._isHydrating = false;
     }
 
-    this.notify("hydrate", { source: "sync" });
+    this.notify("hydrate", { source: "sync", prev: this.lastHydratePrev });
   }
 }
 

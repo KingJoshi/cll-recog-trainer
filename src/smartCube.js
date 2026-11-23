@@ -64,6 +64,48 @@ export async function getConnectSmartCube() {
   return getConnectSmartCubeFn();
 }
 
+export const ONE_MOVE_HTM = [
+  "U", "U'", "U2",
+  "D", "D'", "D2",
+  "L", "L'", "L2",
+  "R", "R'", "R2",
+  "F", "F'", "F2",
+  "B", "B'", "B2"
+];
+
+let _oneMoveAlgsCache = null;
+function getOneMoveAlgs() {
+  if (!_oneMoveAlgsCache) {
+    _oneMoveAlgsCache = ONE_MOVE_HTM.map(m => new Alg(m));
+  }
+  return _oneMoveAlgsCache;
+}
+
+/**
+ * Evaluate whether a KPattern is solved, 1 HTM move (quarter or half turn) away
+ * from any solved orientation (+2), or more than 1 move away (DNF).
+ */
+export function evaluatePatternFinishState(pattern, solvedPatterns) {
+  if (!pattern || !Array.isArray(solvedPatterns) || solvedPatterns.length === 0) {
+    return "unknown";
+  }
+  if (solvedPatterns.some(p => p.isIdentical(pattern))) {
+    return "solved";
+  }
+  const algs = getOneMoveAlgs();
+  for (let i = 0; i < algs.length; i++) {
+    try {
+      const next = pattern.applyAlg(algs[i]);
+      if (solvedPatterns.some(p => p.isIdentical(next))) {
+        return "+2";
+      }
+    } catch {
+      // Ignore moves not supported on the puzzle
+    }
+  }
+  return "DNF";
+}
+
 export async function getSolvedPatterns(puzzleId = "333") {
   try {
     const info = await getSolvedOrientations(puzzleId);
@@ -924,6 +966,16 @@ export class SmartCubeManager extends EventTarget {
       return true;
     }
     return this.isCurrentPatternSolved();
+  }
+
+  evaluateFinishState() {
+    if (this.isCubeSolved()) {
+      return "solved";
+    }
+    if (this.currentPattern && this.solvedPatterns && this.solvedPatterns.length > 0) {
+      return evaluatePatternFinishState(this.currentPattern, this.solvedPatterns);
+    }
+    return "unknown";
   }
 
   _emitStatusChange() {

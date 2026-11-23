@@ -4,6 +4,7 @@ import { Alg } from 'cubing/alg';
 import { initCfopAnalyzer, ensureSolveCfop, isCfopAnalyzerReady, computeMedian, computeTrimmedMean } from '../../cfopAnalyzer.js';
 import { averagePhase, medianPhase, trimMeanPhase, ganTimer } from '../../ganTimer.js';
 import { smartCube } from '../../smartCube.js';
+import { getSolveTargetLabel } from '../../data/algRegistry.js';
 import { getSolveTime, computeAverageOfN, getBestAverageOfN } from '../../services/solveStats.js';
 import { caseById } from '../../state/appStore.js';
 import { escapeHtml, formatSolveTime, formatSolveDisplay, formatCfopSplitMs } from '../../services/htmlUtils.js';
@@ -236,7 +237,11 @@ export function createSolvePanelView({
     const currentScr = s.scrambleMoves || s.currentSolveScramble || s.scramble;
     const st = smartCube.getStatus();
     const scUi = getSmartCubeUi();
-    if (st.connected && scUi?.getSmartCubeStage?.() === "scrambling" && !scUi?.isScrambleComplete?.()) {
+    if (st.connected && scUi?.getSmartCubeStage?.() === "needs_reset") {
+      if (solveScrambleText) {
+        solveScrambleText.innerHTML = `<span class="scramble-reset-badge">⚠️ Solve &amp; reset your cube for the next scramble</span>`;
+      }
+    } else if (st.connected && scUi?.getSmartCubeStage?.() === "scrambling" && !scUi?.isScrambleComplete?.()) {
       scUi?.renderSmartScrambleAssistant?.();
     } else if (solveScrambleText) {
       solveScrambleText.textContent = currentScr;
@@ -271,7 +276,7 @@ export function createSolvePanelView({
         const caseObj = caseById.get(lastSolve.id);
         metaLine = `<strong>${escapeHtml(lastSolve.id)}</strong> · ${escapeHtml(appStore.getCllCaseSolutionDisplay(caseObj))} · opposite ${escapeHtml(caseObj.opposite)}`;
       } else {
-        const targetLabel = lastSolve.target === "layer" ? "1st Layer" : (lastSolve.target === "face" ? "1st Face" : "Full Solve");
+        const targetLabel = getSolveTargetLabel(lastSolve.puzzle || s.currentPuzzle, lastSolve.target);
         metaLine = `<span class="solve-case-target">${escapeHtml(targetLabel)}</span>`;
       }
       if (lastSolve.moves && lastSolve.moves.length > 0) {

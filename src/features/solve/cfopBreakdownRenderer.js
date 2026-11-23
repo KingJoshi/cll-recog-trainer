@@ -5,30 +5,102 @@ import { getCachedCaseSvg } from '../../caseVisualizer.js';
 import { escapeHtml, formatCfopSplitMs } from '../../services/htmlUtils.js';
 
 export function renderSolvePhaseInline(solve) {
-  if (!solve || (solve.pickupMs == null && solve.putdownMs == null)) return "";
+  if (!solve || (solve.inspectionMs == null && solve.pickupMs == null && solve.putdownMs == null)) return "";
   const parts = [];
+  if (solve.inspectionMs != null) parts.push(`insp <strong>${formatCfopSplitMs(solve.inspectionMs)}</strong>`);
   if (solve.pickupMs != null) parts.push(`pick-up <strong>${formatCfopSplitMs(solve.pickupMs)}</strong>`);
   if (solve.putdownMs != null) parts.push(`put-down <strong>${formatCfopSplitMs(solve.putdownMs)}</strong>`);
-  return `<span class="solve-phase-inline" title="Measured between GAN timer and smart cube events">⏱ ${parts.join(" · ")}</span>`;
+  return `<span class="solve-phase-inline" title="Measured across inspection, timer, and smart cube events">⏱ ${parts.join(" · ")}</span>`;
 }
 
 export function renderCfopStepTable(solve, { detailed = false } = {}) {
   const cfop = ensureSolveCfop(solve);
   if (!cfop || (!cfop.steps?.length && !cfop.splits)) return "";
 
+  const realSteps = (cfop.steps || []);
+  if (realSteps.length === 0) return "";
+
+  const hasPickup = typeof solve.pickupMs === "number" && Number.isFinite(solve.pickupMs);
+  const hasPutdown = typeof solve.putdownMs === "number" && Number.isFinite(solve.putdownMs);
+  const pickupOffset = hasPickup ? solve.pickupMs : 0;
+
+  const totalRecogMs = realSteps.reduce((acc, s) => acc + (s.phase === "cross" ? 0 : (s.recogMs || 0)), 0);
+  const totalExecMs = realSteps.reduce((acc, s) => acc + (s.execMs || 0), 0);
+  const stepsTotalMs = realSteps.reduce((acc, s) => acc + (s.ms || 0), 0);
+  const cubeSolveMs = typeof solve.cubeMs === "number" && Number.isFinite(solve.cubeMs) ? solve.cubeMs : stepsTotalMs;
+  const solveMs = solve.rawMs ?? solve.ms ?? (pickupOffset + cubeSolveMs + (hasPutdown ? solve.putdownMs : 0));
+  const totalMoves = solve.moveCount ?? realSteps.reduce((acc, s) => acc + (s.moveCount || 0), 0);
+  const pCnt = cfop.pauses?.totalCount || 0;
+  const pMs = cfop.pauses?.totalMs || 0;
+
   const displayRows = [];
-  for (const st of (cfop.steps || [])) {
-    displayRows.push(st);
+  if (hasPickup) {
+    displayRows.push({
+      phase: "pickup",
+      label: "Pick-up",
+      caseId: solve.timer || "Timer",
+      recogMs: null,
+      setupMoves: "",
+      execMs: null,
+      ms: solve.pickupMs,
+      accumMs: solve.pickupMs,
+      moveCount: null,
+      pauseCount: 0,
+      pauseMs: 0,
+      execMoves: ""
+    });
+  }
+  for (const st of realSteps) {
+    displayRows.push({
+      ...st,
+      accumMs: st.accumMs != null ? st.accumMs + pickupOffset : null
+    });
     if (st.phase === "f2l4" && cfop.f2lSummary) {
-      displayRows.push(cfop.f2lSummary);
+      displayRows.push({
+        ...cfop.f2lSummary,
+        accumMs: cfop.f2lSummary.accumMs != null ? cfop.f2lSummary.accumMs + pickupOffset : null
+      });
     }
   }
-  if (displayRows.length === 0) return "";
+  if (hasPickup || hasPutdown) {
+    displayRows.push({
+      phase: "cubeTotal",
+      label: "Cube Solve",
+      caseId: solve.smartCube || "Smart Cube",
+      recogMs: totalRecogMs,
+      setupMoves: "",
+      execMs: totalExecMs,
+      ms: cubeSolveMs,
+      accumMs: pickupOffset + cubeSolveMs,
+      moveCount: totalMoves,
+      tps: solve.tps,
+      pauseCount: pCnt,
+      pauseMs: pMs,
+      execMoves: ""
+    });
+  }
+  if (hasPutdown) {
+    displayRows.push({
+      phase: "putdown",
+      label: "Put-down",
+      caseId: solve.timer || "Timer",
+      recogMs: null,
+      setupMoves: "",
+      execMs: null,
+      ms: solve.putdownMs,
+      accumMs: solveMs,
+      moveCount: null,
+      pauseCount: 0,
+      pauseMs: 0,
+      execMoves: ""
+    });
+  }
 
   const rowsHtml = displayRows.map(row => {
-    const isSummaryRow = row.phase === "f2lTotal";
+    const isSummaryRow = row.phase === "f2lTotal" || row.phase === "cubeTotal";
+    const isHandlingRow = row.phase === "pickup" || row.phase === "putdown";
     let stepBadgeClass = "cfop-step-badge-default";
-    if (row.phase === "f2lTotal") stepBadgeClass = "cfop-step-badge-f2lsum";
+    if (row.phase === "f2lTotal" || row.phase === "cubeTotal") stepBadgeClass = "cfop-step-badge-f2lsum";
     else if (row.phase === "oll") stepBadgeClass = "cfop-step-badge-oll";
     else if (row.phase === "pll") stepBadgeClass = "cfop-step-badge-pll";
     else if (row.phase === "cross") stepBadgeClass = "cfop-step-badge-cross";
@@ -42,9 +114,11 @@ export function renderCfopStepTable(solve, { detailed = false } = {}) {
       caseDisplay = `<span class="badge badge-pll-case"${fullTitle}>${escapeHtml(row.caseId)}</span>`;
     } else if (row.phase.startsWith("f2l") && row.phase !== "f2lTotal") {
       caseDisplay = `<span class="cfop-slot-tag">${escapeHtml(row.caseId || "-")}</span>`;
+    } else if (isHandlingRow || row.phase === "cubeTotal") {
+      caseDisplay = `<span class="cfop-slot-tag">${escapeHtml(row.caseId || "-")}</span>`;
     }
 
-    const recogTxt = row.phase === "cross"
+    const recogTxt = (row.phase === "cross" || isHandlingRow)
       ? `<span class="cfop-muted-dash">-</span>`
       : formatCfopSplitMs(row.recogMs);
 
@@ -52,7 +126,9 @@ export function renderCfopStepTable(solve, { detailed = false } = {}) {
       ? `<code class="cfop-setup-code">${escapeHtml(row.setupMoves)}</code>`
       : `<span class="cfop-muted-dash">-</span>`;
 
-    const execTxt = formatCfopSplitMs(row.execMs);
+    const execTxt = isHandlingRow
+      ? `<span class="cfop-muted-dash">-</span>`
+      : formatCfopSplitMs(row.execMs);
     const totalTxt = `<strong>${formatCfopSplitMs(row.ms)}</strong>`;
     const accumTxt = formatCfopSplitMs(row.accumMs);
 
@@ -60,12 +136,14 @@ export function renderCfopStepTable(solve, { detailed = false } = {}) {
       ? `${row.moveCount}${detailed && row.tps ? ` <small class="cfop-sub-meta">(${row.tps} TPS)</small>` : ""}`
       : "-";
 
-    const pauseTxt = row.pauseCount > 0
-      ? `<span class="pause-cell-warn">${row.pauseCount} <small>(${formatCfopSplitMs(row.pauseMs)})</small></span>`
-      : `<span class="pause-cell-clean">0</span>`;
+    const pauseTxt = isHandlingRow
+      ? `<span class="cfop-muted-dash">-</span>`
+      : (row.pauseCount > 0
+          ? `<span class="pause-cell-warn">${row.pauseCount} <small>(${formatCfopSplitMs(row.pauseMs)})</small></span>`
+          : `<span class="pause-cell-clean">0</span>`);
 
     const reconStr = row.execMoves || row.moves || "";
-    const reconTxt = isSummaryRow
+    const reconTxt = (isSummaryRow || isHandlingRow)
       ? `<span class="cfop-muted-dash">-</span>`
       : (reconStr ? `<code class="cfop-recon-code">${escapeHtml(reconStr)}</code>` : `<span class="cfop-muted-dash">-</span>`);
 
@@ -84,14 +162,6 @@ export function renderCfopStepTable(solve, { detailed = false } = {}) {
       </tr>
     `;
   }).join("");
-
-  const realSteps = (cfop.steps || []);
-  const totalRecogMs = realSteps.reduce((acc, s) => acc + (s.phase === "cross" ? 0 : (s.recogMs || 0)), 0);
-  const totalExecMs = realSteps.reduce((acc, s) => acc + (s.execMs || 0), 0);
-  const solveMs = solve.rawMs ?? solve.ms ?? realSteps.reduce((acc, s) => acc + (s.ms || 0), 0);
-  const totalMoves = solve.moveCount ?? realSteps.reduce((acc, s) => acc + (s.moveCount || 0), 0);
-  const pCnt = cfop.pauses?.totalCount || 0;
-  const pMs = cfop.pauses?.totalMs || 0;
 
   return `
     <div class="cfop-step-table-wrap ${detailed ? "cfop-step-table-detailed" : "cfop-step-table-base"}">

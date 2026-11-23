@@ -18,6 +18,7 @@ export function createSolveDetailModal({
   const scrambleEl = typeof document !== "undefined" ? document.getElementById("solveModalScramble") : null;
   const dateEl = typeof document !== "undefined" ? document.getElementById("solveModalDate") : null;
   const phasesField = typeof document !== "undefined" ? document.getElementById("solveModalPhasesField") : null;
+  const phasesLabel = typeof document !== "undefined" ? document.getElementById("solveModalPhasesLabel") : null;
   const phasesContent = typeof document !== "undefined" ? document.getElementById("solveModalPhasesContent") : null;
   const cfopField = typeof document !== "undefined" ? document.getElementById("solveModalCfopField") : null;
   const cfopContent = typeof document !== "undefined" ? document.getElementById("solveModalCfopContent") : null;
@@ -47,19 +48,31 @@ export function createSolveDetailModal({
     if (copyScrambleBtn) copyScrambleBtn.textContent = "Copy";
 
     if (phasesField && phasesContent) {
-      if (solve.timer) {
+      const hasPhases = Boolean(solve.timer || solve.pickupMs != null || solve.putdownMs != null);
+      if (hasPhases || solve.inspectionMs != null) {
         phasesField.hidden = false;
+        if (phasesLabel) {
+          phasesLabel.textContent = hasPhases
+            ? `${solve.timer || "Timer"} · Pick-up & Put-down`
+            : "Inspection Time";
+        }
         const cell = (label, ms, hint) => `
           <div class="solve-phase-cell" title="${escapeHtml(hint)}">
             <span class="solve-phase-label">${label}</span>
             <strong class="solve-phase-val">${formatCfopSplitMs(ms)}</strong>
           </div>`;
-        phasesContent.innerHTML = `
-          ${cell("Timer", solve.rawMs, "Time recorded by the GAN Smart Timer")}
-          ${cell("Pick-up", solve.pickupMs, "Timer start → first smart cube turn")}
-          ${cell("Cube solve", solve.cubeMs, "First turn → smart cube solved")}
-          ${cell("Put-down", solve.putdownMs, "Smart cube solved → timer stopped")}
-        `;
+        const cells = [];
+        if (solve.inspectionMs != null) {
+          cells.push(cell("Inspection", solve.inspectionMs, "Inspection time before timer start"));
+        }
+        if (hasPhases) {
+          const timerLabel = solve.timer || "Timer";
+          cells.push(cell("Timer", solve.rawMs, `Time recorded by ${timerLabel}`));
+          cells.push(cell("Pick-up", solve.pickupMs, "Timer start → first smart cube turn"));
+          cells.push(cell("Cube solve", solve.cubeMs, "First turn → smart cube solved"));
+          cells.push(cell("Put-down", solve.putdownMs, "Smart cube solved → timer stopped"));
+        }
+        phasesContent.innerHTML = cells.join("");
       } else {
         phasesField.hidden = true;
         phasesContent.innerHTML = "";

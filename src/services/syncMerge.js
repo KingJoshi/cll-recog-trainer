@@ -356,6 +356,7 @@ function mergeTwoSolves(localSolve, remoteSolve) {
     if (merged.tps == null && secondary.tps != null) merged.tps = secondary.tps;
     if (!merged.smartCube && secondary.smartCube) merged.smartCube = secondary.smartCube;
   }
+  if (merged.inspectionMs == null && secondary.inspectionMs != null) merged.inspectionMs = secondary.inspectionMs;
   if (!merged.timer && secondary.timer) {
     merged.timer = secondary.timer;
     if (merged.pickupMs == null && secondary.pickupMs != null) merged.pickupMs = secondary.pickupMs;

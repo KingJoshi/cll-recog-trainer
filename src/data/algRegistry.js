@@ -590,3 +590,30 @@ export function getSolveTargetInfo(puzzleId, targetId) {
   const list = getSolveTargetsForPuzzle(puzzleId);
   return list.find(t => t.id === targetId) || null;
 }
+
+/**
+ * Return a clean display label for a Solve Focus target (strips decorative leading emoji/symbols).
+ */
+export function getSolveTargetLabel(puzzleId, targetId) {
+  const info = getSolveTargetInfo(puzzleId || "333", targetId || "full");
+  if (info) {
+    const raw = info.shortName || info.name || "";
+    const cleaned = raw.replace(/^[^\p{L}\p{N}]+/u, "").trim();
+    if (cleaned) return cleaned;
+  }
+  switch (targetId) {
+    case "timer-drill": return "Timer Drill";
+    case "layer": return "1st Layer";
+    case "face": return "1st Face";
+    case "cross": return "White Cross";
+    case "f2l": return "F2L";
+    case "oll": return "OLL";
+    case "pll": return "PLL";
+    case "parity": return "Parity Drill";
+    case "cll": return "CLL";
+    case "lbl": return "LBL";
+    case "eg1": return "EG-1";
+    case "eg2": return "EG-2";
+    default: return "Full Solve";
+  }
+}

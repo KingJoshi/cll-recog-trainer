@@ -1,8 +1,9 @@
 // Top-level navigation controller: Puzzle switcher, Mode tabs, Track/Focus bar, Stage visibility, and Scramble coordination
 
-import { PUZZLES, getTrack, getDefaultTrack, getSolveTargetsForPuzzle, getSolveTargetInfo } from '../data/algRegistry.js';
+import { PUZZLES, getTrack, getDefaultTrack, getSolveTargetsForPuzzle, getSolveTargetInfo, getSolveTargetLabel } from '../data/algRegistry.js';
 import { MODES, VALID_PUZZLES, caseById } from '../state/appStore.js';
 import { escapeHtml } from '../services/htmlUtils.js';
+import { showToast } from './toastService.js';
 import {
   generateWcaScrambleForPuzzle,
   chooseWeightedCaseId,
@@ -123,9 +124,12 @@ export function createNavController({
         btn.addEventListener("click", () => {
           const tgt = btn.dataset.solveTarget;
           if (!tgt) return;
-          s.solveTarget = tgt;
-          appStore.getActiveSession().target = tgt;
-          appStore.saveSessions();
+          const res = appStore.selectOrCreateSessionForTarget(tgt);
+          if (res?.action === "switched") {
+            showToast(`Switched to session "${res.session.name}"`, "info", 2200);
+          } else if (res?.action === "created") {
+            showToast(`Created session "${res.session.name}" for ${getSolveTargetLabel(s.currentPuzzle, tgt)}`, "info", 2600);
+          }
           if (pData.tracks.some(t => t.id === tgt)) {
             s.currentTrackId = tgt;
             appStore.loadTrackSelection(s.currentPuzzle, tgt);
@@ -136,6 +140,7 @@ export function createNavController({
             getSolverWidgets()?.setLayerSolutionMode?.(tgt);
           }
           appStore.saveSettings();
+          getSessionModal()?.populateSessionSelect?.();
           renderTrackBar();
           renderStage();
           getSolvePanelView()?.renderSolvePanel?.();
