@@ -228,7 +228,8 @@ solvePanelView = createSolvePanelView({
   getSmartCubeUi: () => smartCubeCtrl,
   getNavCtrl: () => navCtrl,
   getTimerCtrl: () => timerCtrl,
-  getSessionModal: () => sessionModal
+  getSessionModal: () => sessionModal,
+  getSolveDetailModal: () => solveDetailModal
 });
 
 disconnectAlertView = createDisconnectAlertView({
@@ -395,6 +396,11 @@ appStore.subscribe((evt) => {
     quickSimModal?.syncPlaybackSpeed?.(spd);
     solveReplayViewer?.syncPlaybackSpeed?.(spd);
     studyView?.syncPlaybackSpeed?.(spd);
+  } else if (evt === "advancedMode") {
+    settingsModal?.renderToggles?.();
+    solvePanelView?.renderSolvePanel?.();
+    navCtrl?.renderStage?.();
+    statsCtrl?.updateStatsTable?.();
   }
 });
 
@@ -529,6 +535,11 @@ function handleCustomShortcutKeyDown(e) {
     case "action:toggleDark":
       e.preventDefault();
       cubeStage.setDarkMode(!s.darkMode);
+      return true;
+    case "action:toggleAdvancedMode":
+      e.preventDefault();
+      appStore.setAdvancedMode(!s.advancedMode);
+      showToast(`Stats mode: ${appStore.state.advancedMode ? "Advanced" : "Basic"}`, "info", 1800);
       return true;
     case "action:openSettings":
       e.preventDefault();

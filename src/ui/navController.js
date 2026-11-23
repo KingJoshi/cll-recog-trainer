@@ -211,7 +211,7 @@ export function createNavController({
     if (solveScramble) solveScramble.hidden = !solving;
     if (solveSurface) solveSurface.hidden = !solving;
     if (solveTimes) {
-      solveTimes.hidden = !solving || (appStore.getSolves?.().length || 0) === 0;
+      solveTimes.hidden = !solving || !s.advancedMode || (appStore.getSolves?.().length || 0) === 0;
     }
     if (layerSolutionsWidget) {
       layerSolutionsWidget.hidden = !(solving || simulating) || s.currentPuzzle !== "222" || (solving && s.solveTarget === "timer-drill");

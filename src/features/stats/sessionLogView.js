@@ -13,7 +13,7 @@ import {
 } from '../../cfopAnalyzer.js';
 import { averagePhase } from '../../ganTimer.js';
 import { prewarmOllPllSvgs, isOllPllSvgsPrewarmed } from '../../caseVisualizer.js';
-import { getSolveTime, computeAverageOfN, getBestAverageOfN } from '../../services/solveStats.js';
+import { getSolveTime } from '../../services/solveStats.js';
 import { getSolveFingerprint } from '../../services/syncMerge.js';
 import { recordTombstone } from '../../services/syncStorage.js';
 import { LOG_PAGE_SIZE_OPTIONS, MAX_DISPLAY_SOLVES } from '../../state/appStore.js';
@@ -39,6 +39,7 @@ export function createSessionLogView({
 } = {}) {
   let sessionLogFilter = "all"; // "all" | "target:<targetId>"
   let showAllHistory = false;
+  let cfopAvgMetric = "median"; // "median" | "trim" | "mean" | "all"
   const sessionLogSort = { col: "num", dir: "desc" };
   const ollPllBreakdownSort = {
     oll: { col: "medianMs", dir: "desc" },
@@ -49,6 +50,7 @@ export function createSessionLogView({
     if (!container) return;
     const s = appStore.state;
     const is3x3Puzzle = s.currentPuzzle === "333" || s.currentPuzzle === "333oh";
+    const isAdvanced = Boolean(s.advancedMode);
 
     if (is3x3Puzzle && !isCfopAnalyzerReady()) {
       initCfopAnalyzer().then(() => {
@@ -123,14 +125,7 @@ export function createSessionLogView({
     const trimMean = validTimes.length ? computeTrimmedMean(validTimes, 0.10) : null;
     const worst = validTimes.length ? Math.max(...validTimes) : null;
 
-    const chronological = [...displaySolves].reverse();
-    const curAo5 = computeAverageOfN(chronological, 5);
-    const bestAo5 = getBestAverageOfN(chronological, 5);
-    const curAo12 = computeAverageOfN(chronological, 12);
-    const bestAo12 = getBestAverageOfN(chronological, 12);
-    const curAo100 = computeAverageOfN(chronological, 100);
-    const bestAo100 = getBestAverageOfN(chronological, 100);
-    const formatAo = (val) => val === -1 || val === "DNF" ? "DNF" : (val != null ? formatSolveTime(val) : "-");
+
 
     const allIndexed = filteredEntries.map((e, idx) => ({
       s: e.sv,
@@ -190,13 +185,16 @@ export function createSessionLogView({
     const endIdx = Math.min(allReversed.length, startIdx + pageSize);
     const pageRows = allReversed.slice(startIdx, endIdx);
     const pageSolves = pageRows.map(r => r.s);
-    const newestXSolves = [...allIndexed].reverse().slice(0, pageSize).map(r => r.s);
-
-    const lastXAvg = computeCfopAverages(newestXSolves);
+    const newestFirstSolves = [...allIndexed].reverse().map(r => r.s);
+    const last5Avg = displaySolves.length >= 5 ? computeCfopAverages(newestFirstSolves.slice(0, 5)) : null;
+    const last12Avg = displaySolves.length >= 12 ? computeCfopAverages(newestFirstSolves.slice(0, 12)) : null;
+    const last100Avg = displaySolves.length >= 100 ? computeCfopAverages(newestFirstSolves.slice(0, 100)) : null;
     const pageAvg = computeCfopAverages(pageSolves);
     const sessionAvg = computeCfopAverages(displaySolves);
     const fmtPauseSummary = (countVal, msVal) => countVal == null ? "-" : `${countVal} (${formatCfopSplitMs(msVal || 0)})`;
 
+    const puzzleShort = PUZZLES[sessPuzzle]?.shortName || sessPuzzle;
+    const activeFilterLabel = filterTarget ? getSolveTargetLabel(sessPuzzle, filterTarget) : "All Solves";
     const hasMultipleTargets = targetBuckets.length >= 2;
     const capControlHtml = allSessSolves.length > MAX_DISPLAY_SOLVES
       ? `<button type="button" id="toggleHistoryCapBtn" class="stats-subfilter-action-btn" title="Show up to ${MAX_DISPLAY_SOLVES.toLocaleString()} most recent solves for speed, or expand all ${allSessSolves.length.toLocaleString()} stored solves">${isCapped ? `Latest ${MAX_DISPLAY_SOLVES.toLocaleString()} of ${allSessSolves.length.toLocaleString()} &middot; Show All` : `Showing all ${allSessSolves.length.toLocaleString()} &middot; Cap at ${MAX_DISPLAY_SOLVES.toLocaleString()}`}</button>`
@@ -215,40 +213,37 @@ export function createSessionLogView({
         }).join("")}
         ${(capControlHtml || splitBtnHtml) ? `<span class="stats-subfilter-actions">${capControlHtml}${splitBtnHtml}</span>` : ""}
       </div>
+      <div class="stats-session-scope-head">
+        <div class="stats-session-scope-title">
+          <strong>Session Summary</strong>
+          <span class="stats-scope-pill">${escapeHtml(sess.name)} &middot; ${escapeHtml(puzzleShort)} &middot; ${escapeHtml(activeFilterLabel)} (${count.toLocaleString()}${isCapped ? ` of ${allSessSolves.length.toLocaleString()}` : ""})</span>
+        </div>
+        <span class="stats-session-scope-hint">${isAdvanced ? "Session-wide metrics &middot; Single / Ao5 / Ao12 / Ao100 are in Recent Stats above" : "Basic view &middot; Switch to Advanced for detailed phases &amp; case stats"}</span>
+      </div>
       <div class="layer-stats-grid">
-        <div class="layer-stat-card"><span class="layer-stat-val">${count}</span><span class="layer-stat-lbl">Attempts</span></div>
+        <div class="layer-stat-card"><span class="layer-stat-val">${count.toLocaleString()}</span><span class="layer-stat-lbl">Attempts</span></div>
         <div class="layer-stat-card highlight-best"><span class="layer-stat-val">${best != null ? formatSolveTime(best) : "-"}</span><span class="layer-stat-lbl">Best</span></div>
         <div class="layer-stat-card highlight-best"><span class="layer-stat-val">${median != null ? formatSolveTime(median) : "-"}</span><span class="layer-stat-lbl">Median</span></div>
-        <div class="layer-stat-card" title="Trimmed Mean (excludes fastest 10% and slowest 10%)"><span class="layer-stat-val">${trimMean != null ? formatSolveTime(trimMean) : "-"}</span><span class="layer-stat-lbl">TrimMean 10%</span></div>
+        ${isAdvanced ? `<div class="layer-stat-card" title="Trimmed Mean (excludes fastest 10% and slowest 10%)"><span class="layer-stat-val">${trimMean != null ? formatSolveTime(trimMean) : "-"}</span><span class="layer-stat-lbl">TrimMean 10%</span></div>` : ""}
         <div class="layer-stat-card"><span class="layer-stat-val">${mean != null ? formatSolveTime(mean) : "-"}</span><span class="layer-stat-lbl">Mean</span></div>
         <div class="layer-stat-card"><span class="layer-stat-val">${worst != null ? formatSolveTime(worst) : "-"}</span><span class="layer-stat-lbl">Worst</span></div>
     `;
 
-    const logAvgCube = averagePhase(displaySolves, "cubeMs");
-    const logAvgInspection = averagePhase(displaySolves, "inspectionMs");
-    const logAvgPickup = averagePhase(displaySolves, "pickupMs");
-    const logAvgPutdown = averagePhase(displaySolves, "putdownMs");
-    if (logAvgCube != null || logAvgInspection != null || logAvgPickup != null || logAvgPutdown != null) {
-      html += `
-        ${logAvgCube != null ? `<div class="layer-stat-card" title="First smart cube turn → cube solved"><span class="layer-stat-val">${formatCfopSplitMs(logAvgCube)}</span><span class="layer-stat-lbl">Avg Cube</span></div>` : ""}
-        ${logAvgInspection != null ? `<div class="layer-stat-card" title="WCA inspection duration before timer start"><span class="layer-stat-val">${formatCfopSplitMs(logAvgInspection)}</span><span class="layer-stat-lbl">Avg Insp</span></div>` : ""}
-        ${(logAvgPickup != null || logAvgPutdown != null) ? `
-          <div class="layer-stat-card" title="Timer start → first smart cube turn"><span class="layer-stat-val">${formatCfopSplitMs(logAvgPickup)}</span><span class="layer-stat-lbl">Avg Pick-up</span></div>
-          <div class="layer-stat-card" title="Smart cube solved → timer stopped"><span class="layer-stat-val">${formatCfopSplitMs(logAvgPutdown)}</span><span class="layer-stat-lbl">Avg Put-down</span></div>
-        ` : ""}
-      `;
-    }
-    if (count >= 5) {
-      html += `<div class="layer-stat-card"><span class="layer-stat-val">${formatAo(curAo5)}</span><span class="layer-stat-lbl">Ao5</span></div>
-        <div class="layer-stat-card"><span class="layer-stat-val">${formatAo(bestAo5)}</span><span class="layer-stat-lbl">Best Ao5</span></div>`;
-    }
-    if (count >= 12) {
-      html += `<div class="layer-stat-card"><span class="layer-stat-val">${formatAo(curAo12)}</span><span class="layer-stat-lbl">Ao12</span></div>
-        <div class="layer-stat-card"><span class="layer-stat-val">${formatAo(bestAo12)}</span><span class="layer-stat-lbl">Best Ao12</span></div>`;
-    }
-    if (count >= 100) {
-      html += `<div class="layer-stat-card"><span class="layer-stat-val">${formatAo(curAo100)}</span><span class="layer-stat-lbl">Ao100</span></div>
-        <div class="layer-stat-card"><span class="layer-stat-val">${formatAo(bestAo100)}</span><span class="layer-stat-lbl">Best Ao100</span></div>`;
+    if (isAdvanced) {
+      const logAvgCube = averagePhase(displaySolves, "cubeMs");
+      const logAvgInspection = averagePhase(displaySolves, "inspectionMs");
+      const logAvgPickup = averagePhase(displaySolves, "pickupMs");
+      const logAvgPutdown = averagePhase(displaySolves, "putdownMs");
+      if (logAvgCube != null || logAvgInspection != null || logAvgPickup != null || logAvgPutdown != null) {
+        html += `
+          ${logAvgCube != null ? `<div class="layer-stat-card" title="First smart cube turn → cube solved"><span class="layer-stat-val">${formatCfopSplitMs(logAvgCube)}</span><span class="layer-stat-lbl">Avg Cube</span></div>` : ""}
+          ${logAvgInspection != null ? `<div class="layer-stat-card" title="WCA inspection duration before timer start"><span class="layer-stat-val">${formatCfopSplitMs(logAvgInspection)}</span><span class="layer-stat-lbl">Avg Insp</span></div>` : ""}
+          ${(logAvgPickup != null || logAvgPutdown != null) ? `
+            <div class="layer-stat-card" title="Timer start → first smart cube turn"><span class="layer-stat-val">${formatCfopSplitMs(logAvgPickup)}</span><span class="layer-stat-lbl">Avg Pick-up</span></div>
+            <div class="layer-stat-card" title="Smart cube solved → timer stopped"><span class="layer-stat-val">${formatCfopSplitMs(logAvgPutdown)}</span><span class="layer-stat-lbl">Avg Put-down</span></div>
+          ` : ""}
+        `;
+      }
     }
     html += `</div>`;
 
@@ -275,22 +270,68 @@ export function createSessionLogView({
       `;
     };
 
-    if (is3x3Puzzle) {
+    if (is3x3Puzzle && isAdvanced) {
+      const cfopScopes = [];
+      if (last5Avg) cfopScopes.push({ id: "last5", title: "Last 5", meta: "(5 solves)", avg: last5Avg, rowClass: "" });
+      if (last12Avg) cfopScopes.push({ id: "last12", title: "Last 12", meta: "(12 solves)", avg: last12Avg, rowClass: "" });
+      if (last100Avg) cfopScopes.push({ id: "last100", title: "Last 100", meta: "(100 solves)", avg: last100Avg, rowClass: "" });
+      cfopScopes.push({
+        id: "session",
+        title: "Session",
+        meta: `(${count.toLocaleString()} ${count === 1 ? "solve" : "solves"})`,
+        avg: sessionAvg,
+        rowClass: "cfop-session-avg-row"
+      });
+
+      const metricLabels = {
+        median: "Median",
+        trim: "TrimMean 10%",
+        mean: "Mean",
+        all: "Median, TrimMean 10%, Mean"
+      };
+      const metricHeading = metricLabels[cfopAvgMetric] || "Median";
+
+      const cfopRowsHtml = cfopScopes.map(scope => {
+        const rows = [];
+        if (cfopAvgMetric === "median" || cfopAvgMetric === "all") {
+          const label = cfopAvgMetric === "all" ? `${scope.title} &middot; Median` : scope.title;
+          rows.push(renderCfopStatRowHtml(label, scope.meta, scope.avg.median, scope.avg.median?.pauseCount, scope.avg.median?.pauseMs, cfopAvgMetric === "all" ? "cfop-trim-highlight-row" : scope.rowClass));
+        }
+        if (cfopAvgMetric === "trim" || cfopAvgMetric === "all") {
+          const label = cfopAvgMetric === "all" ? `${scope.title} &middot; Trim10%` : scope.title;
+          const meta = cfopAvgMetric === "all" ? "(-top/bot 10%)" : scope.meta;
+          rows.push(renderCfopStatRowHtml(label, meta, scope.avg.trimMean, scope.avg.trimMean?.pauseCount, scope.avg.trimMean?.pauseMs, cfopAvgMetric === "trim" ? scope.rowClass : ""));
+        }
+        if (cfopAvgMetric === "mean" || cfopAvgMetric === "all") {
+          const label = cfopAvgMetric === "all" ? `${scope.title} &middot; Mean` : scope.title;
+          rows.push(renderCfopStatRowHtml(label, scope.meta, scope.avg, scope.avg.avgPauseCount, scope.avg.avgPauseMs, scope.rowClass));
+        }
+        return rows.join("");
+      }).join("");
+
       html += `
         <div class="cfop-averages-summary-card stats-subwidget ${s.cfopSummaryOpen ? "" : "is-collapsed"}" data-stats-widget="cfopSummary">
           <div class="cfop-averages-head stats-subwidget-head">
             <button type="button" class="stats-subwidget-toggle" data-stats-collapse="cfopSummary" aria-expanded="${s.cfopSummaryOpen ? "true" : "false"}">
               <span class="chevron" aria-hidden="true"></span>
-              <span class="cfop-averages-title">CFOP Phase &amp; Pause Stats (Median, TrimMean 10%, Mean) — Last ${newestXSolves.length} vs Session (${count})</span>
-              <span class="cfop-averages-hint">Median (1st) · TrimMean 10% (2nd) · Mean (3rd) · Pauses ≥0.40s</span>
+              <span class="cfop-averages-title">CFOP Phase &amp; Pause Stats &mdash; ${metricHeading} (${escapeHtml(sess.name)} &middot; ${escapeHtml(activeFilterLabel)} &middot; ${count.toLocaleString()})</span>
+              <span class="cfop-averages-hint">Last 5 &middot; Last 12 &middot; Last 100 &middot; Session &middot; Pauses &ge;0.40s</span>
             </button>
+            <div class="cfop-metric-pills" role="group" aria-label="CFOP summary metric">
+              ${[
+                { id: "median", label: "Median" },
+                { id: "trim", label: "Trim 10%" },
+                { id: "mean", label: "Mean" },
+                { id: "all", label: "All" }
+              ].map(opt => `<button type="button" class="cfop-metric-pill ${cfopAvgMetric === opt.id ? "active" : ""}" data-cfop-metric="${opt.id}" aria-pressed="${cfopAvgMetric === opt.id ? "true" : "false"}">${opt.label}</button>`).join("")}
+            </div>
           </div>
           <div class="stats-subwidget-body">
             <div class="cfop-table-scroll">
               <table class="layer-log-table cfop-avg-comparison-table">
                 <thead>
                   <tr>
-                    <th scope="col" class="cfop-avg-scope-cell">Scope / Metric</th>
+                    <th scope="col" class="cfop-avg-scope-cell">${cfopAvgMetric === "all" ? "Scope / Metric" : "Scope"}</th>
                     <th scope="col">Total</th>
                     <th scope="col" title="Pure smart cube solving time (first turn → solved)">Cube</th>
                     <th scope="col" title="WCA inspection duration before timer start">Insp</th>
@@ -308,12 +349,7 @@ export function createSessionLogView({
                   </tr>
                 </thead>
                 <tbody>
-                  ${renderCfopStatRowHtml(`Last ${newestXSolves.length} · Median`, `(Page ${pageSize})`, lastXAvg.median, lastXAvg.median?.pauseCount, lastXAvg.median?.pauseMs, "cfop-trim-highlight-row")}
-                  ${renderCfopStatRowHtml(`Last ${newestXSolves.length} · Trim10%`, `(-top/bot 10%)`, lastXAvg.trimMean, lastXAvg.trimMean?.pauseCount, lastXAvg.trimMean?.pauseMs)}
-                  ${renderCfopStatRowHtml(`Last ${newestXSolves.length} · Mean`, ``, lastXAvg, lastXAvg.avgPauseCount, lastXAvg.avgPauseMs)}
-                  ${renderCfopStatRowHtml(`Session · Median`, `(${count} solves)`, sessionAvg.median, sessionAvg.median?.pauseCount, sessionAvg.median?.pauseMs, "cfop-trim-highlight-row")}
-                  ${renderCfopStatRowHtml(`Session · Trim10%`, `(-top/bot 10%)`, sessionAvg.trimMean, sessionAvg.trimMean?.pauseCount, sessionAvg.trimMean?.pauseMs)}
-                  ${renderCfopStatRowHtml(`Session · Mean`, `(${count} solves)`, sessionAvg, sessionAvg.avgPauseCount, sessionAvg.avgPauseMs, "cfop-session-avg-row")}
+                  ${cfopRowsHtml}
                 </tbody>
               </table>
             </div>
@@ -353,7 +389,84 @@ export function createSessionLogView({
         <div class="stats-subwidget-body">
     `;
 
-    if (is3x3Puzzle) {
+    if (is3x3Puzzle && !isAdvanced) {
+      html += `
+        <div class="cfop-table-scroll">
+          <table class="layer-log-table cfop-solve-log-table is-basic-log">
+            <thead>
+              <tr>
+                <th scope="col" class="sortable" data-log-sort="num" style="width: 42px;">#<span class="sort-icon">${logSortArrow("num")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="ms">Time<span class="sort-icon">${logSortArrow("ms")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="cross">Cross<span class="sort-icon">${logSortArrow("cross")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="f2lTotal">F2L<span class="sort-icon">${logSortArrow("f2lTotal")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="oll">OLL<span class="sort-icon">${logSortArrow("oll")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="pll">PLL<span class="sort-icon">${logSortArrow("pll")}</span></th>
+                <th scope="col" style="width: 78px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      if (pageRows.length === 0) {
+        html += `<tr><td colspan="7" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+      } else {
+        pageRows.forEach(({ s: sv, num, origIdx }) => {
+          const cfop = ensureSolveCfop(sv);
+          const sp = cfop?.splits || {};
+          const ollText = sp.oll != null
+            ? formatCfopSplitMs(sp.oll)
+            : (sv.target === "oll" && sv.id ? escapeHtml(sv.id) : "-");
+          const pllText = sp.pll != null
+            ? formatCfopSplitMs(sp.pll)
+            : (sv.target === "pll" && sv.id ? escapeHtml(sv.id) : "-");
+          const hasReplay = Array.isArray(sv.moves) && sv.moves.length > 0;
+          html += `
+            <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click for solve breakdown">
+              <td>${num}</td>
+              <td class="layer-time-cell"><strong>${formatSolveDisplay(sv)}</strong></td>
+              <td>${formatCfopSplitMs(sp.cross)}</td>
+              <td><strong>${formatCfopSplitMs(sp.f2lTotal)}</strong></td>
+              <td>${ollText}</td>
+              <td>${pllText}</td>
+              <td>
+                <div class="layer-log-actions">
+                  ${hasReplay ? `<button type="button" class="btn-replay-solve" data-index="${origIdx}" data-num="${num}" aria-label="Replay solve ${num}" data-tooltip="Replay solve #${num}">${ICON_PLAY}</button>` : ""}
+                  <button type="button" class="btn-reattempt-solve" data-index="${origIdx}" data-num="${num}" aria-label="Reattempt solve ${num}" data-tooltip="Reattempt scramble">${ICON_RESET_ANGLE}</button>
+                  <button type="button" class="btn-del-solve" data-index="${origIdx}" data-num="${num}" aria-label="Delete solve ${num}" data-tooltip="Delete solve #${num}">&times;</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+      }
+
+      html += `
+            </tbody>
+            <tfoot>
+              <tr class="cfop-tfoot-page-avg cfop-trim-highlight-row">
+                <th scope="row">Med</th>
+                <td><strong>${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : "-"}</strong></td>
+                <td>${formatCfopSplitMs(pageAvg.median?.cross)}</td>
+                <td><strong>${formatCfopSplitMs(pageAvg.median?.f2lTotal)}</strong></td>
+                <td>${formatCfopSplitMs(pageAvg.median?.oll)}</td>
+                <td>${formatCfopSplitMs(pageAvg.median?.pll)}</td>
+                <td><small class="cfop-sub-meta">Page (${pageSolves.length})</small></td>
+              </tr>
+              <tr class="cfop-tfoot-session-avg">
+                <th scope="row">All</th>
+                <td colspan="6">
+                  <strong>Median:</strong> ${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : "-"} &bull;
+                  <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : "-"}
+                  <small class="cfop-sub-meta">(${count.toLocaleString()} solves in session)</small>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        </div>
+      </div>
+      `;
+    } else if (is3x3Puzzle) {
       html += `
         <div class="cfop-table-scroll">
           <table class="layer-log-table cfop-solve-log-table">
@@ -503,11 +616,80 @@ export function createSessionLogView({
         </div>
       </div>
       `;
-      html += renderOllPllCasesBreakdownHtml(displaySolves, {
-        ollOpen: s.ollCasesStatsOpen,
-        pllOpen: s.pllCasesStatsOpen,
-        sortStateByTrack: ollPllBreakdownSort
-      });
+      if (isAdvanced) {
+        html += renderOllPllCasesBreakdownHtml(displaySolves, {
+          ollOpen: s.ollCasesStatsOpen,
+          pllOpen: s.pllCasesStatsOpen,
+          sortStateByTrack: ollPllBreakdownSort
+        });
+      }
+    } else if (!isAdvanced) {
+      html += `
+        <div class="cfop-table-scroll">
+          <table class="layer-log-table standard-solve-log-table is-basic-log">
+            <thead>
+              <tr>
+                <th scope="col" class="sortable" data-log-sort="num" style="width: 44px;">#<span class="sort-icon">${logSortArrow("num")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="ms" style="width: 110px;">Time<span class="sort-icon">${logSortArrow("ms")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="id" style="width: 140px;">Case / Target<span class="sort-icon">${logSortArrow("id")}</span></th>
+                <th scope="col">Scramble</th>
+                <th scope="col" style="width: 84px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      if (pageRows.length === 0) {
+        html += `<tr><td colspan="5" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+      } else {
+        pageRows.forEach(({ s: sv, num, origIdx }) => {
+          const targetBadge = sv.id
+            ? `<span class="badge">${escapeHtml(sv.id)}</span>`
+            : `<span class="badge badge-subtle">${escapeHtml(getSolveTargetLabel(sv.puzzle || s.currentPuzzle, sv.target))}</span>`;
+          const hasReplay = Array.isArray(sv.moves) && sv.moves.length > 0;
+          html += `
+            <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click to view solve details">
+              <td>${num}</td>
+              <td class="layer-time-cell"><strong>${formatSolveDisplay(sv)}</strong></td>
+              <td>${targetBadge}</td>
+              <td class="standard-log-scramble-cell"><code>${escapeHtml(sv.scramble || "-")}</code></td>
+              <td>
+                <div class="layer-log-actions">
+                  ${hasReplay ? `<button type="button" class="btn-replay-solve" data-index="${origIdx}" data-num="${num}" aria-label="Replay solve ${num}" data-tooltip="Replay solve #${num}">${ICON_PLAY}</button>` : ""}
+                  <button type="button" class="btn-reattempt-solve" data-index="${origIdx}" data-num="${num}" aria-label="Reattempt solve ${num}" data-tooltip="Reattempt scramble">${ICON_RESET_ANGLE}</button>
+                  <button type="button" class="btn-del-solve" data-index="${origIdx}" data-num="${num}" aria-label="Delete solve ${num}" data-tooltip="Delete solve #${num}">&times;</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+      }
+
+      html += `
+            </tbody>
+            <tfoot>
+              <tr class="cfop-tfoot-page-avg">
+                <th scope="row">Page</th>
+                <td colspan="4">
+                  <strong>Median:</strong> ${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : "-"} &bull;
+                  <strong>Mean:</strong> ${pageAvg.totalMs != null ? formatSolveTime(pageAvg.totalMs) : "-"}
+                  <small class="cfop-sub-meta">(${pageSolves.length} solves on page)</small>
+                </td>
+              </tr>
+              <tr class="cfop-tfoot-session-avg">
+                <th scope="row">All</th>
+                <td colspan="4">
+                  <strong>Median:</strong> ${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : "-"} &bull;
+                  <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : "-"}
+                  <small class="cfop-sub-meta">(${count.toLocaleString()} solves in session)</small>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        </div>
+      </div>
+      `;
     } else {
       html += `
         <div class="cfop-table-scroll">
@@ -591,6 +773,16 @@ export function createSessionLogView({
     }
 
     container.innerHTML = html;
+
+    container.querySelectorAll("[data-cfop-metric]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const nextMetric = btn.dataset.cfopMetric;
+        if (!nextMetric || nextMetric === cfopAvgMetric) return;
+        cfopAvgMetric = nextMetric;
+        render(container);
+      });
+    });
 
     container.querySelectorAll("[data-stats-collapse]").forEach(btn => {
       btn.addEventListener("click", () => {

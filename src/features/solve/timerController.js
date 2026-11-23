@@ -665,7 +665,7 @@ export function createTimerController({
 
   // Pointer & penalty button bindings
   solveSurface?.addEventListener("pointerdown", e => {
-    if (e.target.closest("button") || e.target.closest("input") || e.target.closest("label") || e.target.closest("select") || e.target.closest(".bt-disconnect-banner")) return;
+    if (e.target.closest("button") || e.target.closest("input") || e.target.closest("label") || e.target.closest("select") || e.target.closest(".bt-disconnect-banner") || e.target.closest(".solve-inline-recent-stats")) return;
     if (appStore.state.mode !== "solve" || solveState !== "idle") return;
     e.preventDefault();
     if (smartCube.getStatus().connected && getSmartCubeUi()?.getSmartCubeStage?.() === "needs_reset") {

@@ -69,6 +69,7 @@ export function createSettingsModalController({
 
   const settingsShowTooltips = typeof document !== "undefined" ? document.getElementById("settingsShowTooltips") : null;
   const settingsDarkTheme = typeof document !== "undefined" ? document.getElementById("settingsDarkTheme") : null;
+  const settingsAdvancedMode = typeof document !== "undefined" ? document.getElementById("settingsAdvancedMode") : null;
   const settingsAlwaysWhiteBottom = typeof document !== "undefined" ? document.getElementById("settingsAlwaysWhiteBottom") : null;
   const settingsAllowAUF = typeof document !== "undefined" ? document.getElementById("settingsAllowAUF") : null;
   const settingsShowReflection = typeof document !== "undefined" ? document.getElementById("settingsShowReflection") : null;
@@ -93,6 +94,7 @@ export function createSettingsModalController({
     }
     if (settingsShowTooltips) settingsShowTooltips.checked = Boolean(s.showTooltips);
     if (settingsDarkTheme) settingsDarkTheme.checked = s.darkMode;
+    if (settingsAdvancedMode) settingsAdvancedMode.checked = Boolean(s.advancedMode);
     if (settingsAlwaysWhiteBottom) settingsAlwaysWhiteBottom.checked = s.alwaysWhiteBottom;
     if (settingsAllowAUF) settingsAllowAUF.checked = s.allowAUF;
     if (settingsShowReflection) settingsShowReflection.checked = s.showReflection;
@@ -325,6 +327,10 @@ export function createSettingsModalController({
     cubeStage?.setDarkMode?.(e.target.checked);
     renderToggles();
   });
+  settingsAdvancedMode?.addEventListener("change", (e) => {
+    appStore.setAdvancedMode?.(e.target.checked);
+    renderToggles();
+  });
   settingsAlwaysWhiteBottom?.addEventListener("change", (e) => {
     appStore.state.alwaysWhiteBottom = e.target.checked;
     renderToggles();
@@ -375,7 +381,7 @@ export function createSettingsModalController({
   });
 
   appStore?.subscribe?.((evt) => {
-    if (evt === "theme" || evt === "ohHand" || evt === "ohTableAbuse" || evt === "simSpeed") renderToggles();
+    if (evt === "theme" || evt === "ohHand" || evt === "ohTableAbuse" || evt === "simSpeed" || evt === "advancedMode") renderToggles();
     else if (evt === "hydrate") {
       renderColorPickers();
       renderToggles();

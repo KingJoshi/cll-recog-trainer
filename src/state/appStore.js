@@ -175,6 +175,7 @@ export class AppStore {
       allowAUF: savedSettings.allowAUF ?? true,
       showReflection: savedSettings.showReflection ?? true,
       darkMode: savedSettings.darkMode ?? false,
+      advancedMode: savedSettings.advancedMode ?? cookiePrefs.advancedMode ?? (hasExistingSettings || hasRecordedSolves),
       showTooltips: savedSettings.showTooltips ?? cookiePrefs.showTooltips ?? true,
       onboardingCompleted: savedSettings.onboardingCompleted ?? cookiePrefs.onboardingCompleted ?? (hasExistingSettings || hasRecordedSolves),
       onboardingProfile: savedSettings.onboardingProfile || null,
@@ -525,6 +526,14 @@ export class AppStore {
     this.notify("simSpeed", { simSpeed: next });
   }
 
+  setAdvancedMode(enabled) {
+    const next = Boolean(enabled);
+    if (Boolean(this.state.advancedMode) === next) return;
+    this.state.advancedMode = next;
+    this.saveSettings();
+    this.notify("advancedMode", { advancedMode: next });
+  }
+
   getKeyboardShortcuts() {
     return getEffectiveShortcutsMap(this.state.keyboardShortcuts);
   }
@@ -559,6 +568,7 @@ export class AppStore {
       allowAUF: s.allowAUF,
       showReflection: s.showReflection,
       darkMode: s.darkMode,
+      advancedMode: Boolean(s.advancedMode),
       showTooltips: s.showTooltips,
       onboardingCompleted: s.onboardingCompleted,
       onboardingProfile: s.onboardingProfile,
@@ -599,6 +609,7 @@ export class AppStore {
       simSpeed: s.simSpeed,
       mode: s.mode,
       darkMode: s.darkMode,
+      advancedMode: Boolean(s.advancedMode),
       showTooltips: s.showTooltips,
       onboardingCompleted: s.onboardingCompleted,
       alwaysWhiteBottom: s.alwaysWhiteBottom,
@@ -690,6 +701,7 @@ export class AppStore {
       s.allowAUF = savedSettings.allowAUF ?? true;
       s.showReflection = savedSettings.showReflection ?? true;
       s.darkMode = savedSettings.darkMode ?? false;
+      s.advancedMode = savedSettings.advancedMode ?? s.advancedMode ?? false;
       s.showTooltips = savedSettings.showTooltips ?? true;
       s.onboardingCompleted = savedSettings.onboardingCompleted ?? s.onboardingCompleted;
       s.onboardingProfile = savedSettings.onboardingProfile ? JSON.parse(JSON.stringify(savedSettings.onboardingProfile)) : null;

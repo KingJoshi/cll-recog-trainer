@@ -758,40 +758,162 @@ button.solve-chip:active,
 }
 
 /* --------------------------------------------------------------------------
-   Rolling Stats Bar (Single Best, Ao5, Ao12, Ao100, Mean)
+   Structured Recent Stats (Recent 5-12 Solves + Current/Best Single, Ao5/12/100)
    -------------------------------------------------------------------------- */
 
 .solve-stats-bar {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
-    gap: 6px;
     margin: 8px 0;
-    padding: 8px;
+}
+
+.solve-inline-recent-stats {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.recent-stats-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
     background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
+    text-align: left;
 }
 
-.solve-stat-item {
-    text-align: center;
+.recent-stats-panel.is-compact {
+    gap: 6px;
+    padding: 8px 10px;
+}
+
+.recent-stats-head {
     display: flex;
-    flex-direction: column;
-    padding: 2px 4px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 10px;
 }
 
-.solve-stat-val {
+.recent-stats-title-wrap {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+}
+
+.recent-stats-title {
+    font-size: 0.84rem;
     font-weight: 700;
-    font-size: 0.95rem;
-    color: var(--text);
-    font-family: monospace;
+    color: var(--ink);
 }
 
-.solve-stat-lbl {
-    font-size: 0.65rem;
+.recent-stats-scope {
+    font-size: 0.75rem;
     color: var(--muted);
+}
+
+.recent-stats-mode-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.68rem;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    margin-top: 2px;
+}
+
+.recent-solves-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.recent-solve-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: border-color 0.14s ease, color 0.14s ease, background-color 0.14s ease;
+}
+
+.recent-solve-chip strong {
+    color: var(--ink);
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.recent-solve-chip:hover {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    color: var(--primary);
+}
+
+.recent-solve-chip:hover strong {
+    color: var(--primary);
+}
+
+.recent-stats-matrix {
+    display: grid;
+    gap: 3px;
+    font-variant-numeric: tabular-nums;
+    overflow-x: auto;
+}
+
+.recent-matrix-row {
+    display: grid;
+    grid-template-columns: 64px repeat(4, minmax(54px, 1fr));
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 5px;
+    background: var(--surface);
+    font-size: 0.82rem;
+}
+
+.recent-matrix-head {
+    background: transparent;
+    padding: 2px 8px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.recent-matrix-label {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-align: left;
+}
+
+.recent-matrix-row > *:not(.recent-matrix-label) {
+    text-align: center;
+}
+
+.recent-matrix-row strong {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: var(--ink);
+}
+
+.recent-matrix-row.is-best-row {
+    background: var(--primary-soft);
+}
+
+.recent-matrix-row.is-best-row .recent-matrix-label,
+.recent-matrix-row.is-best-row strong {
+    color: var(--primary);
 }
 
 @media (max-width: 540px) {
@@ -1321,15 +1443,31 @@ button.solve-chip:active,
     color: #fff;
 }
 
-  .solve-stats-bar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    justify-content: flex-start;
-    scrollbar-width: thin;
-  }
+.cfop-step-table-basic .cfop-step-table th,
+.cfop-step-table-basic .cfop-step-table td {
+    text-align: center;
+}
 
-  .solve-stat-item {
-    flex: 1 0 auto;
-    min-width: 70px;
-  }
+.cfop-step-table-basic .cfop-step-table th:first-child,
+.cfop-step-table-basic .cfop-step-table td:first-child {
+    text-align: left;
+}
+
+@media (max-width: 639px) {
+    .recent-solve-chip.is-desktop-extra {
+        display: none;
+    }
+
+    .recent-stats-panel {
+        padding: 8px 10px;
+    }
+
+    .recent-matrix-row {
+        grid-template-columns: 54px repeat(4, minmax(46px, 1fr));
+        gap: 4px;
+        padding: 4px 6px;
+        font-size: 0.78rem;
+    }
+}
+
 }

@@ -388,6 +388,7 @@
       </div>
       <p class="solve-hint solve-hint-key">Hold <kbd>Space</kbd>, release to start. Any key stops.</p>
       <p class="solve-hint solve-hint-touch">Touch and hold here, release to start. Tap anywhere to stop.</p>
+      <div id="solveInlineRecentStats" class="solve-inline-recent-stats" hidden></div>
     </div>
 
     <!-- 1st Layer Solutions Widget (visible in Solve mode for 2x2) -->
@@ -476,6 +477,10 @@
         <span class="panel-meta" id="statsScopeBadge">2x2 &bull; CLL</span>
       </button>
       <div class="stats-head-actions">
+        <div class="stats-mode-seg" role="group" aria-label="Stats detail level">
+          <button type="button" id="statsModeBasicBtn" class="stats-mode-btn" data-stats-mode="basic" aria-pressed="false" data-tooltip="Clean view: compact Recent Stats in timer & simplified step/log tables">Basic</button>
+          <button type="button" id="statsModeAdvancedBtn" class="stats-mode-btn" data-stats-mode="advanced" aria-pressed="false" data-tooltip="Full CFOP splits, Last 5/12/100/Session phase comparison, and detailed case tables">Advanced</button>
+        </div>
         <button type="button" id="statsExportCsvBtn" class="btn btn-small" data-tooltip="Export recorded solves from the active session as a CSV spreadsheet">📥 Export CSV</button>
         <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger">Reset</button>
       </div>
@@ -989,6 +994,13 @@
             <input type="checkbox" id="settingsDarkTheme">
             <span>Dark theme</span>
           </label>
+          <div class="toggle-with-tip">
+            <label class="solve-toggle-label">
+              <input type="checkbox" id="settingsAdvancedMode">
+              <span>Advanced stats &amp; CFOP analytics mode</span>
+            </label>
+            <button type="button" class="info-tip-btn" data-tooltip="Basic mode keeps recent stats inside the timer with simplified tables; Advanced mode shows full CFOP splits, Last 5/12/100/Session averages, and OLL/PLL breakdowns" aria-label="Explain Advanced stats mode">?</button>
+          </div>
           <div class="toggle-with-tip">
             <label class="solve-toggle-label">
               <input type="checkbox" id="settingsAlwaysWhiteBottom">

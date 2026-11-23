@@ -22,6 +22,8 @@ export function createStatsPanelController({
   const statsTableContainer = typeof document !== "undefined" ? document.getElementById("stats-table-container") : null;
   const statsExportCsvBtn = typeof document !== "undefined" ? document.getElementById("statsExportCsvBtn") : null;
   const resetStatsBtn = typeof document !== "undefined" ? document.getElementById("resetStatsBtn") : null;
+  const statsModeBasicBtn = typeof document !== "undefined" ? document.getElementById("statsModeBasicBtn") : null;
+  const statsModeAdvancedBtn = typeof document !== "undefined" ? document.getElementById("statsModeAdvancedBtn") : null;
 
   const recogView = createRecogStatsView({ appStore });
   const caseSolveView = createCaseSolveStatsView({ appStore });
@@ -53,6 +55,15 @@ export function createStatsPanelController({
         btn.setAttribute("aria-pressed", String(isCurrent));
         btn.classList.toggle("active", isCurrent);
       });
+    }
+    const isAdvanced = Boolean(s.advancedMode);
+    if (statsModeBasicBtn) {
+      statsModeBasicBtn.classList.toggle("active", !isAdvanced);
+      statsModeBasicBtn.setAttribute("aria-pressed", String(!isAdvanced));
+    }
+    if (statsModeAdvancedBtn) {
+      statsModeAdvancedBtn.classList.toggle("active", isAdvanced);
+      statsModeAdvancedBtn.setAttribute("aria-pressed", String(isAdvanced));
     }
   }
 
@@ -116,6 +127,8 @@ export function createStatsPanelController({
   });
 
   statsExportCsvBtn?.addEventListener("click", handleExportCSV);
+  statsModeBasicBtn?.addEventListener("click", () => appStore.setAdvancedMode?.(false));
+  statsModeAdvancedBtn?.addEventListener("click", () => appStore.setAdvancedMode?.(true));
 
   resetStatsBtn?.addEventListener("click", async () => {
     const s = appStore.state;

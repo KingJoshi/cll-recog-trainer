@@ -13,7 +13,7 @@ export function renderSolvePhaseInline(solve) {
   return `<span class="solve-phase-inline" title="Measured across inspection, timer, and smart cube events">⏱ ${parts.join(" · ")}</span>`;
 }
 
-export function renderCfopStepTable(solve, { detailed = false } = {}) {
+export function renderCfopStepTable(solve, { detailed = false, basic = false } = {}) {
   const cfop = ensureSolveCfop(solve);
   if (!cfop || (!cfop.steps?.length && !cfop.splits)) return "";
 
@@ -105,6 +105,19 @@ export function renderCfopStepTable(solve, { detailed = false } = {}) {
     else if (row.phase === "pll") stepBadgeClass = "cfop-step-badge-pll";
     else if (row.phase === "cross") stepBadgeClass = "cfop-step-badge-cross";
 
+    const totalTxt = `<strong>${formatCfopSplitMs(row.ms)}</strong>`;
+    const accumTxt = formatCfopSplitMs(row.accumMs);
+
+    if (basic) {
+      return `
+        <tr class="cfop-step-row cfop-row-${row.phase} ${isSummaryRow ? "cfop-row-f2l-summary" : ""}">
+          <td class="cfop-col-step"><span class="cfop-step-badge ${stepBadgeClass}">${escapeHtml(row.label)}</span></td>
+          <td class="cfop-col-total">${totalTxt}</td>
+          <td class="cfop-col-accum">${accumTxt}</td>
+        </tr>
+      `;
+    }
+
     let caseDisplay = escapeHtml(row.caseId || "-");
     if (row.phase === "oll" && row.caseId && row.caseId !== "-") {
       const fullTitle = cfop.ollCase?.name ? ` title="${escapeHtml(cfop.ollCase.name)}"` : "";
@@ -129,8 +142,6 @@ export function renderCfopStepTable(solve, { detailed = false } = {}) {
     const execTxt = isHandlingRow
       ? `<span class="cfop-muted-dash">-</span>`
       : formatCfopSplitMs(row.execMs);
-    const totalTxt = `<strong>${formatCfopSplitMs(row.ms)}</strong>`;
-    const accumTxt = formatCfopSplitMs(row.accumMs);
 
     const movesTxt = row.moveCount != null
       ? `${row.moveCount}${detailed && row.tps ? ` <small class="cfop-sub-meta">(${row.tps} TPS)</small>` : ""}`
@@ -162,6 +173,30 @@ export function renderCfopStepTable(solve, { detailed = false } = {}) {
       </tr>
     `;
   }).join("");
+
+  if (basic) {
+    return `
+      <div class="cfop-step-table-wrap cfop-step-table-basic">
+        <table class="cfop-step-breakdown-table">
+          <thead>
+            <tr>
+              <th scope="col">Step</th>
+              <th scope="col" title="Time for this step">Total</th>
+              <th scope="col" title="Accumulated solve time after this step">Accum</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+          <tfoot>
+            <tr class="cfop-step-tfoot-row">
+              <th scope="row">Solve Total</th>
+              <td><strong>${formatCfopSplitMs(solveMs)}</strong></td>
+              <td><strong>${formatCfopSplitMs(solveMs)}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+  }
 
   return `
     <div class="cfop-step-table-wrap ${detailed ? "cfop-step-table-detailed" : "cfop-step-table-base"}">
@@ -203,8 +238,8 @@ export function renderCfopStepTable(solve, { detailed = false } = {}) {
   `;
 }
 
-export function renderLastSolveCfopInline(solve) {
-  return renderCfopStepTable(solve, { detailed: false });
+export function renderLastSolveCfopInline(solve, { basic = false } = {}) {
+  return renderCfopStepTable(solve, { detailed: false, basic });
 }
 
 export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pllOpen = true, sortStateByTrack = {} } = {}) {

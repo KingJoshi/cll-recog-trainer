@@ -12,25 +12,24 @@ import { showToast } from '../../ui/toastService.js';
 import { TIMER_DRILL_PRESETS } from '../../ui/navController.js';
 import { renderLastSolveCfopInline, renderSolvePhaseInline } from './cfopBreakdownRenderer.js';
 
-export function renderSolveStatsBar(container, solvesList) {
+export function renderSolveStatsBar(container, solvesList, { sessionName = "", compact = false, onSelectSolve = null } = {}) {
   if (!container) return;
   if (!solvesList || !solvesList.length) {
     container.innerHTML = "";
     return;
   }
+  const totalCount = solvesList.length;
   const chronological = [...solvesList].reverse(); // computeAverageOfN expects newest-first
   const valid = solvesList.map(s => getSolveTime(s)).filter(t => t != null && Number.isFinite(t));
   const bestSingle = valid.length ? Math.min(...valid) : null;
-  const mean = valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : null;
-  const median = valid.length ? computeMedian(valid) : null;
-  const trimMean = valid.length ? computeTrimmedMean(valid, 0.10) : null;
+  const latestSolve = solvesList[totalCount - 1];
 
   const curAo5 = computeAverageOfN(chronological, 5);
   const bestAo5 = getBestAverageOfN(chronological, 5);
   const curAo12 = computeAverageOfN(chronological, 12);
   const bestAo12 = getBestAverageOfN(chronological, 12);
-  const curAo100 = solvesList.length >= 100 ? computeAverageOfN(chronological, 100) : null;
-  const bestAo100 = solvesList.length >= 100 ? getBestAverageOfN(chronological, 100) : null;
+  const curAo100 = totalCount >= 100 ? computeAverageOfN(chronological, 100) : null;
+  const bestAo100 = totalCount >= 100 ? getBestAverageOfN(chronological, 100) : null;
 
   const fmt = (v) => {
     if (v === null || v === undefined) return "-";
@@ -38,50 +37,74 @@ export function renderSolveStatsBar(container, solvesList) {
     return formatSolveTime(v);
   };
 
+  const recentCount = Math.min(12, totalCount);
+  const recentEntries = [];
+  for (let offset = 0; offset < recentCount; offset++) {
+    const origIdx = totalCount - 1 - offset;
+    recentEntries.push({
+      sv: solvesList[origIdx],
+      num: origIdx + 1,
+      origIdx,
+      rank: offset + 1
+    });
+  }
+
+  const scopeText = sessionName
+    ? `${escapeHtml(sessionName)} &middot; ${totalCount.toLocaleString()} solve${totalCount === 1 ? "" : "s"}`
+    : `${totalCount.toLocaleString()} solve${totalCount === 1 ? "" : "s"}`;
+
+  const recentChipsHtml = recentEntries.map(({ sv, num, origIdx, rank }) => {
+    const cls = rank > 5 ? "recent-solve-chip is-desktop-extra" : "recent-solve-chip";
+    return `<button type="button" class="${cls}" data-recent-idx="${origIdx}" data-recent-num="${num}" title="Click to inspect solve #${num}">#${num} &middot; <strong>${escapeHtml(formatSolveDisplay(sv))}</strong></button>`;
+  }).join("");
+
   container.innerHTML = `
-    <div class="solve-stat-item">
-      <span class="solve-stat-val">${fmt(bestSingle)}</span>
-      <span class="solve-stat-lbl">Best</span>
+    <div class="recent-stats-panel ${compact ? "is-compact" : ""}">
+      <div class="recent-stats-head">
+        <div class="recent-stats-title-wrap">
+          <span class="recent-stats-title">Recent Stats</span>
+          <span class="recent-stats-scope">${scopeText}</span>
+        </div>
+        ${compact ? `<span class="recent-stats-mode-tag">Basic</span>` : ""}
+      </div>
+      <div class="recent-solves-strip" aria-label="Recent solves">${recentChipsHtml}</div>
+      <div class="recent-stats-matrix" role="table" aria-label="Current and best WCA averages">
+        <div class="recent-matrix-row recent-matrix-head" role="row">
+          <span class="recent-matrix-label" role="columnheader">Metric</span>
+          <span role="columnheader">Single</span>
+          <span role="columnheader">Ao5</span>
+          <span role="columnheader">Ao12</span>
+          <span role="columnheader">Ao100</span>
+        </div>
+        <div class="recent-matrix-row" role="row">
+          <span class="recent-matrix-label" role="rowheader">Current</span>
+          <strong role="cell">${latestSolve ? escapeHtml(formatSolveDisplay(latestSolve)) : "-"}</strong>
+          <strong role="cell">${fmt(curAo5)}</strong>
+          <strong role="cell">${fmt(curAo12)}</strong>
+          <strong role="cell">${fmt(curAo100)}</strong>
+        </div>
+        <div class="recent-matrix-row is-best-row" role="row">
+          <span class="recent-matrix-label" role="rowheader">Best</span>
+          <strong role="cell">${fmt(bestSingle)}</strong>
+          <strong role="cell">${fmt(bestAo5)}</strong>
+          <strong role="cell">${fmt(bestAo12)}</strong>
+          <strong role="cell">${fmt(bestAo100)}</strong>
+        </div>
+      </div>
     </div>
-    <div class="solve-stat-item">
-      <span class="solve-stat-val">${fmt(median)}</span>
-      <span class="solve-stat-lbl">Median</span>
-    </div>
-    <div class="solve-stat-item" title="Trimmed Mean (excludes fastest 10% and slowest 10%)">
-      <span class="solve-stat-val">${fmt(trimMean)}</span>
-      <span class="solve-stat-lbl">Trim 10%</span>
-    </div>
-    <div class="solve-stat-item">
-      <span class="solve-stat-val">${fmt(mean)}</span>
-      <span class="solve-stat-lbl">Mean (${solvesList.length})</span>
-    </div>
-    <div class="solve-stat-item">
-      <span class="solve-stat-val">${fmt(curAo5)}</span>
-      <span class="solve-stat-lbl">Cur Ao5</span>
-    </div>
-    <div class="solve-stat-item">
-      <span class="solve-stat-val">${fmt(bestAo5)}</span>
-      <span class="solve-stat-lbl">Best Ao5</span>
-    </div>
-    <div class="solve-stat-item">
-      <span class="solve-stat-val">${fmt(curAo12)}</span>
-      <span class="solve-stat-lbl">Cur Ao12</span>
-    </div>
-    <div class="solve-stat-item">
-      <span class="solve-stat-val">${fmt(bestAo12)}</span>
-      <span class="solve-stat-lbl">Best Ao12</span>
-    </div>
-    ${solvesList.length >= 100 ? `
-    <div class="solve-stat-item">
-      <span class="solve-stat-val">${fmt(curAo100)}</span>
-      <span class="solve-stat-lbl">Cur Ao100</span>
-    </div>
-    <div class="solve-stat-item">
-      <span class="solve-stat-val">${fmt(bestAo100)}</span>
-      <span class="solve-stat-lbl">Best Ao100</span>
-    </div>
-    ` : ""}
   `;
+
+  if (typeof onSelectSolve === "function" && typeof container.querySelectorAll === "function") {
+    container.querySelectorAll(".recent-solve-chip").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.recentIdx);
+        const num = Number(btn.dataset.recentNum);
+        const solve = solvesList[idx];
+        if (solve) onSelectSolve(solve, num);
+      });
+    });
+  }
 }
 
 export function createSolvePanelView({
@@ -92,7 +115,8 @@ export function createSolvePanelView({
   getSmartCubeUi = () => null,
   getNavCtrl = () => null,
   getTimerCtrl = () => null,
-  getSessionModal = () => null
+  getSessionModal = () => null,
+  getSolveDetailModal = () => null
 } = {}) {
   const solveScrambleText = typeof document !== "undefined" ? document.getElementById("solveScrambleText") : null;
   const solveScrambleSubtext = typeof document !== "undefined" ? document.getElementById("solveScrambleSubtext") : null;
@@ -105,6 +129,7 @@ export function createSolvePanelView({
   const solvePostSummary = typeof document !== "undefined" ? document.getElementById("solvePostSummary") : null;
   const solvePostReplayBtn = typeof document !== "undefined" ? document.getElementById("solvePostReplayBtn") : null;
   const solveStatsBar = typeof document !== "undefined" ? document.getElementById("solveStatsBar") : null;
+  const solveInlineRecentStats = typeof document !== "undefined" ? document.getElementById("solveInlineRecentStats") : null;
   const solveTimesEl = typeof document !== "undefined" ? document.getElementById("solveTimes") : null;
   const solveNewScrambleBtn = typeof document !== "undefined" ? document.getElementById("solveNewScrambleBtn") : null;
   const solveCustomScrambleBtn = typeof document !== "undefined" ? document.getElementById("solveCustomScrambleBtn") : null;
@@ -286,7 +311,7 @@ export function createSolvePanelView({
       if (phaseMeta) metaLine += ` · ${phaseMeta}`;
       if (solveCaseEl) {
         solveCaseEl.innerHTML = `<div class="solve-case-meta">${metaLine}</div>` +
-          (lastSolve.moves && lastSolve.moves.length > 0 ? renderLastSolveCfopInline(lastSolve) : "");
+          (lastSolve.moves && lastSolve.moves.length > 0 ? renderLastSolveCfopInline(lastSolve, { basic: !s.advancedMode }) : "");
       }
       if (solvePostSummary && solvePostReplayBtn) {
         const hasMoves = Boolean(lastSolve.moves && lastSolve.moves.length > 0);
@@ -325,12 +350,38 @@ export function createSolvePanelView({
       }
     }
 
-    if (solveStatsBar) {
-      renderSolveStatsBar(solveStatsBar, solves);
-    }
-    if (solveTimesEl) {
-      // Phase 2 compatibility before Phase 3 strips legacy #solveTimes wrapper; full Solve Log lives in #statsPanel
-      solveTimesEl.hidden = s.mode !== "solve" || solves.length === 0;
+    const activeSess = appStore.getActiveSession?.();
+    const openDetail = (sv, num) => getSolveDetailModal()?.open?.(sv, num);
+    if (s.advancedMode) {
+      if (solveInlineRecentStats) {
+        solveInlineRecentStats.hidden = true;
+        solveInlineRecentStats.innerHTML = "";
+      }
+      if (solveStatsBar) {
+        renderSolveStatsBar(solveStatsBar, solves, {
+          sessionName: activeSess?.name || "",
+          compact: false,
+          onSelectSolve: openDetail
+        });
+      }
+      if (solveTimesEl) {
+        solveTimesEl.hidden = s.mode !== "solve" || solves.length === 0;
+      }
+    } else {
+      if (solveTimesEl) solveTimesEl.hidden = true;
+      if (solveInlineRecentStats) {
+        const showInline = s.mode === "solve" && solves.length > 0;
+        solveInlineRecentStats.hidden = !showInline;
+        if (showInline) {
+          renderSolveStatsBar(solveInlineRecentStats, solves, {
+            sessionName: activeSess?.name || "",
+            compact: true,
+            onSelectSolve: openDetail
+          });
+        } else {
+          solveInlineRecentStats.innerHTML = "";
+        }
+      }
     }
 
     if (solvePenaltyPlus2Btn) {

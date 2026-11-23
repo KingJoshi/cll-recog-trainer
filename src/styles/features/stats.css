@@ -318,6 +318,116 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
+}
+
+.stats-mode-seg {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface-2);
+    gap: 2px;
+}
+
+.stats-mode-btn {
+    padding: 4px 9px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1.25;
+    cursor: pointer;
+    transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.stats-mode-btn:hover {
+    color: var(--ink);
+}
+
+.stats-mode-btn.active {
+    background: var(--primary);
+    color: #fff;
+}
+
+.stats-session-scope-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    margin: 4px 0 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+}
+
+.stats-session-scope-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--ink);
+}
+
+.stats-scope-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.76rem;
+    font-weight: 600;
+}
+
+.stats-session-scope-hint {
+    font-size: 0.74rem;
+    color: var(--muted);
+}
+
+.cfop-metric-pills {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.cfop-metric-pill {
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.25;
+    cursor: pointer;
+    transition: all 0.14s ease;
+}
+
+.cfop-metric-pill:hover {
+    color: var(--ink);
+    border-color: var(--primary);
+}
+
+.cfop-metric-pill.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.layer-log-table.is-basic-log th,
+.layer-log-table.is-basic-log td {
+    padding-left: 10px;
+    padding-right: 10px;
 }
 
 /* Solve Log Pagination Controls (Dropdown + |< < > >| buttons) */
