@@ -402,7 +402,6 @@ export class StudyView {
 
   renderGridView(track) {
     const sections = this.getGroupedSections(track);
-    const isSingleGroup = sections.length === 1;
     const showGroupHeaders = sections.length > 1;
 
     const renderCard = (c) => {
@@ -411,7 +410,7 @@ export class StudyView {
       const distinctName = getDistinctCaseName(c);
       const customLabel = activeAlg && this.getAlgCustomLabel ? this.getAlgCustomLabel(c, activeAlg) : "";
       const noteText = customLabel || activeAlg?.note || "";
-      const oppBadge = isSingleGroup && c.opposite
+      const oppBadge = c.opposite
         ? ` <span class="study-card-opp" data-tooltip="Opposite / inverse CLL case: ${escapeHtml(c.opposite)}">(Opp ${escapeHtml(c.opposite)})</span>`
         : '';
 
