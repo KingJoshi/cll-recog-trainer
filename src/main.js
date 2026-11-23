@@ -516,8 +516,13 @@ const googleDriveSync = new GoogleDriveSyncService({
 
 cloudSyncCtrl = createCloudSyncController({
   googleDriveSync,
+  appStore,
   modalManager,
-  onCloseSettingsModal: () => settingsModal?.close?.()
+  onCloseSettingsModal: () => settingsModal?.close?.(),
+  onBackupImported: () => {
+    refreshAllViewsAfterHydrate();
+    googleDriveSync.scheduleAutoSync();
+  }
 });
 
 appStore.subscribe((evt) => {

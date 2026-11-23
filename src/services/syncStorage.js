@@ -12,7 +12,7 @@ import {
 } from '../state/storage.js';
 import { STORAGE_KEYS } from '../state/appStore.js';
 import { getAllPreferredAlgs, replaceAllPreferredAlgs } from '../data/algRegistry.js';
-import { SYNC_SCHEMA_VERSION, canonicalStringify } from './syncMerge.js';
+import { SYNC_SCHEMA_VERSION, canonicalStringify, mergeSyncPayloads } from './syncMerge.js';
 
 export const SYNC_META_KEY = "cll_gdrive_meta";
 export const SYNC_CLIENT_ID_KEY = "cll_gdrive_client_id";
@@ -300,6 +300,45 @@ export function applyMergedSyncPayload(appStore, mergedPayload) {
   }
 
   appStore?.hydrateFromSync?.(mergedPayload);
+}
+
+const BACKUP_RECOGNIZED_KEYS = [
+  "sessions",
+  "settings",
+  "stats",
+  "caseTags",
+  "customCllLabels",
+  "pblSettings",
+  "preferredAlgs",
+  "savedSmartCubes"
+];
+
+export function parseBackupJson(text) {
+  let parsed;
+  try {
+    parsed = JSON.parse(String(text || ""));
+  } catch {
+    throw new Error("Invalid JSON file: could not parse backup.");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Selected file is not a valid Speedcube Trainer backup.");
+  }
+  const hasKnownKey = BACKUP_RECOGNIZED_KEYS.some(k => parsed[k] !== undefined);
+  if (!hasKnownKey) {
+    throw new Error("Selected file does not contain Speedcube Trainer backup data.");
+  }
+  return parsed;
+}
+
+export function importAndMergeBackup(appStore, backupPayload, { now = Date.now() } = {}) {
+  const local = exportLocalSyncPayload(appStore);
+  const { merged, summary, localChanged } = mergeSyncPayloads(local, backupPayload, null, now, {
+    statsMergeMode: "max"
+  });
+  if (localChanged) {
+    applyMergedSyncPayload(appStore, merged);
+  }
+  return { merged, summary, localChanged };
 }
 
 function seedLegacyTimestampsIfNeeded(appStore) {

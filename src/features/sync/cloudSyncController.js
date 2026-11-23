@@ -1,6 +1,11 @@
 // Google Drive Cloud Sync UI Controller & Modal Bindings
 
 import { showToast } from '../../ui/toastService.js';
+import {
+  exportLocalSyncPayload,
+  parseBackupJson,
+  importAndMergeBackup
+} from '../../services/syncStorage.js';
 
 function formatRelativeTime(ts) {
   if (!ts) return "";
@@ -36,8 +41,10 @@ export function formatMergeSummary(summary) {
 
 export function createCloudSyncController({
   googleDriveSync,
+  appStore,
   modalManager,
-  onCloseSettingsModal = null
+  onCloseSettingsModal = null,
+  onBackupImported = null
 } = {}) {
   const headerBtn = typeof document !== "undefined" ? document.getElementById("cloudSyncBtn") : null;
   const headerDot = typeof document !== "undefined" ? document.getElementById("cloudSyncHeaderDot") : null;
@@ -76,9 +83,13 @@ export function createCloudSyncController({
   const clientIdResetBtn = typeof document !== "undefined" ? document.getElementById("cloudSyncClientIdResetBtn") : null;
   const clientIdHint = typeof document !== "undefined" ? document.getElementById("cloudSyncClientIdHint") : null;
   const originPreview = typeof document !== "undefined" ? document.getElementById("cloudSyncOriginPreview") : null;
+  const exportBtn = typeof document !== "undefined" ? document.getElementById("cloudSyncExportBtn") : null;
+  const importBtn = typeof document !== "undefined" ? document.getElementById("cloudSyncImportBtn") : null;
+  const importInput = typeof document !== "undefined" ? document.getElementById("cloudSyncImportInput") : null;
 
   let dismissedError = false;
   let busy = false;
+  let lastManualSummary = null;
 
   function setBusy(nextBusy) {
     busy = Boolean(nextBusy);
@@ -184,7 +195,8 @@ export function createCloudSyncController({
     }
 
     if (summaryBadgeEl) {
-      const summaryText = state.signedIn && state.lastSummary ? formatMergeSummary(state.lastSummary) : "";
+      const summaryObj = (state.signedIn && state.lastSummary) ? state.lastSummary : lastManualSummary;
+      const summaryText = summaryObj ? formatMergeSummary(summaryObj) : "";
       if (summaryText) {
         summaryBadgeEl.textContent = summaryText;
         summaryBadgeEl.hidden = false;
@@ -321,6 +333,49 @@ export function createCloudSyncController({
     }
   }
 
+  function handleExportBackup() {
+    if (!appStore) return;
+    const payload = exportLocalSyncPayload(appStore);
+    const json = JSON.stringify(payload, null, 2);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `speedcube-trainer-backup-${dateStr}.json`;
+
+    if (typeof document !== "undefined" && typeof URL !== "undefined") {
+      const blob = new Blob([json], { type: "application/json;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    showToast(`Exported backup (${filename}).`, "success", 2800);
+  }
+
+  async function handleImportFile(file) {
+    if (!file || !appStore) return;
+    try {
+      const text = await file.text();
+      const parsed = parseBackupJson(text);
+      const res = importAndMergeBackup(appStore, parsed);
+      lastManualSummary = res.summary;
+      if (res.localChanged) {
+        onBackupImported?.(res);
+      }
+      render(googleDriveSync.getState());
+      const msg = formatMergeSummary(res.summary);
+      showToast(
+        res.localChanged ? `Backup imported · ${msg}` : "Backup imported · Already up to date.",
+        res.localChanged ? "success" : "info",
+        3400
+      );
+    } catch (err) {
+      showToast(err?.message || "Failed to import backup JSON.", "error", 4000);
+    }
+  }
+
   headerBtn?.addEventListener("click", open);
   settingsOpenBtn?.addEventListener("click", () => {
     onCloseSettingsModal?.();
@@ -336,6 +391,13 @@ export function createCloudSyncController({
   signInBtn?.addEventListener("click", () => void handleSignIn());
   syncNowBtn?.addEventListener("click", () => void handleSyncNow());
   signOutBtn?.addEventListener("click", () => void handleSignOut());
+  exportBtn?.addEventListener("click", handleExportBackup);
+  importBtn?.addEventListener("click", () => importInput?.click?.());
+  importInput?.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (file) await handleImportFile(file);
+    if (importInput) importInput.value = "";
+  });
 
   autoToggle?.addEventListener("change", (e) => {
     googleDriveSync.setAutoSync(Boolean(e.target.checked));

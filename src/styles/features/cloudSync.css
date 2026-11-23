@@ -164,12 +164,37 @@
     margin-bottom: 14px;
 }
 
-.sync-options-box {
+.sync-options-box,
+.sync-backup-box {
     padding: 10px 12px;
     background: var(--surface-2, #f8fafc);
     border: 1px solid var(--border, #e2e8f0);
     border-radius: 10px;
     margin-bottom: 12px;
+}
+
+.sync-backup-head {
+    margin-bottom: 8px;
+}
+
+.sync-backup-title {
+    margin: 0 0 2px 0;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text, #1e293b);
+}
+
+.sync-backup-desc {
+    margin: 0;
+    font-size: 0.77rem;
+    color: var(--muted, #64748b);
+    line-height: 1.35;
+}
+
+.sync-backup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .sync-privacy-note {
@@ -226,12 +251,14 @@
 }
 
 [data-theme="dark"] .sync-account-card,
-[data-theme="dark"] .sync-options-box {
+[data-theme="dark"] .sync-options-box,
+[data-theme="dark"] .sync-backup-box {
     background: #1e293b;
     border-color: #334155;
 }
 
 [data-theme="dark"] .sync-account-title,
+[data-theme="dark"] .sync-backup-title,
 [data-theme="dark"] .settings-sync-status {
     color: #f1f5f9;
 }

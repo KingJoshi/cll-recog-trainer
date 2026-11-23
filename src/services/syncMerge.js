@@ -17,6 +17,7 @@ const DEFAULT_SESSION_IDS = new Set(["default", "layer"]);
 const SETTINGS_SCALAR_FIELDS = [
   "currentPuzzle",
   "currentTrackId",
+  "mode",
   "ohHand",
   "ohTableAbuse",
   "simSpeed",
@@ -516,7 +517,7 @@ function extractCanonicalStats(stats) {
   return nested;
 }
 
-function mergeStats(localStats, remoteStats, baseStats) {
+function mergeStats(localStats, remoteStats, baseStats, statsMergeMode = "additive") {
   const lNested = extractCanonicalStats(localStats);
   const rNested = extractCanonicalStats(remoteStats);
   const bNested = baseStats ? extractCanonicalStats(baseStats) : null;
@@ -572,6 +573,10 @@ function mergeStats(localStats, remoteStats, baseStats) {
             shown = bRaw.shown + lDeltaShown + rDeltaShown;
             correct = bRaw.correct + lDeltaCorrect + rDeltaCorrect;
           }
+        } else if (statsMergeMode === "max") {
+          // Idempotent merge for stateless JSON backup imports (prevents double-counting on re-import)
+          shown = Math.max(l.shown, r.shown);
+          correct = Math.min(shown, Math.max(l.correct, r.correct));
         } else {
           // No prior base for this case: additive across independent machines
           shown = l.shown + r.shown;
@@ -894,7 +899,7 @@ function extractComparablePayload(snapshot) {
   };
 }
 
-export function mergeSyncPayloads(local, remote, base = null, now = Date.now()) {
+export function mergeSyncPayloads(local, remote, base = null, now = Date.now(), options = {}) {
   const localEmpty = isSnapshotEmpty(local);
   const remoteEmpty = isSnapshotEmpty(remote);
 
@@ -949,7 +954,8 @@ export function mergeSyncPayloads(local, remote, base = null, now = Date.now()) 
     mergedSettings.solveInspection = fallbackSession.inspection !== false;
   }
 
-  const mergedStats = mergeStats(local?.stats, remote?.stats, base?.stats || null);
+  const statsMergeMode = options?.statsMergeMode === "max" ? "max" : "additive";
+  const mergedStats = mergeStats(local?.stats, remote?.stats, base?.stats || null, statsMergeMode);
 
   const lUpdated = Number(local?.updatedAt || 0);
   const rUpdated = Number(remote?.updatedAt || 0);

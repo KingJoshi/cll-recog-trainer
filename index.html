@@ -1199,6 +1199,18 @@
         Stored privately in your Google Drive <strong>App Data</strong> folder (<code>speedcube-trainer-sync.json</code>). Signing in on another machine automatically downloads and merges differences without overwriting your local solves or newer settings. Signing out keeps all local data on this device.
       </p>
 
+      <div class="sync-backup-box">
+        <div class="sync-backup-head">
+          <h4 class="sync-backup-title">💾 Manual Backup (JSON File)</h4>
+          <p class="sync-backup-desc">Export or import &amp; merge a local backup file — works offline and across different browser profiles.</p>
+        </div>
+        <div class="sync-backup-actions">
+          <button type="button" id="cloudSyncExportBtn" class="btn btn-small btn-outline">⬇ Export Backup (.json)</button>
+          <button type="button" id="cloudSyncImportBtn" class="btn btn-small btn-outline">⬆ Import &amp; Merge (.json)</button>
+          <input type="file" id="cloudSyncImportInput" accept=".json,application/json" hidden>
+        </div>
+      </div>
+
       <details id="cloudSyncSetupDetails" class="bt-advanced-details sync-setup-details">
         <summary class="bt-advanced-summary">⚙️ Google OAuth Client ID Setup</summary>
         <div class="bt-advanced-body">

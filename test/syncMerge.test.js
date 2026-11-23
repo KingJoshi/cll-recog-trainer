@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { AppStore } from '../src/state/appStore.js';
+import { clearPreferredAlgsCache } from '../src/data/algRegistry.js';
 import {
   SYNC_SCHEMA_VERSION,
   MAX_MERGED_SOLVES,
@@ -7,6 +9,11 @@ import {
   isSnapshotEmpty,
   mergeSyncPayloads
 } from '../src/services/syncMerge.js';
+import {
+  exportLocalSyncPayload,
+  parseBackupJson,
+  importAndMergeBackup
+} from '../src/services/syncStorage.js';
 
 function makeSnapshot(overrides = {}) {
   return {
@@ -356,4 +363,89 @@ test('merges caseTags, customCllLabels, pblSettings, preferredAlgs, and savedSma
   const idem = mergeSyncPayloads(res.merged, res.merged, res.merged, 7000);
   assert.strictEqual(idem.localChanged, false);
   assert.strictEqual(idem.remoteChanged, false);
+});
+
+test('statsMergeMode "max" merges recognition stats idempotently for JSON backup imports', () => {
+  const local = makeSnapshot({
+    stats: { "333": { pll: { T: { shown: 8, correct: 6 }, Y: { shown: 3, correct: 2 } } } }
+  });
+  const backup = makeSnapshot({
+    stats: { "333": { pll: { T: { shown: 10, correct: 7 }, Ja: { shown: 4, correct: 4 } } } }
+  });
+
+  const first = mergeSyncPayloads(local, backup, null, 6000, { statsMergeMode: "max" });
+  assert.deepStrictEqual(first.merged.stats["333"].pll.T, { shown: 10, correct: 7 });
+  assert.deepStrictEqual(first.merged.stats["333"].pll.Y, { shown: 3, correct: 2 });
+  assert.deepStrictEqual(first.merged.stats["333"].pll.Ja, { shown: 4, correct: 4 });
+
+  // Re-importing the same backup again must not double-count
+  const second = mergeSyncPayloads(first.merged, backup, null, 7000, { statsMergeMode: "max" });
+  assert.strictEqual(second.localChanged, false);
+  assert.deepStrictEqual(second.merged.stats["333"].pll.T, { shown: 10, correct: 7 });
+});
+
+test('parseBackupJson validates input and importAndMergeBackup merges into AppStore idempotently', () => {
+  assert.throws(() => parseBackupJson("{not json"), /Invalid JSON/);
+  assert.throws(() => parseBackupJson("[]"), /not a valid Speedcube Trainer backup/);
+  assert.throws(() => parseBackupJson('{"hello":"world"}'), /does not contain Speedcube Trainer backup data/);
+
+  const prevLocal = globalThis.localStorage;
+  const mem = new Map();
+  globalThis.localStorage = {
+    get length() { return mem.size; },
+    key(i) { return [...mem.keys()][i] ?? null; },
+    getItem(k) { return mem.has(k) ? mem.get(k) : null; },
+    setItem(k, v) { mem.set(k, String(v)); },
+    removeItem(k) { mem.delete(k); },
+    clear() { mem.clear(); }
+  };
+  clearPreferredAlgsCache();
+
+  try {
+    const store = new AppStore();
+    const solves = store.getSolves();
+    solves.push({ uid: "s-local-1", puzzle: "222", ms: 3400, rawMs: 3400, at: 2000, scramble: "R U R'" });
+    store.setSolves(solves);
+    store.recordCaseStat("222", "cll", "H1", true);
+
+    const exportedJson = JSON.stringify(exportLocalSyncPayload(store));
+    const parsedSelf = parseBackupJson(exportedJson);
+    assert.ok(Array.isArray(parsedSelf.sessions));
+
+    const externalBackup = makeSnapshot({
+      updatedAt: 9000,
+      settings: {
+        currentPuzzle: "222",
+        currentTrackId: "cll",
+        darkMode: true,
+        selectedByTrack: { "222:cll": ["H1", "H2"] }
+      },
+      sessions: [
+        {
+          id: "default",
+          name: "Session 1 (Full Solve)",
+          target: "full",
+          solves: [{ uid: "s-backup-1", puzzle: "222", ms: 2900, rawMs: 2900, at: 3000, scramble: "F U R" }]
+        }
+      ],
+      stats: { "222": { cll: { H1: { shown: 5, correct: 4 }, H2: { shown: 2, correct: 2 } } } },
+      timestamps: { settings: { darkMode: 9000 } }
+    });
+
+    const res1 = importAndMergeBackup(store, externalBackup, { now: 9500 });
+    assert.strictEqual(res1.localChanged, true);
+    assert.strictEqual(store.state.darkMode, true);
+    assert.deepStrictEqual(store.getSolves().map(s => s.uid), ["s-local-1", "s-backup-1"]);
+    assert.deepStrictEqual(store.getCaseStat("222", "cll", "H1"), { shown: 5, correct: 4 });
+    assert.deepStrictEqual(store.getCaseStat("222", "cll", "H2"), { shown: 2, correct: 2 });
+
+    // Re-importing same backup is a no-op
+    const res2 = importAndMergeBackup(store, externalBackup, { now: 9600 });
+    assert.strictEqual(res2.localChanged, false);
+    assert.deepStrictEqual(store.getCaseStat("222", "cll", "H1"), { shown: 5, correct: 4 });
+  } finally {
+    clearPreferredAlgsCache();
+    if (prevLocal === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = prevLocal;
+  }
 });
