@@ -465,6 +465,18 @@
     color: var(--primary);
 }
 
+.study-card-opp,
+.study-detail-opp {
+    font-weight: 600;
+    font-size: 0.78em;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.study-detail-opp {
+    font-size: 0.9rem;
+}
+
 .study-card-group {
     font-size: 0.68rem;
     padding: 2px 6px;

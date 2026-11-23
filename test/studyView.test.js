@@ -409,3 +409,33 @@ test('StudyView renders 3x3 OH Table Abuse / No Table Abuse switcher, updates H-
     globalThis.localStorage = prevStorage;
   }
 });
+
+test('StudyView shows (Opp Xn) next to CLL case IDs only when a single group is selected in Grid and Grid+3D', () => {
+  const sv = new StudyView({ container: createMockContainer() });
+  sv.currentPuzzle = '222';
+  sv.currentTrackId = 'cll';
+  const cllTrack = getTrack('222', 'cll');
+
+  // All groups shown -> grid cards should NOT include (Opp ...)
+  sv.activeGroupFilters = new Set();
+  const allGridHtml = sv.renderGridView(cllTrack);
+  const allHybridHtml = sv.renderHybridView(cllTrack);
+  assert.ok(!allGridHtml.includes('(Opp '));
+  const [allGridPane] = allHybridHtml.split('study-hybrid-detail-pane');
+  assert.ok(!allGridPane.includes('(Opp '));
+
+  // Multiple groups selected -> still no (Opp ...) on grid cards
+  sv.activeGroupFilters = new Set(['L-Group', 'H-Group']);
+  const multiGridHtml = sv.renderGridView(cllTrack);
+  assert.ok(!multiGridHtml.includes('(Opp '));
+
+  // Single group selected -> grid cards in both Case Grid and Grid+3D show (Opp ...)
+  sv.activeGroupFilters = new Set(['L-Group']);
+  const singleGridHtml = sv.renderGridView(cllTrack);
+  const singleHybridHtml = sv.renderHybridView(cllTrack);
+  const [singleGridPane, detailPane] = singleHybridHtml.split('study-hybrid-detail-pane');
+  assert.ok(singleGridHtml.includes('(Opp T2)'));
+  assert.ok(singleGridHtml.includes('(Opp U5)'));
+  assert.ok(singleGridPane.includes('(Opp T2)'));
+  assert.ok(detailPane.includes('(Opp '));
+});

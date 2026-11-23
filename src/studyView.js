@@ -402,6 +402,7 @@ export class StudyView {
 
   renderGridView(track) {
     const sections = this.getGroupedSections(track);
+    const isSingleGroup = sections.length === 1;
     const showGroupHeaders = sections.length > 1;
 
     const renderCard = (c) => {
@@ -410,11 +411,14 @@ export class StudyView {
       const distinctName = getDistinctCaseName(c);
       const customLabel = activeAlg && this.getAlgCustomLabel ? this.getAlgCustomLabel(c, activeAlg) : "";
       const noteText = customLabel || activeAlg?.note || "";
+      const oppBadge = isSingleGroup && c.opposite
+        ? ` <span class="study-card-opp" data-tooltip="Opposite / inverse CLL case: ${escapeHtml(c.opposite)}">(Opp ${escapeHtml(c.opposite)})</span>`
+        : '';
 
       return `
         <div class="study-card ${this.selectedCaseId === c.id ? 'selected' : ''}" data-case-id="${c.id}">
           <div class="study-card-head">
-            <span class="study-card-id">${displayId}</span>
+            <span class="study-card-id">${displayId}${oppBadge}</span>
             <div class="study-card-head-meta">
               ${activeAlg?.ohBadge ? `<span class="oh-alg-badge">${escapeHtml(activeAlg.ohBadge)}</span>` : ''}
               ${algs.length > 1 ? `<span class="study-card-algs-pill" data-tooltip="${algs.length} algorithm variants available">${algs.length} algs</span>` : ''}
@@ -470,9 +474,12 @@ export class StudyView {
       const displayId = formatCaseDisplayId(c.id);
       const isSelected = this.selectedCaseId === c.id;
       const inPool = this.getTrackSelectedCases(track).some(sc => sc.id === c.id);
+      const oppBadge = isSingleGroup && c.opposite
+        ? ` <span class="study-card-opp">(Opp ${escapeHtml(c.opposite)})</span>`
+        : '';
       return `
-        <button type="button" class="study-hybrid-card ${isSelected ? 'selected' : ''} ${inPool ? 'in-pool' : ''}" data-case-id="${c.id}" aria-selected="${isSelected}" data-tooltip="${escapeHtml(c.name || displayId)}">
-          <span class="study-hybrid-card-id">${displayId}</span>
+        <button type="button" class="study-hybrid-card ${isSelected ? 'selected' : ''} ${inPool ? 'in-pool' : ''}" data-case-id="${c.id}" aria-selected="${isSelected}" data-tooltip="${escapeHtml(c.name || displayId)}${c.opposite ? ` · Opp ${escapeHtml(c.opposite)}` : ''}">
+          <span class="study-hybrid-card-id">${displayId}${oppBadge}</span>
           <span class="study-card-visual study-hybrid-visual" data-case-id="${c.id}">
             <span class="study-visual-loading">...</span>
           </span>
@@ -530,6 +537,7 @@ export class StudyView {
           <div class="study-detail-header">
             <div class="study-detail-title-group">
               <span class="study-detail-id">${displayId}</span>
+              ${c.opposite ? `<span class="study-detail-opp" data-tooltip="Opposite / inverse CLL case: ${escapeHtml(c.opposite)}">(Opp ${escapeHtml(c.opposite)})</span>` : ''}
               ${distinctName ? `<h3 class="study-detail-name">${distinctName}</h3>` : ''}
               <span class="study-detail-group">${c.group}</span>
             </div>
