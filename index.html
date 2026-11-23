@@ -37,6 +37,12 @@
       <span class="bt-label" id="ganTimerLabel">GAN Timer</span>
     </button>
     <button type="button" id="onboardingBtn" class="header-btn" data-tooltip="Open the quick setup wizard (cube size, skill stage, and training goal)">🧭 Guide</button>
+    <button type="button" id="cloudSyncBtn" class="header-btn cloud-sync-header-btn" data-tooltip="Sign in with Google to save, reload, and merge settings &amp; solve logs via Google Drive">
+      <span class="sync-dot signed-out" id="cloudSyncHeaderDot" aria-hidden="true"></span>
+      <img id="cloudSyncHeaderAvatar" class="sync-header-avatar" alt="" hidden referrerpolicy="no-referrer">
+      <span class="sync-icon" id="cloudSyncHeaderIcon" aria-hidden="true">☁️</span>
+      <span class="sync-label" id="cloudSyncHeaderLabel">Cloud Sync</span>
+    </button>
     <button type="button" id="themeToggleBtn" class="header-btn" data-tooltip="Toggle Dark or Light theme">🌙 Dark</button>
     <button type="button" id="settingsBtn" class="header-btn" data-tooltip="Configure trainer preferences, solver target colors, and cube palette">⚙️ Settings</button>
   </div>
@@ -1126,9 +1132,95 @@
           </button>
         </div>
       </div>
+
+      <!-- Google Drive Cloud Sync -->
+      <div class="settings-section">
+        <div class="settings-section-head">
+          <h4 class="settings-section-title">☁️ Cloud Sync (Google Drive)</h4>
+          <span class="settings-section-desc">Save, reload, and automatically merge settings, sessions, and logs across devices</span>
+        </div>
+        <div class="settings-sync-row">
+          <span id="settingsCloudSyncStatus" class="settings-sync-status">Not signed in</span>
+          <button type="button" id="settingsOpenCloudSyncBtn" class="btn btn-small btn-outline">☁️ Manage Google Drive Sync…</button>
+        </div>
+      </div>
     </div>
     <div class="solve-modal-actions">
       <button type="button" id="settingsDoneBtn" class="btn btn-primary btn-small">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Google Drive Cloud Sync Modal -->
+<div id="cloudSyncModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="cloudSyncModalTitle" hidden>
+  <div class="solve-modal-card cloud-sync-modal-card">
+    <div class="solve-modal-header">
+      <h3 id="cloudSyncModalTitle" class="solve-modal-title">☁️ Google Drive Cloud Sync</h3>
+      <button type="button" id="cloudSyncModalCloseBtn" class="solve-modal-close" aria-label="Close dialog">&times;</button>
+    </div>
+    <div class="solve-modal-body">
+      <div id="cloudSyncAccountCard" class="sync-account-card signed-out">
+        <div class="sync-avatar-wrap">
+          <span id="cloudSyncCardIcon" class="sync-card-icon" aria-hidden="true">☁️</span>
+          <img id="cloudSyncCardAvatar" class="sync-card-avatar" alt="" hidden referrerpolicy="no-referrer">
+        </div>
+        <div class="sync-account-info">
+          <h4 id="cloudSyncCardTitle" class="sync-account-title">Not signed in</h4>
+          <p id="cloudSyncCardDesc" class="sync-account-desc">Sign in with your Google account to save settings, sessions, solve logs, recognition stats, tags, custom labels, and preferred algorithms to your Google Drive.</p>
+          <div class="sync-account-meta">
+            <span id="cloudSyncLastSynced" class="sync-meta-item" hidden></span>
+            <span id="cloudSyncSummaryBadge" class="sync-summary-badge" hidden></span>
+          </div>
+        </div>
+      </div>
+
+      <div id="cloudSyncErrorBanner" class="bt-error-alert" role="alert" hidden>
+        <div class="bt-error-content">
+          <span class="bt-error-icon" aria-hidden="true">⚠️</span>
+          <span id="cloudSyncErrorText" class="bt-error-text"></span>
+        </div>
+        <button type="button" id="cloudSyncErrorDismissBtn" class="bt-error-dismiss" aria-label="Dismiss error">&times;</button>
+      </div>
+
+      <div class="sync-actions-row">
+        <button type="button" id="cloudSyncSignInBtn" class="btn btn-primary btn-small">Sign in with Google</button>
+        <button type="button" id="cloudSyncNowBtn" class="btn btn-primary btn-small" hidden>↻ Sync &amp; Merge Now</button>
+        <button type="button" id="cloudSyncSignOutBtn" class="btn btn-small btn-outline btn-danger" hidden>Sign Out</button>
+      </div>
+
+      <div id="cloudSyncOptionsBox" class="sync-options-box" hidden>
+        <label class="solve-toggle-label">
+          <input type="checkbox" id="cloudSyncAutoToggle" checked>
+          <span>Automatically sync changes in the background</span>
+        </label>
+      </div>
+
+      <p class="sync-privacy-note">
+        Stored privately in your Google Drive <strong>App Data</strong> folder (<code>speedcube-trainer-sync.json</code>). Signing in on another machine automatically downloads and merges differences without overwriting your local solves or newer settings. Signing out keeps all local data on this device.
+      </p>
+
+      <details id="cloudSyncSetupDetails" class="bt-advanced-details sync-setup-details">
+        <summary class="bt-advanced-summary">⚙️ Google OAuth Client ID Setup</summary>
+        <div class="bt-advanced-body">
+          <div class="bt-field-group">
+            <label for="cloudSyncClientIdInput" class="bt-field-label">Google OAuth 2.0 Web Client ID</label>
+            <div class="bt-input-row">
+              <input type="text" id="cloudSyncClientIdInput" class="bt-mac-input" placeholder="1234567890-abc...apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+              <button type="button" id="cloudSyncClientIdSaveBtn" class="btn btn-xs btn-primary">Save</button>
+              <button type="button" id="cloudSyncClientIdResetBtn" class="btn btn-xs">Clear</button>
+            </div>
+            <p id="cloudSyncClientIdHint" class="bt-field-hint"></p>
+          </div>
+          <ol class="sync-setup-steps">
+            <li>Open <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer">Google Cloud Console</a> and enable the <strong>Google Drive API</strong>.</li>
+            <li>Create an <strong>OAuth 2.0 Client ID</strong> (Application type: <em>Web application</em>) and add <code id="cloudSyncOriginPreview"></code> to <strong>Authorized JavaScript origins</strong>.</li>
+            <li>Paste the Client ID above (or set <code>VITE_GOOGLE_CLIENT_ID</code> in <code>.env</code>). If your OAuth consent screen is in <em>Testing</em> mode, add your Google account under <strong>Test users</strong>.</li>
+          </ol>
+        </div>
+      </details>
+    </div>
+    <div class="solve-modal-actions">
+      <button type="button" id="cloudSyncDoneBtn" class="btn btn-primary btn-small">Done</button>
     </div>
   </div>
 </div>

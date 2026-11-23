@@ -23,5 +23,6 @@
 @import './features/quickSim.css';
 @import './features/firstLayerExplorer.css';
 @import './features/settings.css';
+@import './features/cloudSync.css';
 @import './features/onboarding.css';
 @import './utilities.css';

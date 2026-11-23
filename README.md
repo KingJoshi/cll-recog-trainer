@@ -22,6 +22,15 @@ Built with vanilla ES modules, Vite, [`cubing`](https://github.com/cubing/cubing
 - **Simulate**: Interactive 3D algorithm & scramble timeline with playback speed control, preset scrambles, solver sequence loading, Free Face Turns, and live `window.cllSimulator` scripting hooks.
 - **Bluetooth Smart Cube & GAN Timer**: Real-time turn tracking, Scramble Assistant with off-track undo recovery, Virtual Keyboard Cube fallback, automatic CFOP phase analysis, GAN Timer Pickup/Cube/Putdown splits, 3D Solve Replay Viewer, Diagnostics logging, and CSV export in **Stats & History**.
 - **Settings & Offline Support**: Dark/Light theme, Always White Bottom (`z2`) & AUF options, floating reflection facelets toggle, 2D diagram color customization (`Bright`, `High Contrast Neon`, `Competition Matte`, or custom HEX), and full offline PWA caching.
+- **Google Drive Cloud Sync & Merge**: Optional Google Account login saving all settings, sessions, solve logs, recognition stats, tags, custom labels, starred preferred algorithms, and smart cube MAC entries privately into your Google Drive `appDataFolder`, with automatic cross-device reload and conflict-free merging.
+
+## Google Drive Cloud Sync Setup
+
+Cloud sync uses Google Identity Services (OAuth 2.0) and the Google Drive `appDataFolder` scope (`https://www.googleapis.com/auth/drive.appdata`), keeping `speedcube-trainer-sync.json` private to the app without touching your visible Drive folders.
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), enable the **Google Drive API** and create an **OAuth 2.0 Client ID** (*Web application*) with your app URL (e.g. `http://localhost:5173`) in **Authorized JavaScript origins**.
+2. Either set `VITE_GOOGLE_CLIENT_ID=<your-client-id>` in `.env` (see `.env.example`) before building, or paste your Client ID directly inside the **☁️ Cloud Sync** dialog in the app header.
+3. Sign in on any device to back up, reload, and automatically merge local and remote changes.
 
 ## Getting Started
 

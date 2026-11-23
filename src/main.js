@@ -1,12 +1,18 @@
 // Composition Root — wires centralized state, controllers, views, and keyboard routing
 import './styles/index.css';
 
-import { PUZZLES, getTrack } from './data/algRegistry.js';
+import { PUZZLES, getTrack, onPreferredAlgChange } from './data/algRegistry.js';
 import { StudyView } from './studyView.js';
 import { PracticeView } from './practiceView.js';
 import { solveReplayViewer } from './replayView.js';
+import { clearSvgCache, applyColorsTo3DCube } from './caseVisualizer.js';
+import { smartCube } from './smartCube.js';
 import { appStore } from './state/appStore.js';
 import { modalManager } from './ui/modalManager.js';
+import { showToast } from './ui/toastService.js';
+import { initSyncTracking } from './services/syncStorage.js';
+import { GoogleDriveSyncService } from './services/googleDriveSync.js';
+import { createCloudSyncController, formatMergeSummary } from './features/sync/cloudSyncController.js';
 import { createKeyboardRouter } from './ui/keyboardRouter.js';
 import { createTooltipController } from './ui/tooltipController.js';
 import { createCubeStageController } from './ui/cubeStageController.js';
@@ -52,6 +58,7 @@ let sessionModal;
 let solveDetailModal;
 let quickSimModal;
 let settingsModal;
+let cloudSyncCtrl;
 let onboardingWizard;
 let tooltipCtrl;
 let flashTimer = 0;
@@ -297,6 +304,7 @@ settingsModal = createSettingsModalController({
   getPracticeView: () => practiceView,
   getNavCtrl: () => navCtrl,
   getSmartCubeCtrl: () => smartCubeCtrl,
+  getCloudSyncCtrl: () => cloudSyncCtrl,
   onOpenWizard: () => onboardingWizard?.open?.(),
   onTooltipsChange: (enabled) => {
     if (!enabled) tooltipCtrl?.hide?.();
@@ -434,6 +442,104 @@ if (appStore.state.mode === "study") {
   navCtrl.regenerateScramble();
 }
 
+function refreshAllViewsAfterHydrate() {
+  const s = appStore.state;
+  clearSvgCache();
+  cubeStage.applyTheme();
+  cubeStage.mountScrambleDisplay(s.currentPuzzle);
+  applyColorsTo3DCube(cubeStage.getDisplay());
+  if (studyView?.activeDisplay3d) applyColorsTo3DCube(studyView.activeDisplay3d);
+
+  document.querySelectorAll(".puzzle-btn").forEach(btn => {
+    const active = btn.dataset.puzzle === s.currentPuzzle;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  });
+
+  if (s.mode !== "study") studyView?.deactivate?.();
+  if (s.mode !== "practice") {
+    practiceView?.deactivate?.();
+    cubeStage.setTwoSidedCameraLock(false);
+  }
+  if (s.mode !== "simulate") simulatorCtrl?.simTeardown?.();
+
+  settingsModal?.renderToggles?.();
+  solverWidgets?.updateFaceChipsUI?.();
+  solverWidgets?.updateCrossFacesUI?.();
+  simulatorCtrl?.syncPlaybackSpeed?.(s.simSpeed ?? 1);
+  simulatorCtrl?.populateSimCaseSelect?.();
+  casePickerCtrl?.syncSettingsPanel?.();
+  statsCtrl?.syncStatsPanel?.();
+  sessionModal?.populateSessionSelect?.();
+  casePickerCtrl?.buildCasePicker?.();
+  casePickerCtrl?.renderSelection?.();
+  freeMovesCtrl?.updateUI?.();
+  navCtrl?.updateSolveOrientationLabel?.();
+  navCtrl?.renderTrackBar?.();
+  navCtrl?.renderStage?.();
+  smartCubeCtrl?.updateBluetoothUI?.();
+  smartCube.dispatchEvent(new CustomEvent("savedcubeschange"));
+  ganTimerCtrl?.updateGanTimerUI?.();
+  solvePanelView?.renderSolvePanel?.();
+  statsCtrl?.updateStatsTable?.();
+  if (!s.showTooltips) tooltipCtrl?.hide?.();
+  if (s.onboardingCompleted) onboardingWizard?.close?.({ markComplete: false });
+
+  if (s.mode === "study") {
+    studyView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+  } else if (s.mode === "practice") {
+    practiceView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+  } else if (s.mode === "simulate") {
+    simulatorCtrl?.simInit?.();
+  } else {
+    if (s.currentPuzzle === "222" && s.solveTarget === "face") {
+      solverWidgets?.setLayerSolutionMode?.("face");
+    }
+    navCtrl?.regenerateScramble?.();
+  }
+}
+
+initSyncTracking(appStore, { onPreferredAlgChange });
+
+const googleDriveSync = new GoogleDriveSyncService({
+  appStore,
+  onDataHydrated: (summary, _merged, reason) => {
+    refreshAllViewsAfterHydrate();
+    if (reason === "startup" || reason === "visibility" || reason === "online") {
+      const msg = formatMergeSummary(summary);
+      if (msg && msg !== "Up to date") {
+        showToast(`Synced from Google Drive · ${msg}`, "info", 3200);
+      }
+    }
+  }
+});
+
+cloudSyncCtrl = createCloudSyncController({
+  googleDriveSync,
+  modalManager,
+  onCloseSettingsModal: () => settingsModal?.close?.()
+});
+
+appStore.subscribe((evt) => {
+  if (evt === "persist") {
+    googleDriveSync.scheduleAutoSync();
+  }
+});
+
+onPreferredAlgChange(() => {
+  googleDriveSync.scheduleAutoSync();
+});
+
+smartCube.addEventListener("savedcubeschange", (e) => {
+  if (e?.detail?.cubes !== undefined) {
+    googleDriveSync.scheduleAutoSync();
+  }
+});
+
 if (onboardingWizard.shouldAutoOpen()) {
   onboardingWizard.open();
+}
+
+if (googleDriveSync.isSignedIn() && googleDriveSync.getEffectiveClientId() && googleDriveSync.meta.autoSync !== false) {
+  void googleDriveSync.syncNow({ reason: "startup", interactive: false });
 }

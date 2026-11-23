@@ -2,6 +2,7 @@
 
 import { getSolveTargetsForPuzzle } from '../../data/algRegistry.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
+import { recordTombstone } from '../../services/syncStorage.js';
 import { showToast } from '../../ui/toastService.js';
 
 export function createSessionModalController({
@@ -123,6 +124,7 @@ export function createSessionModalController({
       danger: true
     });
     if (!ok) return;
+    recordTombstone("sessions", current.id);
     s.sessions = s.sessions.filter(sess => sess.id !== current.id);
     const remaining = s.sessions.filter(sess => (sess.puzzle || "222") === s.currentPuzzle);
     s.activeSessionId = remaining[0].id;
@@ -149,6 +151,7 @@ export function createSessionModalController({
       sess.target = target;
       sess.showCube = showCube;
       sess.inspection = inspection;
+      sess.updatedAt = Date.now();
     } else {
       const newId = `session-${Date.now()}`;
       s.sessions.push({
@@ -158,6 +161,7 @@ export function createSessionModalController({
         target,
         inspection,
         showCube,
+        updatedAt: Date.now(),
         solves: []
       });
       s.activeSessionId = newId;

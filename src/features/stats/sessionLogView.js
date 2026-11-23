@@ -14,6 +14,8 @@ import {
 import { averagePhase } from '../../ganTimer.js';
 import { prewarmOllPllSvgs, isOllPllSvgsPrewarmed } from '../../caseVisualizer.js';
 import { getSolveTime, computeAverageOfN, getBestAverageOfN } from '../../services/solveStats.js';
+import { getSolveFingerprint } from '../../services/syncMerge.js';
+import { recordTombstone } from '../../services/syncStorage.js';
 import { LOG_PAGE_SIZE_OPTIONS } from '../../state/appStore.js';
 import {
   escapeHtml,
@@ -626,7 +628,9 @@ export function createSessionLogView({
           danger: true
         });
         if (!ok) return;
-        sessSolves.splice(idx, 1);
+        const [removed] = sessSolves.splice(idx, 1);
+        const fp = getSolveFingerprint(removed);
+        if (fp) recordTombstone("solves", fp);
         if (s.lastSolve === solve || (s.lastSolve && s.lastSolve.at === solve.at)) {
           s.lastSolve = sessSolves.length ? sessSolves[sessSolves.length - 1] : null;
         }

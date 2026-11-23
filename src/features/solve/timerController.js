@@ -6,6 +6,8 @@ import { ensureSolveCfop } from '../../cfopAnalyzer.js';
 import { MAX_SOLVES } from '../../state/appStore.js';
 import { playInspectionBeep } from '../../services/audioService.js';
 import { formatSolveTime, formatSolveDisplay } from '../../services/htmlUtils.js';
+import { getSolveFingerprint } from '../../services/syncMerge.js';
+import { recordTombstone } from '../../services/syncStorage.js';
 import { showToast } from '../../ui/toastService.js';
 
 export function createTimerController({
@@ -246,6 +248,7 @@ export function createTimerController({
     const tps = hasMoves && tpsBaseMs > 0 ? Number((moveCount / (tpsBaseMs / 1000)).toFixed(2)) : null;
 
     const lastSolve = {
+      uid: "s-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
       puzzle: s.currentPuzzle,
       track: s.currentTrackId,
       target: s.solveTarget,
@@ -479,6 +482,7 @@ export function createTimerController({
       last.penalty = targetPenalty;
       last.ms = targetPenalty === "+2" ? raw + 2000 : raw;
     }
+    last.updatedAt = Date.now();
     appStore.setSolves(solves);
     getSolvePanel()?.renderSolvePanel?.();
     getStatsCtrl()?.updateStatsTable?.();
@@ -601,7 +605,9 @@ export function createTimerController({
     const solves = appStore.getSolves();
     const last = appStore.state.lastSolve;
     if (!last || !solves.length) return;
-    solves.pop();
+    const removed = solves.pop();
+    const fp = getSolveFingerprint(removed);
+    if (fp) recordTombstone("solves", fp);
     appStore.state.lastSolve = solves.length ? solves[solves.length - 1] : null;
     appStore.setSolves(solves);
     getSolvePanel()?.renderSolvePanel?.();

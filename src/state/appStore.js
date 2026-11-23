@@ -74,6 +74,7 @@ export function sanitizeHexColor(val) {
 export class AppStore {
   constructor() {
     this.listeners = new Set();
+    this._isHydrating = false;
 
     const cookiePrefs = readCookieJSON(STORAGE_KEYS.UI_COOKIE, {}) || {};
     const rawSettings = readStorageJSON(STORAGE_KEYS.SETTINGS, null);
@@ -227,6 +228,11 @@ export class AppStore {
     }
   }
 
+  _emitPersist(section, detail = {}) {
+    if (this._isHydrating) return;
+    this.notify("persist", { section, ...detail });
+  }
+
   getActiveSession() {
     return this.state.sessions.find(s => s.id === this.state.activeSessionId) || this.state.sessions[0];
   }
@@ -238,13 +244,15 @@ export class AppStore {
   setSolves(nextSolves) {
     const sess = this.getActiveSession();
     sess.solves = nextSolves;
-    this.saveSessions();
+    this.saveSessions({ silent: true });
     writeStorageJSON(STORAGE_KEYS.SOLVES, nextSolves);
+    this._emitPersist("solves", { sessionId: sess.id });
   }
 
-  saveSessions() {
+  saveSessions({ silent = false } = {}) {
     saveSessions(this.state.sessions);
     setActiveSessionId(this.state.activeSessionId);
+    if (!silent) this._emitPersist("sessions");
   }
 
   getLayerSession() {
@@ -259,9 +267,10 @@ export class AppStore {
     const sess = this.state.sessions.find(s => s.id === "layer");
     if (sess) {
       sess.solves = nextLayerSolves;
-      this.saveSessions();
+      this.saveSessions({ silent: true });
     }
     writeStorageJSON(STORAGE_KEYS.LAYER_SOLVES, nextLayerSolves);
+    this._emitPersist("layerSolves");
   }
 
   loadTrackSelection(puzzleId = this.state.currentPuzzle, trackId = this.state.currentTrackId) {
@@ -316,6 +325,7 @@ export class AppStore {
 
   saveCaseTags() {
     writeStorageJSON(STORAGE_KEYS.CASE_TAGS, this.state.caseTags);
+    this._emitPersist("caseTags");
   }
 
   getCaseTag(caseId) {
@@ -338,6 +348,7 @@ export class AppStore {
 
   saveCustomCllLabels() {
     writeStorageJSON(STORAGE_KEYS.CUSTOM_LABELS, this.state.customCllLabels);
+    this._emitPersist("customLabels");
   }
 
   getCllCaseSolutionDisplay(caseObj) {
@@ -357,6 +368,7 @@ export class AppStore {
 
   savePblSettings() {
     writeStorageJSON(STORAGE_KEYS.PBL_SETTINGS, this.state.pblSettings);
+    this._emitPersist("pblSettings");
   }
 
   getPblCaseSelectedAlg(caseObj) {
@@ -378,8 +390,9 @@ export class AppStore {
     return custom || algObj.label || algObj.note || algObj.alg;
   }
 
-  saveStats() {
+  saveStats({ silent = false } = {}) {
     writeStorageJSON(STORAGE_KEYS.STATS, this.state.stats);
+    if (!silent) this._emitPersist("stats");
   }
 
   getCaseStat(puzzle = this.state.currentPuzzle, trackId = this.state.currentTrackId, caseId) {
@@ -420,7 +433,8 @@ export class AppStore {
       CASE_IDS.forEach(id => delete this.state.stats[id]);
     }
     this.resetCaseAppearances();
-    this.saveStats();
+    this.saveStats({ silent: true });
+    this._emitPersist("resetStats", { puzzle, trackId });
   }
 
   setOhHand(hand) {
@@ -447,10 +461,10 @@ export class AppStore {
     this.notify("simSpeed", { simSpeed: next });
   }
 
-  saveSettings() {
+  getSettingsPayload() {
     const s = this.state;
     const cllSel = s.selectedByTrack["222:cll"] || [];
-    const payload = {
+    return {
       currentPuzzle: s.currentPuzzle,
       currentTrackId: s.currentTrackId,
       ohHand: s.ohHand,
@@ -487,6 +501,11 @@ export class AppStore {
       sessionLogPageSize: s.sessionLogPageSize,
       customColors: { ...CUBE_COLORS }
     };
+  }
+
+  saveSettings() {
+    const s = this.state;
+    const payload = this.getSettingsPayload();
     writeStorageJSON(STORAGE_KEYS.SETTINGS, payload);
     writeCookieJSON(STORAGE_KEYS.UI_COOKIE, {
       currentPuzzle: s.currentPuzzle,
@@ -514,6 +533,127 @@ export class AppStore {
       layerTargetFaces: s.layerTargetFaces,
       crossTargetFaces: s.crossTargetFaces
     });
+    this._emitPersist("settings", { payload });
+  }
+
+  hydrateFromSync(mergedPayload) {
+    if (!mergedPayload || typeof mergedPayload !== "object") return;
+    this._isHydrating = true;
+    try {
+      const savedSettings = mergedPayload.settings && typeof mergedPayload.settings === "object"
+        ? mergedPayload.settings
+        : {};
+
+      const nextColors = { ...DEFAULT_CUBE_COLORS };
+      if (savedSettings.customColors && typeof savedSettings.customColors === "object") {
+        for (const [k, v] of Object.entries(savedSettings.customColors)) {
+          const clean = sanitizeHexColor(v);
+          if (clean) nextColors[k] = clean;
+        }
+      }
+      setCustomCubeColors(nextColors);
+      applyCubeColorsToCss(CUBE_COLORS);
+
+      let currentPuzzle = VALID_PUZZLES.includes(savedSettings.currentPuzzle)
+        ? savedSettings.currentPuzzle
+        : this.state.currentPuzzle;
+      let currentTrackId = savedSettings.currentTrackId || getDefaultTrack(currentPuzzle)?.id || "cll";
+      if (!getTrack(currentPuzzle, currentTrackId)) {
+        currentTrackId = getDefaultTrack(currentPuzzle)?.id || "cll";
+      }
+      const mode = MODES.includes(savedSettings.mode)
+        ? savedSettings.mode
+        : (savedSettings.mode === "timed" ? "practice" : this.state.mode);
+
+      const selectedByTrack = {};
+      if (savedSettings.selectedByTrack && typeof savedSettings.selectedByTrack === "object") {
+        for (const [k, arr] of Object.entries(savedSettings.selectedByTrack)) {
+          if (Array.isArray(arr)) selectedByTrack[k] = arr.filter(id => typeof id === "string");
+        }
+      }
+      if (!selectedByTrack["222:cll"] && Array.isArray(savedSettings.selected)) {
+        selectedByTrack["222:cll"] = savedSettings.selected.filter(id => caseById.has(id));
+      }
+
+      const incomingSessions = Array.isArray(mergedPayload.sessions) && mergedPayload.sessions.length > 0
+        ? JSON.parse(JSON.stringify(mergedPayload.sessions))
+        : this.state.sessions;
+
+      const desiredActiveId = savedSettings.activeSessionId || this.state.activeSessionId;
+      const activeSessionId = incomingSessions.some(s => s.id === desiredActiveId)
+        ? desiredActiveId
+        : (incomingSessions.find(s => (s.puzzle || "222") === currentPuzzle)?.id || incomingSessions[0].id);
+      const activeSession = incomingSessions.find(s => s.id === activeSessionId) || incomingSessions[0];
+
+      const rawSimSpeed = Number(savedSettings.simSpeed);
+      const simSpeed = SIM_SPEED_OPTIONS.includes(rawSimSpeed) ? rawSimSpeed : 1;
+
+      const s = this.state;
+      s.currentPuzzle = currentPuzzle;
+      s.currentTrackId = currentTrackId;
+      s.mode = mode;
+      s.ohHand = savedSettings.ohHand === "right" ? "right" : "left";
+      s.ohTableAbuse = savedSettings.ohTableAbuse !== undefined ? Boolean(savedSettings.ohTableAbuse) : true;
+      s.simSpeed = simSpeed;
+      s.selectedByTrack = selectedByTrack;
+      s.alwaysWhiteBottom = savedSettings.alwaysWhiteBottom ?? true;
+      s.allowAUF = savedSettings.allowAUF ?? true;
+      s.showReflection = savedSettings.showReflection ?? true;
+      s.darkMode = savedSettings.darkMode ?? false;
+      s.showTooltips = savedSettings.showTooltips ?? true;
+      s.onboardingCompleted = savedSettings.onboardingCompleted ?? s.onboardingCompleted;
+      s.onboardingProfile = savedSettings.onboardingProfile ? JSON.parse(JSON.stringify(savedSettings.onboardingProfile)) : null;
+      s.settingsCollapsed = savedSettings.settingsCollapsed ?? savedSettings.casesCollapsed ?? true;
+      s.statsCollapsed = savedSettings.statsCollapsed ?? false;
+      s.freeMovesOpen = savedSettings.freeMovesOpen ?? false;
+      s.layerSolutionsOpen = savedSettings.layerSolutionsOpen ?? false;
+      s.crossSolutionsOpen = savedSettings.crossSolutionsOpen ?? false;
+      s.solveLogOpen = savedSettings.solveLogOpen ?? true;
+      s.cfopSummaryOpen = savedSettings.cfopSummaryOpen ?? true;
+      s.ollCasesStatsOpen = savedSettings.ollCasesStatsOpen ?? true;
+      s.pllCasesStatsOpen = savedSettings.pllCasesStatsOpen ?? true;
+      s.timerDrillPreset = savedSettings.timerDrillPreset || "righty-inv";
+      s.layerTargetFaces = Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
+        ? [...savedSettings.layerTargetFaces]
+        : ["white"];
+      s.crossTargetFaces = Array.isArray(savedSettings.crossTargetFaces) && savedSettings.crossTargetFaces.length
+        ? [...savedSettings.crossTargetFaces]
+        : ["white"];
+      s.statsType = (savedSettings.statsType === "recog" || savedSettings.statsType === "cll")
+        ? savedSettings.statsType
+        : "log";
+      s.sessionLogPageSize = LOG_PAGE_SIZE_OPTIONS.includes(Number(savedSettings.sessionLogPageSize))
+        ? Number(savedSettings.sessionLogPageSize)
+        : 12;
+      s.sessionLogPage = 1;
+      s.sessions = incomingSessions;
+      s.activeSessionId = activeSessionId;
+      s.solveTarget = activeSession.target || savedSettings.solveTarget || "full";
+      s.solveShowCube = activeSession.showCube ?? savedSettings.solveShowCube ?? true;
+      s.solveInspection = activeSession.inspection ?? savedSettings.solveInspection ?? true;
+      s.stats = mergedPayload.stats ? JSON.parse(JSON.stringify(mergedPayload.stats)) : {};
+      s.caseTags = mergedPayload.caseTags ? JSON.parse(JSON.stringify(mergedPayload.caseTags)) : {};
+      s.customCllLabels = mergedPayload.customCllLabels ? JSON.parse(JSON.stringify(mergedPayload.customCllLabels)) : {};
+      s.pblSettings = mergedPayload.pblSettings ? JSON.parse(JSON.stringify(mergedPayload.pblSettings)) : {};
+      s.lastSolve = activeSession.solves?.length ? activeSession.solves[activeSession.solves.length - 1] : null;
+
+      this.loadTrackSelection(currentPuzzle, currentTrackId);
+
+      // Persist hydrated state to localStorage & cookie while _isHydrating suppresses persist loop
+      this.saveSettings();
+      this.saveSessions();
+      writeStorageJSON(STORAGE_KEYS.SOLVES, activeSession.solves || []);
+      const layerSess = s.sessions.find(sess => sess.id === "layer");
+      if (layerSess) writeStorageJSON(STORAGE_KEYS.LAYER_SOLVES, layerSess.solves || []);
+      this.saveStats();
+      this.saveCaseTags();
+      this.saveCustomCllLabels();
+      this.savePblSettings();
+    } finally {
+      this._isHydrating = false;
+    }
+
+    this.notify("hydrate", { source: "sync" });
   }
 }
 

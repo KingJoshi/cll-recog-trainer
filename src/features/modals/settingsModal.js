@@ -52,6 +52,7 @@ export function createSettingsModalController({
   getPracticeView = () => null,
   getNavCtrl = () => null,
   getSmartCubeCtrl = () => null,
+  getCloudSyncCtrl = () => null,
   onOpenWizard = null,
   onTooltipsChange = null
 } = {}) {
@@ -216,6 +217,7 @@ export function createSettingsModalController({
     renderToggles();
     solverWidgets?.updateFaceChipsUI?.();
     solverWidgets?.updateCrossFacesUI?.();
+    getCloudSyncCtrl()?.render?.();
     modalManager.open(modal, {
       initialFocus: closeBtn,
       onClose: () => {
@@ -367,6 +369,12 @@ export function createSettingsModalController({
 
   appStore?.subscribe?.((evt) => {
     if (evt === "theme" || evt === "ohHand" || evt === "ohTableAbuse" || evt === "simSpeed") renderToggles();
+    else if (evt === "hydrate") {
+      renderColorPickers();
+      renderToggles();
+      solverWidgets?.updateFaceChipsUI?.();
+      solverWidgets?.updateCrossFacesUI?.();
+    }
   });
 
   return {

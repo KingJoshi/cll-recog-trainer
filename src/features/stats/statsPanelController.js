@@ -2,6 +2,8 @@
 
 import { PUZZLES, getTrack, getSolveTargetInfo } from '../../data/algRegistry.js';
 import { exportSolvesToCSV, downloadCSV } from '../../services/solveStats.js';
+import { getSolveFingerprint } from '../../services/syncMerge.js';
+import { recordTombstones } from '../../services/syncStorage.js';
 import { showToast } from '../../ui/toastService.js';
 import { createRecogStatsView } from './recogStatsView.js';
 import { createCaseSolveStatsView } from './caseSolveStatsView.js';
@@ -130,6 +132,8 @@ export function createStatsPanelController({
         danger: true
       });
       if (!ok) return;
+      const deletedFps = (sess.solves || []).map(getSolveFingerprint).filter(Boolean);
+      if (deletedFps.length > 0) recordTombstones("solves", deletedFps);
       s.lastSolve = null;
       appStore.setSolves([]);
       getSessionModal()?.populateSessionSelect?.();
@@ -144,11 +148,14 @@ export function createStatsPanelController({
         danger: true
       });
       if (!ok) return;
+      const removed = [];
       const filtered = (sess.solves || []).filter(sv => {
-        if (sv.track && sv.track === s.currentTrackId) return false;
-        if (sv.id && trackCaseIds.includes(sv.id)) return false;
-        return true;
+        const shouldRemove = (sv.track && sv.track === s.currentTrackId) || (sv.id && trackCaseIds.includes(sv.id));
+        if (shouldRemove) removed.push(sv);
+        return !shouldRemove;
       });
+      const deletedFps = removed.map(getSolveFingerprint).filter(Boolean);
+      if (deletedFps.length > 0) recordTombstones("solves", deletedFps);
       s.lastSolve = filtered.length ? filtered[filtered.length - 1] : null;
       appStore.setSolves(filtered);
       getSessionModal()?.populateSessionSelect?.();

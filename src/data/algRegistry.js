@@ -260,8 +260,9 @@ export const PUZZLES = {
   }
 };
 
-const PREFERRED_ALG_STORAGE_KEY = "cll_preferred_algs_v1";
+export const PREFERRED_ALG_STORAGE_KEY = "cll_preferred_algs_v1";
 let preferredAlgsCache = null;
+const preferredAlgListeners = new Set();
 
 function loadPreferredAlgsMap() {
   if (preferredAlgsCache) return preferredAlgsCache;
@@ -281,6 +282,30 @@ function loadPreferredAlgsMap() {
 
 export function clearPreferredAlgsCache() {
   preferredAlgsCache = null;
+}
+
+export function onPreferredAlgChange(listener) {
+  if (typeof listener === "function") preferredAlgListeners.add(listener);
+  return () => preferredAlgListeners.delete(listener);
+}
+
+export function getAllPreferredAlgs() {
+  return { ...loadPreferredAlgsMap() };
+}
+
+export function replaceAllPreferredAlgs(nextMap) {
+  const clean = nextMap && typeof nextMap === "object" && !Array.isArray(nextMap)
+    ? { ...nextMap }
+    : {};
+  preferredAlgsCache = clean;
+  if (typeof localStorage !== "undefined") {
+    try {
+      localStorage.setItem(PREFERRED_ALG_STORAGE_KEY, JSON.stringify(clean));
+    } catch (e) {
+      console.error("Failed to save preferred algorithms", e);
+    }
+  }
+  return clean;
 }
 
 export function getPreferredAlg(caseId, defaultAlgId, puzzleId = null, subScope = null) {
@@ -304,18 +329,21 @@ export function getPreferredAlg(caseId, defaultAlgId, puzzleId = null, subScope 
 
 export function setPreferredAlg(caseId, algId, puzzleId = null, subScope = null) {
   const map = loadPreferredAlgsMap();
-  if (puzzleId && subScope) {
-    map[`${puzzleId}:${subScope}:${caseId}`] = algId;
-  } else if (puzzleId) {
-    map[`${puzzleId}:${caseId}`] = algId;
-  } else {
-    map[caseId] = algId;
+  const prefKey = puzzleId && subScope
+    ? `${puzzleId}:${subScope}:${caseId}`
+    : puzzleId
+      ? `${puzzleId}:${caseId}`
+      : caseId;
+  map[prefKey] = algId;
+  if (typeof localStorage !== "undefined") {
+    try {
+      localStorage.setItem(PREFERRED_ALG_STORAGE_KEY, JSON.stringify(map));
+    } catch (e) {
+      console.error("Failed to save preferred algorithm", e);
+    }
   }
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.setItem(PREFERRED_ALG_STORAGE_KEY, JSON.stringify(map));
-  } catch (e) {
-    console.error("Failed to save preferred algorithm", e);
+  for (const cb of preferredAlgListeners) {
+    try { cb({ key: prefKey, caseId, algId, puzzleId, subScope }); } catch {}
   }
 }
 
