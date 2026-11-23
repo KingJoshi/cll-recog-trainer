@@ -328,7 +328,9 @@ export function createTimerController({
 
     const solves = appStore.getSolves();
     solves.push(lastSolve);
-    if (solves.length > MAX_SOLVES) solves.splice(0, solves.length - MAX_SOLVES);
+    if (Number.isFinite(MAX_SOLVES) && solves.length > MAX_SOLVES) {
+      solves.splice(0, solves.length - MAX_SOLVES);
+    }
     appStore.setSolves(solves);
 
     if (solveOverlayTime) solveOverlayTime.textContent = formatSolveDisplay(lastSolve);

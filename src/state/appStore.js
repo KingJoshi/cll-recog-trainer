@@ -17,7 +17,8 @@ import {
   saveSessions,
   getActiveSessionId,
   setActiveSessionId,
-  resolveSessionForTarget
+  resolveSessionForTarget,
+  splitSessionByTarget
 } from './sessionStore.js';
 
 export const STORAGE_KEYS = {
@@ -37,7 +38,8 @@ export const VALID_PUZZLES = ["222", "333", "333oh", "444", "555"];
 export const MODES = ["study", "practice", "solve", "simulate"];
 export const LOG_PAGE_SIZE_OPTIONS = [5, 12, 25, 50, 100];
 export const SIM_SPEED_OPTIONS = [0.25, 0.5, 1, 1.5, 2];
-export const MAX_SOLVES = 500;
+export const MAX_SOLVES = Infinity;
+export const MAX_DISPLAY_SOLVES = 10000;
 
 export const GROUPS = ["A", "H", "L", "P", "S", "T", "U"];
 export const GROUP_DISPLAY_ORDER = ["H", "P", "U", "T", "L", "S", "A"];
@@ -246,7 +248,7 @@ export class AppStore {
     const sess = this.getActiveSession();
     sess.solves = nextSolves;
     this.saveSessions({ silent: true });
-    writeStorageJSON(STORAGE_KEYS.SOLVES, nextSolves);
+    writeStorageJSON(STORAGE_KEYS.SOLVES, Array.isArray(nextSolves) ? nextSolves.slice(-200) : []);
     this._emitPersist("solves", { sessionId: sess.id });
   }
 
@@ -280,6 +282,32 @@ export class AppStore {
     s.sessionLogPage = 1;
     const solves = Array.isArray(sess.solves) ? sess.solves : [];
     s.lastSolve = solves.length ? solves[solves.length - 1] : null;
+    this.saveSessions();
+    this.saveSettings();
+    return result;
+  }
+
+  splitSessionByTarget(sessionId = this.state.activeSessionId) {
+    const s = this.state;
+    const sess = s.sessions.find(item => item.id === sessionId);
+    if (!sess) return { canSplit: false, movedCount: 0, destinations: [], createdSessions: [] };
+    const puzzle = sess.puzzle || s.currentPuzzle || "222";
+    const puzzleShortName = PUZZLES[puzzle]?.shortName || puzzle;
+    const result = splitSessionByTarget(s.sessions, sessionId, {
+      puzzleShortName,
+      getTargetLabel: (t) => getSolveTargetLabel(puzzle, t)
+    });
+    if (!result.canSplit) return result;
+    if (result.createdSessions.length > 0) {
+      s.sessions.push(...result.createdSessions);
+    }
+    const activeSess = this.getActiveSession();
+    if (activeSess) {
+      s.solveTarget = activeSess.target || "full";
+      const solves = Array.isArray(activeSess.solves) ? activeSess.solves : [];
+      s.lastSolve = solves.length ? solves[solves.length - 1] : null;
+      s.sessionLogPage = 1;
+    }
     this.saveSessions();
     this.saveSettings();
     return result;
@@ -678,7 +706,7 @@ export class AppStore {
       // Persist hydrated state to localStorage & cookie while _isHydrating suppresses persist loop
       this.saveSettings();
       this.saveSessions();
-      writeStorageJSON(STORAGE_KEYS.SOLVES, activeSession.solves || []);
+      writeStorageJSON(STORAGE_KEYS.SOLVES, Array.isArray(activeSession.solves) ? activeSession.solves.slice(-200) : []);
       const layerSess = s.sessions.find(sess => sess.id === "layer");
       if (layerSess) writeStorageJSON(STORAGE_KEYS.LAYER_SOLVES, layerSess.solves || []);
       this.saveStats();

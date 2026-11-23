@@ -556,6 +556,54 @@
     border-color: var(--primary);
 }
 
+.stats-subfilter-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    flex-wrap: wrap;
+}
+
+.stats-subfilter-action-btn {
+    padding: 3px 9px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface-2, var(--surface));
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.stats-subfilter-action-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.stats-split-session-btn {
+    border-color: rgba(245, 158, 11, 0.45);
+    color: #b45309;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.stats-split-session-btn:hover {
+    border-color: #d97706;
+    background: rgba(245, 158, 11, 0.18);
+    color: #92400e;
+}
+
+[data-theme="dark"] .stats-split-session-btn {
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.16);
+    border-color: rgba(245, 158, 11, 0.45);
+}
+
+[data-theme="dark"] .stats-split-session-btn:hover {
+    background: rgba(245, 158, 11, 0.24);
+    color: #fde68a;
+}
+
 /* --------------------------------------------------------------------------
    Practice Recognition Drill Buttons & Feedback
    -------------------------------------------------------------------------- */

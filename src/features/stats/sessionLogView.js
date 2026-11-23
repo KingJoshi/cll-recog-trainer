@@ -1,6 +1,6 @@
 // Paginated Full Session Solve Log, CFOP Averages, and OLL/PLL Case Performance View
 
-import { getTrack, getSolveTargetLabel } from '../../data/algRegistry.js';
+import { getTrack, getSolveTargetLabel, PUZZLES } from '../../data/algRegistry.js';
 import { ollCases } from '../../data/ollData.js';
 import { pllCases } from '../../data/pllData.js';
 import {
@@ -16,7 +16,9 @@ import { prewarmOllPllSvgs, isOllPllSvgsPrewarmed } from '../../caseVisualizer.j
 import { getSolveTime, computeAverageOfN, getBestAverageOfN } from '../../services/solveStats.js';
 import { getSolveFingerprint } from '../../services/syncMerge.js';
 import { recordTombstone } from '../../services/syncStorage.js';
-import { LOG_PAGE_SIZE_OPTIONS } from '../../state/appStore.js';
+import { LOG_PAGE_SIZE_OPTIONS, MAX_DISPLAY_SOLVES } from '../../state/appStore.js';
+import { planSessionSplitByTarget } from '../../state/sessionStore.js';
+import { showToast } from '../../ui/toastService.js';
 import {
   escapeHtml,
   renderSolveDateClockHtml,
@@ -35,7 +37,8 @@ export function createSessionLogView({
   getSolvePanel = () => null,
   getSessionModal = () => null
 } = {}) {
-  let sessionLogFilter = "all"; // "all" | "track" | "full"
+  let sessionLogFilter = "all"; // "all" | "target:<targetId>"
+  let showAllHistory = false;
   const sessionLogSort = { col: "num", dir: "desc" };
   const ollPllBreakdownSort = {
     oll: { col: "medianMs", dir: "desc" },
@@ -59,9 +62,9 @@ export function createSessionLogView({
     }
 
     const sess = appStore.getActiveSession();
-    const sessSolves = sess.solves || [];
+    const allSessSolves = sess.solves || [];
 
-    if (sessSolves.length === 0) {
+    if (allSessSolves.length === 0) {
       container.innerHTML = `
         <div class="empty-stats" style="text-align: center; padding: 24px;">
           <p>No solves recorded in <strong>${escapeHtml(sess.name)}</strong> yet.</p>
@@ -71,15 +74,42 @@ export function createSessionLogView({
       return;
     }
 
-    const track = getTrack(s.currentPuzzle, s.currentTrackId);
-    const trackCaseIds = (track?.cases || []).map(c => c.id);
-    const trackSolves = sessSolves.filter(sv =>
-      sv.track === s.currentTrackId || sv.target === s.currentTrackId || (sv.id && trackCaseIds.includes(sv.id))
-    );
-    const fullSolves = sessSolves.filter(sv => sv.target === "full" || (!sv.target && !sv.id));
-    const displaySolves = sessionLogFilter === "track"
-      ? trackSolves
-      : (sessionLogFilter === "full" ? fullSolves : sessSolves);
+    const isCapped = allSessSolves.length > MAX_DISPLAY_SOLVES && !showAllHistory;
+    const windowOffset = isCapped ? (allSessSolves.length - MAX_DISPLAY_SOLVES) : 0;
+    const sessSolves = isCapped ? allSessSolves.slice(windowOffset) : allSessSolves;
+
+    const sessPuzzle = sess.puzzle || s.currentPuzzle;
+    const targetCounts = new Map();
+    for (const sv of sessSolves) {
+      const tgt = sv?.target || "full";
+      targetCounts.set(tgt, (targetCounts.get(tgt) || 0) + 1);
+    }
+    const targetBuckets = [...targetCounts.entries()]
+      .map(([targetId, tCount]) => ({
+        targetId,
+        label: getSolveTargetLabel(sessPuzzle, targetId),
+        count: tCount
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    let filterTarget = null;
+    if (sessionLogFilter.startsWith("target:")) {
+      const requested = sessionLogFilter.slice("target:".length);
+      if (targetCounts.has(requested)) filterTarget = requested;
+      else sessionLogFilter = "all";
+    } else if (sessionLogFilter !== "all") {
+      sessionLogFilter = "all";
+    }
+
+    const indexedWindow = sessSolves.map((sv, i) => ({
+      sv,
+      windowNum: windowOffset + i + 1,
+      origIdx: windowOffset + i
+    }));
+    const filteredEntries = filterTarget
+      ? indexedWindow.filter(e => (e.sv?.target || "full") === filterTarget)
+      : indexedWindow;
+    const displaySolves = filteredEntries.map(e => e.sv);
 
     if (is3x3Puzzle) {
       displaySolves.forEach(sv => ensureSolveCfop(sv));
@@ -102,10 +132,10 @@ export function createSessionLogView({
     const bestAo100 = getBestAverageOfN(chronological, 100);
     const formatAo = (val) => val === -1 || val === "DNF" ? "DNF" : (val != null ? formatSolveTime(val) : "-");
 
-    const allIndexed = displaySolves.map((sv, idx) => ({
-      s: sv,
-      num: idx + 1,
-      origIdx: sessSolves.indexOf(sv)
+    const allIndexed = filteredEntries.map((e, idx) => ({
+      s: e.sv,
+      num: filterTarget ? (idx + 1) : e.windowNum,
+      origIdx: e.origIdx
     }));
 
     const getSolveCubeMs = (sv) => {
@@ -167,12 +197,23 @@ export function createSessionLogView({
     const sessionAvg = computeCfopAverages(displaySolves);
     const fmtPauseSummary = (countVal, msVal) => countVal == null ? "-" : `${countVal} (${formatCfopSplitMs(msVal || 0)})`;
 
+    const hasMultipleTargets = targetBuckets.length >= 2;
+    const capControlHtml = allSessSolves.length > MAX_DISPLAY_SOLVES
+      ? `<button type="button" id="toggleHistoryCapBtn" class="stats-subfilter-action-btn" title="Show up to ${MAX_DISPLAY_SOLVES.toLocaleString()} most recent solves for speed, or expand all ${allSessSolves.length.toLocaleString()} stored solves">${isCapped ? `Latest ${MAX_DISPLAY_SOLVES.toLocaleString()} of ${allSessSolves.length.toLocaleString()} &middot; Show All` : `Showing all ${allSessSolves.length.toLocaleString()} &middot; Cap at ${MAX_DISPLAY_SOLVES.toLocaleString()}`}</button>`
+      : "";
+    const splitBtnHtml = hasMultipleTargets
+      ? `<button type="button" id="splitSessionByTargetBtn" class="stats-subfilter-action-btn stats-split-session-btn" title="Move solves with different targets out of this mixed session into their own dedicated sessions">✂️ Split by Target</button>`
+      : "";
+
     let html = `
       <div class="stats-subfilter-bar">
         <span class="stats-subfilter-label">Filter:</span>
-        <button type="button" class="stats-subfilter-btn ${sessionLogFilter === "all" ? "active" : ""}" data-log-filter="all">All (${sessSolves.length})</button>
-        <button type="button" class="stats-subfilter-btn ${sessionLogFilter === "track" ? "active" : ""}" data-log-filter="track">${escapeHtml(track?.shortName || "Current Set")} (${trackSolves.length})</button>
-        <button type="button" class="stats-subfilter-btn ${sessionLogFilter === "full" ? "active" : ""}" data-log-filter="full">Full Solves (${fullSolves.length})</button>
+        <button type="button" class="stats-subfilter-btn ${sessionLogFilter === "all" ? "active" : ""}" data-log-filter="all">All (${sessSolves.length.toLocaleString()})</button>
+        ${targetBuckets.map(b => {
+          const filterKey = `target:${b.targetId}`;
+          return `<button type="button" class="stats-subfilter-btn ${sessionLogFilter === filterKey ? "active" : ""}" data-log-filter="${escapeHtml(filterKey)}">${escapeHtml(b.label)} (${b.count.toLocaleString()})</button>`;
+        }).join("")}
+        ${(capControlHtml || splitBtnHtml) ? `<span class="stats-subfilter-actions">${capControlHtml}${splitBtnHtml}</span>` : ""}
       </div>
       <div class="layer-stats-grid">
         <div class="layer-stat-card"><span class="layer-stat-val">${count}</span><span class="layer-stat-lbl">Attempts</span></div>
@@ -287,7 +328,7 @@ export function createSessionLogView({
           <button type="button" class="stats-subwidget-toggle" data-stats-collapse="solveLog" aria-expanded="${s.solveLogOpen ? "true" : "false"}">
             <span class="chevron" aria-hidden="true"></span>
             <span class="layer-log-title-wrap">
-              <span class="layer-log-title">Solve Log &mdash; ${escapeHtml(sess.name)} (${allReversed.length})</span>
+              <span class="layer-log-title">Solve Log &mdash; ${escapeHtml(sess.name)} (${allReversed.length.toLocaleString()}${isCapped ? ` of ${allSessSolves.length.toLocaleString()} total` : ""})</span>
               <span class="layer-log-hint">${is3x3Puzzle ? "Click any column header to sort · Tap any row for full CFOP breakdown &amp; 3D replay" : "Click any column header to sort · Tap any row for solve details"}</span>
             </span>
           </button>
@@ -599,6 +640,39 @@ export function createSessionLogView({
       });
     });
 
+    container.querySelector("#toggleHistoryCapBtn")?.addEventListener("click", () => {
+      showAllHistory = !showAllHistory;
+      s.sessionLogPage = 1;
+      render(container);
+    });
+
+    container.querySelector("#splitSessionByTargetBtn")?.addEventListener("click", async () => {
+      const puzzle = sess.puzzle || s.currentPuzzle || "222";
+      const puzzleShortName = PUZZLES[puzzle]?.shortName || puzzle;
+      const plan = planSessionSplitByTarget(s.sessions, sess.id, {
+        puzzleShortName,
+        getTargetLabel: (t) => getSolveTargetLabel(puzzle, t)
+      });
+      if (!plan.canSplit) return;
+      const destLines = plan.destinations
+        .map(d => `- Move ${d.count} "${d.targetLabel}" solve${d.count === 1 ? "" : "s"} -> ${d.action === "merge" ? "existing session" : "new session"} "${d.sessionName}"`)
+        .join("\n");
+      const ok = await modalManager.confirmDialog({
+        title: "Split Mixed Session by Target",
+        message: `"${sess.name}" mixes multiple solve targets.\n\nKeep ${plan.keepCount} "${plan.keepTargetLabel}" solve${plan.keepCount === 1 ? "" : "s"} in "${sess.name}":\n${destLines}`,
+        confirmLabel: `Split ${plan.movedCount} Solve${plan.movedCount === 1 ? "" : "s"}`
+      });
+      if (!ok) return;
+      const res = appStore.splitSessionByTarget(sess.id);
+      if (!res?.canSplit) return;
+      sessionLogFilter = "all";
+      s.sessionLogPage = 1;
+      getSessionModal()?.populateSessionSelect?.();
+      getSolvePanel()?.renderSolvePanel?.();
+      render(container);
+      showToast(`Split ${res.movedCount} solve${res.movedCount === 1 ? "" : "s"} into ${res.destinations.length} target session${res.destinations.length === 1 ? "" : "s"}.`, "success", 3200);
+    });
+
     const pageSizeSelect = container.querySelector("#sessionLogPageSizeSelect");
     pageSizeSelect?.addEventListener("change", () => {
       const sz = Number(pageSizeSelect.value);
@@ -619,7 +693,7 @@ export function createSessionLogView({
     container.querySelectorAll(".layer-log-row").forEach(row => {
       row.addEventListener("click", (e) => {
         if (e.target.closest(".btn-del-solve, .btn-reattempt-solve, .btn-replay-solve, .solve-date-clock-wrap")) return;
-        const solve = sessSolves[Number(row.dataset.index)];
+        const solve = allSessSolves[Number(row.dataset.index)];
         if (solve) getSolveDetailModal()?.open?.(solve, row.dataset.num);
       });
     });
@@ -643,7 +717,7 @@ export function createSessionLogView({
     container.querySelectorAll(".btn-replay-solve").forEach(btn => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        const solve = sessSolves[Number(btn.dataset.index)];
+        const solve = allSessSolves[Number(btn.dataset.index)];
         if (solve) solveReplayViewer.open(solve, `Solve #${btn.dataset.num} (${sess.name})`);
       });
     });
@@ -651,7 +725,7 @@ export function createSessionLogView({
     container.querySelectorAll(".btn-reattempt-solve").forEach(btn => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        const solve = sessSolves[Number(btn.dataset.index)];
+        const solve = allSessSolves[Number(btn.dataset.index)];
         if (solve?.scramble) getSolvePanel()?.reattemptScramble?.(solve.scramble, `solve #${btn.dataset.num}`);
       });
     });
@@ -660,7 +734,7 @@ export function createSessionLogView({
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const idx = Number(btn.dataset.index);
-        const solve = sessSolves[idx];
+        const solve = allSessSolves[idx];
         if (!solve) return;
         const ok = await modalManager.confirmDialog({
           title: "Delete Solve",
@@ -669,13 +743,13 @@ export function createSessionLogView({
           danger: true
         });
         if (!ok) return;
-        const [removed] = sessSolves.splice(idx, 1);
+        const [removed] = allSessSolves.splice(idx, 1);
         const fp = getSolveFingerprint(removed);
         if (fp) recordTombstone("solves", fp);
         if (s.lastSolve === solve || (s.lastSolve && s.lastSolve.at === solve.at)) {
-          s.lastSolve = sessSolves.length ? sessSolves[sessSolves.length - 1] : null;
+          s.lastSolve = allSessSolves.length ? allSessSolves[allSessSolves.length - 1] : null;
         }
-        appStore.setSolves(sessSolves);
+        appStore.setSolves(allSessSolves);
         getSessionModal()?.populateSessionSelect?.();
         getSolvePanel()?.renderSolvePanel?.();
         render(container);

@@ -2,7 +2,7 @@
 // Zero DOM / browser dependencies so it runs cleanly in Node tests and the browser.
 
 export const SYNC_SCHEMA_VERSION = 1;
-export const MAX_MERGED_SOLVES = 500;
+export const MAX_MERGED_SOLVES = Infinity;
 export const TOMBSTONE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 
 const CASE_TAG_RANK = {
@@ -392,7 +392,7 @@ function filterAndMergeSolves(localSolves = [], remoteSolves = [], solveTombston
 
   const merged = [...byFp.values()];
   merged.sort((a, b) => (a.at || 0) - (b.at || 0));
-  if (merged.length > MAX_MERGED_SOLVES) {
+  if (Number.isFinite(MAX_MERGED_SOLVES) && merged.length > MAX_MERGED_SOLVES) {
     return merged.slice(merged.length - MAX_MERGED_SOLVES);
   }
   return merged;

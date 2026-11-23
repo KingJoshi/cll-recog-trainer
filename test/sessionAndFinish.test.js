@@ -2,10 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { Alg } from 'cubing/alg';
 import { getSolveTargetLabel } from '../src/data/algRegistry.js';
-import { resolveSessionForTarget } from '../src/state/sessionStore.js';
+import {
+  resolveSessionForTarget,
+  splitSessionByTarget,
+  saveSessions,
+  KEEP_RAW_MOVES_COUNT
+} from '../src/state/sessionStore.js';
 import { formatSolveDisplay } from '../src/services/htmlUtils.js';
 import { smartCube, getSolvedPatterns, evaluatePatternFinishState } from '../src/smartCube.js';
-import { AppStore } from '../src/state/appStore.js';
+import { AppStore, MAX_SOLVES, MAX_DISPLAY_SOLVES } from '../src/state/appStore.js';
 import { createTimerController } from '../src/features/solve/timerController.js';
 
 test('getSolveTargetLabel returns clean target labels across puzzles', () => {
@@ -203,5 +208,124 @@ test('timerController.stopSolve applies +2 / DNF when smart cube is unsolved and
     smartCube.deviceName = prevName;
     smartCube.currentPattern = prevPattern;
     smartCube.solvedPatterns = prevSolvedPatterns;
+  }
+});
+
+test('splitSessionByTarget separates mixed targets into existing and new sessions cleanly', () => {
+  const existingDrill = {
+    id: 'drill-sess',
+    puzzle: '222',
+    name: '2x2 Timer Drill',
+    target: 'timer-drill',
+    solves: [{ uid: 'd-0', ms: 1600, at: 500, target: 'timer-drill' }]
+  };
+  const mixed = {
+    id: 'mixed-sess',
+    puzzle: '222',
+    name: 'Session 1 (CLL)',
+    target: 'full',
+    solves: [
+      { uid: 'f-1', ms: 3100, at: 1000, target: 'full' },
+      { uid: 'c-1', ms: 2100, at: 1500, target: 'cll', id: 'H1' },
+      { uid: 'd-0', ms: 1600, at: 500, target: 'timer-drill' }, // duplicate with existingDrill
+      { uid: 'd-1', ms: 1290, at: 2000, target: 'timer-drill' },
+      { uid: 'f-2', ms: 2900, at: 2500, target: 'full' }
+    ]
+  };
+  const sessions = [mixed, existingDrill];
+
+  const res = splitSessionByTarget(sessions, 'mixed-sess', {
+    puzzleShortName: '2x2',
+    getTargetLabel: (t) => getSolveTargetLabel('222', t)
+  });
+
+  assert.strictEqual(res.canSplit, true);
+  assert.strictEqual(res.keepTarget, 'full');
+  assert.strictEqual(mixed.solves.length, 2);
+  assert.deepStrictEqual(mixed.solves.map(s => s.uid), ['f-1', 'f-2']);
+
+  // Existing drill session got d-1 merged without duplicating d-0
+  assert.strictEqual(existingDrill.solves.length, 2);
+  assert.deepStrictEqual(existingDrill.solves.map(s => s.uid), ['d-0', 'd-1']);
+
+  // New CLL session created for c-1
+  assert.strictEqual(res.createdSessions.length, 1);
+  assert.strictEqual(res.createdSessions[0].target, 'cll');
+  assert.strictEqual(res.createdSessions[0].name, '2x2 CLL (40)');
+  assert.deepStrictEqual(res.createdSessions[0].solves.map(s => s.uid), ['c-1']);
+
+  // Splitting again when single-target is a no-op
+  const resAgain = splitSessionByTarget(sessions, 'mixed-sess', {
+    puzzleShortName: '2x2',
+    getTargetLabel: (t) => getSolveTargetLabel('222', t)
+  });
+  assert.strictEqual(resAgain.canSplit, false);
+});
+
+test('unlimited solve storage preserves >500 solves in timerController and compacts moves on quota fallback', () => {
+  assert.strictEqual(MAX_SOLVES, Infinity);
+  assert.strictEqual(MAX_DISPLAY_SOLVES, 10000);
+
+  const prevStatus = smartCube.status;
+  smartCube.status = 'disconnected';
+  const store = new AppStore();
+  store.state.mode = 'solve';
+  store.state.solveInspection = false;
+
+  const existing550 = Array.from({ length: 550 }, (_, i) => ({
+    uid: `old-${i}`,
+    ms: 5000 + i,
+    at: 1000 + i,
+    scramble: 'R U'
+  }));
+  store.getActiveSession().solves = existing550;
+
+  const timerCtrl = createTimerController({
+    appStore: store,
+    solveReplayViewer: { open: () => {} }
+  });
+
+  try {
+    timerCtrl.armSolve();
+    timerCtrl.onSolveKeyUp({ code: 'Space', preventDefault: () => {} });
+    timerCtrl.stopSolve(false);
+    assert.strictEqual(store.getSolves().length, 551);
+  } finally {
+    timerCtrl.cancelSolve();
+    smartCube.status = prevStatus;
+  }
+
+  // Test saveSessions quota compaction keeps all solves while stripping oldest raw moves
+  const prevStorage = globalThis.localStorage;
+  let calls = 0;
+  let savedJson = '';
+  globalThis.localStorage = {
+    setItem: (_k, val) => {
+      calls++;
+      if (calls === 1) throw new Error('QuotaExceededError');
+      savedJson = val;
+    },
+    getItem: () => null,
+    removeItem: () => {}
+  };
+
+  try {
+    const total = KEEP_RAW_MOVES_COUNT + 50;
+    const solvesWithMoves = Array.from({ length: total }, (_, i) => ({
+      uid: `m-${i}`,
+      ms: 4000,
+      at: 1000 + i,
+      moves: [{ move: 'R', t: 100, split: 100 }]
+    }));
+    const ok = saveSessions([{ id: 's1', solves: solvesWithMoves }]);
+    assert.strictEqual(ok, true);
+    const parsed = JSON.parse(savedJson);
+    assert.strictEqual(parsed[0].solves.length, total);
+    assert.strictEqual(parsed[0].solves[0].moves, undefined); // oldest stripped
+    assert.ok(Array.isArray(parsed[0].solves[total - 1].moves)); // newest preserved
+    // In-memory array remains unmutated
+    assert.ok(Array.isArray(solvesWithMoves[0].moves));
+  } finally {
+    globalThis.localStorage = prevStorage;
   }
 });

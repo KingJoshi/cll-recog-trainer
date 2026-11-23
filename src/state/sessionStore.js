@@ -113,8 +113,47 @@ export function loadSessions() {
   }
 }
 
+export const KEEP_RAW_MOVES_COUNT = 1000;
+
 export function saveSessions(sessions) {
-  writeStorageJSON(SESSIONS_STORAGE_KEY, sessions);
+  if (writeStorageJSON(SESSIONS_STORAGE_KEY, sessions)) {
+    return true;
+  }
+  // Quota fallback: preserve all solve records, stripping verbose `moves` arrays
+  // from solves older than the newest KEEP_RAW_MOVES_COUNT smart-cube solves.
+  try {
+    const list = Array.isArray(sessions) ? sessions : [];
+    const moveEntries = [];
+    for (let sIdx = 0; sIdx < list.length; sIdx++) {
+      const solves = list[sIdx]?.solves;
+      if (!Array.isArray(solves)) continue;
+      for (let i = 0; i < solves.length; i++) {
+        const sv = solves[i];
+        if (sv && Array.isArray(sv.moves) && sv.moves.length > 0) {
+          moveEntries.push({ sIdx, i, at: Number(sv.at || 0) });
+        }
+      }
+    }
+    moveEntries.sort((a, b) => b.at - a.at);
+    const stripSet = new Set();
+    for (let k = KEEP_RAW_MOVES_COUNT; k < moveEntries.length; k++) {
+      stripSet.add(`${moveEntries[k].sIdx}:${moveEntries[k].i}`);
+    }
+    const compacted = list.map((sess, sIdx) => {
+      if (!sess || !Array.isArray(sess.solves)) return sess;
+      return {
+        ...sess,
+        solves: sess.solves.map((sv, i) => {
+          if (!sv || !stripSet.has(`${sIdx}:${i}`)) return sv;
+          const { moves, ...rest } = sv;
+          return rest;
+        })
+      };
+    });
+    return writeStorageJSON(SESSIONS_STORAGE_KEY, compacted);
+  } catch {
+    return false;
+  }
 }
 
 export function getActiveSessionId() {
@@ -127,6 +166,53 @@ export function setActiveSessionId(id) {
 
 export function getSessionsForPuzzle(sessions, puzzle) {
   return (sessions || []).filter(s => !s.puzzle || s.puzzle === puzzle);
+}
+
+function makeUniqueSessionName(sessions = [], baseName = "Session") {
+  const existingNames = new Set((sessions || []).map(s => (s?.name || "").trim().toLowerCase()));
+  let finalName = baseName;
+  let suffix = 2;
+  while (existingNames.has(finalName.toLowerCase())) {
+    finalName = `${baseName} ${suffix}`;
+    suffix++;
+  }
+  return finalName;
+}
+
+function rankBestMatchingSession(matching = []) {
+  if (matching.length <= 1) return matching[0] || null;
+  const ranked = [...matching].sort((a, b) => {
+    const aSolves = Array.isArray(a.solves) ? a.solves : [];
+    const bSolves = Array.isArray(b.solves) ? b.solves : [];
+    const aLastAt = aSolves.length ? (aSolves[aSolves.length - 1]?.at || 0) : (a.updatedAt || 0);
+    const bLastAt = bSolves.length ? (bSolves[bSolves.length - 1]?.at || 0) : (b.updatedAt || 0);
+    if (bLastAt !== aLastAt) return bLastAt - aLastAt;
+    return bSolves.length - aSolves.length;
+  });
+  return ranked[0];
+}
+
+function getSolveDedupeKey(sv) {
+  if (!sv) return "";
+  if (sv.uid) return `uid:${sv.uid}`;
+  const raw = sv.rawMs != null && Number.isFinite(sv.rawMs) ? sv.rawMs : sv.ms;
+  return `at:${sv.at || 0}|${raw || 0}|${sv.scramble || ""}`;
+}
+
+function mergeSolveLists(existingSolves = [], incomingSolves = []) {
+  const byKey = new Map();
+  for (const sv of existingSolves) {
+    if (!sv) continue;
+    byKey.set(getSolveDedupeKey(sv), sv);
+  }
+  for (const sv of incomingSolves) {
+    if (!sv) continue;
+    const key = getSolveDedupeKey(sv);
+    if (!byKey.has(key)) byKey.set(key, sv);
+  }
+  const merged = [...byKey.values()];
+  merged.sort((a, b) => (a.at || 0) - (b.at || 0));
+  return merged;
 }
 
 /**
@@ -154,15 +240,7 @@ export function resolveSessionForTarget(
 
   const matching = list.filter(s => s && (s.puzzle || "222") === puzzle && (s.target || "full") === target);
   if (matching.length > 0) {
-    const ranked = [...matching].sort((a, b) => {
-      const aSolves = Array.isArray(a.solves) ? a.solves : [];
-      const bSolves = Array.isArray(b.solves) ? b.solves : [];
-      const aLastAt = aSolves.length ? (aSolves[aSolves.length - 1]?.at || 0) : (a.updatedAt || 0);
-      const bLastAt = bSolves.length ? (bSolves[bSolves.length - 1]?.at || 0) : (b.updatedAt || 0);
-      if (bLastAt !== aLastAt) return bLastAt - aLastAt;
-      return bSolves.length - aSolves.length;
-    });
-    return { action: "switched", session: ranked[0] };
+    return { action: "switched", session: rankBestMatchingSession(matching) };
   }
 
   if (current && (current.puzzle || "222") === puzzle && (!current.solves || current.solves.length === 0)) {
@@ -173,18 +251,10 @@ export function resolveSessionForTarget(
   }
 
   const baseName = `${puzzleShortName || puzzle} ${targetLabel || target}`.trim();
-  const existingNames = new Set(list.map(s => (s?.name || "").trim().toLowerCase()));
-  let finalName = baseName;
-  let suffix = 2;
-  while (existingNames.has(finalName.toLowerCase())) {
-    finalName = `${baseName} ${suffix}`;
-    suffix++;
-  }
-
   const newSession = {
     id: "session-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
     puzzle,
-    name: finalName,
+    name: makeUniqueSessionName(list, baseName),
     target,
     size: current?.size || "medium",
     showCube: current?.showCube ?? true,
@@ -194,4 +264,152 @@ export function resolveSessionForTarget(
   };
 
   return { action: "created", session: newSession };
+}
+
+/**
+ * Compute a dry-run plan for splitting a mixed-target session into per-target sessions.
+ */
+export function planSessionSplitByTarget(
+  sessions = [],
+  sessionId = "",
+  { puzzleShortName = "", getTargetLabel = (t) => t || "Full Solve" } = {}
+) {
+  const list = Array.isArray(sessions) ? sessions : [];
+  const sess = list.find(s => s && s.id === sessionId) || null;
+  if (!sess || !Array.isArray(sess.solves) || sess.solves.length === 0) {
+    return { canSplit: false, movedCount: 0, destinations: [] };
+  }
+
+  const puzzle = sess.puzzle || "222";
+  const byTarget = new Map();
+  for (const sv of sess.solves) {
+    const t = sv?.target || "full";
+    if (!byTarget.has(t)) byTarget.set(t, []);
+    byTarget.get(t).push(sv);
+  }
+
+  if (byTarget.size < 2) {
+    return { canSplit: false, movedCount: 0, destinations: [] };
+  }
+
+  const sessTarget = sess.target || "full";
+  let keepTarget = sessTarget;
+  if (!byTarget.has(sessTarget)) {
+    let bestTarget = null;
+    let bestCount = -1;
+    for (const [t, arr] of byTarget.entries()) {
+      if (arr.length > bestCount) {
+        bestCount = arr.length;
+        bestTarget = t;
+      }
+    }
+    keepTarget = bestTarget;
+  }
+
+  const reservedNames = [...list];
+  const destinations = [];
+  let movedCount = 0;
+
+  for (const [target, arr] of byTarget.entries()) {
+    if (target === keepTarget) continue;
+    movedCount += arr.length;
+    const matches = list.filter(s => s && s.id !== sess.id && (s.puzzle || "222") === puzzle && (s.target || "full") === target);
+    const existingDest = matches.length > 0 ? rankBestMatchingSession(matches) : null;
+    const targetLabel = getTargetLabel(target);
+    if (existingDest) {
+      destinations.push({
+        target,
+        targetLabel,
+        count: arr.length,
+        solves: arr,
+        action: "merge",
+        sessionId: existingDest.id,
+        sessionName: existingDest.name
+      });
+    } else {
+      const baseName = `${puzzleShortName || puzzle} ${targetLabel}`.trim();
+      const newName = makeUniqueSessionName(reservedNames, baseName);
+      reservedNames.push({ name: newName });
+      destinations.push({
+        target,
+        targetLabel,
+        count: arr.length,
+        solves: arr,
+        action: "create",
+        sessionId: null,
+        sessionName: newName
+      });
+    }
+  }
+
+  return {
+    canSplit: destinations.length > 0,
+    sourceSessionId: sess.id,
+    sourceSessionName: sess.name,
+    puzzle,
+    keepTarget,
+    keepTargetLabel: getTargetLabel(keepTarget),
+    keepSolves: byTarget.get(keepTarget) || [],
+    keepCount: (byTarget.get(keepTarget) || []).length,
+    movedCount,
+    destinations
+  };
+}
+
+/**
+ * Execute a target split on `sessionId`, keeping `keepTarget` in `sess` and moving other targets
+ * into existing matching sessions or newly created dedicated sessions.
+ */
+export function splitSessionByTarget(
+  sessions = [],
+  sessionId = "",
+  opts = {}
+) {
+  const plan = planSessionSplitByTarget(sessions, sessionId, opts);
+  if (!plan.canSplit) {
+    return { ...plan, createdSessions: [], modifiedSessions: [] };
+  }
+
+  const list = Array.isArray(sessions) ? sessions : [];
+  const sess = list.find(s => s && s.id === sessionId);
+  const now = Date.now();
+  const createdSessions = [];
+  const modifiedSessions = [];
+
+  sess.puzzle = plan.puzzle;
+  sess.target = plan.keepTarget;
+  sess.solves = [...plan.keepSolves];
+  sess.updatedAt = now;
+  modifiedSessions.push(sess);
+
+  for (const dest of plan.destinations) {
+    if (dest.action === "merge") {
+      const targetSess = list.find(s => s && s.id === dest.sessionId);
+      if (targetSess) {
+        targetSess.solves = mergeSolveLists(targetSess.solves || [], dest.solves);
+        targetSess.updatedAt = now;
+        modifiedSessions.push(targetSess);
+      }
+    } else {
+      const newSession = {
+        id: "session-" + now + "-" + Math.random().toString(36).slice(2, 7),
+        puzzle: plan.puzzle,
+        name: dest.sessionName,
+        target: dest.target,
+        size: sess.size || "medium",
+        showCube: sess.showCube ?? true,
+        inspection: sess.inspection ?? true,
+        solves: mergeSolveLists([], dest.solves),
+        updatedAt: now
+      };
+      dest.sessionId = newSession.id;
+      createdSessions.push(newSession);
+    }
+  }
+
+  return {
+    ...plan,
+    createdSessions,
+    modifiedSessions
+  };
 }

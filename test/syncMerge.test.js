@@ -133,7 +133,7 @@ test('non-empty local uploads cleanly to empty remote', () => {
   assert.strictEqual(res.merged.sessions[0].solves.length, 1);
 });
 
-test('merges solves across machines, deduplicates identical solves, orders chronologically, and caps at MAX_MERGED_SOLVES', () => {
+test('merges solves across machines, deduplicates identical solves, orders chronologically, and preserves >500 solves', () => {
   const sharedSolve = { ms: 5000, rawMs: 5000, at: 1000, scramble: "R U R'", puzzle: "222", target: "full" };
   const localSolves = [sharedSolve, { uid: "s-local", ms: 4100, at: 3000, scramble: "F R U" }];
   const remoteSolves = [{ ...sharedSolve }, { uid: "s-remote", ms: 3900, at: 2000, scramble: "U2 R2" }];
@@ -152,7 +152,8 @@ test('merges solves across machines, deduplicates identical solves, orders chron
   assert.strictEqual(res.summary.addedSolves, 1);
   assert.strictEqual(res.summary.uploadedSolves, 1);
 
-  // Verify MAX_MERGED_SOLVES cap keeps newest
+  // Verify unlimited MAX_MERGED_SOLVES preserves all 600 merged solves chronologically
+  assert.strictEqual(MAX_MERGED_SOLVES, Infinity);
   const manyLocal = Array.from({ length: 300 }, (_, i) => ({ uid: `l-${i}`, ms: 4000 + i, at: 1000 + i * 2 }));
   const manyRemote = Array.from({ length: 300 }, (_, i) => ({ uid: `r-${i}`, ms: 5000 + i, at: 1001 + i * 2 }));
   const capRes = mergeSyncPayloads(
@@ -161,8 +162,9 @@ test('merges solves across machines, deduplicates identical solves, orders chron
     null,
     999999
   );
-  assert.strictEqual(capRes.merged.sessions[0].solves.length, MAX_MERGED_SOLVES);
-  assert.strictEqual(capRes.merged.sessions[0].solves[0].at, 1100);
+  assert.strictEqual(capRes.merged.sessions[0].solves.length, 600);
+  assert.strictEqual(capRes.merged.sessions[0].solves[0].at, 1000);
+  assert.strictEqual(capRes.merged.sessions[0].solves[599].at, 1599);
 });
 
 test('solve deletion tombstones remove solves deleted on the other machine and penalty LWW picks newer update', () => {
