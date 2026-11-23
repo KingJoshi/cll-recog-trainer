@@ -47,6 +47,7 @@ const SETTINGS_SCALAR_FIELDS = [
   "solveShowCube",
   "solveInspection",
   "sessionLogPageSize",
+  "keyboardShortcuts",
   "customColors"
 ];
 

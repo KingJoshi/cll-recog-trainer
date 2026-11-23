@@ -54,6 +54,7 @@ export function createSettingsModalController({
   getSmartCubeCtrl = () => null,
   getCloudSyncCtrl = () => null,
   onOpenWizard = null,
+  onOpenShortcuts = null,
   onTooltipsChange = null
 } = {}) {
   const modal = typeof document !== "undefined" ? document.getElementById("settingsModal") : null;
@@ -64,6 +65,7 @@ export function createSettingsModalController({
   const resetColorsBtn = typeof document !== "undefined" ? document.getElementById("resetColorsBtn") : null;
   const resetBtBtn = typeof document !== "undefined" ? document.getElementById("settingsResetBtBtn") : null;
   const openWizardBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenWizardBtn") : null;
+  const openShortcutsBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenShortcutsBtn") : null;
 
   const settingsShowTooltips = typeof document !== "undefined" ? document.getElementById("settingsShowTooltips") : null;
   const settingsDarkTheme = typeof document !== "undefined" ? document.getElementById("settingsDarkTheme") : null;
@@ -305,6 +307,11 @@ export function createSettingsModalController({
   openWizardBtn?.addEventListener("click", () => {
     close();
     onOpenWizard?.();
+  });
+
+  openShortcutsBtn?.addEventListener("click", () => {
+    close();
+    onOpenShortcuts?.();
   });
 
   settingsShowTooltips?.addEventListener("change", (e) => {

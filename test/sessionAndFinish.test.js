@@ -19,7 +19,7 @@ test('getSolveTargetLabel returns clean target labels across puzzles', () => {
   assert.strictEqual(getSolveTargetLabel('333', 'full'), 'Full Solve');
   assert.strictEqual(getSolveTargetLabel('222', 'layer'), '1st Layer');
   assert.strictEqual(getSolveTargetLabel('222', 'face'), '1st Face');
-  assert.strictEqual(getSolveTargetLabel('333', 'pll'), 'PLL (21)');
+  assert.strictEqual(getSolveTargetLabel('333', 'pll'), 'PLL');
   assert.strictEqual(getSolveTargetLabel('333', 'cross'), 'White Cross');
   assert.strictEqual(getSolveTargetLabel('444', 'parity'), 'Parity');
 });
@@ -49,13 +49,13 @@ test('resolveSessionForTarget switches, retargets empty, and creates dedicated s
   assert.deepStrictEqual(resCreate.session.solves, []);
 
   // 4. Deduplicates created session name if same name already exists
-  const existingSameName = { id: 's4', puzzle: '222', name: '3x3 PLL (21)', target: 'full', solves: [] };
-  const resCreateDup = resolveSessionForTarget([s1, existingSameName], 's1', '333', 'pll', { puzzleShortName: '3x3', targetLabel: 'PLL (21)' });
+  const existingSameName = { id: 's4', puzzle: '222', name: '3x3 PLL', target: 'full', solves: [] };
+  const resCreateDup = resolveSessionForTarget([s1, existingSameName], 's1', '333', 'pll', { puzzleShortName: '3x3', targetLabel: 'PLL' });
   assert.strictEqual(resCreateDup.action, 'created');
-  assert.strictEqual(resCreateDup.session.name, '3x3 PLL (21) 2');
+  assert.strictEqual(resCreateDup.session.name, '3x3 PLL 2');
 
   // 5. Retargets empty current session instead of creating another empty session
-  const resRetarget = resolveSessionForTarget([sEmpty], 's3', '333', 'oll', { puzzleShortName: '3x3', targetLabel: 'OLL (57)' });
+  const resRetarget = resolveSessionForTarget([sEmpty], 's3', '333', 'oll', { puzzleShortName: '3x3', targetLabel: 'OLL' });
   assert.strictEqual(resRetarget.action, 'retargeted');
   assert.strictEqual(resRetarget.session.id, 's3');
   assert.strictEqual(resRetarget.session.target, 'oll');
@@ -251,7 +251,7 @@ test('splitSessionByTarget separates mixed targets into existing and new session
   // New CLL session created for c-1
   assert.strictEqual(res.createdSessions.length, 1);
   assert.strictEqual(res.createdSessions[0].target, 'cll');
-  assert.strictEqual(res.createdSessions[0].name, '2x2 CLL (40)');
+  assert.strictEqual(res.createdSessions[0].name, '2x2 CLL');
   assert.deepStrictEqual(res.createdSessions[0].solves.map(s => s.uid), ['c-1']);
 
   // Splitting again when single-target is a no-op

@@ -123,29 +123,7 @@ export function createNavController({
       trackBar.querySelectorAll(".track-btn").forEach(btn => {
         btn.addEventListener("click", () => {
           const tgt = btn.dataset.solveTarget;
-          if (!tgt) return;
-          const res = appStore.selectOrCreateSessionForTarget(tgt);
-          if (res?.action === "switched") {
-            showToast(`Switched to session "${res.session.name}"`, "info", 2200);
-          } else if (res?.action === "created") {
-            showToast(`Created session "${res.session.name}" for ${getSolveTargetLabel(s.currentPuzzle, tgt)}`, "info", 2600);
-          }
-          if (pData.tracks.some(t => t.id === tgt)) {
-            s.currentTrackId = tgt;
-            appStore.loadTrackSelection(s.currentPuzzle, tgt);
-            casePickerCtrl?.buildCasePicker?.();
-            casePickerCtrl?.renderSelection?.();
-          }
-          if (s.currentPuzzle === "222" && (tgt === "face" || tgt === "layer")) {
-            getSolverWidgets()?.setLayerSolutionMode?.(tgt);
-          }
-          appStore.saveSettings();
-          getSessionModal()?.populateSessionSelect?.();
-          renderTrackBar();
-          renderStage();
-          getSolvePanelView()?.renderSolvePanel?.();
-          getStatsCtrl()?.updateStatsTable?.();
-          regenerateScramble();
+          if (tgt) setSolveTarget(tgt);
         });
       });
       return;
@@ -241,6 +219,35 @@ export function createNavController({
     if (crossSolutionsWidget) {
       crossSolutionsWidget.hidden = !(solving || simulating) || (s.currentPuzzle !== "333" && s.currentPuzzle !== "333oh") || (solving && s.solveTarget === "timer-drill");
     }
+  }
+
+  function setSolveTarget(tgt) {
+    const s = appStore.state;
+    const pData = PUZZLES[s.currentPuzzle];
+    if (!tgt || !getSolveTargetInfo(s.currentPuzzle, tgt)) return false;
+    const res = appStore.selectOrCreateSessionForTarget(tgt);
+    if (res?.action === "switched") {
+      showToast(`Switched to session "${res.session.name}"`, "info", 2200);
+    } else if (res?.action === "created") {
+      showToast(`Created session "${res.session.name}" for ${getSolveTargetLabel(s.currentPuzzle, tgt)}`, "info", 2600);
+    }
+    if (pData?.tracks?.some(t => t.id === tgt)) {
+      s.currentTrackId = tgt;
+      appStore.loadTrackSelection(s.currentPuzzle, tgt);
+      casePickerCtrl?.buildCasePicker?.();
+      casePickerCtrl?.renderSelection?.();
+    }
+    if (s.currentPuzzle === "222" && (tgt === "face" || tgt === "layer")) {
+      getSolverWidgets()?.setLayerSolutionMode?.(tgt);
+    }
+    appStore.saveSettings();
+    getSessionModal()?.populateSessionSelect?.();
+    renderTrackBar();
+    renderStage();
+    getSolvePanelView()?.renderSolvePanel?.();
+    getStatsCtrl()?.updateStatsTable?.();
+    regenerateScramble();
+    return true;
   }
 
   function setTrack(trackId) {
@@ -714,6 +721,7 @@ export function createNavController({
   return {
     renderTrackBar,
     renderStage,
+    setSolveTarget,
     setTrack,
     setMode,
     setPuzzle,

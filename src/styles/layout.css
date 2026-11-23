@@ -1,7 +1,7 @@
 @layer layout {
 .app {
     width: 100%;
-    max-width: 1440px;
+    max-width: 1180px;
     margin: 0 auto;
     padding: var(--gap);
     display: grid;
@@ -147,13 +147,13 @@
         --cube-w: 100%;
     }
 
-    /* Desktop Solve mode: side-by-side 3D cube & timer layout matching full widget width */
+    /* Desktop Solve mode: compact cube panel left + responsive timer right */
     .stage.mode-solve {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: minmax(270px, 340px) minmax(0, 1fr);
         align-items: stretch;
         --cube-w: 100%;
         width: 100%;
-        max-width: 2000px;
+        max-width: 1180px;
         gap: 14px;
         margin: 0 auto;
     }
@@ -329,61 +329,74 @@
 
 @media (min-width: 1400px) {
     .app {
-        max-width: min(100%, 3400px);
+        max-width: 1240px;
         grid-template-columns: minmax(0, 1fr);
-        padding: 12px 26px;
-        gap: 10px;
+        padding: 14px 24px;
+        gap: 12px;
+    }
+
+    .stage.mode-solve {
+        grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+        max-width: 1240px;
     }
 
     .stage.mode-solve:not([data-solve-size="small"]):not([data-solve-size="medium"]) {
-        --solve-cube-max-w: 440px;
-        --solve-timer-min-h: 400px;
+        --solve-cube-max-w: 360px;
+        --solve-timer-min-h: 360px;
     }
 
     .stage.mode-practice,
     .stage.mode-simulate {
-        grid-template-columns: minmax(380px, 480px) minmax(0, 1fr);
+        grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+        gap: 16px;
+    }
+
+    .stage.mode-practice .cube-card #display-container,
+    .stage.mode-simulate .cube-card #display-container {
+        width: min(100%, 400px);
+    }
+
+    .stage.mode-practice .cube-card-controls,
+    .stage.mode-simulate .cube-card-controls {
+        max-width: 400px;
+    }
+}
+
+@media (min-width: 1920px) {
+    .app {
+        max-width: 1280px;
+    }
+
+    .stage.mode-solve {
+        max-width: 1280px;
+    }
+
+    .stage.mode-solve:not([data-solve-size="small"]):not([data-solve-size="medium"]) {
+        --solve-cube-max-w: 380px;
+        --solve-timer-min-h: 380px;
+    }
+
+    .stage.mode-practice,
+    .stage.mode-simulate {
+        grid-template-columns: minmax(380px, 460px) minmax(0, 1fr);
         gap: 18px;
     }
 
     .stage.mode-practice .cube-card #display-container,
     .stage.mode-simulate .cube-card #display-container {
-        width: min(100%, 440px);
+        width: min(100%, 420px);
     }
 
     .stage.mode-practice .cube-card-controls,
     .stage.mode-simulate .cube-card-controls {
-        max-width: 440px;
-    }
-}
-
-@media (min-width: 1920px) {
-    .stage.mode-solve:not([data-solve-size="small"]):not([data-solve-size="medium"]) {
-        --solve-cube-max-w: 500px;
-        --solve-timer-min-h: 440px;
-    }
-
-    .stage.mode-practice,
-    .stage.mode-simulate {
-        grid-template-columns: minmax(440px, 560px) minmax(0, 1fr);
-        gap: 20px;
-    }
-
-    .stage.mode-practice .cube-card #display-container,
-    .stage.mode-simulate .cube-card #display-container {
-        width: min(100%, 520px);
-    }
-
-    .stage.mode-practice .cube-card-controls,
-    .stage.mode-simulate .cube-card-controls {
-        max-width: 520px;
+        max-width: 420px;
     }
 }
 
 @media (min-width: 2400px) {
     .app {
-        max-width: min(100%, 3600px);
-        padding: 12px 32px;
+        max-width: 1320px;
+        padding: 14px 28px;
         gap: 12px;
     }
 }

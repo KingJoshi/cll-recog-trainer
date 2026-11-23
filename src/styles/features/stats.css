@@ -235,10 +235,14 @@
     font-size: 0.95rem;
 }
 
-.layer-scramble-cell {
+.layer-scramble-cell,
+.standard-log-scramble-cell {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.82rem;
     text-align: left !important;
+}
+
+.layer-scramble-cell {
     max-width: 280px;
     overflow: hidden;
     text-overflow: ellipsis;

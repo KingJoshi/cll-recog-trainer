@@ -5,6 +5,11 @@ import { PUZZLES, getTrack, getDefaultTrack, getSolveTargetLabel } from '../data
 import { cllCases } from '../data/cllData.js';
 import { DEFAULT_CUBE_COLORS, CUBE_COLORS, setCustomCubeColors, applyCubeColorsToCss } from '../caseVisualizer.js';
 import {
+  sanitizeShortcutOverrides,
+  getEffectiveShortcutsMap,
+  assignShortcutOverride
+} from '../services/keyboardShortcuts.js';
+import {
   readStorageJSON,
   writeStorageJSON,
   readSessionStorageJSON,
@@ -203,6 +208,7 @@ export class AppStore {
       solveTarget,
       solveShowCube: activeSession.showCube ?? true,
       solveInspection: activeSession.inspection ?? true,
+      keyboardShortcuts: sanitizeShortcutOverrides(savedSettings.keyboardShortcuts),
       stats: readStorageJSON(STORAGE_KEYS.STATS, {}) || {},
       caseTags: readStorageJSON(STORAGE_KEYS.CASE_TAGS, {}) || {},
       customCllLabels: readStorageJSON(STORAGE_KEYS.CUSTOM_LABELS, {}) || {},
@@ -519,6 +525,25 @@ export class AppStore {
     this.notify("simSpeed", { simSpeed: next });
   }
 
+  getKeyboardShortcuts() {
+    return getEffectiveShortcutsMap(this.state.keyboardShortcuts);
+  }
+
+  setKeyboardShortcut(actionId, combo = "") {
+    const res = assignShortcutOverride(this.state.keyboardShortcuts, actionId, combo);
+    if (res.reserved) return res;
+    this.state.keyboardShortcuts = res.next;
+    this.saveSettings();
+    this.notify("shortcuts", { actionId, combo, replacedActionId: res.replacedActionId });
+    return res;
+  }
+
+  resetKeyboardShortcuts() {
+    this.state.keyboardShortcuts = {};
+    this.saveSettings();
+    this.notify("shortcuts", { reset: true });
+  }
+
   getSettingsPayload() {
     const s = this.state;
     const cllSel = s.selectedByTrack["222:cll"] || [];
@@ -557,6 +582,7 @@ export class AppStore {
       solveShowCube: s.solveShowCube,
       solveInspection: s.solveInspection,
       sessionLogPageSize: s.sessionLogPageSize,
+      keyboardShortcuts: sanitizeShortcutOverrides(s.keyboardShortcuts),
       customColors: { ...CUBE_COLORS }
     };
   }
@@ -689,6 +715,7 @@ export class AppStore {
       s.sessionLogPageSize = LOG_PAGE_SIZE_OPTIONS.includes(Number(savedSettings.sessionLogPageSize))
         ? Number(savedSettings.sessionLogPageSize)
         : 12;
+      s.keyboardShortcuts = sanitizeShortcutOverrides(savedSettings.keyboardShortcuts);
       s.sessionLogPage = 1;
       s.sessions = incomingSessions;
       s.activeSessionId = activeSessionId;

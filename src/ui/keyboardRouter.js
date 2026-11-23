@@ -18,6 +18,7 @@ export function createKeyboardRouter({
   onSolveKeyUp = () => false,
   onSimulateKeyDown = () => false,
   onPracticeKeyDown = () => false,
+  onCustomShortcutKeyDown = () => false,
   onFreeMoveKeyDown = () => false
 } = {}) {
   function handleKeyDown(e) {
@@ -55,7 +56,10 @@ export function createKeyboardRouter({
     if (mode === "simulate" && onSimulateKeyDown(e)) return true;
     if (mode === "practice" && onPracticeKeyDown(e)) return true;
 
-    // 5. Global Free Face Turns hotkeys (U, D, L, R, F, B, Backspace) when no mode claimed the key
+    // 5. Customizable global & virtual-cube keyboard shortcuts
+    if (onCustomShortcutKeyDown(e)) return true;
+
+    // 6. Global Free Face Turns hotkeys fallback
     if (onFreeMoveKeyDown(e)) return true;
 
     return false;
@@ -74,10 +78,10 @@ export function createKeyboardRouter({
 
   function mount(target = typeof document !== "undefined" ? document : null) {
     if (!target || typeof target.addEventListener !== "function") return () => {};
-    target.addEventListener("keydown", handleKeyDown);
+    target.addEventListener("keydown", handleKeyDown, true);
     target.addEventListener("keyup", handleKeyUp);
     return () => {
-      target.removeEventListener("keydown", handleKeyDown);
+      target.removeEventListener("keydown", handleKeyDown, true);
       target.removeEventListener("keyup", handleKeyUp);
     };
   }

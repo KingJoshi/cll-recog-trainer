@@ -68,6 +68,7 @@ export function createTimerController({
   }
 
   function getRunningOverlayHint() {
+    const isVirtualCube = Boolean(smartCube.getStatus().connected && smartCube.isVirtual);
     if (solveTimerDriven) {
       const isGan = solveTimerSource === "GAN Smart Timer";
       if (solveCubeSolvedTs) {
@@ -77,14 +78,19 @@ export function createTimerController({
       }
       const base = isGan
         ? "Stop the GAN timer to finish · Esc to cancel"
-        : "Pick up cube & solve · Press any key or tap to stop · Esc to cancel";
+        : (isVirtualCube
+          ? "Virtual cube active · Press Space to stop · Esc to cancel"
+          : "Pick up cube & solve · Press any key or tap to stop · Esc to cancel");
       if (solvePenalty === "+2") return `Running (+2 penalty) · ${base}`;
       if (solvePenalty === "DNF") return `Running (DNF) · ${base}`;
       return base;
     }
+    const stopHint = isVirtualCube
+      ? "Press Space, tap, or solve cube to stop"
+      : "Any key, tap, or solve cube to stop";
     return solvePenalty === "+2"
-      ? "Running (+2 penalty) · Any key, tap, or solve cube to stop"
-      : (solvePenalty === "DNF" ? "Running (DNF) · Any key, tap, or solve cube to stop" : "Any key, tap, or solve cube to stop");
+      ? `Running (+2 penalty) · ${stopHint}`
+      : (solvePenalty === "DNF" ? `Running (DNF) · ${stopHint}` : stopHint);
   }
 
   function hideSolveOverlay() {
@@ -517,15 +523,29 @@ export function createTimerController({
     const s = appStore.state;
     if (s.mode !== "solve") return false;
     if (solveState === "running") {
-      e.preventDefault();
+      if (["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key)) {
+        return false;
+      }
       if (solveTimerDriven && solveTimerSource === "GAN Smart Timer") {
+        e.preventDefault();
         if (e.key === "Escape") cancelSolve();
         return true;
       }
       if (e.key === "Escape") {
+        e.preventDefault();
         cancelSolve();
         return true;
       }
+      const isVirtualCube = Boolean(smartCube.getStatus().connected && smartCube.isVirtual);
+      if (isVirtualCube) {
+        if (e.code === "Space") {
+          e.preventDefault();
+          stopSolve(false);
+          return true;
+        }
+        return false;
+      }
+      e.preventDefault();
       stopSolve(false);
       return true;
     }
@@ -749,6 +769,7 @@ export function createTimerController({
     recordPreTurn,
     startSolveFromFirstSmartMove,
     recordRunningMove,
-    resetTimerPhaseTracking
+    resetTimerPhaseTracking,
+    toggleLastSolvePenalty
   };
 }

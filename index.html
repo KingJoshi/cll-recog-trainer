@@ -964,11 +964,12 @@
       <div class="settings-section">
         <div class="settings-section-head">
           <h4 class="settings-section-title">🧭 Getting Started &amp; Help</h4>
-          <span class="settings-section-desc">Configure your recommended study/practice workflow or toggle UI hover tooltips</span>
+          <span class="settings-section-desc">Configure your recommended study/practice workflow, toggle tooltips, or customize hotkeys</span>
         </div>
         <div class="settings-toggles-list">
-          <div style="margin-bottom: 4px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
             <button type="button" id="settingsOpenWizardBtn" class="btn btn-small btn-outline">🧭 Launch Setup Wizard</button>
+            <button type="button" id="settingsOpenShortcutsBtn" class="btn btn-small btn-outline">⌨️ Keyboard Shortcuts…</button>
           </div>
           <label class="solve-toggle-label">
             <input type="checkbox" id="settingsShowTooltips" checked>
@@ -1147,6 +1148,29 @@
     </div>
     <div class="solve-modal-actions">
       <button type="button" id="settingsDoneBtn" class="btn btn-primary btn-small">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Customizable Keyboard Shortcuts Modal -->
+<div id="shortcutsModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="shortcutsModalTitle" hidden>
+  <div class="solve-modal-card shortcuts-modal-card">
+    <div class="solve-modal-header">
+      <h3 id="shortcutsModalTitle" class="solve-modal-title">⌨️ Keyboard Shortcuts</h3>
+      <button type="button" id="shortcutsModalCloseBtn" class="solve-modal-close" aria-label="Close dialog">&times;</button>
+    </div>
+    <div class="solve-modal-body shortcuts-modal-body">
+      <p class="shortcuts-help-note">
+        Click any shortcut pill and press a key or combo (e.g. <kbd>K</kbd>, <kbd>Shift + R</kbd>, <kbd>Alt + 2</kbd>). <kbd>Space</kbd> starts/stops the timer (and stops Virtual Cube solves), and any non-modifier key stops regular solves.
+      </p>
+      <div class="shortcuts-toolbar">
+        <input type="search" id="shortcutsSearchInput" class="sim-input shortcuts-search-input" placeholder="Filter shortcuts (e.g. R2, 3x3, PLL, Simulate)…" aria-label="Filter keyboard shortcuts">
+        <button type="button" id="shortcutsResetAllBtn" class="btn btn-small btn-outline">Reset Defaults</button>
+      </div>
+      <div id="shortcutsListContainer" class="shortcuts-list-container"></div>
+    </div>
+    <div class="solve-modal-actions">
+      <button type="button" id="shortcutsDoneBtn" class="btn btn-primary btn-small">Done</button>
     </div>
   </div>
 </div>

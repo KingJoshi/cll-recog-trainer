@@ -41,7 +41,7 @@ export const PUZZLES = {
       {
         id: "lbl",
         name: "Beginner LBL (7 OLL + 2 PLL)",
-        shortName: "LBL (9)",
+        shortName: "LBL",
         description: "Layer-by-Layer last layer: orient top corners (7 OLL) then permute corners (T/Jb-Perm & Y-Perm)",
         cases: lbl222Cases,
         caseById: lbl222CaseById,
@@ -50,7 +50,7 @@ export const PUZZLES = {
       {
         id: "ortega",
         name: "Ortega (OLL + PBL)",
-        shortName: "Ortega (12)",
+        shortName: "Ortega",
         description: "Build 1st face (Bar/Diag), orient last layer (OLL), and permute both layers (5 PBL)",
         cases: ortegaCases,
         caseById: ortegaCaseById,
@@ -59,7 +59,7 @@ export const PUZZLES = {
       {
         id: "cll",
         name: "CLL (40 Cases)",
-        shortName: "CLL (40)",
+        shortName: "CLL",
         description: "Corners of the Last Layer: solves top orientation and permutation in one alg over a solved 1st layer",
         cases: cllCases,
         caseById: cllCaseById,
@@ -68,7 +68,7 @@ export const PUZZLES = {
       {
         id: "eg1",
         name: "EG-1 (40 Cases · Back Bar)",
-        shortName: "EG-1 (40)",
+        shortName: "EG-1",
         description: "1-Look Last Layer with an adjacent swapped bottom face (hold solved bar in Back DBL+DBR)",
         cases: eg1Cases,
         caseById: eg1CaseById,
@@ -77,7 +77,7 @@ export const PUZZLES = {
       {
         id: "eg2",
         name: "EG-2 (40 Cases · Diag Swap)",
-        shortName: "EG-2 (40)",
+        shortName: "EG-2",
         description: "1-Look Last Layer with diagonal bottom swap (no bottom bars · includes Anti-CLL variants)",
         cases: eg2Cases,
         caseById: eg2CaseById,
@@ -420,29 +420,29 @@ const SOLVE_TARGETS_BY_PUZZLE = {
     },
     {
       id: "lbl",
-      name: "LBL Case (9)",
-      shortName: "LBL (9)",
+      name: "LBL Case",
+      shortName: "LBL",
       description: "Timed scrambles for your Active Cases Beginner LBL selection (7 OLL + 2 PLL)",
       usesCases: true
     },
     {
       id: "cll",
-      name: "CLL Case (40)",
-      shortName: "CLL (40)",
+      name: "CLL Case",
+      shortName: "CLL",
       description: "Timed scrambles restricted to your Active Cases CLL selection",
       usesCases: true
     },
     {
       id: "eg1",
-      name: "EG-1 Case (40)",
-      shortName: "EG-1 (40)",
+      name: "EG-1 Case",
+      shortName: "EG-1",
       description: "Timed scrambles restricted to your Active Cases EG-1 (Back Bar) selection",
       usesCases: true
     },
     {
       id: "eg2",
-      name: "EG-2 Case (40)",
-      shortName: "EG-2 (40)",
+      name: "EG-2 Case",
+      shortName: "EG-2",
       description: "Timed scrambles restricted to your Active Cases EG-2 (Diag Swap) selection",
       usesCases: true
     },
@@ -464,22 +464,22 @@ const SOLVE_TARGETS_BY_PUZZLE = {
     },
     {
       id: "f2l",
-      name: "F2L Case (41)",
-      shortName: "F2L (41)",
+      name: "F2L Case",
+      shortName: "F2L",
       description: "Timed setup scrambles for your Active Cases F2L selection",
       usesCases: true
     },
     {
       id: "oll",
-      name: "OLL Case (57)",
-      shortName: "OLL (57)",
+      name: "OLL Case",
+      shortName: "OLL",
       description: "Timed setup scrambles for your Active Cases OLL selection",
       usesCases: true
     },
     {
       id: "pll",
-      name: "PLL Case (21)",
-      shortName: "PLL (21)",
+      name: "PLL Case",
+      shortName: "PLL",
       description: "Timed setup scrambles for your Active Cases PLL selection",
       usesCases: true
     },
@@ -501,22 +501,22 @@ const SOLVE_TARGETS_BY_PUZZLE = {
     },
     {
       id: "f2l",
-      name: "F2L Case (41)",
-      shortName: "F2L (41)",
+      name: "F2L Case",
+      shortName: "F2L",
       description: "Timed OH setup scrambles for your Active Cases F2L selection",
       usesCases: true
     },
     {
       id: "oll",
-      name: "OLL Case (57)",
-      shortName: "OLL (57)",
+      name: "OLL Case",
+      shortName: "OLL",
       description: "Timed OH setup scrambles for your Active Cases OLL selection",
       usesCases: true
     },
     {
       id: "pll",
-      name: "PLL Case (21)",
-      shortName: "PLL (21)",
+      name: "PLL Case",
+      shortName: "PLL",
       description: "Timed OH setup scrambles for your Active Cases PLL selection",
       usesCases: true
     },

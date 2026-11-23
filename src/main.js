@@ -1,7 +1,7 @@
 // Composition Root — wires centralized state, controllers, views, and keyboard routing
 import './styles/index.css';
 
-import { PUZZLES, getTrack, onPreferredAlgChange } from './data/algRegistry.js';
+import { PUZZLES, getTrack, getSolveTargetInfo, onPreferredAlgChange } from './data/algRegistry.js';
 import { StudyView } from './studyView.js';
 import { PracticeView } from './practiceView.js';
 import { solveReplayViewer } from './replayView.js';
@@ -14,6 +14,10 @@ import { initSyncTracking } from './services/syncStorage.js';
 import { GoogleDriveSyncService } from './services/googleDriveSync.js';
 import { createCloudSyncController, formatMergeSummary } from './features/sync/cloudSyncController.js';
 import { createKeyboardRouter } from './ui/keyboardRouter.js';
+import {
+  eventToKeyCombo,
+  findActionForCombo
+} from './services/keyboardShortcuts.js';
 import { createTooltipController } from './ui/tooltipController.js';
 import { createCubeStageController } from './ui/cubeStageController.js';
 import { createFreeMovesController } from './ui/freeMovesController.js';
@@ -32,6 +36,7 @@ import { createSessionModalController } from './features/modals/sessionModal.js'
 import { createSolveDetailModal } from './features/modals/solveDetailModal.js';
 import { createQuickSimModal } from './features/modals/quickSimModal.js';
 import { createSettingsModalController } from './features/modals/settingsModal.js';
+import { createShortcutsModalController } from './features/modals/shortcutsModal.js';
 import { createOnboardingWizard } from './features/onboarding/onboardingWizard.js';
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
@@ -58,6 +63,7 @@ let sessionModal;
 let solveDetailModal;
 let quickSimModal;
 let settingsModal;
+let shortcutsModal;
 let cloudSyncCtrl;
 let onboardingWizard;
 let tooltipCtrl;
@@ -296,6 +302,10 @@ solveDetailModal = createSolveDetailModal({
   getNavCtrl: () => navCtrl,
   getSimulatorCtrl: () => simulatorCtrl
 });
+shortcutsModal = createShortcutsModalController({
+  appStore,
+  modalManager
+});
 settingsModal = createSettingsModalController({
   appStore,
   modalManager,
@@ -307,6 +317,7 @@ settingsModal = createSettingsModalController({
   getSmartCubeCtrl: () => smartCubeCtrl,
   getCloudSyncCtrl: () => cloudSyncCtrl,
   onOpenWizard: () => onboardingWizard?.open?.(),
+  onOpenShortcuts: () => shortcutsModal?.open?.(),
   onTooltipsChange: (enabled) => {
     if (!enabled) tooltipCtrl?.hide?.();
   }
@@ -393,6 +404,173 @@ solveReplayViewer.init({}, (scr) => solvePanelView.reattemptScramble(scr), modal
   getShowReflection: () => Boolean(appStore.state.showReflection)
 });
 
+function handleCustomShortcutKeyDown(e) {
+  const combo = eventToKeyCombo(e);
+  if (!combo) return false;
+
+  const s = appStore.state;
+  const overrides = s.keyboardShortcuts || {};
+  const scStatus = smartCube.getStatus();
+  const isVirtualActive = Boolean(scStatus.connected && smartCube.isVirtual);
+  const solveRunning = s.mode === "solve" && timerCtrl?.getSolveState?.() === "running";
+
+  if (isVirtualActive) {
+    // When Virtual Smart Cube is active, user-customized shortcuts take priority over KeyboardPuzzle defaults,
+    // while uncustomized keys pass cleanly through to KeyboardPuzzle's layout (I/K/J/F/...).
+    const customAction = findActionForCombo(overrides, combo);
+    if (customAction && customAction.startsWith("move:")) {
+      const move = customAction.slice(5);
+      e.preventDefault();
+      e.stopPropagation();
+      smartCube.handleMove(move, performance.now());
+      return true;
+    }
+    if (solveRunning) return false;
+  } else if (solveRunning) {
+    return false;
+  }
+
+  const effectiveMap = isVirtualActive ? overrides : appStore.getKeyboardShortcuts();
+  const actionId = findActionForCombo(effectiveMap, combo);
+  if (!actionId) return false;
+
+  if (actionId.startsWith("move:")) {
+    // Preserve Study / Practice behavior for uncustomized Free Turn defaults
+    if ((s.mode === "practice" || s.mode === "study") && !(actionId in overrides)) {
+      return false;
+    }
+    const move = actionId.slice(5);
+    e.preventDefault();
+    void freeMovesCtrl.applyFreeMove(move);
+    return true;
+  }
+
+  if (actionId.startsWith("puzzle:")) {
+    e.preventDefault();
+    navCtrl.setPuzzle(actionId.slice(7));
+    return true;
+  }
+
+  if (actionId.startsWith("mode:")) {
+    e.preventDefault();
+    navCtrl.setMode(actionId.slice(5));
+    return true;
+  }
+
+  if (actionId.startsWith("target:")) {
+    const tgt = actionId.slice(7);
+    e.preventDefault();
+    const pData = PUZZLES[s.currentPuzzle];
+    if (s.mode === "solve") {
+      if (!navCtrl.setSolveTarget(tgt)) {
+        showToast(`"${tgt}" target is not available for ${pData?.shortName || s.currentPuzzle}.`, "warning", 2200);
+      }
+    } else if (pData?.tracks?.some(t => t.id === tgt)) {
+      navCtrl.setTrack(tgt);
+    } else {
+      showToast(`"${tgt}" is not a track on ${pData?.shortName || s.currentPuzzle}.`, "warning", 2200);
+    }
+    return true;
+  }
+
+  switch (actionId) {
+    case "action:newScramble":
+      e.preventDefault();
+      if (s.mode === "practice") document.getElementById("regenerateBtn")?.click?.();
+      else navCtrl.regenerateScramble();
+      return true;
+    case "action:toggleCube":
+      if (s.mode !== "solve") return false;
+      e.preventDefault();
+      s.solveShowCube = !s.solveShowCube;
+      appStore.getActiveSession().showCube = s.solveShowCube;
+      appStore.saveSessions();
+      appStore.saveSettings();
+      navCtrl.renderStage();
+      solvePanelView.renderSolvePanel();
+      return true;
+    case "action:toggleInspection":
+      if (s.mode !== "solve") return false;
+      e.preventDefault();
+      s.solveInspection = !s.solveInspection;
+      appStore.getActiveSession().inspection = s.solveInspection;
+      appStore.saveSessions();
+      appStore.saveSettings();
+      solvePanelView.renderSolvePanel();
+      return true;
+    case "action:toggleAlwaysWhiteBottom":
+      e.preventDefault();
+      s.alwaysWhiteBottom = !s.alwaysWhiteBottom;
+      appStore.saveSettings();
+      settingsModal.renderToggles();
+      navCtrl.regenerateScramble();
+      settingsModal.refreshActiveViews();
+      return true;
+    case "action:toggleAllowAUF":
+      e.preventDefault();
+      s.allowAUF = !s.allowAUF;
+      appStore.saveSettings();
+      settingsModal.renderToggles();
+      navCtrl.regenerateScramble();
+      return true;
+    case "action:toggleShowReflection":
+      e.preventDefault();
+      s.showReflection = !s.showReflection;
+      cubeStage.applyReflection();
+      appStore.saveSettings();
+      settingsModal.renderToggles();
+      return true;
+    case "action:toggleOhHand":
+      e.preventDefault();
+      appStore.setOhHand((s.ohHand || "left") === "left" ? "right" : "left");
+      settingsModal.renderToggles();
+      settingsModal.refreshActiveViews();
+      return true;
+    case "action:toggleDark":
+      e.preventDefault();
+      cubeStage.setDarkMode(!s.darkMode);
+      return true;
+    case "action:openSettings":
+      e.preventDefault();
+      settingsModal.open();
+      return true;
+    case "action:openShortcuts":
+      e.preventDefault();
+      shortcutsModal.open();
+      return true;
+    case "action:resetAngle":
+      e.preventDefault();
+      cubeStage.resetCubeOrientation();
+      return true;
+    case "action:penaltyPlus2":
+      if (s.mode !== "solve") return false;
+      e.preventDefault();
+      timerCtrl.toggleLastSolvePenalty("+2");
+      return true;
+    case "action:penaltyDnf":
+      if (s.mode !== "solve") return false;
+      e.preventDefault();
+      timerCtrl.toggleLastSolvePenalty("DNF");
+      return true;
+    case "action:undoFreeMove":
+      if ((s.mode === "practice" || s.mode === "study") && !(actionId in overrides)) return false;
+      if (freeMovesCtrl.getUserMoves().length === 0) return false;
+      e.preventDefault();
+      freeMovesCtrl.undoLastFreeMove();
+      return true;
+    case "action:resetFreeMoves":
+      e.preventDefault();
+      freeMovesCtrl.resetFreeMovesToScramble();
+      return true;
+    case "action:resetFreeSolved":
+      e.preventDefault();
+      freeMovesCtrl.resetFreeMovesToSolved();
+      return true;
+    default:
+      return false;
+  }
+}
+
 createKeyboardRouter({
   modalManager,
   getMode: () => appStore.state.mode,
@@ -404,7 +582,8 @@ createKeyboardRouter({
   onSolveKeyUp: (e) => timerCtrl.onSolveKeyUp(e),
   onSimulateKeyDown: (e) => simulatorCtrl.onSimulateKeyDown(e),
   onPracticeKeyDown: (e) => practiceView.onKeyDown(e),
-  onFreeMoveKeyDown: (e) => freeMovesCtrl.handleKeyDown(e)
+  onCustomShortcutKeyDown: handleCustomShortcutKeyDown,
+  onFreeMoveKeyDown: () => false
 }).mount();
 
 // Bootstrap UI state
