@@ -295,8 +295,15 @@ export function renderLastSolveCfopInline(solve, { basic = false, refMedians = n
   return renderCfopStepTable(solve, { detailed: false, basic, refMedians });
 }
 
-export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pllOpen = true, sortStateByTrack = {} } = {}) {
+export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pllOpen = true, sortStateByTrack = {}, caseTags = {} } = {}) {
   const { ollCases: ollStats, pllCases: pllStats } = computeOllPllCaseStats(solvesList);
+
+  const TAG_LABELS = {
+    none: "+ Tag",
+    learning: "Learning",
+    review: "Review",
+    mastered: "Mastered"
+  };
 
   const renderCaseSubTable = (title, subtitle, items, badgeClass, trackId, isOpen) => {
     const collapseKey = trackId === "oll" ? "ollCases" : "pllCases";
@@ -318,8 +325,6 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
     }
 
     const showGroupCol = trackId === "oll";
-    const maxPauseMs = Math.max(...items.map(i => i.avgPauseMs));
-    const maxMedianMs = Math.max(...items.map(i => i.medianMs || 0));
     const sortState = sortStateByTrack[trackId] || { col: "medianMs", dir: "desc" };
     const sortedItems = [...items].sort((a, b) => {
       const col = sortState.col;
@@ -339,19 +344,15 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
     const sortArrow = (col) => sortState.col === col ? (sortState.dir === "asc" ? " ▲" : " ▼") : "";
 
     const rowsHtml = sortedItems.map((item) => {
-      const needsWork = items.length > 1 && (
-        (item.medianMs != null && item.medianMs >= maxMedianMs) ||
-        (item.avgPauseMs > 400 && item.avgPauseMs >= maxPauseMs * 0.85)
-      );
-      const priorityBadge = needsWork
-        ? `<span class="badge badge-priority-improve" title="Slowest median time or longest pauses — focus practice here">Needs Work</span>`
-        : "";
+      const rawTag = ["learning", "review", "mastered"].includes(caseTags?.[item.id]) ? caseTags[item.id] : "none";
+      const tagLabel = TAG_LABELS[rawTag] || "+ Tag";
+      const tagBtnHtml = `<button type="button" class="cfop-case-tag-btn tag-${rawTag}" data-case-tag-id="${escapeHtml(item.id)}" data-tooltip="Click to cycle study tag (Pending → Learning → Review → Mastered)" aria-label="Study tag for ${escapeHtml(item.shortName)}: ${escapeHtml(tagLabel)}">${escapeHtml(tagLabel)}</button>`;
       const svgDiagram = getCachedCaseSvg("333", trackId, item.id);
       return `
         <tr>
           <td class="cfop-case-id-cell">
             <span class="badge ${badgeClass}"><strong>${escapeHtml(item.shortName)}</strong></span>
-            ${priorityBadge}
+            ${tagBtnHtml}
           </td>
           <td class="case-svg-cell"><div class="case-table-svg">${svgDiagram}</div></td>
           ${showGroupCol ? `<td class="cfop-case-group-cell">${escapeHtml(item.group)}</td>` : ""}

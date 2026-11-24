@@ -214,8 +214,9 @@ export class AppStore {
       showLayerSolutionsWidget: savedSettings.showLayerSolutionsWidget ?? cookiePrefs.showLayerSolutionsWidget ?? true,
       showCrossSolutionsWidget: savedSettings.showCrossSolutionsWidget ?? cookiePrefs.showCrossSolutionsWidget ?? true,
       showStatsPanel: savedSettings.showStatsPanel ?? cookiePrefs.showStatsPanel ?? true,
+      showFreeFaceTurns: savedSettings.showFreeFaceTurns ?? cookiePrefs.showFreeFaceTurns ?? false,
       customEvents,
-      timerDrillPreset: savedSettings.timerDrillPreset || "righty-inv",
+      timerDrillPreset: savedSettings.timerDrillPreset || "righty",
       layerTargetFaces: Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
         ? savedSettings.layerTargetFaces
         : ["white"],
@@ -569,12 +570,36 @@ export class AppStore {
   }
 
   setWidgetVisibility(key, enabled) {
-    if (!["showLayerSolutionsWidget", "showCrossSolutionsWidget", "showStatsPanel"].includes(key)) return;
+    if (!["showLayerSolutionsWidget", "showCrossSolutionsWidget", "showStatsPanel", "showFreeFaceTurns"].includes(key)) return;
     const next = Boolean(enabled);
     if (Boolean(this.state[key]) === next) return;
     this.state[key] = next;
     this.saveSettings();
     this.notify("widgetVisibility", { key, enabled: next });
+  }
+
+  setSolveShowCube(enabled) {
+    const next = Boolean(enabled);
+    this.state.solveShowCube = next;
+    const sess = this.getActiveSession?.();
+    if (sess) {
+      sess.showCube = next;
+      this.saveSessions();
+    }
+    this.saveSettings();
+    this.notify("solveOptions", { solveShowCube: next });
+  }
+
+  setSolveInspection(enabled) {
+    const next = Boolean(enabled);
+    this.state.solveInspection = next;
+    const sess = this.getActiveSession?.();
+    if (sess) {
+      sess.inspection = next;
+      this.saveSessions();
+    }
+    this.saveSettings();
+    this.notify("solveOptions", { solveInspection: next });
   }
 
   addCustomEvent({ name, shortName = "", scrambleType = "none" } = {}) {
@@ -672,6 +697,7 @@ export class AppStore {
       showLayerSolutionsWidget: s.showLayerSolutionsWidget !== false,
       showCrossSolutionsWidget: s.showCrossSolutionsWidget !== false,
       showStatsPanel: s.showStatsPanel !== false,
+      showFreeFaceTurns: Boolean(s.showFreeFaceTurns),
       customEvents: sanitizeCustomEvents(s.customEvents),
       timerDrillPreset: s.timerDrillPreset,
       statsType: s.statsType,
@@ -724,6 +750,7 @@ export class AppStore {
       showLayerSolutionsWidget: s.showLayerSolutionsWidget !== false,
       showCrossSolutionsWidget: s.showCrossSolutionsWidget !== false,
       showStatsPanel: s.showStatsPanel !== false,
+      showFreeFaceTurns: Boolean(s.showFreeFaceTurns),
       timerDrillPreset: s.timerDrillPreset,
       layerTargetFaces: s.layerTargetFaces,
       crossTargetFaces: s.crossTargetFaces
@@ -833,8 +860,9 @@ export class AppStore {
       s.showLayerSolutionsWidget = savedSettings.showLayerSolutionsWidget ?? s.showLayerSolutionsWidget ?? true;
       s.showCrossSolutionsWidget = savedSettings.showCrossSolutionsWidget ?? s.showCrossSolutionsWidget ?? true;
       s.showStatsPanel = savedSettings.showStatsPanel ?? s.showStatsPanel ?? true;
+      s.showFreeFaceTurns = savedSettings.showFreeFaceTurns ?? s.showFreeFaceTurns ?? false;
       s.customEvents = hydratedCustomEvents;
-      s.timerDrillPreset = savedSettings.timerDrillPreset || "righty-inv";
+      s.timerDrillPreset = savedSettings.timerDrillPreset || "righty";
       s.layerTargetFaces = Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
         ? [...savedSettings.layerTargetFaces]
         : ["white"];

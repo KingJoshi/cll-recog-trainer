@@ -11,35 +11,58 @@ import {
 } from '../services/scrambleService.js';
 
 export const TIMER_DRILL_PRESETS = {
-  "righty-inv": {
-    id: "righty-inv",
-    name: "Righty + Inv Righty",
-    display: "(R U R' U') (U R U' R')",
+  "righty": {
+    id: "righty",
+    name: "Righty (Sexy Move)",
+    scramble: "U R U' R'",
+    solution: "R U R' U'",
+    display: "U R U' R'",
+    moves: "U R U' R' R U R' U'",
+    expectedMoves: 4
+  },
+  "lefty": {
+    id: "lefty",
+    name: "Lefty (Left Sexy)",
+    scramble: "U' L' U L",
+    solution: "L' U' L U",
+    display: "U' L' U L",
+    moves: "U' L' U L L' U' L U",
+    expectedMoves: 4
+  },
+  "inv-righty": {
+    id: "inv-righty",
+    name: "Inverse Righty",
+    scramble: "R U R' U'",
+    solution: "U R U' R'",
+    display: "R U R' U'",
     moves: "R U R' U' U R U' R'",
-    expectedMoves: 8
+    expectedMoves: 4
   },
-  "lefty-inv": {
-    id: "lefty-inv",
-    name: "Lefty + Inv Lefty",
-    display: "(L' U' L U) (U' L' U L)",
-    moves: "L' U' L U U' L' U L",
-    expectedMoves: 8
+  "sledge": {
+    id: "sledge",
+    name: "Sledgehammer",
+    scramble: "F R' F' R",
+    solution: "R' F R F'",
+    display: "F R' F' R",
+    moves: "F R' F' R R' F R F'",
+    expectedMoves: 4
   },
-  "double-righty-inv": {
-    id: "double-righty-inv",
-    name: "2× Righty + 2× Inv Righty",
-    display: "(R U R' U')2 (U R U' R')2",
-    moves: "R U R' U' R U R' U' U R U' R' U R U' R'",
-    expectedMoves: 16
-  },
-  "quick-rr": {
-    id: "quick-rr",
-    name: "Pure Pickup / Putdown (R R')",
-    display: "R R'",
-    moves: "R R'",
-    expectedMoves: 2
+  "hedge": {
+    id: "hedge",
+    name: "Hedgeslammer",
+    scramble: "R' F R F'",
+    solution: "F R' F' R",
+    display: "R' F R F'",
+    moves: "R' F R F' F R' F' R",
+    expectedMoves: 4
   }
 };
+
+export function resolveTimerDrillPreset(key) {
+  if (key && TIMER_DRILL_PRESETS[key]) return TIMER_DRILL_PRESETS[key];
+  if (key === "lefty-inv") return TIMER_DRILL_PRESETS["lefty"];
+  return TIMER_DRILL_PRESETS["righty"];
+}
 
 export function createNavController({
   appStore,
@@ -75,6 +98,7 @@ export function createNavController({
   const layerSolutionsWidget = typeof document !== "undefined" ? document.getElementById("layerSolutionsWidget") : null;
   const crossSolutionsWidget = typeof document !== "undefined" ? document.getElementById("crossSolutionsWidget") : null;
   const statsPanel = typeof document !== "undefined" ? document.getElementById("statsPanel") : null;
+  const freeMovesWrap = typeof document !== "undefined" ? document.querySelector(".free-moves-wrap") : null;
   const puzzleSwitcher = typeof document !== "undefined" ? document.getElementById("puzzleSwitcher") : null;
   const modeButtons = typeof document !== "undefined" ? Array.from(document.querySelectorAll(".mode-btn")) : [];
   const puzzleButtons = typeof document !== "undefined" ? Array.from(document.querySelectorAll(".puzzle-btn")) : [];
@@ -214,7 +238,7 @@ export function createNavController({
       (s.currentPuzzle === "222" && ["face", "layer"].includes(s.currentTrackId)) ||
       ((s.currentPuzzle === "333" || s.currentPuzzle === "333oh") && s.currentTrackId === "cross")
     );
-    if (regenerateBtn) regenerateBtn.hidden = simulating || solving || studying || isInspectionDrill;
+    if (regenerateBtn) regenerateBtn.hidden = true;
 
     const hasTrackCases = Boolean(getTrack(s.currentPuzzle, s.currentTrackId)?.cases?.length);
     const solveUsesCases = Boolean(getSolveTargetInfo(s.currentPuzzle, s.solveTarget)?.usesCases);
@@ -265,6 +289,9 @@ export function createNavController({
     }
     if (statsPanel) {
       statsPanel.hidden = s.showStatsPanel === false;
+    }
+    if (freeMovesWrap) {
+      freeMovesWrap.hidden = s.showFreeFaceTurns !== true;
     }
   }
 
@@ -537,15 +564,16 @@ export function createNavController({
     solvePanel?.renderTimerDrillBanner?.();
 
     if (s.mode === "solve" && s.solveTarget === "timer-drill") {
-      const preset = TIMER_DRILL_PRESETS[s.timerDrillPreset] || TIMER_DRILL_PRESETS["righty-inv"];
+      const preset = resolveTimerDrillPreset(s.timerDrillPreset);
+      s.timerDrillPreset = preset.id;
       s.currentCaseId = null;
-      s.currentCaseScramble = preset.moves;
-      cubeStage?.applyScrambleToDisplay?.("");
-      solvePanel?.updateSolveScrambleDisplay?.(preset.display);
-      updateSolveOrientationLabel("(starts from solved cube)");
+      s.currentCaseScramble = preset.solution;
+      cubeStage?.applyScrambleToDisplay?.(preset.scramble);
+      solvePanel?.updateSolveScrambleDisplay?.(preset.scramble);
+      updateSolveOrientationLabel("(4-move scramble → reverse to solve)");
       if (solveScrambleSubtext) {
         solveScrambleSubtext.hidden = false;
-        solveScrambleSubtext.textContent = `Timer & Handling Drill: ${preset.name} (${preset.expectedMoves} moves, returns cube to solved)`;
+        solveScrambleSubtext.textContent = `Timer Drill (${preset.name}): Scramble ${preset.scramble} → Reverse to solve: ${preset.solution}`;
       }
       getStatsCtrl()?.updateStatsTable?.();
       return;

@@ -434,7 +434,7 @@ export function createTimerController({
       solveCubeSolvedTs = performance.now();
     }
     stopSolve(false);
-    scUi?.setSmartCubeStage?.(s.solveTarget === "timer-drill" ? (s.solveInspection ? "inspecting" : "ready") : "scrambling");
+    scUi?.setSmartCubeStage?.("scrambling");
     scUi?.updateSmartCubeIndicator?.();
   }
 
@@ -503,7 +503,7 @@ export function createTimerController({
       return;
     }
     const cubeTracking = smartCube.getStatus().connected &&
-      (stage === "inspecting" || stage === "ready" || s.solveTarget === "timer-drill");
+      (stage === "inspecting" || stage === "ready");
 
     if (cubeTracking) {
       scUi?.setSmartCubeStage?.("solving");

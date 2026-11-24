@@ -406,9 +406,10 @@ appStore.subscribe((evt) => {
     settingsModal?.renderToggles?.();
     solvePanelView?.renderSolvePanel?.();
     navCtrl?.renderStage?.();
-  } else if (evt === "widgetVisibility") {
+  } else if (evt === "widgetVisibility" || evt === "solveOptions") {
     settingsModal?.renderToggles?.();
     navCtrl?.renderStage?.();
+    solvePanelView?.renderSolvePanel?.();
   } else if (evt === "customEvents") {
     navCtrl?.renderPuzzleButtons?.();
     navCtrl?.renderStage?.();
@@ -494,27 +495,23 @@ function handleCustomShortcutKeyDown(e) {
   switch (actionId) {
     case "action:newScramble":
       e.preventDefault();
-      if (s.mode === "practice") document.getElementById("regenerateBtn")?.click?.();
-      else navCtrl.regenerateScramble();
+      if (s.mode === "practice" && practiceView) {
+        if (practiceView.sprintRunning) void practiceView.advanceSprintScramble();
+        else if (practiceView.isInspectionTrack?.()) void practiceView.advanceInspectionScramble();
+        else void practiceView.advanceCasualScramble();
+      } else {
+        navCtrl.regenerateScramble();
+      }
       return true;
     case "action:toggleCube":
       if (s.mode !== "solve") return false;
       e.preventDefault();
-      s.solveShowCube = !s.solveShowCube;
-      appStore.getActiveSession().showCube = s.solveShowCube;
-      appStore.saveSessions();
-      appStore.saveSettings();
-      navCtrl.renderStage();
-      solvePanelView.renderSolvePanel();
+      appStore.setSolveShowCube(!s.solveShowCube);
       return true;
     case "action:toggleInspection":
       if (s.mode !== "solve") return false;
       e.preventDefault();
-      s.solveInspection = !s.solveInspection;
-      appStore.getActiveSession().inspection = s.solveInspection;
-      appStore.saveSessions();
-      appStore.saveSettings();
-      solvePanelView.renderSolvePanel();
+      appStore.setSolveInspection(!s.solveInspection);
       return true;
     case "action:toggleAlwaysWhiteBottom":
       e.preventDefault();

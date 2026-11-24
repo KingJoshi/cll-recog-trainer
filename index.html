@@ -119,19 +119,6 @@
           <button type="button" id="renameSessionBtn" class="btn btn-xs" title="Edit current session settings (name, target, 3D cube, inspection)">&#x270E; Edit</button>
           <button type="button" id="deleteSessionBtn" class="btn btn-xs btn-danger" title="Delete current session">&times;</button>
         </div>
-      </div>
-      <div class="solve-options-row">
-        <label class="solve-toggle-label">
-          <input type="checkbox" id="solveShowCubeToggle">
-          <span>Show 3D Cube</span>
-        </label>
-        <div class="toggle-with-tip">
-          <label class="solve-toggle-label">
-            <input type="checkbox" id="solveInspectionToggle" checked>
-            <span>15s Inspection</span>
-          </label>
-          <button type="button" class="info-tip-btn" data-tooltip="Run a WCA 15-second inspection countdown before starting the solve timer (triggers +2 at 15s and DNF at 17s)" aria-label="Explain 15s Inspection">?</button>
-        </div>
         <div class="solve-scramble-btns">
           <button type="button" id="solveNewScrambleBtn" class="btn btn-xs">New Scramble</button>
           <button type="button" id="solveCustomScrambleBtn" class="btn btn-xs" data-tooltip="Paste or type any scramble sequence to practice it">Custom</button>
@@ -153,16 +140,17 @@
       <div id="timerDrillBanner" class="timer-drill-banner" hidden>
         <div class="timer-drill-top">
           <div class="timer-drill-info">
-            <span class="timer-drill-badge">⏱️ Timer &amp; Pickup/Putdown Drill</span>
-            <p class="timer-drill-desc">Start with a <strong>solved cube</strong>. Place 4 fingers on the timer, release to start, pick up the cube, execute the trigger sequence below (returns cube to solved), put it down, and stop the timer.</p>
+            <span class="timer-drill-badge">⏱️ 4-Move Timer &amp; Handling Drill</span>
+            <p class="timer-drill-desc">Apply the <strong>4-move scramble</strong> above, start the timer, execute the <strong>reverse 4 moves</strong> to solve the cube, put it down, and stop the timer.</p>
           </div>
           <div class="timer-drill-preset-wrap">
-            <label for="timerDrillPresetSelect" class="timer-drill-preset-label">Sequence:</label>
-            <select id="timerDrillPresetSelect" class="sim-select timer-drill-preset-select" aria-label="Timer drill sequence">
-              <option value="righty-inv">Righty + Inv Righty: (R U R' U') (U R U' R')</option>
-              <option value="lefty-inv">Lefty + Inv Lefty: (L' U' L U) (U' L' U L)</option>
-              <option value="double-righty-inv">2× Righty + 2× Inv: (R U R' U')2 (U R U' R')2</option>
-              <option value="quick-rr">Pure Pickup / Putdown: R R'</option>
+            <label for="timerDrillPresetSelect" class="timer-drill-preset-label">4-Move Drill:</label>
+            <select id="timerDrillPresetSelect" class="sim-select timer-drill-preset-select" aria-label="4-move timer drill sequence">
+              <option value="righty">Righty: Scramble U R U' R' → Solve R U R' U'</option>
+              <option value="lefty">Lefty: Scramble U' L' U L → Solve L' U' L U</option>
+              <option value="inv-righty">Inverse Righty: Scramble R U R' U' → Solve U R U' R'</option>
+              <option value="sledge">Sledgehammer: Scramble F R' F' R → Solve R' F R F'</option>
+              <option value="hedge">Hedgeslammer: Scramble R' F R F' → Solve F R' F' R</option>
             </select>
           </div>
         </div>
@@ -474,8 +462,6 @@
         <!-- Populated by JavaScript: Ao5, Ao12, Ao100, Single Best, Mean -->
       </div>
     </div>
-
-    <button type="button" id="regenerateBtn" class="btn btn-outline btn-block">New scramble</button>
   </section>
 
   <!-- Stats & History: collapsible with leading chevron, persisted in cookies/localStorage -->
@@ -939,7 +925,7 @@
           <option value="f2l">F2L Case (3x3)</option>
           <option value="oll">OLL Case (3x3)</option>
           <option value="pll">PLL Case (3x3)</option>
-          <option value="timer-drill">⏱️ Timer &amp; Handling Drill (Righty + Inv Righty)</option>
+          <option value="timer-drill">⏱️ Timer &amp; Handling Drill (4-Move Reverse)</option>
         </select>
       </div>
       <div class="solve-modal-field">
@@ -1021,6 +1007,21 @@
           <label class="solve-toggle-label">
             <input type="checkbox" id="settingsShowStatsWidget" checked>
             <span>Show Stats &amp; History widget</span>
+          </label>
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="settingsSolveShowCube" checked>
+            <span>Show 3D Cube in Solve mode</span>
+          </label>
+          <div class="toggle-with-tip">
+            <label class="solve-toggle-label">
+              <input type="checkbox" id="settingsSolveInspection" checked>
+              <span>15s WCA Inspection in Solve mode</span>
+            </label>
+            <button type="button" class="info-tip-btn" data-tooltip="Run a WCA 15-second inspection countdown before starting the solve timer (triggers +2 at 15s and DNF at 17s)" aria-label="Explain 15s Inspection">?</button>
+          </div>
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="settingsShowFreeFaceTurns">
+            <span>Show Free Face Turns keypad under 3D cube</span>
           </label>
         </div>
       </div>

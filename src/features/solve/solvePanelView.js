@@ -9,7 +9,7 @@ import { getSolveTime, computeAverageOfN, getBestAverageOfN } from '../../servic
 import { caseById } from '../../state/appStore.js';
 import { escapeHtml, formatSolveTime, formatSolveDisplay, formatCfopSplitMs } from '../../services/htmlUtils.js';
 import { showToast } from '../../ui/toastService.js';
-import { TIMER_DRILL_PRESETS } from '../../ui/navController.js';
+import { TIMER_DRILL_PRESETS, resolveTimerDrillPreset } from '../../ui/navController.js';
 import { renderLastSolveCfopInline, renderSolvePhaseInline } from './cfopBreakdownRenderer.js';
 
 export function renderSolveStatsBar(container, solvesList, { sessionName = "", compact = false, stepBreakdownHtml = "", onSelectSolve = null } = {}) {
@@ -178,8 +178,6 @@ export function createSolvePanelView({
   const solveScrambleText = typeof document !== "undefined" ? document.getElementById("solveScrambleText") : null;
   const solveScrambleSubtext = typeof document !== "undefined" ? document.getElementById("solveScrambleSubtext") : null;
   const solveScrambleOrient = typeof document !== "undefined" ? document.getElementById("solveScrambleOrient") : null;
-  const solveShowCubeToggle = typeof document !== "undefined" ? document.getElementById("solveShowCubeToggle") : null;
-  const solveInspectionToggle = typeof document !== "undefined" ? document.getElementById("solveInspectionToggle") : null;
   const solveSurface = typeof document !== "undefined" ? document.getElementById("solveSurface") : null;
   const solveTimeEl = typeof document !== "undefined" ? document.getElementById("solveTime") : null;
   const solveCaseEl = typeof document !== "undefined" ? document.getElementById("solveCase") : null;
@@ -217,7 +215,8 @@ export function createSolvePanelView({
     banner.hidden = !isDrill;
     if (!isDrill) return;
 
-    if (presetSelect) presetSelect.value = appStore.state.timerDrillPreset;
+    const preset = resolveTimerDrillPreset(appStore.state.timerDrillPreset);
+    if (presetSelect) presetSelect.value = preset.id;
     if (!metricsBar) return;
 
     const solves = appStore.getSolves();
@@ -276,23 +275,6 @@ export function createSolvePanelView({
     scUi?.clearScrambleCorrectionDelay?.();
 
     const st = smartCube.getStatus();
-    if (s.solveTarget === "timer-drill") {
-      const preset = TIMER_DRILL_PRESETS[s.timerDrillPreset] || TIMER_DRILL_PRESETS["righty-inv"];
-      if (st.connected) {
-        smartCube.setScramble("", s.currentPuzzle);
-        scUi?.resetScrambleTracker?.("", true);
-        scUi?.setSmartCubeStage?.(s.solveInspection ? "inspecting" : "ready");
-        if (solveScrambleText) {
-          solveScrambleText.innerHTML = `<span class="scramble-completed-badge">✓ Solved Cube Ready</span> <span class="timer-drill-seq">${escapeHtml(preset.display)}</span>`;
-        }
-        scUi?.updateSmartCubeIndicator?.();
-      } else if (solveScrambleText) {
-        solveScrambleText.textContent = preset.display;
-      }
-      renderTimerDrillBanner();
-      return;
-    }
-
     if (st.connected) {
       scUi?.setSmartCubeStage?.("scrambling");
       smartCube.setScramble("", s.currentPuzzle);
@@ -314,8 +296,6 @@ export function createSolvePanelView({
     const solves = appStore.getSolves();
     const lastSolve = s.lastSolve;
 
-    if (solveShowCubeToggle) solveShowCubeToggle.checked = s.solveShowCube;
-    if (solveInspectionToggle) solveInspectionToggle.checked = s.solveInspection;
     if (solveFocusToggleBtn) {
       const focused = Boolean(s.focusMode);
       solveFocusToggleBtn.classList.toggle("active", focused);
@@ -561,34 +541,12 @@ export function createSolvePanelView({
 
   if (timerDrillPresetSelectEl) {
     timerDrillPresetSelectEl.addEventListener("change", () => {
-      const val = timerDrillPresetSelectEl.value;
-      if (TIMER_DRILL_PRESETS[val]) {
-        appStore.state.timerDrillPreset = val;
-        appStore.saveSettings();
-        if (appStore.state.mode === "solve" && appStore.state.solveTarget === "timer-drill") {
-          getNavCtrl()?.regenerateScramble?.();
-        }
+      const preset = resolveTimerDrillPreset(timerDrillPresetSelectEl.value);
+      appStore.state.timerDrillPreset = preset.id;
+      appStore.saveSettings();
+      if (appStore.state.mode === "solve" && appStore.state.solveTarget === "timer-drill") {
+        getNavCtrl()?.regenerateScramble?.();
       }
-    });
-  }
-
-  if (solveShowCubeToggle) {
-    solveShowCubeToggle.addEventListener("change", () => {
-      appStore.state.solveShowCube = solveShowCubeToggle.checked;
-      appStore.getActiveSession().showCube = appStore.state.solveShowCube;
-      appStore.saveSessions();
-      appStore.saveSettings();
-      getNavCtrl()?.renderStage?.();
-    });
-  }
-
-  if (solveInspectionToggle) {
-    solveInspectionToggle.addEventListener("change", () => {
-      appStore.state.solveInspection = solveInspectionToggle.checked;
-      appStore.getActiveSession().inspection = appStore.state.solveInspection;
-      appStore.saveSessions();
-      appStore.saveSettings();
-      renderSolvePanel();
     });
   }
 

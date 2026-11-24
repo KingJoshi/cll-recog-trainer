@@ -487,16 +487,19 @@ test('4x4x4 & 5x5x5 Parity cases × scrambles × algs', async () => {
   }
 });
 
-test('Timer & Handling Drill Presets resolve cleanly to solved state with exact move counts', async () => {
+test('Timer & Handling Drill Presets resolve cleanly with 4-move scramble + reverse solution', async () => {
   const kp = await puzzles['3x3x3'].kpuzzle();
   const solved = kp.defaultPattern();
 
   for (const [id, preset] of Object.entries(TIMER_DRILL_PRESETS)) {
-    const rawCount = Array.from(new Alg(preset.moves).childAlgNodes()).length;
-    assert.strictEqual(rawCount, preset.expectedMoves, `Drill ${id} expectedMoves mismatch`);
+    const scrMoves = Array.from(new Alg(preset.scramble).childAlgNodes());
+    const solMoves = Array.from(new Alg(preset.solution).childAlgNodes());
+    assert.strictEqual(scrMoves.length, 4, `Drill ${id} scramble must be 4 moves`);
+    assert.strictEqual(solMoves.length, 4, `Drill ${id} solution must be 4 moves`);
+    assert.strictEqual(preset.expectedMoves, 4, `Drill ${id} expectedMoves must be 4`);
     assert.ok(
-      solved.applyAlg(preset.moves).isIdentical(solved),
-      `Drill ${id} ("${preset.moves}") did not return 3x3 to solved identity`
+      solved.applyAlg(joinMoves(preset.scramble, preset.solution)).isIdentical(solved),
+      `Drill ${id} ("${preset.scramble} ${preset.solution}") did not return 3x3 to solved identity`
     );
   }
 });

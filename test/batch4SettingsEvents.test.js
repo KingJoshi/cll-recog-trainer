@@ -9,6 +9,8 @@ import {
 import { generateWcaScrambleForPuzzle } from '../src/services/scrambleService.js';
 import { AppStore, VALID_PUZZLES } from '../src/state/appStore.js';
 import { mergeSyncPayloads } from '../src/services/syncMerge.js';
+import { renderOllPllCasesBreakdownHtml } from '../src/features/solve/cfopBreakdownRenderer.js';
+import { TIMER_DRILL_PRESETS, resolveTimerDrillPreset } from '../src/ui/navController.js';
 import {
   DEFAULT_SHORTCUTS,
   SHORTCUT_ACTION_IDS
@@ -146,4 +148,89 @@ test('Zen mode shortcut defaults to Shift+Z and new puzzle shortcuts are registe
   assert.ok(SHORTCUT_ACTION_IDS.has('puzzle:666'));
   assert.ok(SHORTCUT_ACTION_IDS.has('puzzle:777'));
   assert.ok(SHORTCUT_ACTION_IDS.has('puzzle:fto'));
+});
+
+test('renderOllPllCasesBreakdownHtml replaces Needs Work with interactive user study tag buttons', () => {
+  const solves = [
+    {
+      ms: 14000,
+      rawMs: 14000,
+      puzzle: '333',
+      cfop: {
+        ollCase: { id: 'oll-27', shortName: 'OLL 27', name: 'Sune', group: 'OCLL', ms: 1800, pauseCount: 0, pauseMs: 0 },
+        pllCase: { id: 'T', shortName: 'T', name: 'T Perm', ms: 3400, pauseCount: 2, pauseMs: 1100 }
+      }
+    },
+    {
+      ms: 11000,
+      rawMs: 11000,
+      puzzle: '333',
+      cfop: {
+        ollCase: { id: 'oll-45', shortName: 'OLL 45', name: 'T', group: 'T-Shapes', ms: 1200, pauseCount: 0, pauseMs: 0 },
+        pllCase: { id: 'Ua', shortName: 'Ua', name: 'Ua Perm', ms: 1500, pauseCount: 0, pauseMs: 0 }
+      }
+    }
+  ];
+
+  const html = renderOllPllCasesBreakdownHtml(solves, {
+    caseTags: { 'oll-27': 'learning', T: 'review', Ua: 'mastered' }
+  });
+  assert.strictEqual(html.includes('Needs Work'), false);
+  assert.ok(html.includes('cfop-case-tag-btn'));
+  assert.ok(html.includes('data-case-tag-id="oll-27"') && html.includes('Learning'));
+  assert.ok(html.includes('data-case-tag-id="oll-45"') && html.includes('+ Tag'));
+  assert.ok(html.includes('data-case-tag-id="T"') && html.includes('Review'));
+  assert.ok(html.includes('data-case-tag-id="Ua"') && html.includes('Mastered'));
+});
+
+test('AppStore manages showFreeFaceTurns and Settings Solve Cube/Inspection toggles cleanly', () => {
+  const store = new AppStore();
+  assert.strictEqual(store.state.showFreeFaceTurns, false);
+
+  const events = [];
+  const unsub = store.subscribe((evt, detail) => {
+    if (evt === 'widgetVisibility' || evt === 'solveOptions') events.push({ evt, detail });
+  });
+  try {
+    store.setWidgetVisibility('showFreeFaceTurns', true);
+    store.setSolveShowCube(false);
+    store.setSolveInspection(false);
+  } finally {
+    unsub();
+  }
+
+  assert.strictEqual(store.state.showFreeFaceTurns, true);
+  assert.strictEqual(store.state.solveShowCube, false);
+  assert.strictEqual(store.state.solveInspection, false);
+  assert.strictEqual(store.getActiveSession().showCube, false);
+  assert.strictEqual(store.getActiveSession().inspection, false);
+  assert.strictEqual(events.filter(e => e.evt === 'solveOptions').length, 2);
+
+  const merged = mergeSyncPayloads(
+    {
+      schemaVersion: 1,
+      hasLocalSettings: true,
+      settings: { showFreeFaceTurns: false, activeSessionId: 's1' },
+      timestamps: { settings: { showFreeFaceTurns: 1000 } },
+      sessions: [{ id: 's1', name: 'Main', puzzle: '333', solves: [{ ms: 10000, at: 1000 }], updatedAt: 1000 }]
+    },
+    {
+      schemaVersion: 1,
+      hasLocalSettings: true,
+      settings: { showFreeFaceTurns: true, activeSessionId: 's1' },
+      timestamps: { settings: { showFreeFaceTurns: 2000 } },
+      sessions: [{ id: 's1', name: 'Main', puzzle: '333', solves: [{ ms: 10000, at: 1000 }], updatedAt: 1000 }]
+    }
+  );
+  assert.strictEqual(merged.merged.settings.showFreeFaceTurns, true);
+});
+
+test('resolveTimerDrillPreset maps legacy presets and exposes 4-move drills', () => {
+  assert.strictEqual(resolveTimerDrillPreset('righty-inv').id, 'righty');
+  assert.strictEqual(resolveTimerDrillPreset('double-righty-inv').id, 'righty');
+  assert.strictEqual(resolveTimerDrillPreset('quick-rr').id, 'righty');
+  assert.strictEqual(resolveTimerDrillPreset('lefty-inv').id, 'lefty');
+  assert.strictEqual(resolveTimerDrillPreset('sledge').id, 'sledge');
+  assert.strictEqual(TIMER_DRILL_PRESETS.righty.scramble, "U R U' R'");
+  assert.strictEqual(TIMER_DRILL_PRESETS.righty.solution, "R U R' U'");
 });

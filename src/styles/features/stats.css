@@ -494,6 +494,60 @@
     border: 1px solid rgba(239, 68, 68, 0.35);
 }
 
+.cfop-case-tag-btn {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 5px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid var(--border, #cbd5e1);
+    background: var(--surface-2, #f8fafc);
+    color: var(--muted, #64748b);
+    transition: all 0.14s ease;
+    white-space: nowrap;
+}
+
+.cfop-case-tag-btn:hover {
+    border-color: var(--primary, #3b82f6);
+    color: var(--text, #1e293b);
+}
+
+.cfop-case-tag-btn.tag-learning {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.38);
+    color: #b91c1c;
+}
+
+.cfop-case-tag-btn.tag-review {
+    background: rgba(245, 158, 11, 0.14);
+    border-color: rgba(245, 158, 11, 0.42);
+    color: #b45309;
+}
+
+.cfop-case-tag-btn.tag-mastered {
+    background: rgba(34, 197, 94, 0.14);
+    border-color: rgba(34, 197, 94, 0.38);
+    color: #15803d;
+}
+
+[data-theme="dark"] .cfop-case-tag-btn.tag-learning {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.18);
+}
+
+[data-theme="dark"] .cfop-case-tag-btn.tag-review {
+    color: #fcd34d;
+    background: rgba(245, 158, 11, 0.18);
+}
+
+[data-theme="dark"] .cfop-case-tag-btn.tag-mastered {
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.18);
+}
+
 .pause-cell-warn {
     color: #d97706;
     font-weight: 600;

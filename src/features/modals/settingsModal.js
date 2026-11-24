@@ -76,6 +76,9 @@ export function createSettingsModalController({
   const settingsShowLayerWidget = typeof document !== "undefined" ? document.getElementById("settingsShowLayerWidget") : null;
   const settingsShowCrossWidget = typeof document !== "undefined" ? document.getElementById("settingsShowCrossWidget") : null;
   const settingsShowStatsWidget = typeof document !== "undefined" ? document.getElementById("settingsShowStatsWidget") : null;
+  const settingsSolveShowCube = typeof document !== "undefined" ? document.getElementById("settingsSolveShowCube") : null;
+  const settingsSolveInspection = typeof document !== "undefined" ? document.getElementById("settingsSolveInspection") : null;
+  const settingsShowFreeFaceTurns = typeof document !== "undefined" ? document.getElementById("settingsShowFreeFaceTurns") : null;
   const settingsDarkTheme = typeof document !== "undefined" ? document.getElementById("settingsDarkTheme") : null;
   const settingsAlwaysWhiteBottom = typeof document !== "undefined" ? document.getElementById("settingsAlwaysWhiteBottom") : null;
   const settingsAllowAUF = typeof document !== "undefined" ? document.getElementById("settingsAllowAUF") : null;
@@ -122,6 +125,9 @@ export function createSettingsModalController({
     if (settingsShowLayerWidget) settingsShowLayerWidget.checked = s.showLayerSolutionsWidget !== false;
     if (settingsShowCrossWidget) settingsShowCrossWidget.checked = s.showCrossSolutionsWidget !== false;
     if (settingsShowStatsWidget) settingsShowStatsWidget.checked = s.showStatsPanel !== false;
+    if (settingsSolveShowCube) settingsSolveShowCube.checked = Boolean(s.solveShowCube);
+    if (settingsSolveInspection) settingsSolveInspection.checked = Boolean(s.solveInspection);
+    if (settingsShowFreeFaceTurns) settingsShowFreeFaceTurns.checked = Boolean(s.showFreeFaceTurns);
     if (settingsDarkTheme) settingsDarkTheme.checked = s.darkMode;
     if (settingsAlwaysWhiteBottom) settingsAlwaysWhiteBottom.checked = s.alwaysWhiteBottom;
     if (settingsAllowAUF) settingsAllowAUF.checked = s.allowAUF;
@@ -420,6 +426,15 @@ export function createSettingsModalController({
   settingsShowStatsWidget?.addEventListener("change", (e) => {
     appStore.setWidgetVisibility?.("showStatsPanel", Boolean(e.target.checked));
   });
+  settingsSolveShowCube?.addEventListener("change", (e) => {
+    appStore.setSolveShowCube?.(Boolean(e.target.checked));
+  });
+  settingsSolveInspection?.addEventListener("change", (e) => {
+    appStore.setSolveInspection?.(Boolean(e.target.checked));
+  });
+  settingsShowFreeFaceTurns?.addEventListener("change", (e) => {
+    appStore.setWidgetVisibility?.("showFreeFaceTurns", Boolean(e.target.checked));
+  });
   settingsDarkTheme?.addEventListener("change", (e) => {
     cubeStage?.setDarkMode?.(e.target.checked);
     renderToggles();
@@ -549,7 +564,7 @@ export function createSettingsModalController({
   });
 
   appStore?.subscribe?.((evt) => {
-    if (evt === "theme" || evt === "ohHand" || evt === "ohTableAbuse" || evt === "simSpeed" || evt === "advancedMode" || evt === "focusMode" || evt === "widgetVisibility") renderToggles();
+    if (evt === "theme" || evt === "ohHand" || evt === "ohTableAbuse" || evt === "simSpeed" || evt === "advancedMode" || evt === "focusMode" || evt === "widgetVisibility" || evt === "solveOptions") renderToggles();
     else if (evt === "customEvents") renderCustomEvents();
     else if (evt === "hydrate") {
       renderColorPickers();

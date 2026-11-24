@@ -49,6 +49,7 @@ const SETTINGS_SCALAR_FIELDS = [
   "showLayerSolutionsWidget",
   "showCrossSolutionsWidget",
   "showStatsPanel",
+  "showFreeFaceTurns",
   "customEvents",
   "timerDrillPreset",
   "statsType",

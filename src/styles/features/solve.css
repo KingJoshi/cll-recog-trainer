@@ -1617,12 +1617,21 @@ body.is-focus-mode .app-header,
 body.is-focus-mode .stage.mode-solve .mode-seg,
 body.is-focus-mode .stage.mode-solve #trackBar,
 body.is-focus-mode .stage.mode-solve #settingsPanel,
+body.is-focus-mode .stage.mode-solve .solve-title-group,
+body.is-focus-mode .stage.mode-solve .solve-session-control,
+body.is-focus-mode .stage.mode-solve #solveCustomScrambleBtn,
+body.is-focus-mode .stage.mode-solve #solveCustomScrambleRow,
 body.is-focus-mode .stage.mode-solve #layerSolutionsWidget,
 body.is-focus-mode .stage.mode-solve #crossSolutionsWidget,
 body.is-focus-mode .stage.mode-solve #timerDrillBanner,
 body.is-focus-mode #statsPanel,
 body.is-focus-mode #regenerateBtn {
     display: none !important;
+}
+
+body.is-focus-mode .stage.mode-solve .solve-header-row {
+    justify-content: flex-end;
+    margin-bottom: 4px;
 }
 
 body.is-focus-mode .app {

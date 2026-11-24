@@ -598,7 +598,8 @@ export function createSessionLogView({
         html += renderOllPllCasesBreakdownHtml(displaySolves, {
           ollOpen: s.ollCasesStatsOpen,
           pllOpen: s.pllCasesStatsOpen,
-          sortStateByTrack: ollPllBreakdownSort
+          sortStateByTrack: ollPllBreakdownSort,
+          caseTags: s.caseTags || {}
         });
       }
     } else if (!isAdvanced) {
@@ -811,6 +812,16 @@ export function createSessionLogView({
         if (cur.col === col) cur.dir = cur.dir === "asc" ? "desc" : "asc";
         else { cur.col = col; cur.dir = (col === "shortName" || col === "group" || col === "bestMs") ? "asc" : "desc"; }
         ollPllBreakdownSort[trackId] = cur;
+        render(container);
+      });
+    });
+
+    container.querySelectorAll(".cfop-case-tag-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const caseId = btn.dataset.caseTagId;
+        if (!caseId) return;
+        appStore.cycleCaseTag(caseId);
         render(container);
       });
     });
