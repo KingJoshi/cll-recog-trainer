@@ -101,8 +101,67 @@ async function generateWcaScrambleWithTimeout(eventName, timeoutMs, fallbackKey)
   return moves.join(" ");
 }
 
-export function generateWca2x2Scramble() {
-  return generateWcaScrambleWithTimeout("222", 1500, "222");
+const TWO_BY_TWO_CONJUGATIONS = {
+  // Exact 2x2 equivalence: turning L is equivalent to turning R after re-indexing faces by x' (with R=R, L=L)
+  L: { urf: "R", rot: { U: "B", B: "D", D: "F", F: "U", R: "R", L: "L" } },
+  // Exact 2x2 equivalence: turning D is equivalent to turning U after re-indexing faces by y' (with U=U, D=D)
+  D: { urf: "U", rot: { F: "L", L: "B", B: "R", R: "F", U: "U", D: "D" } },
+  // Exact 2x2 equivalence: turning B is equivalent to turning F after re-indexing faces by z' (with F=F, B=B)
+  B: { urf: "F", rot: { U: "R", R: "D", D: "L", L: "U", F: "F", B: "B" } }
+};
+
+/**
+ * Rewrites any 2x2 scramble/algorithm containing L, D, or B turns into an
+ * equivalent pure {U, R, F} sequence (preserving the 2x2 state up to whole-cube orientation).
+ * Needed because 2x2 smart cubes (e.g. MoYu WCU_MY22) physically anchor DLB and only report U/R/F.
+ */
+export function normalize2x2ScrambleToURF(scrambleStr) {
+  if (!scrambleStr || typeof scrambleStr !== "string") return "";
+  let faceMap = { U: "U", D: "D", F: "F", B: "B", L: "L", R: "R" };
+  const simplified = [];
+
+  const pushMove = (face, amount) => {
+    const norm = ((amount % 4) + 4) % 4;
+    if (norm === 0) return;
+    const prev = simplified[simplified.length - 1];
+    if (prev && prev.face === face) {
+      const combined = (prev.amount + norm) % 4;
+      if (combined === 0) simplified.pop();
+      else prev.amount = combined;
+    } else {
+      simplified.push({ face, amount: norm });
+    }
+  };
+
+  for (const token of scrambleStr.trim().split(/\s+/)) {
+    const match = /^([UDFBLR])([2']|2')?$/.exec(token);
+    if (!match) continue;
+    const suffix = match[2] || "";
+    const amount = suffix.includes("2") ? 2 : (suffix.includes("'") ? 3 : 1);
+    const currentFace = faceMap[match[1]];
+    const conj = TWO_BY_TWO_CONJUGATIONS[currentFace];
+    if (conj) {
+      pushMove(conj.urf, amount);
+      for (let step = 0; step < amount; step++) {
+        const nextMap = {};
+        for (const [k, v] of Object.entries(faceMap)) {
+          nextMap[k] = conj.rot[v];
+        }
+        faceMap = nextMap;
+      }
+    } else {
+      pushMove(currentFace, amount);
+    }
+  }
+
+  return simplified
+    .map(m => m.face + (m.amount === 2 ? "2" : (m.amount === 3 ? "'" : "")))
+    .join(" ");
+}
+
+export async function generateWca2x2Scramble() {
+  const raw = await generateWcaScrambleWithTimeout("222", 1500, "222");
+  return normalize2x2ScrambleToURF(raw);
 }
 
 export function generateWca3x3Scramble() {

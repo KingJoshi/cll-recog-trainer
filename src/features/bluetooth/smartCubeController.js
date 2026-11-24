@@ -8,6 +8,7 @@ import { escapeHtml } from '../../services/htmlUtils.js';
 import { playScrambleCompleteChime, playDisconnectAlertSound } from '../../services/audioService.js';
 import { showToast } from '../../ui/toastService.js';
 import { isTimerViewMode } from '../../state/appStore.js';
+import { normalize2x2ScrambleToURF } from '../../services/scrambleService.js';
 
 const SCRAMBLE_CORRECTION_DELAY_MS = 180;
 
@@ -125,12 +126,21 @@ export function createSmartCubeController({
   const cubeCard = typeof document !== "undefined" ? document.querySelector(".cube-card") : null;
 
   const scrambleTracker = new ScrambleTracker();
+  let lastTrackedSourceScramble = "";
   let smartCubeStage = "scrambling"; // "scrambling" | "inspecting" | "ready" | "solving" | "needs_reset"
   let needsResetReason = null; // null | "+2" | "DNF"
   let scrambleCorrectionDelayTimer = null;
   let scrambleSuppressTransient = false;
   let scrambleErrorVisible = false;
   let pendingSolveCubeUpdateRaf = null;
+
+  function resolveTrackerScramble(scrambleStr) {
+    const raw = scrambleStr || "";
+    if (appStore.state.currentPuzzle === "222" && /[LDB]/.test(raw)) {
+      return normalize2x2ScrambleToURF(raw);
+    }
+    return raw;
+  }
 
   // Wire non-blocking accessible MAC address prompt instead of window.prompt()
   smartCube.setOnRequestMac(({ deviceName, hint }) => {
@@ -152,7 +162,8 @@ export function createSmartCubeController({
   }
 
   function resetScrambleTracker(scrambleStr, markDone = false) {
-    scrambleTracker.reset(scrambleStr || "");
+    lastTrackedSourceScramble = scrambleStr || "";
+    scrambleTracker.reset(resolveTrackerScramble(lastTrackedSourceScramble));
     if (markDone) scrambleTracker.markComplete();
   }
 
@@ -400,9 +411,10 @@ export function createSmartCubeController({
     updateSmartCubeIndicator();
 
     if (st.connected && isTimerViewMode(s) && smartCubeStage === "scrambling" && !scrambleTracker.isComplete()) {
-      if (!scrambleTracker.rawScramble || scrambleTracker.rawScramble !== s.currentSolveScramble) {
-        scrambleTracker.reset(s.currentSolveScramble);
-        smartCube.logDiag("SCRAMBLE_SYNC_RESET", { scramble: s.currentSolveScramble });
+      const targetScramble = resolveTrackerScramble(s.currentSolveScramble);
+      if (lastTrackedSourceScramble !== (s.currentSolveScramble || "") || scrambleTracker.rawScramble !== targetScramble) {
+        resetScrambleTracker(s.currentSolveScramble);
+        smartCube.logDiag("SCRAMBLE_SYNC_RESET", { scramble: s.currentSolveScramble, tracked: targetScramble });
       }
       renderSmartScrambleAssistant();
     }
@@ -585,7 +597,7 @@ export function createSmartCubeController({
     clearScrambleCorrectionDelay();
     smartCube.logDiag("MANUAL_CALIBRATE_RESET", { scramble: appStore.state.currentSolveScramble });
     smartCube.setScramble("", appStore.state.currentPuzzle);
-    scrambleTracker.reset(appStore.state.currentSolveScramble);
+    resetScrambleTracker(appStore.state.currentSolveScramble);
     renderSmartScrambleAssistant();
   });
 
@@ -610,6 +622,8 @@ export function createSmartCubeController({
     const alertView = getDisconnectAlertView();
     alertView?.setCubeAlert?.(null);
     alertView?.renderAlerts?.();
+    resetScrambleTracker(appStore.state.currentSolveScramble);
+    renderSmartScrambleAssistant();
   });
   smartCube.addEventListener("disconnected", (e) => {
     gyroTracker.reset();
