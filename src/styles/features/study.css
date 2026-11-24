@@ -837,28 +837,31 @@
 
 .study-twosided-categories {
     display: flex;
-    flex-wrap: wrap;
-    align-items: stretch;
+    flex-direction: column;
     gap: 12px;
 }
 
 .twosided-cat-card {
-    flex: 1 1 340px;
-    max-width: 100%;
+    width: 100%;
     box-sizing: border-box;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 14px 16px;
+    padding: 12px 14px;
 }
 
 .twosided-cat-head {
-    margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 12px;
+    margin-bottom: 10px;
 }
 
 .twosided-cat-title {
-    margin: 0 0 2px 0;
-    font-size: 1rem;
+    margin: 0;
+    font-size: 0.98rem;
     font-weight: 800;
 }
 
@@ -869,22 +872,23 @@
 
 .twosided-rules-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
     gap: 10px;
 }
 
 .twosided-rules-grid.is-compact {
-    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    gap: 8px;
 }
 
 .twosided-rule-card {
-    padding: 10px 12px;
+    padding: 8px 10px;
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
 }
 
 .twosided-rule-header {
@@ -895,7 +899,7 @@
 
 .twosided-card-3d-wrap {
     width: 100%;
-    height: 152px;
+    height: 138px;
     padding: 2px;
     display: flex;
     align-items: center;
@@ -913,8 +917,8 @@
 }
 
 .twosided-card-3d-wrap scramble-display {
-    width: 146px;
-    height: 146px;
+    width: 134px;
+    height: 134px;
     display: block;
 }
 
