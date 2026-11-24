@@ -233,10 +233,20 @@ export const PUZZLES = {
         id: "parity",
         name: "4x4 Parity (OLL & PLL)",
         shortName: "Parity",
-        description: "Essential OLL dedge flip and PLL opposite/adjacent edge swap parity algorithms",
+        description: "Essential OLL dedge flip (4-piece & pure) and PLL opposite/adjacent edge swap parity algorithms",
         cases: parity444Cases,
         caseById: parity444CaseById,
         groups: ["OLL Parity", "PLL Parity"]
+      },
+      {
+        id: "methods",
+        name: "4x4 Methods & Guides",
+        shortName: "Methods",
+        studyOnly: true,
+        description: "Redux vs. Yau, Center Pairing, Color Scheme, Edge Pairing, 3-2-3, and Speedcubing Tips",
+        cases: [],
+        caseById: new Map(),
+        groups: ["Redux vs Yau", "Centers", "Edges & 3-2-3", "Parity & Tips"]
       }
     ]
   },

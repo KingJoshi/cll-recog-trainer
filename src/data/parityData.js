@@ -3,11 +3,11 @@
 export const parity444Cases = [
   {
     id: "444-oll-parity",
-    name: "4x4 OLL Parity (Single Dedge Flip)",
-    shortName: "OLL Parity",
+    name: "4x4 OLL Parity (Top 4 Front Pieces)",
+    shortName: "OLL (4-Piece)",
     group: "OLL Parity",
     puzzle: "444",
-    description: "One edge pair (dedge) is flipped on the last layer. Occurs on 50% of 4x4 solves due to odd internal slice permutations.",
+    description: "Wide-turn OLL parity that flips the entire front top row (UFL corner, UF dedge, and UFR corner) while swapping UL/UR edges. Best used right before OLL.",
     setup: "Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 Rw' U2 Rw U2 Rw' U2 Rw'",
     scramble: "Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 Rw' U2 Rw U2 Rw' U2 Rw'",
     scrambles: [
@@ -35,6 +35,33 @@ export const parity444Cases = [
         id: "444-oll-lucas-b2",
         alg: "Rw2 B2 U2 Lw U2 Rw' U2 Rw U2 F2 Rw F2 Lw' B2 Rw2",
         note: "Classic Lucas OLL parity (flips top 4 front pieces: UFL, UF dedge, and UFR)"
+      }
+    ]
+  },
+  {
+    id: "444-oll-parity-pure",
+    name: "4x4 OLL Parity (Pure Single Dedge Flip)",
+    shortName: "OLL (Pure)",
+    group: "OLL Parity",
+    puzzle: "444",
+    description: "Pure inner-slice OLL parity that flips ONLY the front UF edge pair (2 wings) while preserving all 4 top corners and other edges.",
+    setup: "2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2",
+    scramble: "2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2",
+    scrambles: [
+      "2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2",
+      "U 2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2 U'",
+      "U' 2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2 U",
+      "U2 2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2 U2",
+      "y 2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2",
+      "y' 2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2",
+      "y2 2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2"
+    ],
+    alg: "2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2",
+    algs: [
+      {
+        id: "444-oll-pure-b2",
+        alg: "2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2",
+        note: "Pure inner-slice Lucas parity (flips only the 2 UF wings; preserves all corners)"
       }
     ]
   },

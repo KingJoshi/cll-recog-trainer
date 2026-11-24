@@ -632,6 +632,7 @@ export async function renderF2lSvg(caseObj) {
 // ---------------------------------------------------------------------------
 export function render444ParitySvg(caseObj) {
   const isOll = caseObj.id.includes("oll");
+  const isOllPure = caseObj.id.includes("pure");
   const isOpp = caseObj.id.includes("opp");
   const isAdj = caseObj.id.includes("adj");
 
@@ -644,7 +645,9 @@ export function render444ParitySvg(caseObj) {
   for (let r = 0; r < 4; r++) {
     for (let c = 0; c < 4; c++) {
       let fill = CUBE_COLORS.yellow;
-      if (isOll && r === 3 && (c === 1 || c === 2)) {
+      if (isOll && !isOllPure && r === 3) {
+        fill = CUBE_COLORS.slate;
+      } else if (isOllPure && r === 3 && (c === 1 || c === 2)) {
         fill = CUBE_COLORS.slate;
       }
       stickersHtml += rect(T + c * S, T + r * S, fill);
@@ -652,7 +655,10 @@ export function render444ParitySvg(caseObj) {
   }
 
   let overlays = "";
-  if (isOll) {
+  if (isOll && !isOllPure) {
+    overlays += `<rect x="${T}" y="${T + 4 * S + 3}" width="${4 * S}" height="6" rx="1.5" fill="${CUBE_COLORS.yellow}" stroke="#1e293b" stroke-width="1.1"/>`;
+    overlays += `<text x="50" y="${T + 3.5 * S + 4}" text-anchor="middle" font-size="11" font-weight="900" fill="${CUBE_COLORS.orange}">&#x21C5;</text>`;
+  } else if (isOllPure) {
     overlays += `<rect x="${T + S}" y="${T + 4 * S + 3}" width="${2 * S}" height="6" rx="1.5" fill="${CUBE_COLORS.yellow}" stroke="#1e293b" stroke-width="1.1"/>`;
     overlays += `<text x="50" y="${T + 3.5 * S + 4}" text-anchor="middle" font-size="11" font-weight="900" fill="${CUBE_COLORS.orange}">&#x21C5;</text>`;
   } else if (isOpp) {

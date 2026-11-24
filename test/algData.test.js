@@ -21,7 +21,7 @@ test('PUZZLES registry structure', () => {
   assert.strictEqual(PUZZLES['222'].tracks.length, 7);
   assert.strictEqual(PUZZLES['333'].tracks.length, 4);
   assert.strictEqual(PUZZLES['333oh'].tracks.length, 4);
-  assert.strictEqual(PUZZLES['444'].tracks.length, 1);
+  assert.strictEqual(PUZZLES['444'].tracks.length, 2);
   assert.strictEqual(PUZZLES['555'].tracks.length, 1);
 
   const pllTrack = getTrack('333', 'pll');
@@ -32,7 +32,7 @@ test('PUZZLES registry structure', () => {
   assert.strictEqual(PUZZLES['222'].defaultTrack, 'lbl');
   assert.deepStrictEqual(PUZZLES['333'].tracks.map(t => t.id), ['cross', 'f2l', 'oll', 'pll']);
   assert.deepStrictEqual(PUZZLES['333oh'].tracks.map(t => t.id), ['cross', 'f2l', 'oll', 'pll']);
-  assert.deepStrictEqual(PUZZLES['444'].tracks.map(t => t.id), ['parity']);
+  assert.deepStrictEqual(PUZZLES['444'].tracks.map(t => t.id), ['parity', 'methods']);
   assert.deepStrictEqual(PUZZLES['555'].tracks.map(t => t.id), ['parity']);
 });
 
@@ -161,7 +161,7 @@ test('3x3 CFOP cases default to White on bottom with z2', async () => {
 });
 
 test('4x4 and 5x5 Parity algorithms integrity', () => {
-  assert.strictEqual(parity444Cases.length, 3, '4x4 must have 3 parity cases (OLL, PLL Opp, PLL Adj)');
+  assert.strictEqual(parity444Cases.length, 4, '4x4 must have 4 parity cases (OLL 4-Piece, OLL Pure, PLL Opp, PLL Adj)');
   assert.strictEqual(parity555Cases.length, 2, '5x5 must have 2 parity cases (Lucas Flip, Wings)');
 
   for (const c of parity444Cases) {

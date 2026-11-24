@@ -876,23 +876,102 @@ export class StudyView {
       `;
     }
 
-    if (this.currentPuzzle === "444" || (this.currentPuzzle === "444" && this.currentTrackId === "parity")) {
+    if (this.currentPuzzle === "444" && this.currentTrackId === "methods") {
+      return `
+        <div class="guide-card-stack">
+          <section class="guide-card guide-card-full">
+            <h3 class="guide-card-title">&#x1F9E9; Reduction (Redux) vs. Yau Method</h3>
+            <p>Both 4x4 speedcubing methods reduce the 4x4 into a pseudo-3x3 state (6 solved centers + 12 paired edge dedges), then finish with 3x3 F2L &amp; Last Layer + Parity:</p>
+            <div class="guide-grid">
+              <div>
+                <p><strong>Redux (Standard Reduction):</strong></p>
+                <ol class="guide-list guide-steps">
+                  <li><strong>All 6 Centers:</strong> Build 2 opposite centers, then finish all 4 middle-slice centers in sequence using standard color scheme.</li>
+                  <li><strong>All 12 Edges (Dedges):</strong> Pair edges freely using slice-flip-slice (or Freeslice) with full U/D storage.</li>
+                  <li><strong>3x3 Stage + Parity:</strong> Solve Cross &rarr; F2L &rarr; OLL (fix OLL parity) &rarr; PLL (fix PLL parity).</li>
+                </ol>
+              </div>
+              <div>
+                <p><strong>Yau Method (Main Speedcubing Standard):</strong></p>
+                <ol class="guide-list guide-steps">
+                  <li><strong>First 2 Opposite Centers:</strong> Solve White &amp; Yellow centers (leave 3 slots free around White).</li>
+                  <li><strong>3 of 4 Cross Edges:</strong> Pair 3 White cross edges and place them around the White center on <code>L</code> (solving 3/4 of your Cross early!).</li>
+                  <li><strong>Last 4 Centers (L4C):</strong> Hold White on <code>L</code>; solve the remaining 4 centers using only <code>R, Rw, U</code> moves so your 3 cross edges stay intact.</li>
+                  <li><strong>4th Cross Edge:</strong> Pair the final White cross edge and insert it to complete your Cross on <code>D</code>.</li>
+                  <li><strong>3-2-3 Last 8 Edges:</strong> Rapidly pair the final 8 edges with zero pauses, then go straight into F2L!</li>
+                </ol>
+              </div>
+            </div>
+          </section>
+
+          <div class="guide-grid">
+            <section class="guide-card">
+              <h3 class="guide-card-title">&#x1F3A8; Center Pairing &amp; BOY Color Scheme</h3>
+              <p>Even-layered cubes (4x4, 6x6) have <strong>no fixed physical center caps</strong> &mdash; building two adjacent centers swapped makes the rest of the solve impossible until fixed:</p>
+              <ul class="guide-list">
+                <li><strong>Standard BOY Color Scheme:</strong> In standard scramble orientation (<strong>White Top, Green Front</strong>), Right is Red, Back is Blue, Left is Orange, Bottom is Yellow.</li>
+                <li><strong>With White on Bottom (D) &amp; Yellow on Top (U):</strong> Looking down at Yellow, side centers go clockwise <strong>Green &rarr; Red &rarr; Blue &rarr; Orange</strong>. Quick check: hold <strong>Green Front, White Bottom</strong> &rarr; <strong>Orange is on Right</strong> (or hold Blue Front &rarr; Red is on Right).</li>
+                <li><strong>Easy "BOY" Corner Check:</strong> Going clockwise around the Blue&ndash;Orange&ndash;Yellow corner always reads <strong>Blue &rarr; Orange &rarr; Yellow</strong>.</li>
+                <li><strong>Opposite First:</strong> Solve 1st center (White/Yellow) with 1x2 bars, then build its opposite face using <code>Rw U2 Rw'</code> / <code>Rw' U2 Rw</code> insertions.</li>
+                <li><strong>Last 2 Centers (L2C):</strong> Build 1x2 bars on Top/Front without breaking solved centers: insert bars with <code>Rw U Rw'</code> / <code>Rw U2 Rw'</code>, or fix final single cubies with <code>Rw U Rw' U Rw U2 Rw'</code> (holding target swap on F/U).</li>
+              </ul>
+            </section>
+
+            <section class="guide-card">
+              <h3 class="guide-card-title">&#x1F504; Edge Pairing &amp; Flipping Algorithm</h3>
+              <p>Every 4x4 edge pair (dedge) consists of 2 wing pieces. Standard Redux pairs them using <strong>Slice &rarr; Insert/Flip &rarr; Slice Back</strong>:</p>
+              <ul class="guide-list">
+                <li><strong>Flipping Alg:</strong> Flips the Front-Right (FR) dedge in place without disturbing U/D faces: <code>R U R' F R' F' R</code> (or shorter 5-move <code>R F' U R' F</code>).</li>
+                <li><strong>Basic Redux Cycle:</strong> Put an unsolved target wing in FR, offset with <code>Uw'</code> to pair a matching piece, replace the solved dedge into <code>U</code> or <code>D</code> with <code>R U R'</code>, then restore centers with <code>Uw</code>.</li>
+                <li><strong>Last 2 Edges (L2E):</strong> When only 2 unsolved dedges remain in FR and FL with matching colors facing the same horizontal level (not staggered diagonally), run <code>Uw' (R U R' F R' F' R) Uw</code> to solve both simultaneously!</li>
+              </ul>
+            </section>
+
+            <section class="guide-card">
+              <h3 class="guide-card-title">&#x26A1; 3-2-3 Edge Pairing (Yau Method)</h3>
+              <p>With all 6 centers + 4 D-layer Cross edges solved in <strong>Yau</strong>, only <strong>8 top/middle edges</strong> remain. Pair them in 3 fast cycles with zero rotation hunting:</p>
+              <ol class="guide-list guide-steps">
+                <li><strong>Initial Offset (<code>Uw'</code>):</strong> Slice the equator once (<code>Uw'</code> or <code>u'</code>).</li>
+                <li><strong>First 3 Edges:</strong> Match the front-right bottom wing using the front-left top wing, then insert the next matching edge from <code>U</code> into that open top slot. Repeat around <code>FR &rarr; FL &rarr; BL</code> (<strong>3 dedges</strong>). Slice back <code>Uw</code> &rarr; <strong>3 solved edges!</strong></li>
+                <li><strong>Next 2 Edges:</strong> Slice <code>Uw'</code> (to an unsolved pair), feed <strong>2 matching edges</strong> from <code>U</code> into the active slots, then slice back <code>Uw</code> &rarr; <strong>5 total solved edges!</strong></li>
+                <li><strong>Final 3 Edges:</strong> Slice <code>Uw'</code>, feed the remaining edges so aligning back solves all remaining wings, and slice <code>Uw</code> &rarr; <strong>all 8 edges solved!</strong></li>
+                <li><strong>Cycle Break (2-cycle):</strong> If a chain closes after only 2 edges instead of 3, replace any solved-slot spot with an unsolved edge from <code>U</code> (e.g. <code>R U' R'</code>) and continue pairing.</li>
+              </ol>
+            </section>
+
+            <section class="guide-card">
+              <h3 class="guide-card-title">&#x2696;&#xFE0F; Parity &amp; 4x4 Speedcubing Benchmarks</h3>
+              <ul class="guide-list">
+                <li><strong>Why 2 OLL Parity Diagrams?</strong> Wide-turn speed algs (like <code>Rw U2 x Rw...</code>) flip <strong>all 4 front top pieces</strong> (<code>UFL, UF dedge, UFR</code>) and swap UL/UR &mdash; great <em>before</em> OLL. Inner-slice Pure Lucas Parity (<code>2R2 B2 U2 2L...</code>) flips <strong>only the 2 UF wings</strong> while keeping all corners intact.</li>
+                <li><strong>Parity Probability:</strong> 50% OLL parity, 50% PLL parity, 25% chance of double parity (both in one solve).</li>
+                <li><strong>15s Inspection Target:</strong> Plan your entire 1st Center (4&ndash;6 moves) and track 1&ndash;2 pieces of your opposite 2nd Center before starting.</li>
+                <li><strong>Target Stage Splits:</strong> Aim roughly for <strong>25% Centers</strong> (L4C lookahead), <strong>35% Cross + 3-2-3 Edges</strong>, and <strong>40% 3x3 Stage + Parity</strong>.</li>
+              </ul>
+            </section>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.currentPuzzle === "444") {
       return `
         <div class="guide-card-stack">
           <section class="guide-card">
-            <h3 class="guide-card-title">⚖️ 4x4 Parity Fundamentals</h3>
-            <p>Because the 4x4 cube has an even number of layers and lacks fixed physical center pieces, internal slice permutations can create states that are <strong>mathematically impossible on a 3x3</strong>.</p>
+            <h3 class="guide-card-title">⚖️ 4x4 Parity: 4-Piece Front Flip vs. Pure Dedge Flip</h3>
+            <p>Because the 4x4 lacks fixed centers, odd internal slice permutations cause last-layer states <strong>impossible on a 3x3</strong> (50% OLL parity, 50% PLL parity):</p>
             <ul class="guide-list">
-              <li><strong>OLL Parity (50% probability):</strong> A single edge pair (dedge) appears flipped. Fixed with an inner slice sequence that flips the front edge without disrupting corners.</li>
-              <li><strong>PLL Parity (50% probability):</strong> Two edge pairs need to be swapped (opposite or adjacent) while all other pieces are solved. Fixed with <code>2R2 U2 2R2 Uw2 2R2 Uw2</code>.</li>
+              <li><strong>OLL (4-Piece Front Flip):</strong> Fast wide-turn algorithms (<code>Rw U2 x Rw...</code> or wide Lucas <code>Rw2 B2...</code>) flip the entire front row (<strong>UFL corner + UF dedge + UFR corner</strong>) and swap UL/UR. Use right before OLL recognition so OLL/PLL finishes everything cleanly.</li>
+              <li><strong>OLL (Pure Single Dedge Flip):</strong> Inner-slice Lucas Parity (<code>2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2</code>) flips <strong>only the 2 middle UF wings</strong> while preserving all 4 corners. Ideal when OLL corners/edges are already solved or recognized.</li>
+              <li><strong>PLL Parity (Opposite &amp; Adjacent):</strong> Swaps two opposite dedges (<code>2R2 U2 2R2 Uw2 2R2 Uw2</code>) or two adjacent dedges via sexy-move setup.</li>
             </ul>
           </section>
 
           <section class="guide-card">
-            <h3 class="guide-card-title">⚡ 4x4 Parity Fingertricks &amp; Tips</h3>
+            <h3 class="guide-card-title">⚡ Turning Technique &amp; Full 4x4 Guides</h3>
             <ul class="guide-list">
-              <li><strong>Wide turns (Rw, Lw):</strong> Turn two outer layers together. Practice wide turns with your index and middle fingers for smooth execution.</li>
-              <li><strong>Inner slice (2R / r):</strong> Slice the right inner layer directly with your ring finger or use <code>Rw2 R2</code> equivalent if inner slice is stiff.</li>
+              <li><strong>Wide turns (Rw, Lw):</strong> Turn outer two layers together cleanly without locking inner layers.</li>
+              <li><strong>Inner slice (2R):</strong> Push inner right slice with ring finger, or execute <code>Rw2 R2</code> equivalent if inner slices catch.</li>
+              <li><strong>Want full 4x4 method tutorials?</strong> Open the <strong>4x4 Methods &amp; Guides</strong> tab above for step-by-step Redux vs. Yau, Color Scheme, Center Pairing, Edge Flipping, and 3-2-3 Edge Pairing!</li>
             </ul>
           </section>
         </div>

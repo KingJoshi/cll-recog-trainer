@@ -232,8 +232,16 @@ export function createNavController({
       return;
     }
 
-    trackBar.classList.toggle("is-dense", pData.tracks.length >= 6);
-    trackBar.innerHTML = pData.tracks.map(t => {
+    const visibleTracks = s.mode === "practice"
+      ? pData.tracks.filter(t => !t.studyOnly)
+      : pData.tracks;
+    if (s.mode === "practice" && !visibleTracks.some(t => t.id === s.currentTrackId) && visibleTracks.length > 0) {
+      s.currentTrackId = PUZZLES[s.currentPuzzle]?.defaultTrack || visibleTracks[0].id;
+      appStore.loadTrackSelection(s.currentPuzzle, s.currentTrackId);
+    }
+
+    trackBar.classList.toggle("is-dense", visibleTracks.length >= 6);
+    trackBar.innerHTML = visibleTracks.map(t => {
       const active = t.id === s.currentTrackId;
       const tipAttr = t.description ? `data-tooltip="${escapeHtml(t.description)}"` : "";
       return `<button type="button" class="track-btn ${active ? "active" : ""}" data-track="${t.id}" aria-pressed="${active}" ${tipAttr}>
@@ -544,6 +552,11 @@ export function createNavController({
         ensureTimedDrillTargetAndSession();
       } else {
         s.statsType = "recog";
+        const curTrack = getTrack(s.currentPuzzle, s.currentTrackId);
+        if (!curTrack || curTrack.studyOnly) {
+          s.currentTrackId = PUZZLES[s.currentPuzzle]?.defaultTrack || getDefaultTrack(s.currentPuzzle)?.id || s.currentTrackId;
+          appStore.loadTrackSelection(s.currentPuzzle, s.currentTrackId);
+        }
       }
     }
 

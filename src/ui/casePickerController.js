@@ -53,7 +53,8 @@ export function getCaseShortLabel(caseObj, track) {
   const id = caseObj.id || "";
   if (id.startsWith("555-edge-parity")) return "Middle Flip";
   if (id.startsWith("555-wing-swap")) return "Wing Swap";
-  if (id.startsWith("444-oll-parity")) return "OLL Parity";
+  if (id === "444-oll-parity-pure") return "OLL (Pure)";
+  if (id.startsWith("444-oll-parity")) return "OLL (4-Piece)";
   if (id.startsWith("444-pll-parity-opp")) return "Opposite";
   if (id.startsWith("444-pll-parity-adj")) return "Adjacent";
 

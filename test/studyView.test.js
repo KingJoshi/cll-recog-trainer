@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { StudyView } from '../src/studyView.js';
 import { getTrack, setPreferredAlg, getPreferredAlg } from '../src/data/algRegistry.js';
+import { render444ParitySvg } from '../src/cube/caseSvgRenderer.js';
 
 function createMockContainer() {
   return {
@@ -442,4 +443,28 @@ test('StudyView shows (Opp Xn) next to CLL cases in Case Grid always, and in Gri
   assert.ok(singleGridHtml.includes('(Opp U5)'));
   assert.ok(singleGridPane.includes('(Opp T2)'));
   assert.ok(detailPane.includes('(Opp '));
+});
+
+test('render444ParitySvg distinguishes 4-Piece vs Pure OLL Parity, and StudyView renders 444 Methods & Guides', () => {
+  const parityTrack = getTrack('444', 'parity');
+  assert.strictEqual(parityTrack.cases.length, 4);
+  const oll4Piece = parityTrack.caseById.get('444-oll-parity');
+  const ollPure = parityTrack.caseById.get('444-oll-parity-pure');
+  assert.ok(oll4Piece && ollPure);
+
+  const svg4Piece = render444ParitySvg(oll4Piece);
+  const svgPure = render444ParitySvg(ollPure);
+  assert.notStrictEqual(svg4Piece, svgPure);
+  // 4-piece parity darkens all 4 front stickers (width="68" yellow front bar: 4 * 17) vs pure (width="34" bar: 2 * 17)
+  assert.ok(svg4Piece.includes('width="68"'));
+  assert.ok(svgPure.includes('width="34"'));
+
+  const container = createMockContainer();
+  const sv = new StudyView({ container });
+  sv.setTrack('444', 'methods');
+  assert.ok(container.innerHTML.includes('Reduction (Redux) vs. Yau Method'));
+  assert.ok(container.innerHTML.includes('Center Pairing'));
+  assert.ok(container.innerHTML.includes('BOY Color Scheme'));
+  assert.ok(container.innerHTML.includes('Edge Pairing'));
+  assert.ok(container.innerHTML.includes('3-2-3 Edge Pairing'));
 });
