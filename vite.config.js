@@ -79,7 +79,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        navigateFallbackDenylist: [/^\/privacy/, /^\/terms/, /^\/auth\//],
+        navigateFallbackDenylist: [/^\/privacy/, /^\/terms/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/unpkg\.com\//,

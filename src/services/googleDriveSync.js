@@ -1,10 +1,9 @@
 // Google Account OAuth (GIS) & Google Drive appDataFolder Cloud Sync Service
 
 import {
-  HttpStatusError,
-  attachCloudSyncLifecycle,
-  reconcileRemoteSyncPayload
-} from './cloudSyncBase.js';
+  SYNC_SCHEMA_VERSION,
+  mergeSyncPayloads
+} from './syncMerge.js';
 import {
   loadSyncMeta,
   saveSyncMeta,
@@ -13,7 +12,11 @@ import {
   saveSessionToken,
   clearSessionToken,
   loadStoredClientId,
-  saveStoredClientId
+  saveStoredClientId,
+  loadSyncBaseSnapshot,
+  saveSyncBaseSnapshot,
+  exportLocalSyncPayload,
+  applyMergedSyncPayload
 } from './syncStorage.js';
 
 export const DRIVE_SYNC_FILENAME = "speedcube-trainer-sync.json";
@@ -99,6 +102,13 @@ export function defaultLoadGisScript() {
   return gisLoadPromise;
 }
 
+class HttpStatusError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
 function buildMultipartBody(metadata, dataObj) {
   const boundary = `sync_${Math.random().toString(36).slice(2)}_${Date.now()}`;
   const metadataJson = JSON.stringify(metadata);
@@ -117,6 +127,14 @@ function buildMultipartBody(metadata, dataObj) {
   };
 }
 
+function countTotalSolves(payload) {
+  let count = 0;
+  for (const sess of (payload?.sessions || [])) {
+    count += Array.isArray(sess?.solves) ? sess.solves.length : 0;
+  }
+  return count;
+}
+
 export class GoogleDriveSyncService {
   constructor({
     appStore,
@@ -127,8 +145,6 @@ export class GoogleDriveSyncService {
     nowFn = () => Date.now(),
     autoAttachBrowserListeners = true
   } = {}) {
-    this.providerId = "google";
-    this.providerLabel = "Google Drive";
     this.appStore = appStore;
     this.fetchImpl = fetchImpl;
     this.loadGis = loadGis;
@@ -150,9 +166,51 @@ export class GoogleDriveSyncService {
     this.tokenClientId = "";
 
     this.status = this._computeInitialStatus();
-    this._detachLifecycle = autoAttachBrowserListeners
-      ? attachCloudSyncLifecycle(this, { visibilityPullCooldownMs: VISIBILITY_PULL_COOLDOWN_MS })
-      : () => {};
+
+    if (autoAttachBrowserListeners && typeof window !== "undefined") {
+      this._triggerForegroundPull = (reason = "visibility") => {
+        if (!this.isSignedIn() || this.meta.autoSync === false) return;
+        const now = this.nowFn();
+        if (now - this.lastVisibilityPullAt < VISIBILITY_PULL_COOLDOWN_MS) return;
+        this.lastVisibilityPullAt = now;
+        void this.syncNow({ reason, interactive: false });
+      };
+      this._flushPendingSync = () => {
+        if (!this.isSignedIn() || this.meta.autoSync === false) return;
+        if (!this.pendingChanges && !this.autoSyncTimer) return;
+        clearTimeout(this.autoSyncTimer);
+        this.autoSyncTimer = 0;
+        void this.syncNow({ reason: "hide", interactive: false });
+      };
+      this._onOnline = () => {
+        if (!this.isSignedIn()) return;
+        if (this.pendingChanges || this.meta.autoSync !== false) {
+          void this.syncNow({ reason: "online", interactive: false });
+        }
+      };
+      this._onVisibilityChange = () => {
+        if (typeof document === "undefined") return;
+        if (document.visibilityState === "hidden") {
+          this._flushPendingSync();
+          return;
+        }
+        if (document.visibilityState === "visible") {
+          this._triggerForegroundPull("visibility");
+        }
+      };
+      this._onFocus = () => {
+        this._triggerForegroundPull("focus");
+      };
+      this._onPageHide = () => {
+        this._flushPendingSync();
+      };
+      window.addEventListener("online", this._onOnline);
+      window.addEventListener("focus", this._onFocus);
+      window.addEventListener("pagehide", this._onPageHide);
+      if (typeof document !== "undefined") {
+        document.addEventListener("visibilitychange", this._onVisibilityChange);
+      }
+    }
   }
 
   _computeInitialStatus() {
@@ -521,17 +579,28 @@ export class GoogleDriveSyncService {
       }
     }
 
+    const localPayload = exportLocalSyncPayload(this.appStore);
     const accountKey = this.meta?.sub || this.meta?.email || "";
+    const baseSnapshot = loadSyncBaseSnapshot(accountKey);
+
+    let merged;
+    let summary;
+    let localChanged = false;
+    let remoteChanged = false;
     let fileId = remoteFile?.id || "";
 
-    const result = await reconcileRemoteSyncPayload({
-      appStore: this.appStore,
-      accountKey,
-      remotePayload,
-      now: this.nowFn(),
-      reason,
-      onDataHydrated: this.onDataHydrated,
-      onUpdateRemote: async (merged) => {
+    if (remotePayload && typeof remotePayload === "object") {
+      const mergeResult = mergeSyncPayloads(localPayload, remotePayload, baseSnapshot, this.nowFn());
+      merged = mergeResult.merged;
+      summary = mergeResult.summary;
+      localChanged = mergeResult.localChanged;
+      remoteChanged = mergeResult.remoteChanged;
+
+      if (localChanged) {
+        applyMergedSyncPayload(this.appStore, merged);
+        this.onDataHydrated?.(summary, merged, reason);
+      }
+      if (remoteChanged) {
         try {
           const updated = await this._updateDriveFile(fileId, merged, accessToken);
           fileId = updated?.id || fileId;
@@ -543,29 +612,45 @@ export class GoogleDriveSyncService {
             throw err;
           }
         }
-        return { fileId };
-      },
-      onCreateRemote: async (merged) => {
-        const created = await this._createDriveFile(merged, accessToken);
-        fileId = created?.id || "";
-        return { fileId };
       }
-    });
+    } else {
+      merged = {
+        ...localPayload,
+        schemaVersion: SYNC_SCHEMA_VERSION,
+        hasLocalSettings: true
+      };
+      const created = await this._createDriveFile(merged, accessToken);
+      fileId = created?.id || "";
+      localChanged = false;
+      remoteChanged = true;
+      summary = {
+        addedSolves: 0,
+        uploadedSolves: countTotalSolves(merged),
+        addedSessions: 0,
+        updatedSettings: 0,
+        mergedStatsCases: 0,
+        mergedTags: 0,
+        mergedLabels: 0,
+        mergedPreferredAlgs: 0
+      };
+    }
 
+    saveSyncBaseSnapshot(merged, accountKey);
+    const syncedAt = this.nowFn();
     this.meta = {
       ...this.meta,
       fileId,
-      lastSyncedAt: result.lastSyncedAt
+      lastSyncedAt: syncedAt
     };
     saveSyncMeta(this.meta);
 
     return {
       ok: true,
-      localChanged: result.localChanged,
-      remoteChanged: result.remoteChanged,
-      summary: result.summary,
+      localChanged,
+      remoteChanged,
+      summary,
       fileId,
-      lastSyncedAt: result.lastSyncedAt
+      lastSyncedAt: syncedAt
     };
   }
 
@@ -680,6 +765,14 @@ export class GoogleDriveSyncService {
   }
 
   destroy() {
-    this._detachLifecycle?.();
+    clearTimeout(this.autoSyncTimer);
+    if (typeof window !== "undefined") {
+      if (this._onOnline) window.removeEventListener("online", this._onOnline);
+      if (this._onFocus) window.removeEventListener("focus", this._onFocus);
+      if (this._onPageHide) window.removeEventListener("pagehide", this._onPageHide);
+    }
+    if (typeof document !== "undefined" && this._onVisibilityChange) {
+      document.removeEventListener("visibilitychange", this._onVisibilityChange);
+    }
   }
 }
