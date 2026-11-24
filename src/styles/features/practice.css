@@ -1055,6 +1055,14 @@
     color: var(--muted);
 }
 
+.bld-sim-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
 .bld-ref-drawer {
     border-top: 1px solid var(--border);
     padding-top: 12px;

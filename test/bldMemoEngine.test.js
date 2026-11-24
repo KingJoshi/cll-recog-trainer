@@ -16,8 +16,10 @@ import {
   formatLetterPairs,
   generateBldScramble,
   computeCanonicalBldMemo,
-  verifyBldMemoAnswer
+  verifyBldMemoAnswer,
+  buildBldSimulationPayload
 } from '../src/cube/bldMemoEngine.js';
+import { parseScrambleInput } from '../src/algParser.js';
 import { BldMemoTrainer } from '../src/features/practice/bldMemoTrainer.js';
 
 test('parseLetterPairsInput and formatLetterPairs handle separators, case, and invalid chars cleanly', () => {
@@ -209,10 +211,12 @@ test('BldMemoTrainer switches edges/corners/both modes and verifies answers via 
   try {
     const applied = [];
     const flashed = [];
+    const simPayloads = [];
     const trainer = new BldMemoTrainer({
       container,
       onApplyScrambleToDisplay: (s) => applied.push(s),
-      onFlashCube: (res) => flashed.push(res)
+      onFlashCube: (res) => flashed.push(res),
+      onQuickSimSolutions: (payload) => simPayloads.push(payload)
     });
 
     await trainer.init();
@@ -233,6 +237,12 @@ test('BldMemoTrainer switches edges/corners/both modes and verifies answers via 
     assert.strictEqual(trainer.streak, 1);
     assert.deepStrictEqual(flashed, ['correct']);
     assert.match(container.innerHTML, /Correct!/);
+    assert.match(container.innerHTML, /id="bldSimUserBtn"/);
+
+    const userSim = trainer.simulateUserMemo();
+    assert.ok(userSim && userSim.solutions.length >= 2);
+    assert.strictEqual(simPayloads.length, 1);
+    assert.strictEqual(userSim.solutions[0].pillLabel, 'Full Solve');
 
     // Switch to corners only and submit wrong guess
     await trainer.setMode('corners');
@@ -245,14 +255,63 @@ test('BldMemoTrainer switches edges/corners/both modes and verifies answers via 
     assert.strictEqual(trainer.streak, 0);
     assert.deepStrictEqual(flashed, ['correct', 'wrong']);
     assert.match(container.innerHTML, /Not quite solved/);
+    assert.match(container.innerHTML, /id="bldSimUserBtn"/);
 
     await trainer.toggleSolutionReveal();
     assert.strictEqual(trainer.solutionRevealed, true);
     assert.match(container.innerHTML, /Any valid cycle break/);
+    assert.match(container.innerHTML, /id="bldSimExampleBtn"/);
+
+    const exSim = trainer.simulateExampleMemo();
+    assert.ok(exSim && exSim.solutions.length >= 2);
+    assert.strictEqual(simPayloads.length, 2);
   } finally {
     if (prevDoc === undefined) delete globalThis.document;
     else globalThis.document = prevDoc;
   }
+});
+
+test('buildBldSimulationPayload builds full and step-by-step QuickSim sequences that solve KPuzzle and parse cleanly', async () => {
+  const kp = await getKpuzzle('3x3x3');
+  const solved = kp.defaultPattern();
+
+  // Odd-parity full scramble (OP_T_PERM) includes Edge step, Parity Ra-Perm, and Corner steps
+  const canon = await computeCanonicalBldMemo(OP_T_PERM);
+  const payload = buildBldSimulationPayload({
+    scramble: OP_T_PERM,
+    mode: 'both',
+    edgeLetters: canon.edgeLetters,
+    cornerLetters: canon.cornerLetters
+  });
+
+  assert.ok(payload);
+  assert.strictEqual(payload.puzzle, '333');
+  assert.strictEqual(payload.solutions[0].pillLabel, 'Full Solve');
+  assert.ok(payload.solutions.some(s => s.pillLabel === 'Parity (Ra)'));
+  assert.ok(payload.solutions.some(s => s.pillLabel.startsWith('E1:')));
+  assert.ok(payload.solutions.some(s => s.pillLabel.startsWith('C1:')));
+
+  // Every step parses cleanly via parseScrambleInput and cumulatively advances toward solved
+  for (const sol of payload.solutions) {
+    assert.strictEqual(parseScrambleInput(sol.scramble).ok, true);
+    assert.strictEqual(parseScrambleInput(sol.moves).ok, true);
+  }
+
+  const fullSol = payload.solutions[0];
+  assert.ok(solved.applyAlg(fullSol.scramble).applyAlg(fullSol.moves).isIdentical(solved));
+
+  const lastStep = payload.solutions[payload.solutions.length - 1];
+  assert.ok(solved.applyAlg(lastStep.scramble).applyAlg(lastStep.moves).isIdentical(solved));
+
+  // Edges-only mode ignores corners and parity step
+  const edgeOnlyPayload = buildBldSimulationPayload({
+    scramble: OP_T_PERM,
+    mode: 'edges',
+    edgeLetters: canon.edgeLetters,
+    cornerLetters: canon.cornerLetters
+  });
+  assert.strictEqual(edgeOnlyPayload.solutions.some(s => s.pillLabel === 'Parity (Ra)'), false);
+  assert.strictEqual(edgeOnlyPayload.solutions.some(s => s.pillLabel.startsWith('C1:')), false);
 });
 
 test('main.js wires onApplyScrambleToDisplay into PracticeView so 3BLD scrambles update the 3D cube', () => {

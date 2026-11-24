@@ -9,7 +9,8 @@ import {
   formatLetterPairs,
   generateBldScramble,
   computeCanonicalBldMemo,
-  verifyBldMemoAnswer
+  verifyBldMemoAnswer,
+  buildBldSimulationPayload
 } from '../../cube/bldMemoEngine.js';
 
 const MODE_OPTIONS = [
@@ -50,10 +51,11 @@ function renderPairChipsHtml(rawValue, { kind, mode }) {
 }
 
 export class BldMemoTrainer {
-  constructor({ container, onApplyScrambleToDisplay = null, onFlashCube = null } = {}) {
+  constructor({ container, onApplyScrambleToDisplay = null, onFlashCube = null, onQuickSimSolutions = null } = {}) {
     this.container = container;
     this.onApplyScrambleToDisplay = onApplyScrambleToDisplay;
     this.onFlashCube = onFlashCube;
+    this.onQuickSimSolutions = onQuickSimSolutions;
 
     this.mode = 'both';
     this.scramble = '';
@@ -193,6 +195,42 @@ export class BldMemoTrainer {
     this.render();
   }
 
+  openSimulation({ edgeLetters = [], cornerLetters = [], sourceLabel = 'Example' } = {}) {
+    if (!this.scramble || typeof this.onQuickSimSolutions !== 'function') return null;
+    const modeName = this.mode === 'edges' ? 'Edges' : this.mode === 'corners' ? 'Corners' : 'Full 3BLD';
+    const payload = buildBldSimulationPayload({
+      scramble: this.scramble,
+      mode: this.mode,
+      edgeLetters,
+      cornerLetters,
+      title: `3BLD ${modeName} · ${sourceLabel} (3D)`
+    });
+    if (payload) {
+      this.onQuickSimSolutions(payload);
+    }
+    return payload;
+  }
+
+  simulateExampleMemo() {
+    const canon = this.revealedCanonical || this.lastResult?.canonical;
+    if (!canon) return null;
+    return this.openSimulation({
+      edgeLetters: canon.edgeLetters,
+      cornerLetters: canon.cornerLetters,
+      sourceLabel: 'Example Memo'
+    });
+  }
+
+  simulateUserMemo() {
+    const r = this.lastResult;
+    if (!r || r.errors.length > 0) return null;
+    return this.openSimulation({
+      edgeLetters: r.edgeLetters,
+      cornerLetters: r.cornerLetters,
+      sourceLabel: 'Your Memo'
+    });
+  }
+
   updatePreview(kind) {
     if (!this.container) return;
     const previewEl = this.container.querySelector(kind === 'edges' ? '#bldEdgesPreview' : '#bldCornersPreview');
@@ -239,11 +277,17 @@ export class BldMemoTrainer {
       }
     }
 
+    const canSimUser = r.errors.length === 0 && (r.edgeLetters.length + r.cornerLetters.length) > 0;
+    const simUserBtnHtml = canSimUser
+      ? `<div class="bld-sim-action-row"><button type="button" id="bldSimUserBtn" class="btn btn-xs btn-outline">&#x25B6; Simulate Your Memo (3D)</button></div>`
+      : '';
+
     return `
       <div class="bld-feedback ${cls}" role="status">
         <div class="bld-feedback-title">${escapeHtml(title)}</div>
         ${errorHtml}
         ${parts.join('')}
+        ${simUserBtnHtml}
       </div>
     `;
   }
@@ -262,9 +306,13 @@ export class BldMemoTrainer {
     if (showCorners) {
       rows.push(`<div class="bld-sol-row"><strong>Corners (OP Buffer E):</strong> <code>${escapeHtml(canon.cornerPairs || '(already solved)')}</code> <span class="bld-sol-meta">(${canon.cornerLetters.length} letters)</span></div>`);
     }
+    const activeCount = (showEdges ? canon.edgeLetters.length : 0) + (showCorners ? canon.cornerLetters.length : 0);
+    const simExampleBtnHtml = activeCount > 0
+      ? `<div class="bld-sim-action-row"><button type="button" id="bldSimExampleBtn" class="btn btn-xs btn-primary">&#x25B6; Simulate Example (3D)</button></div>`
+      : '';
     rows.push(`<p class="bld-sol-note">Any valid cycle break or flipped/twisted sticker order also passes verification above.</p>`);
 
-    return `<div class="bld-solution-box">${rows.join('')}</div>`;
+    return `<div class="bld-solution-box">${rows.join('')}${simExampleBtnHtml}</div>`;
   }
 
   render() {
@@ -437,6 +485,14 @@ export class BldMemoTrainer {
 
     this.container.querySelector('#bldRevealBtn')?.addEventListener('click', () => {
       void this.toggleSolutionReveal();
+    });
+
+    this.container.querySelector('#bldSimExampleBtn')?.addEventListener('click', () => {
+      this.simulateExampleMemo();
+    });
+
+    this.container.querySelector('#bldSimUserBtn')?.addEventListener('click', () => {
+      this.simulateUserMemo();
     });
 
     this.container.querySelector('#bldToggleSpeffzBtn')?.addEventListener('click', () => {

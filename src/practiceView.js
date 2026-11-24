@@ -197,7 +197,8 @@ export class PracticeView {
         this.bldMemoTrainer = new BldMemoTrainer({
           container: this.container,
           onApplyScrambleToDisplay: this.onApplyScrambleToDisplay,
-          onFlashCube: this.onFlashCube
+          onFlashCube: this.onFlashCube,
+          onQuickSimSolutions: this.onQuickSimSolutions
         });
       }
       await this.bldMemoTrainer.init();
@@ -268,7 +269,8 @@ export class PracticeView {
         this.bldMemoTrainer = new BldMemoTrainer({
           container: this.container,
           onApplyScrambleToDisplay: this.onApplyScrambleToDisplay,
-          onFlashCube: this.onFlashCube
+          onFlashCube: this.onFlashCube,
+          onQuickSimSolutions: this.onQuickSimSolutions
         });
       }
       this.bldMemoTrainer.render();

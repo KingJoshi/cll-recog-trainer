@@ -33,16 +33,17 @@ function buildEdgeAlgTable() {
     for (const f of item.faces) {
       if (f.role === "buffer") continue;
       if (f.letter === "A") {
-        map.set("A", { letter: "A", piece: item.piece, face: f.face, alg: OP_JA_PERM });
+        map.set("A", { letter: "A", piece: item.piece, face: f.face, setup: "Direct Ja-Perm", alg: OP_JA_PERM });
       } else if (f.letter === "C") {
-        map.set("C", { letter: "C", piece: item.piece, face: f.face, alg: OP_JB_PERM });
+        map.set("C", { letter: "C", piece: item.piece, face: f.face, setup: "Direct Jb-Perm", alg: OP_JB_PERM });
       } else if (f.letter === "D") {
-        map.set("D", { letter: "D", piece: item.piece, face: f.face, alg: OP_T_PERM });
+        map.set("D", { letter: "D", piece: item.piece, face: f.face, setup: "Direct T-Perm", alg: OP_T_PERM });
       } else {
         map.set(f.letter, {
           letter: f.letter,
           piece: item.piece,
           face: f.face,
+          setup: f.setup,
           alg: conjugateSetup(f.setup, OP_T_PERM)
         });
       }
@@ -56,8 +57,15 @@ function buildCornerAlgTable() {
   for (const item of SPEFFZ_CORNERS) {
     for (const f of item.faces) {
       if (f.role === "buffer") continue;
-      const alg = f.letter === "V" ? OP_MOD_Y_PERM : conjugateSetup(f.setup, OP_MOD_Y_PERM);
-      map.set(f.letter, { letter: f.letter, piece: item.piece, face: f.face, alg });
+      const isDirect = f.letter === "V";
+      const alg = isDirect ? OP_MOD_Y_PERM : conjugateSetup(f.setup, OP_MOD_Y_PERM);
+      map.set(f.letter, {
+        letter: f.letter,
+        piece: item.piece,
+        face: f.face,
+        setup: isDirect ? "Direct Mod Y-Perm" : f.setup,
+        alg
+      });
     }
   }
   return map;
@@ -66,14 +74,22 @@ function buildCornerAlgTable() {
 const OP_EDGE_MAP = buildEdgeAlgTable();
 const OP_CORNER_MAP = buildCornerAlgTable();
 
-export function getOpEdgeAlg(letter) {
+export function getOpEdgeEntry(letter) {
   const ch = String(letter || "").toUpperCase();
-  return OP_EDGE_MAP.get(ch)?.alg || null;
+  return OP_EDGE_MAP.get(ch) || null;
+}
+
+export function getOpCornerEntry(letter) {
+  const ch = String(letter || "").toUpperCase();
+  return OP_CORNER_MAP.get(ch) || null;
+}
+
+export function getOpEdgeAlg(letter) {
+  return getOpEdgeEntry(letter)?.alg || null;
 }
 
 export function getOpCornerAlg(letter) {
-  const ch = String(letter || "").toUpperCase();
-  return OP_CORNER_MAP.get(ch)?.alg || null;
+  return getOpCornerEntry(letter)?.alg || null;
 }
 
 let calibratedTablesPromise = null;
@@ -420,5 +436,118 @@ export async function verifyBldMemoAnswer({
     hasParity: canonical.hasParity,
     appliedParity,
     canonical
+  };
+}
+
+function countAlgTokens(algStr) {
+  return String(algStr || "").trim().split(/\s+/).filter(Boolean).length;
+}
+
+function joinAlgParts(...parts) {
+  return parts.map(p => String(p || "").trim()).filter(Boolean).join(" ");
+}
+
+/**
+ * Build a QuickSimModal payload with Full Solve overview plus individual per-letter
+ * Old Pochmann shots (Edges, Ra-Perm Parity when odd in Both mode, and Corners).
+ */
+export function buildBldSimulationPayload({
+  scramble = "",
+  mode = "both",
+  edgeLetters = [],
+  cornerLetters = [],
+  title = "3BLD Old Pochmann 3D Simulation"
+} = {}) {
+  const cleanScramble = String(scramble || "").trim();
+  const includeEdges = mode === "edges" || mode === "both";
+  const includeCorners = mode === "corners" || mode === "both";
+
+  const edges = includeEdges
+    ? parseLetterPairsInput(Array.isArray(edgeLetters) ? edgeLetters.join("") : edgeLetters).letters
+        .map(ch => getOpEdgeEntry(ch))
+        .filter(Boolean)
+    : [];
+  const corners = includeCorners
+    ? parseLetterPairsInput(Array.isArray(cornerLetters) ? cornerLetters.join("") : cornerLetters).letters
+        .map(ch => getOpCornerEntry(ch))
+        .filter(Boolean)
+    : [];
+
+  const applyParity = mode === "both" && edges.length % 2 === 1;
+  const stepSolutions = [];
+  const executedAlgs = [];
+
+  for (let i = 0; i < edges.length; i++) {
+    const entry = edges[i];
+    stepSolutions.push({
+      label: `Edge ${i + 1}: ${entry.letter} (${entry.piece})`,
+      pillLabel: `E${i + 1}: ${entry.letter} (${entry.piece})`,
+      group: "Edges (OP)",
+      scramble: joinAlgParts(cleanScramble, ...executedAlgs),
+      moves: entry.alg,
+      moveCount: countAlgTokens(entry.alg),
+      note: `Edge ${i + 1}/${edges.length}: Buffer UR (B) ↔ ${entry.letter} (${entry.piece} ${entry.face}) · Setup: ${entry.setup}`
+    });
+    executedAlgs.push(entry.alg);
+  }
+
+  if (applyParity) {
+    stepSolutions.push({
+      label: "Parity: Ra-Perm",
+      pillLabel: "Parity (Ra)",
+      group: "Parity",
+      scramble: joinAlgParts(cleanScramble, ...executedAlgs),
+      moves: OP_PARITY_RA_PERM,
+      moveCount: countAlgTokens(OP_PARITY_RA_PERM),
+      note: `Odd edge count (${edges.length}) — Ra-Perm swaps UFR↔UBR back and pre-swaps UB↔UL for Corners.`
+    });
+    executedAlgs.push(OP_PARITY_RA_PERM);
+  }
+
+  for (let j = 0; j < corners.length; j++) {
+    const entry = corners[j];
+    stepSolutions.push({
+      label: `Corner ${j + 1}: ${entry.letter} (${entry.piece})`,
+      pillLabel: `C${j + 1}: ${entry.letter} (${entry.piece})`,
+      group: "Corners (OP)",
+      scramble: joinAlgParts(cleanScramble, ...executedAlgs),
+      moves: entry.alg,
+      moveCount: countAlgTokens(entry.alg),
+      note: `Corner ${j + 1}/${corners.length}: Buffer UBL (E) ↔ ${entry.letter} (${entry.piece} ${entry.face}) · Setup: ${entry.setup}`
+    });
+    executedAlgs.push(entry.alg);
+  }
+
+  if (stepSolutions.length === 0) {
+    return null;
+  }
+
+  const allMoves = joinAlgParts(...executedAlgs);
+  const modeLabel = mode === "edges" ? "Edges Only" : mode === "corners" ? "Corners Only" : "Full 3BLD";
+  const summaryParts = [];
+  if (includeEdges) summaryParts.push(`Edges: ${formatLetterPairs(edges.map(e => e.letter)) || "(none)"}`);
+  if (applyParity) summaryParts.push("Parity: Ra-Perm");
+  if (includeCorners) summaryParts.push(`Corners: ${formatLetterPairs(corners.map(c => c.letter)) || "(none)"}`);
+
+  const solutions = [
+    {
+      label: `Full ${modeLabel} Old Pochmann`,
+      pillLabel: "Full Solve",
+      group: modeLabel,
+      scramble: cleanScramble,
+      moves: allMoves,
+      moveCount: countAlgTokens(allMoves),
+      note: `${summaryParts.join(" · ")} — Click individual shot pills above to inspect one target at a time.`
+    },
+    ...stepSolutions
+  ];
+
+  return {
+    puzzle: "333",
+    scramble: cleanScramble,
+    title,
+    solutions,
+    activeIndex: 0,
+    onOpenFullSim: null
   };
 }
