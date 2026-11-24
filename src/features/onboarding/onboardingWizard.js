@@ -70,6 +70,25 @@ export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal
   const safeOhTableAbuse = ohTableAbuse !== false;
   const mode = safeGoal === "learn" ? "study" : safeGoal === "practice" ? "practice" : "solve";
 
+  if (PUZZLES[safePuzzle]?.solveOnly) {
+    return {
+      puzzle: safePuzzle,
+      level: safeLevel,
+      goal: safeGoal,
+      ohHand: safeOhHand,
+      ohTableAbuse: safeOhTableAbuse,
+      mode: "solve",
+      trackId: "full",
+      solveTarget: "full",
+      starterCaseIds: null,
+      studyView: "grid",
+      twoSidedMode: false,
+      title: `${PUZZLES[safePuzzle].name} Timed Solves`,
+      summary: `Full WCA ${PUZZLES[safePuzzle].name} scrambles and timer.`,
+      nextStepTip: "Press Space to start timing full WCA solves."
+    };
+  }
+
   if (safePuzzle === "222") {
     if (safeLevel === "beginner") {
       return {

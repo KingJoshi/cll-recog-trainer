@@ -4,7 +4,7 @@ import { ganTimer, computeSolvePhaseSplits } from '../../ganTimer.js';
 import { smartCube } from '../../smartCube.js';
 import { ensureSolveCfop } from '../../cfopAnalyzer.js';
 import { MAX_SOLVES } from '../../state/appStore.js';
-import { playInspectionBeep } from '../../services/audioService.js';
+import { playInspectionBeep, startMetronome, stopMetronome, playPauseAlert } from '../../services/audioService.js';
 import { formatSolveTime, formatSolveDisplay } from '../../services/htmlUtils.js';
 import { getSolveFingerprint } from '../../services/syncMerge.js';
 import { recordTombstone } from '../../services/syncStorage.js';
@@ -217,6 +217,11 @@ export function createTimerController({
       solveMoveOrigin = solveStart;
     }
 
+    getSmartCubeUi()?.calibrateGyro?.();
+    if (appStore.state.metronomeEnabled) {
+      startMetronome(appStore.state.metronomeBpm);
+    }
+
     if (solveOverlay) {
       solveOverlay.className = "solve-overlay";
       solveOverlay.hidden = false;
@@ -244,13 +249,15 @@ export function createTimerController({
     const localMs = localStopTs - solveStart;
     const rawMs = Number.isFinite(hardwareMs) && hardwareMs > 0 ? hardwareMs : localMs;
     solveState = "idle";
+    stopMetronome();
     if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(solveRaf);
     clearInterval(solveInspectionInterval);
 
     const scr = s.scrambleMoves || s.currentSolveScramble || s.scramble;
     const isCaseTarget = ["cll", "pll", "oll", "f2l", "ortega", "parity", "timer-drill"].includes(s.solveTarget);
     const hasMoves = trackedSolveMoves && trackedSolveMoves.length > 0;
-    const moveCount = hasMoves ? trackedSolveMoves.length : null;
+    const faceMoveCount = hasMoves ? trackedSolveMoves.filter(m => !m.isRotation).length : null;
+    const moveCount = hasMoves ? (faceMoveCount > 0 ? faceMoveCount : trackedSolveMoves.length) : null;
     const smartCubeName = hasMoves ? (smartCube.deviceName || (smartCube.isVirtual ? "Virtual Keyboard Cube" : "Smart Cube")) : null;
 
     let finalMs = Math.round(rawMs);
@@ -375,6 +382,7 @@ export function createTimerController({
 
   function cancelSolve() {
     solveState = "idle";
+    stopMetronome();
     const scUi = getSmartCubeUi();
     scUi?.setSmartCubeStage?.("scrambling");
     scUi?.clearScrambleCorrectionDelay?.();
@@ -654,12 +662,25 @@ export function createTimerController({
     const elapsed = Math.round(now - solveMoveOrigin);
     const prevT = trackedSolveMoves.length > 0 ? trackedSolveMoves[trackedSolveMoves.length - 1].t : 0;
     const split = trackedSolveMoves.length > 0 ? Math.max(10, elapsed - prevT) : 0;
-    trackedSolveMoves.push({ move, t: elapsed, split });
-    if (solveLiveMovesCount) solveLiveMovesCount.textContent = `${trackedSolveMoves.length} moves`;
+    trackedSolveMoves.push({ move, t: elapsed, split, isRotation: Boolean(isRotation) });
+    if (appStore.state.pauseAlertEnabled && !isRotation && split >= 400) {
+      playPauseAlert();
+    }
+    const faceTurnCount = trackedSolveMoves.filter(m => !m.isRotation).length;
+    if (solveLiveMovesCount) solveLiveMovesCount.textContent = `${faceTurnCount} moves`;
     if (solveLiveTps) {
-      const tps = elapsed > 0 ? (trackedSolveMoves.length / (elapsed / 1000)).toFixed(2) : "0.00";
+      const tps = elapsed > 0 ? (faceTurnCount / (elapsed / 1000)).toFixed(2) : "0.00";
       solveLiveTps.textContent = `${tps} TPS`;
     }
+    return trackedSolveMoves.length;
+  }
+
+  function recordSmartRotation(rotMove) {
+    if (solveState !== "running" || !rotMove) return null;
+    if (solveTimerDriven && getSmartCubeUi()?.getSmartCubeStage?.() !== "solving") return null;
+    if ((solveTimerDriven || solveTimerStartTs > 0) && !solveFirstMoveTs) return null;
+    const elapsed = Math.max(0, Math.round(performance.now() - solveMoveOrigin));
+    trackedSolveMoves.push({ move: rotMove, t: elapsed, split: 0, isRotation: true });
     return trackedSolveMoves.length;
   }
 
@@ -769,6 +790,7 @@ export function createTimerController({
     recordPreTurn,
     startSolveFromFirstSmartMove,
     recordRunningMove,
+    recordSmartRotation,
     resetTimerPhaseTracking,
     toggleLastSolvePenalty
   };

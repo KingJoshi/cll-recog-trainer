@@ -373,13 +373,18 @@ export function analyzeCfopSolveSync(solve, options = {}) {
 
   // Normalize move timestamps & splits
   const normMoves = moves.map((m, idx) => {
+    const moveStr = String(m.move || "").trim();
     const t = typeof m.t === "number" ? m.t : 0;
     const prevT = idx === 0 ? 0 : (typeof moves[idx - 1].t === "number" ? moves[idx - 1].t : 0);
-    const split = typeof m.split === "number" && m.split > 0 ? m.split : Math.max(0, t - prevT);
+    const isRotation = Boolean(m.isRotation || /^[xyz][2']?$/i.test(moveStr));
+    const split = isRotation
+      ? 0
+      : (typeof m.split === "number" && m.split > 0 ? m.split : Math.max(0, t - prevT));
     return {
-      move: String(m.move || "").trim(),
+      move: moveStr,
       t,
       split,
+      isRotation,
       index: idx
     };
   });
@@ -485,8 +490,10 @@ export function analyzeCfopSolveSync(solve, options = {}) {
 
       const states = [evaluateCfopState(curPat)];
       for (let i = 0; i < N; i++) {
-        const trans = getCandMoveTrans(cand, normMoves[i].move);
-        curPat = curPat.applyTransformation(trans);
+        if (!normMoves[i].isRotation) {
+          const trans = getCandMoveTrans(cand, normMoves[i].move);
+          curPat = curPat.applyTransformation(trans);
+        }
         states.push(evaluateCfopState(curPat));
       }
 
@@ -681,19 +688,20 @@ export function analyzeCfopSolveSync(solve, options = {}) {
     const execMoves = collapseDoubleFlickMoves(rawExecList).join(" ");
     const allCollapsedMoves = collapseDoubleFlickMoves(phaseMoves.map(m => m.move)).join(" ");
 
-    // Recognition time at start of phase (for Cross, inspection is before solve so recogMs = 0)
-    let recogMs = 0;
-    if (ph.key !== "cross" && phaseMoves.length > 0) {
+    const recogMs = (() => {
+      if (ph.key === "cross" || phaseMoves.length === 0) return 0;
+      let rMs = 0;
       for (let mIdx = 0; mIdx < phaseMoves.length; mIdx++) {
-        recogMs += phaseMoves[mIdx].split;
-        if (!isCrossUMove(phaseMoves[mIdx].move, bestCandidate.cand)) {
+        rMs += phaseMoves[mIdx].split;
+        if (!phaseMoves[mIdx].isRotation && !isCrossUMove(phaseMoves[mIdx].move, bestCandidate.cand)) {
           break;
         }
       }
-      recogMs = Math.min(durationMs, recogMs);
-    }
+      return Math.min(durationMs, rMs);
+    })();
+    const faceTurnCount = phaseMoves.filter(m => !m.isRotation).length;
     const execMs = Math.max(0, durationMs - recogMs);
-    const tps = durationMs > 0 ? Number((phaseMoves.length / (durationMs / 1000)).toFixed(2)) : 0;
+    const tps = durationMs > 0 ? Number((faceTurnCount / (durationMs / 1000)).toFixed(2)) : 0;
 
     splits[ph.key] = durationMs;
     steps.push({
@@ -708,7 +716,7 @@ export function analyzeCfopSolveSync(solve, options = {}) {
       accumMs: endMs,
       startMoveIdx: ph.startIdx,
       endMoveIdx: ph.endIdx,
-      moveCount: phaseMoves.length,
+      moveCount: faceTurnCount,
       tps,
       moves: allCollapsedMoves || phaseMoves.map(m => m.move).join(" "),
       rawMoves: phaseMoves.map(m => m.move).join(" "),

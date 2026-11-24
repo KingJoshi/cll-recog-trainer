@@ -79,6 +79,20 @@ export function createNavController({
 
   let scrambleGenToken = 0;
 
+  function renderPuzzleButtons() {
+    const s = appStore.state;
+    const showExtra = Boolean(s.showExtraWcaEvents);
+    puzzleButtons.forEach(btn => {
+      const pid = btn.dataset.puzzle;
+      if (btn.classList.contains("puzzle-btn-extra")) {
+        btn.hidden = !showExtra && pid !== s.currentPuzzle;
+      }
+      const active = pid === s.currentPuzzle;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-pressed", String(active));
+    });
+  }
+
   function updateSolveOrientationLabel(label = null) {
     if (!solveScrambleOrient) return;
     if (label) {
@@ -148,9 +162,18 @@ export function createNavController({
 
   function renderStage() {
     const s = appStore.state;
+    const isSolveOnly = Boolean(PUZZLES[s.currentPuzzle]?.solveOnly);
+    if (isSolveOnly && s.mode !== "solve") {
+      s.mode = "solve";
+      s.solveTarget = "full";
+    }
     const hasCases = s.selectedCases.size > 0;
 
-    modeButtons.forEach(btn => btn.setAttribute("aria-pressed", String(btn.dataset.mode === s.mode)));
+    modeButtons.forEach(btn => {
+      const m = btn.dataset.mode;
+      btn.hidden = Boolean(isSolveOnly && m !== "solve");
+      btn.setAttribute("aria-pressed", String(m === s.mode));
+    });
 
     const simulating = s.mode === "simulate";
     const solving = s.mode === "solve";
@@ -284,6 +307,9 @@ export function createNavController({
 
   function setMode(next, { skipSimInit = false } = {}) {
     const s = appStore.state;
+    if (PUZZLES[s.currentPuzzle]?.solveOnly && next !== "solve") {
+      next = "solve";
+    }
     if (next === "timed") {
       next = "practice";
       getPracticeView()?.setPracticeMode?.("timed");
@@ -378,6 +404,9 @@ export function createNavController({
 
     const pDef = PUZZLES[s.currentPuzzle];
     s.currentTrackId = pDef?.defaultTrack || getDefaultTrack(s.currentPuzzle)?.id || "cll";
+    if (pDef?.solveOnly) {
+      s.mode = "solve";
+    }
 
     let matchingSessions = s.sessions.filter(sess => (sess.puzzle || "222") === s.currentPuzzle);
     if (matchingSessions.length === 0) {
@@ -720,6 +749,7 @@ export function createNavController({
   }
 
   return {
+    renderPuzzleButtons,
     renderTrackBar,
     renderStage,
     setSolveTarget,

@@ -3,6 +3,7 @@
 import { smartCube, formatMacAddress, preloadSmartCube } from '../../smartCube.js';
 import { ganTimer } from '../../ganTimer.js';
 import { ScrambleTracker } from '../../scrambleTracker.js';
+import { GyroOrientationTracker } from '../../cube/gyroTracker.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
 import { playScrambleCompleteChime, playDisconnectAlertSound } from '../../services/audioService.js';
 import { showToast } from '../../ui/toastService.js';
@@ -570,8 +571,12 @@ export function createSmartCubeController({
     });
   });
 
+  const gyroTracker = new GyroOrientationTracker();
+  let latestGyroQuat = null;
+
   smartCubeReadyBtn?.addEventListener("click", onSmartScrambleCompleted);
   smartCubeResetSolvedBtn?.addEventListener("click", () => {
+    gyroTracker.reset();
     if (smartCubeStage === "needs_reset") {
       completeCubeReset();
       return;
@@ -606,6 +611,8 @@ export function createSmartCubeController({
     alertView?.renderAlerts?.();
   });
   smartCube.addEventListener("disconnected", (e) => {
+    gyroTracker.reset();
+    latestGyroQuat = null;
     const { reason, deviceName, isVirtual } = e.detail || {};
     if (isVirtual) return;
     if (reason !== "manual" || appStore.state.mode === "solve") {
@@ -618,6 +625,22 @@ export function createSmartCubeController({
   });
   smartCube.addEventListener("solved", () => {
     getTimerCtrl()?.handleSmartCubeSolved?.();
+  });
+
+  smartCube.addEventListener("orientation", (e) => {
+    const quat = e?.detail?.quaternion;
+    if (!quat) return;
+    latestGyroQuat = quat;
+    const s = appStore.state;
+    const timerCtrl = getTimerCtrl();
+    if (s.mode === "solve" && timerCtrl?.getSolveState?.() === "running") {
+      const res = gyroTracker.update(quat);
+      if (res.changed && res.rotations.length > 0) {
+        for (const rot of res.rotations) {
+          timerCtrl.recordSmartRotation?.(rot);
+        }
+      }
+    }
   });
 
   smartCube.addEventListener("move", (e) => {
@@ -738,6 +761,10 @@ export function createSmartCubeController({
       return !ts.isComplete && (ts.hasError || ts.currentIndex > 0 || ts.currentSubAmount > 0 || ts.corrections.length > 0);
     },
     resetScrambleTracker,
+    calibrateGyro: () => {
+      if (latestGyroQuat) gyroTracker.calibrate(latestGyroQuat);
+      else gyroTracker.reset();
+    },
     getScrambleTrackerHtml,
     clearScrambleCorrectionDelay,
     renderSmartScrambleAssistant,

@@ -8,6 +8,7 @@ import {
   clearSvgCache,
   applyColorsTo3DCube
 } from '../../caseVisualizer.js';
+import { PUZZLES } from '../../data/algRegistry.js';
 import { sanitizeHexColor } from '../../state/appStore.js';
 import { ALL_SOLVER_FACES } from '../solve/solverWidgetsView.js';
 
@@ -73,6 +74,11 @@ export function createSettingsModalController({
   const settingsAlwaysWhiteBottom = typeof document !== "undefined" ? document.getElementById("settingsAlwaysWhiteBottom") : null;
   const settingsAllowAUF = typeof document !== "undefined" ? document.getElementById("settingsAllowAUF") : null;
   const settingsShowReflection = typeof document !== "undefined" ? document.getElementById("settingsShowReflection") : null;
+  const settingsPauseAlertEnabled = typeof document !== "undefined" ? document.getElementById("settingsPauseAlertEnabled") : null;
+  const settingsMetronomeEnabled = typeof document !== "undefined" ? document.getElementById("settingsMetronomeEnabled") : null;
+  const settingsMetronomeBpm = typeof document !== "undefined" ? document.getElementById("settingsMetronomeBpm") : null;
+  const settingsMetronomeBpmLabel = typeof document !== "undefined" ? document.getElementById("settingsMetronomeBpmLabel") : null;
+  const settingsShowExtraEvents = typeof document !== "undefined" ? document.getElementById("settingsShowExtraEvents") : null;
   const settingsOhHandLeftBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandLeftBtn") : null;
   const settingsOhHandRightBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandRightBtn") : null;
   const settingsOhTableOnBtn = typeof document !== "undefined" ? document.getElementById("settingsOhTableOnBtn") : null;
@@ -98,6 +104,14 @@ export function createSettingsModalController({
     if (settingsAlwaysWhiteBottom) settingsAlwaysWhiteBottom.checked = s.alwaysWhiteBottom;
     if (settingsAllowAUF) settingsAllowAUF.checked = s.allowAUF;
     if (settingsShowReflection) settingsShowReflection.checked = s.showReflection;
+    if (settingsPauseAlertEnabled) settingsPauseAlertEnabled.checked = Boolean(s.pauseAlertEnabled);
+    if (settingsMetronomeEnabled) settingsMetronomeEnabled.checked = Boolean(s.metronomeEnabled);
+    const bpm = Number(s.metronomeBpm) || 180;
+    if (settingsMetronomeBpm) settingsMetronomeBpm.value = String(bpm);
+    if (settingsMetronomeBpmLabel) {
+      settingsMetronomeBpmLabel.textContent = `${bpm} BPM (${(bpm / 60).toFixed(1)} TPS)`;
+    }
+    if (settingsShowExtraEvents) settingsShowExtraEvents.checked = Boolean(s.showExtraWcaEvents);
     const isRight = s.ohHand === "right";
     if (settingsOhHandLeftBtn) {
       settingsOhHandLeftBtn.classList.toggle("active", !isRight);
@@ -349,6 +363,35 @@ export function createSettingsModalController({
     cubeStage?.applyReflection?.();
     renderToggles();
     appStore.saveSettings();
+  });
+  settingsPauseAlertEnabled?.addEventListener("change", (e) => {
+    appStore.state.pauseAlertEnabled = Boolean(e.target.checked);
+    renderToggles();
+    appStore.saveSettings();
+  });
+  settingsMetronomeEnabled?.addEventListener("change", (e) => {
+    appStore.state.metronomeEnabled = Boolean(e.target.checked);
+    renderToggles();
+    appStore.saveSettings();
+  });
+  settingsMetronomeBpm?.addEventListener("input", (e) => {
+    const val = Math.max(60, Math.min(360, Number(e.target.value) || 180));
+    appStore.state.metronomeBpm = val;
+    if (settingsMetronomeBpmLabel) {
+      settingsMetronomeBpmLabel.textContent = `${val} BPM (${(val / 60).toFixed(1)} TPS)`;
+    }
+    appStore.saveSettings();
+  });
+  settingsShowExtraEvents?.addEventListener("change", (e) => {
+    const enabled = Boolean(e.target.checked);
+    appStore.state.showExtraWcaEvents = enabled;
+    appStore.saveSettings();
+    const navCtrl = getNavCtrl();
+    if (!enabled && PUZZLES[appStore.state.currentPuzzle]?.solveOnly) {
+      navCtrl?.setPuzzle?.("333");
+    }
+    navCtrl?.renderPuzzleButtons?.();
+    renderToggles();
   });
 
   [settingsOhHandLeftBtn, settingsOhHandRightBtn].forEach(btn => {

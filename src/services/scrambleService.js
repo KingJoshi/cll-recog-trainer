@@ -14,8 +14,14 @@ if (typeof Worker !== 'undefined') {
 const SCRAMBLE_FALLBACKS = {
   "222": { faces: ["R", "U", "F"], modifiers: ["", "'", "2"], minLen: 9, randExtra: 3, axisAware: false },
   "333": { faces: ["R", "L", "U", "D", "F", "B"], modifiers: ["", "'", "2"], len: 21, axisAware: true },
+  "333bf": { faces: ["R", "L", "U", "D", "F", "B"], modifiers: ["", "'", "2"], len: 21, axisAware: true },
   "444": { faces: ["R", "L", "U", "D", "F", "B", "Rw", "Fw", "Uw"], modifiers: ["", "'", "2"], len: 40, axisAware: false },
-  "555": { faces: ["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Fw", "Bw", "Uw", "Dw"], modifiers: ["", "'", "2"], len: 60, axisAware: false }
+  "555": { faces: ["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Fw", "Bw", "Uw", "Dw"], modifiers: ["", "'", "2"], len: 60, axisAware: false },
+  "pyram": { faces: ["U", "L", "R", "B"], modifiers: ["", "'"], minLen: 10, randExtra: 2, axisAware: false },
+  "skewb": { faces: ["U", "L", "R", "B"], modifiers: ["", "'"], minLen: 9, randExtra: 2, axisAware: false },
+  "minx": { custom: "minx" },
+  "sq1": { custom: "sq1" },
+  "clock": { custom: "clock" }
 };
 
 async function generateWcaScrambleWithTimeout(eventName, timeoutMs, fallbackKey) {
@@ -30,6 +36,40 @@ async function generateWcaScrambleWithTimeout(eventName, timeoutMs, fallbackKey)
   } catch {}
 
   const cfg = SCRAMBLE_FALLBACKS[fallbackKey] || SCRAMBLE_FALLBACKS["333"];
+  if (cfg.custom === "minx") {
+    const rows = [];
+    for (let r = 0; r < 7; r++) {
+      const seq = [];
+      for (let c = 0; c < 10; c++) {
+        const axis = c % 2 === 0 ? "R" : "D";
+        seq.push(axis + (Math.random() < 0.5 ? "++" : "--"));
+      }
+      seq.push(Math.random() < 0.5 ? "U" : "U'");
+      rows.push(seq.join(" "));
+    }
+    return rows.join(" ");
+  }
+  if (cfg.custom === "clock") {
+    const dials = ["UR", "DR", "DL", "UL", "U", "R", "D", "L", "ALL"];
+    const backDials = ["U", "R", "D", "L", "ALL"];
+    const fmt = () => {
+      const n = Math.floor(Math.random() * 12) - 5;
+      return `${Math.abs(n)}${n < 0 ? "-" : "+"}`;
+    };
+    const part1 = dials.map(d => `${d}${fmt()}`).join(" ");
+    const part2 = backDials.map(d => `${d}${fmt()}`).join(" ");
+    return `${part1} y2 ${part2}`;
+  }
+  if (cfg.custom === "sq1") {
+    const seq = [];
+    for (let i = 0; i < 12; i++) {
+      const top = Math.floor(Math.random() * 12) - 5;
+      const bot = Math.floor(Math.random() * 12) - 5;
+      seq.push(`(${top}, ${bot})`);
+      if (i < 11) seq.push("/");
+    }
+    return seq.join(" ");
+  }
   const count = cfg.len || (cfg.minLen + Math.floor(Math.random() * cfg.randExtra));
   const moves = [];
   if (cfg.axisAware) {
@@ -77,11 +117,16 @@ export function generateWca5x5Scramble() {
   return generateWcaScrambleWithTimeout("555", 2500, "555");
 }
 
+const EXTRA_WCA_SCRAMBLES = new Set(["pyram", "skewb", "minx", "sq1", "clock", "333bf"]);
+
 export function generateWcaScrambleForPuzzle(puzzleId) {
   if (puzzleId === "222") return generateWca2x2Scramble();
   if (puzzleId === "333oh") return generateWca3x3OhScramble();
   if (puzzleId === "444") return generateWca4x4Scramble();
   if (puzzleId === "555") return generateWca5x5Scramble();
+  if (EXTRA_WCA_SCRAMBLES.has(puzzleId)) {
+    return generateWcaScrambleWithTimeout(puzzleId, 2000, puzzleId);
+  }
   return generateWca3x3Scramble();
 }
 

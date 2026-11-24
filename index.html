@@ -23,6 +23,12 @@
       <button type="button" class="puzzle-btn" data-puzzle="333oh" aria-pressed="false">3x3 OH</button>
       <button type="button" class="puzzle-btn" data-puzzle="444" aria-pressed="false">4x4</button>
       <button type="button" class="puzzle-btn" data-puzzle="555" aria-pressed="false">5x5</button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="pyram" aria-pressed="false" hidden>Pyra</button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="skewb" aria-pressed="false" hidden>Skewb</button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="minx" aria-pressed="false" hidden>Mega</button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="sq1" aria-pressed="false" hidden>Sq-1</button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="clock" aria-pressed="false" hidden>Clock</button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="333bf" aria-pressed="false" hidden>3BLD</button>
     </div>
   </div>
   <div class="header-actions">
@@ -1016,6 +1022,30 @@
             <input type="checkbox" id="settingsShowReflection">
             <span>Show reflection facelets (backs &amp; bottom on 3D cube)</span>
           </label>
+          <div class="toggle-with-tip">
+            <label class="solve-toggle-label">
+              <input type="checkbox" id="settingsPauseAlertEnabled">
+              <span>Smart Cube pause alert (beep at &ge;0.40s hesitation)</span>
+            </label>
+            <button type="button" class="info-tip-btn" data-tooltip="Plays a subtle audio cue whenever a pause of 0.40s or longer occurs during a smart cube solve" aria-label="Explain Smart Cube pause alert">?</button>
+          </div>
+          <div class="settings-metronome-row">
+            <label class="solve-toggle-label">
+              <input type="checkbox" id="settingsMetronomeEnabled">
+              <span>Lookahead Metronome during solves</span>
+            </label>
+            <div class="settings-metronome-controls">
+              <input type="range" id="settingsMetronomeBpm" min="60" max="360" step="10" value="180" aria-label="Metronome BPM">
+              <span id="settingsMetronomeBpmLabel" class="settings-metronome-val">180 BPM (3.0 TPS)</span>
+            </div>
+          </div>
+          <div class="toggle-with-tip">
+            <label class="solve-toggle-label">
+              <input type="checkbox" id="settingsShowExtraEvents">
+              <span>Show extra WCA events (Pyraminx, Skewb, Megaminx, Sq-1, Clock, 3BLD)</span>
+            </label>
+            <button type="button" class="info-tip-btn" data-tooltip="Adds scramble and timer support for additional WCA puzzles in the header switcher (Solve mode only)" aria-label="Explain extra WCA events">?</button>
+          </div>
           <div class="settings-oh-hand-row">
             <span class="settings-oh-label"><strong>3x3 One-Handed (OH) Hand:</strong></span>
             <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Solving Hand">

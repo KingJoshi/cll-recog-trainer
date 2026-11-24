@@ -39,7 +39,7 @@ export const STORAGE_KEYS = {
   UI_COOKIE: "cll_ui_prefs"
 };
 
-export const VALID_PUZZLES = ["222", "333", "333oh", "444", "555"];
+export const VALID_PUZZLES = ["222", "333", "333oh", "444", "555", "pyram", "skewb", "minx", "sq1", "clock", "333bf"];
 export const MODES = ["study", "practice", "solve", "simulate"];
 export const LOG_PAGE_SIZE_OPTIONS = [5, 12, 25, 50, 100];
 export const SIM_SPEED_OPTIONS = [0.25, 0.5, 1, 1.5, 2];
@@ -123,7 +123,10 @@ export class AppStore {
       else if (urlMode === "timed") mode = "practice";
     }
 
-    if (!getTrack(currentPuzzle, currentTrackId)) {
+    if (PUZZLES[currentPuzzle]?.solveOnly) {
+      currentTrackId = "full";
+      mode = "solve";
+    } else if (!getTrack(currentPuzzle, currentTrackId)) {
       currentTrackId = getDefaultTrack(currentPuzzle)?.id || "cll";
     }
 
@@ -186,10 +189,16 @@ export class AppStore {
       layerSolutionsOpen: savedSettings.layerSolutionsOpen ?? cookiePrefs.layerSolutionsOpen ?? false,
       crossSolutionsOpen: savedSettings.crossSolutionsOpen ?? cookiePrefs.crossSolutionsOpen ?? false,
       chartsStatsOpen: savedSettings.chartsStatsOpen ?? cookiePrefs.chartsStatsOpen ?? true,
+      goalCoachOpen: savedSettings.goalCoachOpen ?? cookiePrefs.goalCoachOpen ?? true,
       solveLogOpen: savedSettings.solveLogOpen ?? cookiePrefs.solveLogOpen ?? true,
       cfopSummaryOpen: savedSettings.cfopSummaryOpen ?? cookiePrefs.cfopSummaryOpen ?? true,
       ollCasesStatsOpen: savedSettings.ollCasesStatsOpen ?? cookiePrefs.ollCasesStatsOpen ?? true,
       pllCasesStatsOpen: savedSettings.pllCasesStatsOpen ?? cookiePrefs.pllCasesStatsOpen ?? true,
+      cfopGoalSec: Number(savedSettings.cfopGoalSec || cookiePrefs.cfopGoalSec) || 12,
+      metronomeEnabled: savedSettings.metronomeEnabled ?? cookiePrefs.metronomeEnabled ?? false,
+      metronomeBpm: Number(savedSettings.metronomeBpm || cookiePrefs.metronomeBpm) || 180,
+      pauseAlertEnabled: savedSettings.pauseAlertEnabled ?? cookiePrefs.pauseAlertEnabled ?? false,
+      showExtraWcaEvents: savedSettings.showExtraWcaEvents ?? cookiePrefs.showExtraWcaEvents ?? false,
       timerDrillPreset: savedSettings.timerDrillPreset || "righty-inv",
       layerTargetFaces: Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
         ? savedSettings.layerTargetFaces
@@ -589,10 +598,16 @@ export class AppStore {
       layerSolutionsOpen: s.layerSolutionsOpen,
       crossSolutionsOpen: s.crossSolutionsOpen,
       chartsStatsOpen: s.chartsStatsOpen,
+      goalCoachOpen: s.goalCoachOpen,
       solveLogOpen: s.solveLogOpen,
       cfopSummaryOpen: s.cfopSummaryOpen,
       ollCasesStatsOpen: s.ollCasesStatsOpen,
       pllCasesStatsOpen: s.pllCasesStatsOpen,
+      cfopGoalSec: Number(s.cfopGoalSec) || 12,
+      metronomeEnabled: Boolean(s.metronomeEnabled),
+      metronomeBpm: Number(s.metronomeBpm) || 180,
+      pauseAlertEnabled: Boolean(s.pauseAlertEnabled),
+      showExtraWcaEvents: Boolean(s.showExtraWcaEvents),
       timerDrillPreset: s.timerDrillPreset,
       statsType: s.statsType,
       layerTargetFaces: s.layerTargetFaces,
@@ -631,10 +646,16 @@ export class AppStore {
       layerSolutionsOpen: s.layerSolutionsOpen,
       crossSolutionsOpen: s.crossSolutionsOpen,
       chartsStatsOpen: s.chartsStatsOpen,
+      goalCoachOpen: s.goalCoachOpen,
       solveLogOpen: s.solveLogOpen,
       cfopSummaryOpen: s.cfopSummaryOpen,
       ollCasesStatsOpen: s.ollCasesStatsOpen,
       pllCasesStatsOpen: s.pllCasesStatsOpen,
+      cfopGoalSec: Number(s.cfopGoalSec) || 12,
+      metronomeEnabled: Boolean(s.metronomeEnabled),
+      metronomeBpm: Number(s.metronomeBpm) || 180,
+      pauseAlertEnabled: Boolean(s.pauseAlertEnabled),
+      showExtraWcaEvents: Boolean(s.showExtraWcaEvents),
       timerDrillPreset: s.timerDrillPreset,
       layerTargetFaces: s.layerTargetFaces,
       crossTargetFaces: s.crossTargetFaces
@@ -670,12 +691,16 @@ export class AppStore {
         ? savedSettings.currentPuzzle
         : this.state.currentPuzzle;
       let currentTrackId = savedSettings.currentTrackId || getDefaultTrack(currentPuzzle)?.id || "cll";
-      if (!getTrack(currentPuzzle, currentTrackId)) {
+      if (PUZZLES[currentPuzzle]?.solveOnly) {
+        currentTrackId = "full";
+      } else if (!getTrack(currentPuzzle, currentTrackId)) {
         currentTrackId = getDefaultTrack(currentPuzzle)?.id || "cll";
       }
-      const mode = MODES.includes(savedSettings.mode)
-        ? savedSettings.mode
-        : (savedSettings.mode === "timed" ? "practice" : this.state.mode);
+      const mode = PUZZLES[currentPuzzle]?.solveOnly
+        ? "solve"
+        : (MODES.includes(savedSettings.mode)
+            ? savedSettings.mode
+            : (savedSettings.mode === "timed" ? "practice" : this.state.mode));
 
       const selectedByTrack = {};
       if (savedSettings.selectedByTrack && typeof savedSettings.selectedByTrack === "object") {
@@ -722,10 +747,16 @@ export class AppStore {
       s.layerSolutionsOpen = savedSettings.layerSolutionsOpen ?? false;
       s.crossSolutionsOpen = savedSettings.crossSolutionsOpen ?? false;
       s.chartsStatsOpen = savedSettings.chartsStatsOpen ?? true;
+      s.goalCoachOpen = savedSettings.goalCoachOpen ?? true;
       s.solveLogOpen = savedSettings.solveLogOpen ?? true;
       s.cfopSummaryOpen = savedSettings.cfopSummaryOpen ?? true;
       s.ollCasesStatsOpen = savedSettings.ollCasesStatsOpen ?? true;
       s.pllCasesStatsOpen = savedSettings.pllCasesStatsOpen ?? true;
+      s.cfopGoalSec = Number(savedSettings.cfopGoalSec) || 12;
+      s.metronomeEnabled = Boolean(savedSettings.metronomeEnabled ?? false);
+      s.metronomeBpm = Number(savedSettings.metronomeBpm) || 180;
+      s.pauseAlertEnabled = Boolean(savedSettings.pauseAlertEnabled ?? false);
+      s.showExtraWcaEvents = Boolean(savedSettings.showExtraWcaEvents ?? false);
       s.timerDrillPreset = savedSettings.timerDrillPreset || "righty-inv";
       s.layerTargetFaces = Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
         ? [...savedSettings.layerTargetFaces]

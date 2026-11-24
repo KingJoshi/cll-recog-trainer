@@ -608,11 +608,7 @@ createKeyboardRouter({
 // Bootstrap UI state
 cubeStage.applyTheme();
 cubeStage.mountScrambleDisplay(appStore.state.currentPuzzle);
-document.querySelectorAll(".puzzle-btn").forEach(btn => {
-  const active = btn.dataset.puzzle === appStore.state.currentPuzzle;
-  btn.classList.toggle("active", active);
-  btn.setAttribute("aria-pressed", String(active));
-});
+navCtrl.renderPuzzleButtons();
 settingsModal.renderToggles();
 simulatorCtrl.syncPlaybackSpeed(appStore.state.simSpeed ?? 1);
 casePickerCtrl.syncSettingsPanel();
@@ -659,11 +655,7 @@ function refreshAllViewsAfterHydrate() {
   applyColorsTo3DCube(cubeStage.getDisplay());
   if (studyView?.activeDisplay3d) applyColorsTo3DCube(studyView.activeDisplay3d);
 
-  document.querySelectorAll(".puzzle-btn").forEach(btn => {
-    const active = btn.dataset.puzzle === s.currentPuzzle;
-    btn.classList.toggle("active", active);
-    btn.setAttribute("aria-pressed", String(active));
-  });
+  navCtrl?.renderPuzzleButtons?.();
 
   if (s.mode !== "study") studyView?.deactivate?.();
   if (s.mode !== "practice") {

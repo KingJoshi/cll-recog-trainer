@@ -257,6 +257,60 @@ export const PUZZLES = {
         groups: ["L2E Parity"]
       }
     ]
+  },
+  "pyram": {
+    id: "pyram",
+    name: "Pyraminx",
+    shortName: "Pyraminx",
+    wcaEvent: "pyram",
+    solveOnly: true,
+    defaultTrack: "full",
+    tracks: []
+  },
+  "skewb": {
+    id: "skewb",
+    name: "Skewb",
+    shortName: "Skewb",
+    wcaEvent: "skewb",
+    solveOnly: true,
+    defaultTrack: "full",
+    tracks: []
+  },
+  "minx": {
+    id: "minx",
+    name: "Megaminx",
+    shortName: "Megaminx",
+    wcaEvent: "minx",
+    solveOnly: true,
+    defaultTrack: "full",
+    tracks: []
+  },
+  "sq1": {
+    id: "sq1",
+    name: "Square-1",
+    shortName: "Square-1",
+    wcaEvent: "sq1",
+    solveOnly: true,
+    defaultTrack: "full",
+    tracks: []
+  },
+  "clock": {
+    id: "clock",
+    name: "Clock",
+    shortName: "Clock",
+    wcaEvent: "clock",
+    solveOnly: true,
+    defaultTrack: "full",
+    tracks: []
+  },
+  "333bf": {
+    id: "333bf",
+    name: "3x3 Blindfolded",
+    shortName: "3x3 BLD",
+    wcaEvent: "333bf",
+    solveOnly: true,
+    defaultTrack: "full",
+    tracks: []
   }
 };
 
@@ -580,7 +634,23 @@ const SOLVE_TARGETS_BY_PUZZLE = {
  * Return ordered Solve Focus targets for a puzzle (used across TrackBar, Session modal, Stats scope & Onboarding).
  */
 export function getSolveTargetsForPuzzle(puzzleId) {
-  return SOLVE_TARGETS_BY_PUZZLE[puzzleId] || SOLVE_TARGETS_BY_PUZZLE["222"];
+  if (SOLVE_TARGETS_BY_PUZZLE[puzzleId]) {
+    return SOLVE_TARGETS_BY_PUZZLE[puzzleId];
+  }
+  const pDef = PUZZLES[puzzleId];
+  if (pDef?.solveOnly) {
+    return [
+      {
+        id: "full",
+        name: `Full Solve (${pDef.shortName})`,
+        shortName: "Full Solve",
+        label: "Full Solve",
+        description: `Full WCA ${pDef.name} scrambles and timer`,
+        usesCases: false
+      }
+    ];
+  }
+  return SOLVE_TARGETS_BY_PUZZLE["222"];
 }
 
 /**

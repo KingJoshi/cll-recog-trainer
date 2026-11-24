@@ -18,21 +18,26 @@ test('recommendTrainingPlan returns valid track, solve target, mode, ohHand, and
           assert.strictEqual(plan.ohHand, ohHand);
           assert.strictEqual(plan.goal, goal);
 
-          const expectedMode = goal === 'learn' ? 'study' : goal === 'practice' ? 'practice' : 'solve';
+          const isSolveOnly = Boolean(PUZZLES[puzzle]?.solveOnly);
+          const expectedMode = isSolveOnly ? 'solve' : (goal === 'learn' ? 'study' : goal === 'practice' ? 'practice' : 'solve');
           assert.strictEqual(plan.mode, expectedMode);
 
-          const track = getTrack(plan.puzzle, plan.trackId);
-          assert.ok(track, `Track ${plan.trackId} must exist for ${puzzle}`);
+          if (!isSolveOnly) {
+            const track = getTrack(plan.puzzle, plan.trackId);
+            assert.ok(track, `Track ${plan.trackId} must exist for ${puzzle}`);
+
+            if (plan.starterCaseIds) {
+              assert.ok(Array.isArray(plan.starterCaseIds) && plan.starterCaseIds.length > 0);
+              for (const cid of plan.starterCaseIds) {
+                assert.ok(track.caseById.has(cid), `Starter case ${cid} must exist in ${puzzle}:${plan.trackId}`);
+              }
+            }
+          } else {
+            assert.strictEqual(plan.solveTarget, 'full');
+          }
 
           const targetInfo = getSolveTargetInfo(plan.puzzle, plan.solveTarget);
           assert.ok(targetInfo, `Solve target ${plan.solveTarget} must exist for ${puzzle}`);
-
-          if (plan.starterCaseIds) {
-            assert.ok(Array.isArray(plan.starterCaseIds) && plan.starterCaseIds.length > 0);
-            for (const cid of plan.starterCaseIds) {
-              assert.ok(track.caseById.has(cid), `Starter case ${cid} must exist in ${puzzle}:${plan.trackId}`);
-            }
-          }
           assert.ok(plan.title && plan.summary && plan.nextStepTip);
         }
       }

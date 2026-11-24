@@ -956,4 +956,128 @@
 .cfop-seg-oll { background: #d97706; }
 .cfop-seg-pll { background: #7c3aed; }
 
+/* CFOP Goal Coach & Bottleneck Detector */
+.cfop-goal-coach-card {
+    margin: 8px 0 12px;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.cfop-goal-pills {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.cfop-goal-phases-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+}
+
+@media (max-width: 600px) {
+    .cfop-goal-phases-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.cfop-goal-phase-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-variant-numeric: tabular-nums;
+}
+
+.cfop-goal-phase-name {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+}
+
+.cfop-goal-phase-actual {
+    font-size: 1rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: var(--ink);
+}
+
+.cfop-goal-phase-target {
+    font-size: 0.7rem;
+    color: var(--muted);
+}
+
+.cfop-goal-phase-delta {
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+.cfop-goal-phase-card.cfop-goal-delta-good {
+    border-color: rgba(21, 128, 61, 0.35);
+    background: rgba(21, 128, 61, 0.06);
+}
+
+.cfop-goal-phase-card.cfop-goal-delta-good .cfop-goal-phase-delta {
+    color: #15803d;
+}
+
+[data-theme="dark"] .cfop-goal-phase-card.cfop-goal-delta-good .cfop-goal-phase-delta {
+    color: #4ade80;
+}
+
+.cfop-goal-phase-card.cfop-goal-delta-warn {
+    border-color: rgba(220, 38, 38, 0.35);
+    background: rgba(220, 38, 38, 0.06);
+}
+
+.cfop-goal-phase-card.cfop-goal-delta-warn .cfop-goal-phase-delta {
+    color: #dc2626;
+}
+
+[data-theme="dark"] .cfop-goal-phase-card.cfop-goal-delta-warn .cfop-goal-phase-delta {
+    color: #f87171;
+}
+
+.cfop-goal-insights {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-size: 0.8rem;
+}
+
+.cfop-goal-insight-cases {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.cfop-goal-cases-lbl {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.cfop-goal-case-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 0.76rem;
+}
+
 }

@@ -25,6 +25,7 @@ import {
 } from '../../services/htmlUtils.js';
 import { renderOllPllCasesBreakdownHtml } from '../solve/cfopBreakdownRenderer.js';
 import { renderStatsChartsHtml } from './statsChartsView.js';
+import { renderCfopGoalCoachHtml } from './cfopGoalCoach.js';
 import { ICON_PLAY, ICON_RESET_ANGLE } from '../../ui/transportIcons.js';
 
 export function createSessionLogView({
@@ -248,6 +249,13 @@ export function createSessionLogView({
         is3x3: is3x3Puzzle,
         isOpen: s.chartsStatsOpen,
         cfopScopes
+      });
+    }
+
+    if (is3x3Puzzle && isAdvanced && displaySolves.length >= 3) {
+      html += renderCfopGoalCoachHtml(displaySolves, {
+        goalSec: s.cfopGoalSec || 12,
+        isOpen: s.goalCoachOpen
       });
     }
 
@@ -754,6 +762,17 @@ export function createSessionLogView({
       });
     });
 
+    container.querySelectorAll("[data-cfop-goal]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const nextGoal = Number(btn.dataset.cfopGoal);
+        if (!nextGoal || nextGoal === Number(s.cfopGoalSec)) return;
+        s.cfopGoalSec = nextGoal;
+        appStore.saveSettings();
+        render(container);
+      });
+    });
+
     container.querySelectorAll("[data-stats-collapse]").forEach(btn => {
       btn.addEventListener("click", () => {
         const key = btn.dataset.statsCollapse;
@@ -762,6 +781,7 @@ export function createSessionLogView({
         let nextOpen = true;
         if (key === "solveLog") nextOpen = s.solveLogOpen = !s.solveLogOpen;
         else if (key === "charts") nextOpen = s.chartsStatsOpen = !s.chartsStatsOpen;
+        else if (key === "goalCoach") nextOpen = s.goalCoachOpen = !s.goalCoachOpen;
         else if (key === "cfopSummary") nextOpen = s.cfopSummaryOpen = !s.cfopSummaryOpen;
         else if (key === "ollCases") nextOpen = s.ollCasesStatsOpen = !s.ollCasesStatsOpen;
         else if (key === "pllCases") nextOpen = s.pllCasesStatsOpen = !s.pllCasesStatsOpen;

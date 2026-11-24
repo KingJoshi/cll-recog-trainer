@@ -53,3 +53,30 @@ export function playDisconnectAlertSound() {
     { freq: 440, start: 0.17, dur: 0.24, type: "triangle", peak: 0.22 }
   ]);
 }
+
+export function playPauseAlert() {
+  playToneSequence([{ freq: 330, dur: 0.07, type: "sine", peak: 0.12 }]);
+}
+
+let metronomeTimerId = null;
+
+export function stopMetronome() {
+  if (metronomeTimerId != null) {
+    clearInterval(metronomeTimerId);
+    metronomeTimerId = null;
+  }
+}
+
+export function isMetronomeRunning() {
+  return metronomeTimerId != null;
+}
+
+export function startMetronome(bpm = 180) {
+  stopMetronome();
+  const safeBpm = Math.max(60, Math.min(420, Math.round(Number(bpm) || 180)));
+  const intervalMs = Math.max(120, Math.round(60000 / safeBpm));
+  const tick = () => playToneSequence([{ freq: 1100, dur: 0.025, type: "triangle", peak: 0.10 }]);
+  tick();
+  metronomeTimerId = setInterval(tick, intervalMs);
+  return safeBpm;
+}
