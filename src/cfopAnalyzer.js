@@ -1122,7 +1122,9 @@ export function mapPllCaseTo2Look(pllCase) {
 // Aggregate per-case OLL and PLL statistics (times and pauses per case) across solves
 export function computeOllPllCaseStats(solves = [], options = {}) {
   const validSolves = solves.filter(s => s && s.penalty !== "DNF" && s.penalty !== -1);
-  const llAnalyticsMode = options?.llAnalyticsMode === "2look" ? "2look" : "full";
+  const legacyLlMode = options?.llAnalyticsMode === "2look" ? "2look" : "full";
+  const ollMode = options?.ollMode ? (options.ollMode === "2look" ? "2look" : "full") : legacyLlMode;
+  const pllMode = options?.pllMode ? (options.pllMode === "2look" ? "2look" : "full") : legacyLlMode;
   const ollMap = new Map();
   const pllMap = new Map();
 
@@ -1132,7 +1134,7 @@ export function computeOllPllCaseStats(solves = [], options = {}) {
 
     if (cfop.ollCase && cfop.ollCase.id && cfop.ollCase.id !== "OLL Skip") {
       const rawOc = cfop.ollCase;
-      const oc = llAnalyticsMode === "2look" ? mapOllCaseTo2Look(rawOc) : rawOc;
+      const oc = ollMode === "2look" ? mapOllCaseTo2Look(rawOc) : rawOc;
       if (!ollMap.has(oc.id)) {
         ollMap.set(oc.id, {
           id: oc.id,
@@ -1159,7 +1161,7 @@ export function computeOllPllCaseStats(solves = [], options = {}) {
 
     if (cfop.pllCase && cfop.pllCase.id && cfop.pllCase.id !== "PLL Skip") {
       const rawPc = cfop.pllCase;
-      const pc = llAnalyticsMode === "2look" ? mapPllCaseTo2Look(rawPc) : rawPc;
+      const pc = pllMode === "2look" ? mapPllCaseTo2Look(rawPc) : rawPc;
       if (!pllMap.has(pc.id)) {
         pllMap.set(pc.id, {
           id: pc.id,

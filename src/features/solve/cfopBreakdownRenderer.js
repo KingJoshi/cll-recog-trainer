@@ -295,9 +295,14 @@ export function renderLastSolveCfopInline(solve, { basic = false, refMedians = n
   return renderCfopStepTable(solve, { detailed: false, basic, refMedians });
 }
 
-export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pllOpen = true, sortStateByTrack = {}, caseTags = {}, llAnalyticsMode = "full" } = {}) {
-  const mode = llAnalyticsMode === "2look" ? "2look" : "full";
-  const { ollCases: ollStats, pllCases: pllStats } = computeOllPllCaseStats(solvesList, { llAnalyticsMode: mode });
+export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pllOpen = true, sortStateByTrack = {}, caseTags = {}, llAnalyticsMode = "full", ollMode = null, pllMode = null } = {}) {
+  const legacyMode = llAnalyticsMode === "2look" ? "2look" : "full";
+  const resolvedOllMode = ollMode ? (ollMode === "2look" ? "2look" : "full") : legacyMode;
+  const resolvedPllMode = pllMode ? (pllMode === "2look" ? "2look" : "full") : legacyMode;
+  const { ollCases: ollStats, pllCases: pllStats } = computeOllPllCaseStats(solvesList, {
+    ollMode: resolvedOllMode,
+    pllMode: resolvedPllMode
+  });
 
   const TAG_LABELS = {
     none: "+ Tag",
@@ -306,7 +311,7 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
     mastered: "Mastered"
   };
 
-  const renderCaseSubTable = (title, subtitle, items, badgeClass, trackId, isOpen) => {
+  const renderCaseSubTable = (title, subtitle, items, badgeClass, trackId, isOpen, modeToggleHtml = "") => {
     const collapseKey = trackId === "oll" ? "ollCases" : "pllCases";
     if (!items || items.length === 0) {
       return `
@@ -317,6 +322,7 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
               <span class="stats-subwidget-title">${escapeHtml(title)}</span>
               <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
             </button>
+            ${modeToggleHtml}
           </div>
           <div class="stats-subwidget-body">
             <p class="cfop-case-empty">No ${escapeHtml(title)} tracked yet in this session. Solve with your Smart Cube to automatically identify cases, times, and pauses.</p>
@@ -379,6 +385,7 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
             <span class="stats-subwidget-title">${escapeHtml(title)} (${items.length} case${items.length === 1 ? "" : "s"} solved)</span>
             <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
           </button>
+          ${modeToggleHtml}
         </div>
         <div class="stats-subwidget-body">
           <div class="cfop-table-scroll">
@@ -406,14 +413,27 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
     `;
   };
 
-  const ollTitle = mode === "2look" ? "OLL Cases (2-Look)" : "OLL Cases";
-  const ollSub = mode === "2look"
+  const ollTitle = resolvedOllMode === "2look" ? "OLL Cases (2-Look)" : "OLL Cases";
+  const ollSub = resolvedOllMode === "2look"
     ? "Merged 2-Look Edge Orientation (Dot/Line/L) + 7 OCLL Corners"
     : "Orientation of the Last Layer — Median, TrimMean, Mean & Pauses per Case";
-  const pllTitle = mode === "2look" ? "PLL Cases (2-Look)" : "PLL Cases";
-  const pllSub = mode === "2look"
+  const pllTitle = resolvedPllMode === "2look" ? "PLL Cases (2-Look)" : "PLL Cases";
+  const pllSub = resolvedPllMode === "2look"
     ? "Merged 2-Look Corner Swap (Adj/Diag) + 4 Edge EPLLs"
     : "Permutation of the Last Layer — Median, TrimMean, Mean & Pauses per Case";
+
+  const ollModeHtml = `
+    <div class="cfop-metric-pills ll-analytics-mode-group" role="group" aria-label="OLL case grouping">
+      <button type="button" class="cfop-metric-pill ${resolvedOllMode === "full" ? "active" : ""}" data-oll-mode="full" aria-pressed="${resolvedOllMode === "full" ? "true" : "false"}" title="Track all 57 OLL cases individually">Full (57)</button>
+      <button type="button" class="cfop-metric-pill ${resolvedOllMode === "2look" ? "active" : ""}" data-oll-mode="2look" aria-pressed="${resolvedOllMode === "2look" ? "true" : "false"}" title="Merge non-OCLL OLLs into EO shapes (Dot/Line/L)">2-Look</button>
+    </div>
+  `;
+  const pllModeHtml = `
+    <div class="cfop-metric-pills ll-analytics-mode-group" role="group" aria-label="PLL case grouping">
+      <button type="button" class="cfop-metric-pill ${resolvedPllMode === "full" ? "active" : ""}" data-pll-mode="full" aria-pressed="${resolvedPllMode === "full" ? "true" : "false"}" title="Track all 21 PLL cases individually">Full (21)</button>
+      <button type="button" class="cfop-metric-pill ${resolvedPllMode === "2look" ? "active" : ""}" data-pll-mode="2look" aria-pressed="${resolvedPllMode === "2look" ? "true" : "false"}" title="Merge corner PLLs into Adj/Diag and track 4 EPLLs individually">2-Look</button>
+    </div>
+  `;
 
   return `
     <div class="cfop-cases-improvement-section">
@@ -422,14 +442,10 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
           <h3 class="layer-log-title">3x3 OLL &amp; PLL Case Performance &amp; Pauses (Where to Improve)</h3>
           <span class="layer-log-hint">Sorted by slowest Median first · Click any column header to sort</span>
         </div>
-        <div class="cfop-metric-pills ll-analytics-mode-group" role="group" aria-label="Last-layer case grouping">
-          <button type="button" class="cfop-metric-pill ${mode === "full" ? "active" : ""}" data-ll-analytics-mode="full" aria-pressed="${mode === "full" ? "true" : "false"}" title="Track each of the 57 OLL and 21 PLL cases individually">Full (57 / 21)</button>
-          <button type="button" class="cfop-metric-pill ${mode === "2look" ? "active" : ""}" data-ll-analytics-mode="2look" aria-pressed="${mode === "2look" ? "true" : "false"}" title="Merge non-OCLL OLLs into EO shapes (Dot/Line/L) and corner PLLs into Adj/Diag">2-Look</button>
-        </div>
       </div>
       <div class="cfop-cases-grid">
-        ${renderCaseSubTable(ollTitle, ollSub, ollStats, "badge-oll-case", "oll", ollOpen)}
-        ${renderCaseSubTable(pllTitle, pllSub, pllStats, "badge-pll-case", "pll", pllOpen)}
+        ${renderCaseSubTable(ollTitle, ollSub, ollStats, "badge-oll-case", "oll", ollOpen, ollModeHtml)}
+        ${renderCaseSubTable(pllTitle, pllSub, pllStats, "badge-pll-case", "pll", pllOpen, pllModeHtml)}
       </div>
     </div>
   `;

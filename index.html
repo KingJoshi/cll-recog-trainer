@@ -1222,14 +1222,21 @@
           <div class="settings-section">
             <div class="settings-section-head">
               <h4 class="settings-section-title">3x3x3 Settings</h4>
-              <span class="settings-section-desc">Cross solver visibility, Cross target colors, and OLL / PLL stats grouping</span>
+              <span class="settings-section-desc">Cross solver visibility, Cross target colors, and Full vs 2-Look OLL / PLL across Learn &amp; Stats</span>
             </div>
             <div class="settings-toggles-list">
               <div class="settings-speed-row" style="border-top: none; padding-top: 0;">
-                <span class="settings-oh-label"><strong>3x3 OLL / PLL Grouping:</strong></span>
-                <div class="settings-speed-group" role="group" aria-label="3x3 OLL and PLL analytics grouping">
-                  <button type="button" id="settingsLlModeFullBtn" class="settings-speed-btn active" data-settings-ll-mode="full" aria-pressed="true">Full (57 / 21)</button>
-                  <button type="button" id="settingsLlMode2LookBtn" class="settings-speed-btn" data-settings-ll-mode="2look" aria-pressed="false">2-Look</button>
+                <span class="settings-oh-label"><strong>3x3 OLL Mode:</strong></span>
+                <div class="settings-speed-group" role="group" aria-label="3x3 OLL Full vs 2-Look mode">
+                  <button type="button" id="settingsOllModeFullBtn" class="settings-speed-btn active" data-settings-oll-mode="full" aria-pressed="true">Full (57)</button>
+                  <button type="button" id="settingsOllMode2LookBtn" class="settings-speed-btn" data-settings-oll-mode="2look" aria-pressed="false">2-Look (10)</button>
+                </div>
+              </div>
+              <div class="settings-speed-row">
+                <span class="settings-oh-label"><strong>3x3 PLL Mode:</strong></span>
+                <div class="settings-speed-group" role="group" aria-label="3x3 PLL Full vs 2-Look mode">
+                  <button type="button" id="settingsPllModeFullBtn" class="settings-speed-btn active" data-settings-pll-mode="full" aria-pressed="true">Full (21)</button>
+                  <button type="button" id="settingsPllMode2LookBtn" class="settings-speed-btn" data-settings-pll-mode="2look" aria-pressed="false">2-Look (6)</button>
                 </div>
               </div>
               <label class="solve-toggle-label">

@@ -49,6 +49,15 @@ async function getScrambleDisplay() {
   return ScrambleDisplayClass;
 }
 
+export const TWO_LOOK_OLL_STUDY_IDS = new Set([
+  "oll-02", "oll-44", "oll-45",
+  "oll-21", "oll-22", "oll-23", "oll-24", "oll-25", "oll-26", "oll-27"
+]);
+
+export const TWO_LOOK_PLL_STUDY_IDS = new Set([
+  "T", "Y", "Ua", "Ub", "H", "Z"
+]);
+
 export class StudyView {
   constructor(options) {
     this.container = options.container;
@@ -65,6 +74,10 @@ export class StudyView {
     this.onSetOhHand = options.onSetOhHand || null;
     this.getOhTableAbuse = options.getOhTableAbuse || (() => true);
     this.onSetOhTableAbuse = options.onSetOhTableAbuse || null;
+    this.getOllMode = options.getOllMode || (() => "full");
+    this.onSetOllMode = options.onSetOllMode || null;
+    this.getPllMode = options.getPllMode || (() => "full");
+    this.onSetPllMode = options.onSetPllMode || null;
     this.getSimSpeed = options.getSimSpeed || (() => 1);
     this.onSetSimSpeed = options.onSetSimSpeed || null;
 
@@ -245,14 +258,37 @@ export class StudyView {
     syncFirstLayerExplorerSpeed(next);
   }
 
+  getActiveLlStudyMode() {
+    if (this.currentPuzzle !== "333" && this.currentPuzzle !== "333oh") return null;
+    if (this.currentTrackId === "oll") {
+      return { kind: "oll", mode: this.getOllMode?.() === "2look" ? "2look" : "full" };
+    }
+    if (this.currentTrackId === "pll") {
+      return { kind: "pll", mode: this.getPllMode?.() === "2look" ? "2look" : "full" };
+    }
+    return null;
+  }
+
+  getTrackBaseCases(track) {
+    const all = track?.cases || [];
+    const llStudy = this.getActiveLlStudyMode();
+    if (llStudy?.kind === "oll" && llStudy.mode === "2look") {
+      return all.filter(c => TWO_LOOK_OLL_STUDY_IDS.has(c.id));
+    }
+    if (llStudy?.kind === "pll" && llStudy.mode === "2look") {
+      return all.filter(c => TWO_LOOK_PLL_STUDY_IDS.has(c.id));
+    }
+    return all;
+  }
+
   getTrackSelectedCases(track) {
     const sel = this.getSelectedCaseIds ? this.getSelectedCaseIds() : new Set();
     if (!sel || sel.size === 0) return [];
-    return (track?.cases || []).filter(c => sel.has(c.id));
+    return this.getTrackBaseCases(track).filter(c => sel.has(c.id));
   }
 
   getFilteredCases(track) {
-    let list = track?.cases || [];
+    let list = this.getTrackBaseCases(track);
     if (this.onlySelectedFilter) {
       const sel = this.getSelectedCaseIds ? this.getSelectedCaseIds() : new Set();
       if (sel && sel.size > 0) {
@@ -260,7 +296,11 @@ export class StudyView {
       }
     }
     if (this.activeGroupFilters.size > 0) {
-      list = list.filter(c => this.activeGroupFilters.has(c.group));
+      const availableGroups = new Set(list.map(c => c.group));
+      const matchingGroups = [...this.activeGroupFilters].filter(g => availableGroups.has(g));
+      if (matchingGroups.length > 0) {
+        list = list.filter(c => this.activeGroupFilters.has(c.group));
+      }
     }
     return list;
   }
@@ -270,7 +310,7 @@ export class StudyView {
     if (filtered.length > 0) return filtered;
     const selectedInTrack = this.getTrackSelectedCases(track);
     if (selectedInTrack.length > 0) return selectedInTrack;
-    return track?.cases || [];
+    return this.getTrackBaseCases(track);
   }
 
   setTrack(puzzleId, trackId) {
@@ -298,7 +338,8 @@ export class StudyView {
       const track = getTrack(this.currentPuzzle, this.currentTrackId);
       if (track) {
         const nav = this.getNavigableCases(track);
-        const hasValidSelected = this.selectedCaseId && track.caseById.has(this.selectedCaseId);
+        const baseIds = new Set(this.getTrackBaseCases(track).map(c => c.id));
+        const hasValidSelected = this.selectedCaseId && baseIds.has(this.selectedCaseId);
         if (!keepSelected && nav.length > 0 && (!hasValidSelected || !nav.some(c => c.id === this.selectedCaseId))) {
           this.selectedCaseId = nav[0].id;
           this.previewAlgId = null;
@@ -323,6 +364,8 @@ export class StudyView {
     const isOh = this.currentPuzzle === "333oh";
     const ohHand = this.getOhHand();
     const ohTableAbuse = this.getOhTableAbuse();
+    const llStudy = this.getActiveLlStudyMode();
+    const baseCases = this.getTrackBaseCases(track);
 
     this.container.innerHTML = `
       <div class="study-header">
@@ -330,24 +373,33 @@ export class StudyView {
           <h2 class="study-track-title">${track.name}</h2>
           <span class="study-track-desc">${track.description}</span>
         </div>
-        ${isOh ? `
+        ${(isOh || llStudy) ? `
           <div class="oh-controls-group">
-            <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Solving Hand">
-              <span class="oh-hand-label">Solving Hand:</span>
-              <button type="button" class="oh-hand-btn ${ohHand === 'left' ? 'active' : ''}" data-oh-hand="left" aria-pressed="${ohHand === 'left'}" data-tooltip="Cube held in left hand (standard <R, U> algorithms)">&#x1F91A; Left Hand (RU)</button>
-              <button type="button" class="oh-hand-btn ${ohHand === 'right' ? 'active' : ''}" data-oh-hand="right" aria-pressed="${ohHand === 'right'}" data-tooltip="Cube held in right hand (verified <L, U> mirrors & z' <U, L> variants)">&#x270B; Right Hand (Mirror / z')</button>
-            </div>
-            <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Table Abuse Style">
-              <span class="oh-hand-label">Style:</span>
-              <button type="button" class="oh-table-btn ${ohTableAbuse ? 'active' : ''}" data-oh-table="table" aria-pressed="${ohTableAbuse}" data-tooltip="Allow table-assisted M/S/E slice moves (e.g. M2' U M2' U2 M2' U M2' H-Perm)">Table Abuse</button>
-              <button type="button" class="oh-table-btn ${!ohTableAbuse ? 'active' : ''}" data-oh-table="no-table" aria-pressed="${!ohTableAbuse}" data-tooltip="In-air OH only: L, R, U with occasional F/D; zero M slices and B moves rewritten via x' + U">No Table Abuse</button>
-            </div>
+            ${llStudy ? `
+              <div class="oh-hand-switcher study-ll-mode-switcher" role="group" aria-label="${llStudy.kind === 'oll' ? 'OLL Case Set (Full vs 2-Look)' : 'PLL Case Set (Full vs 2-Look)'}">
+                <span class="oh-hand-label">${llStudy.kind === 'oll' ? 'OLL Set:' : 'PLL Set:'}</span>
+                <button type="button" class="study-ll-mode-btn ${llStudy.mode === 'full' ? 'active' : ''}" data-study-${llStudy.kind}-mode="full" aria-pressed="${llStudy.mode === 'full'}" data-tooltip="${llStudy.kind === 'oll' ? 'Show all 57 OLL cases (shared with Stats &amp; Settings)' : 'Show all 21 PLL cases (shared with Stats &amp; Settings)'}">${llStudy.kind === 'oll' ? 'Full OLL (57)' : 'Full PLL (21)'}</button>
+                <button type="button" class="study-ll-mode-btn ${llStudy.mode === '2look' ? 'active' : ''}" data-study-${llStudy.kind}-mode="2look" aria-pressed="${llStudy.mode === '2look'}" data-tooltip="${llStudy.kind === 'oll' ? 'Show 10 essential 2-Look OLL cases (3 EO + 7 OCLL) — shared with Stats &amp; Settings' : 'Show 6 essential 2-Look PLL cases (2 Corner + 4 Edge) — shared with Stats &amp; Settings'}">${llStudy.kind === 'oll' ? '2-Look OLL (10)' : '2-Look PLL (6)'}</button>
+              </div>
+            ` : ''}
+            ${isOh ? `
+              <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Solving Hand">
+                <span class="oh-hand-label">Solving Hand:</span>
+                <button type="button" class="oh-hand-btn ${ohHand === 'left' ? 'active' : ''}" data-oh-hand="left" aria-pressed="${ohHand === 'left'}" data-tooltip="Cube held in left hand (standard <R, U> algorithms)">&#x1F91A; Left Hand (RU)</button>
+                <button type="button" class="oh-hand-btn ${ohHand === 'right' ? 'active' : ''}" data-oh-hand="right" aria-pressed="${ohHand === 'right'}" data-tooltip="Cube held in right hand (verified <L, U> mirrors & z' <U, L> variants)">&#x270B; Right Hand (Mirror / z')</button>
+              </div>
+              <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Table Abuse Style">
+                <span class="oh-hand-label">Style:</span>
+                <button type="button" class="oh-table-btn ${ohTableAbuse ? 'active' : ''}" data-oh-table="table" aria-pressed="${ohTableAbuse}" data-tooltip="Allow table-assisted M/S/E slice moves (e.g. M2' U M2' U2 M2' U M2' H-Perm)">Table Abuse</button>
+                <button type="button" class="oh-table-btn ${!ohTableAbuse ? 'active' : ''}" data-oh-table="no-table" aria-pressed="${!ohTableAbuse}" data-tooltip="In-air OH only: L, R, U with occasional F/D; zero M slices and B moves rewritten via x' + U">No Table Abuse</button>
+              </div>
+            ` : ''}
           </div>
         ` : ''}
         ${!is222FaceOrLayer ? `
           <div class="study-subnav" role="group" aria-label="Study view">
             ${track.cases.length > 0 ? `
-              <button type="button" class="study-subnav-btn ${activeView === 'grid' ? 'active' : ''}" data-view="grid" data-tooltip="Browse all cases in a filterable visual card grid">📋 Case Grid (${track.cases.length})</button>
+              <button type="button" class="study-subnav-btn ${activeView === 'grid' ? 'active' : ''}" data-view="grid" data-tooltip="Browse all cases in a filterable visual card grid">📋 Case Grid (${baseCases.length})</button>
               <button type="button" class="study-subnav-btn ${activeView === 'hybrid' ? 'active' : ''}" data-view="hybrid" data-tooltip="Compact case sidebar alongside an interactive 3D flashcard & alternative algs">🧩 Grid + 3D</button>
             ` : ''}
             ${(this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && (this.currentTrackId === "pll" || this.currentTrackId === "oll") ? `
@@ -377,9 +429,11 @@ export class StudyView {
 
   renderGroupFilterBar(track) {
     const groups = track.groups || [];
-    const cases = track.cases || [];
+    const cases = this.getTrackBaseCases(track);
+    const availableGroups = groups.filter(g => cases.some(c => c.group === g));
     const selectedInTrack = this.getTrackSelectedCases(track);
-    const isAll = this.activeGroupFilters.size === 0;
+    const activeMatchingCount = [...this.activeGroupFilters].filter(g => availableGroups.includes(g)).length;
+    const isAll = activeMatchingCount === 0;
     return `
       <div class="study-group-filter-bar" role="group" aria-label="Filter cases by group (multi-select)">
         <span class="study-filter-label">Group:</span>
@@ -387,7 +441,7 @@ export class StudyView {
         ${selectedInTrack.length > 0 && selectedInTrack.length < cases.length ? `
           <button type="button" class="study-group-pill study-selected-pill ${this.onlySelectedFilter ? 'active' : ''}" data-only-selected="1" aria-pressed="${this.onlySelectedFilter}" data-tooltip="Show only cases selected in Active Cases">★ Selected (${selectedInTrack.length})</button>
         ` : ''}
-        ${groups.map(g => {
+        ${availableGroups.map(g => {
           const count = cases.filter(c => c.group === g).length;
           const active = this.activeGroupFilters.has(g);
           return `<button type="button" class="study-group-pill ${active ? 'active' : ''}" data-group="${g}" aria-pressed="${active}">${g} (${count})</button>`;
@@ -478,8 +532,9 @@ export class StudyView {
     const isSingleGroup = sections.length === 1;
     const showGroupHeaders = sections.length > 1;
     const navCases = this.getNavigableCases(track);
-    if (navCases.length > 0 && !track.caseById.has(this.selectedCaseId)) {
+    if (navCases.length > 0 && !navCases.some(nc => nc.id === this.selectedCaseId)) {
       this.selectedCaseId = navCases[0].id;
+      this.previewAlgId = null;
     }
 
     const renderHybridCard = (c) => {
@@ -524,10 +579,15 @@ export class StudyView {
   }
 
   renderDetailView(track) {
-    const c = track.caseById.get(this.selectedCaseId) || track.cases[0];
+    const baseCases = this.getTrackBaseCases(track);
+    const baseIds = new Set(baseCases.map(bc => bc.id));
+    const navCases = this.getNavigableCases(track);
+    const c = (this.selectedCaseId && baseIds.has(this.selectedCaseId) ? track.caseById.get(this.selectedCaseId) : null)
+      || navCases[0]
+      || baseCases[0]
+      || track.cases[0];
     if (!c) return `<p class="empty-state">No case selected</p>`;
 
-    const navCases = this.getNavigableCases(track);
     const navIdx = navCases.findIndex(nc => nc.id === c.id);
     const navCountText = navCases.length > 0
       ? `${navIdx >= 0 ? navIdx + 1 : 1} / ${navCases.length}`
@@ -980,6 +1040,37 @@ export class StudyView {
   }
 
   bindEvents(track, is222FaceOrLayer = false) {
+    // 2-Look vs Full OLL / PLL switcher (synced with Stats & Settings)
+    this.container.querySelectorAll('[data-study-oll-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nextMode = btn.dataset.studyOllMode === '2look' ? '2look' : 'full';
+        this.activeGroupFilters.clear();
+        this.previewAlgId = null;
+        if (this.onSetOllMode) {
+          const prevMode = this.getOllMode ? this.getOllMode() : 'full';
+          this.onSetOllMode(nextMode);
+          if (prevMode === nextMode) this.render();
+        } else {
+          this.render();
+        }
+      });
+    });
+
+    this.container.querySelectorAll('[data-study-pll-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nextMode = btn.dataset.studyPllMode === '2look' ? '2look' : 'full';
+        this.activeGroupFilters.clear();
+        this.previewAlgId = null;
+        if (this.onSetPllMode) {
+          const prevMode = this.getPllMode ? this.getPllMode() : 'full';
+          this.onSetPllMode(nextMode);
+          if (prevMode === nextMode) this.render();
+        } else {
+          this.render();
+        }
+      });
+    });
+
     // 3x3 OH Hand & Table Abuse switchers
     this.container.querySelectorAll('.oh-hand-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1038,7 +1129,8 @@ export class StudyView {
             } else {
               this.activeGroupFilters.add(grp);
             }
-            const totalGroups = (track.groups || []).length;
+            const baseCases = this.getTrackBaseCases(track);
+            const totalGroups = (track.groups || []).filter(g => baseCases.some(c => c.group === g)).length;
             if (totalGroups > 0 && this.activeGroupFilters.size >= totalGroups) {
               this.activeGroupFilters.clear();
             }
@@ -1288,12 +1380,14 @@ export class StudyView {
       this.populateGridVisuals(track, token);
     } else if (this.currentView === 'hybrid') {
       this.populateGridVisuals(track, token);
-      const c = track.caseById.get(this.selectedCaseId) || track.cases[0];
+      const fallbackCase = this.getNavigableCases(track)[0] || this.getTrackBaseCases(track)[0] || track.cases[0];
+      const c = track.caseById.get(this.selectedCaseId) || fallbackCase;
       if (c) {
         this.populateDetailVisuals(track, c, token);
       }
     } else if (this.currentView === 'detail') {
-      const c = track.caseById.get(this.selectedCaseId) || track.cases[0];
+      const fallbackCase = this.getNavigableCases(track)[0] || this.getTrackBaseCases(track)[0] || track.cases[0];
+      const c = track.caseById.get(this.selectedCaseId) || fallbackCase;
       if (c) {
         this.populateDetailVisuals(track, c, token);
       }

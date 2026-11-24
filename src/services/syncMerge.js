@@ -54,6 +54,8 @@ const SETTINGS_SCALAR_FIELDS = [
   "statsPanelVisibility",
   "showFreeFaceTurns",
   "llAnalyticsMode",
+  "ollMode",
+  "pllMode",
   "trainSubMode",
   "desktopMultiPane",
   "customEvents",

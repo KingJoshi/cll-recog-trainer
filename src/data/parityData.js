@@ -30,6 +30,11 @@ export const parity444Cases = [
         id: "444-oll-alt",
         alg: "Rw' U2 Lw F2 Lw' F2 Rw2 U2 Rw U2 Rw' U2 F2 Rw2 F2",
         note: "Alternative RU/LF-gen variation (no x rotation)"
+      },
+      {
+        id: "444-oll-lucas-b2",
+        alg: "Rw2 B2 U2 Lw U2 Rw' U2 Rw U2 F2 Rw F2 Lw' B2 Rw2",
+        note: "Classic Lucas OLL parity (flips top 4 front pieces: UFL, UF dedge, and UFR)"
       }
     ]
   },

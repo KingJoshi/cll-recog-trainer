@@ -77,8 +77,10 @@ export function createSettingsModalController({
   const settingsStatsVisAlwaysBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsVisAlwaysBtn") : null;
   const settingsStatsVisSolveBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsVisSolveBtn") : null;
   const settingsStatsVisHiddenBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsVisHiddenBtn") : null;
-  const settingsLlModeFullBtn = typeof document !== "undefined" ? document.getElementById("settingsLlModeFullBtn") : null;
-  const settingsLlMode2LookBtn = typeof document !== "undefined" ? document.getElementById("settingsLlMode2LookBtn") : null;
+  const settingsOllModeFullBtn = typeof document !== "undefined" ? document.getElementById("settingsOllModeFullBtn") : null;
+  const settingsOllMode2LookBtn = typeof document !== "undefined" ? document.getElementById("settingsOllMode2LookBtn") : null;
+  const settingsPllModeFullBtn = typeof document !== "undefined" ? document.getElementById("settingsPllModeFullBtn") : null;
+  const settingsPllMode2LookBtn = typeof document !== "undefined" ? document.getElementById("settingsPllMode2LookBtn") : null;
   const settingsFocusMode = typeof document !== "undefined" ? document.getElementById("settingsFocusMode") : null;
   const settingsDesktopMultiPane = typeof document !== "undefined" ? document.getElementById("settingsDesktopMultiPane") : null;
   const settingsShowLayerWidget = typeof document !== "undefined" ? document.getElementById("settingsShowLayerWidget") : null;
@@ -168,14 +170,25 @@ export function createSettingsModalController({
       settingsStatsVisHiddenBtn.classList.toggle("active", active);
       settingsStatsVisHiddenBtn.setAttribute("aria-pressed", String(active));
     }
-    const is2LookLl = s.llAnalyticsMode === "2look";
-    if (settingsLlModeFullBtn) {
-      settingsLlModeFullBtn.classList.toggle("active", !is2LookLl);
-      settingsLlModeFullBtn.setAttribute("aria-pressed", String(!is2LookLl));
+    const ollMode = s.ollMode || (s.llAnalyticsMode === "2look" ? "2look" : "full");
+    const is2LookOll = ollMode === "2look";
+    if (settingsOllModeFullBtn) {
+      settingsOllModeFullBtn.classList.toggle("active", !is2LookOll);
+      settingsOllModeFullBtn.setAttribute("aria-pressed", String(!is2LookOll));
     }
-    if (settingsLlMode2LookBtn) {
-      settingsLlMode2LookBtn.classList.toggle("active", is2LookLl);
-      settingsLlMode2LookBtn.setAttribute("aria-pressed", String(is2LookLl));
+    if (settingsOllMode2LookBtn) {
+      settingsOllMode2LookBtn.classList.toggle("active", is2LookOll);
+      settingsOllMode2LookBtn.setAttribute("aria-pressed", String(is2LookOll));
+    }
+    const pllMode = s.pllMode || (s.llAnalyticsMode === "2look" ? "2look" : "full");
+    const is2LookPll = pllMode === "2look";
+    if (settingsPllModeFullBtn) {
+      settingsPllModeFullBtn.classList.toggle("active", !is2LookPll);
+      settingsPllModeFullBtn.setAttribute("aria-pressed", String(!is2LookPll));
+    }
+    if (settingsPllMode2LookBtn) {
+      settingsPllMode2LookBtn.classList.toggle("active", is2LookPll);
+      settingsPllMode2LookBtn.setAttribute("aria-pressed", String(is2LookPll));
     }
     if (settingsFocusMode) settingsFocusMode.checked = Boolean(s.focusMode);
     if (settingsDesktopMultiPane) settingsDesktopMultiPane.checked = s.desktopMultiPane !== false;
@@ -511,12 +524,20 @@ export function createSettingsModalController({
     appStore.setStatsPanelVisibility?.("hidden");
     renderToggles();
   });
-  settingsLlModeFullBtn?.addEventListener("click", () => {
-    appStore.setLlAnalyticsMode?.("full");
+  settingsOllModeFullBtn?.addEventListener("click", () => {
+    appStore.setOllMode?.("full");
     renderToggles();
   });
-  settingsLlMode2LookBtn?.addEventListener("click", () => {
-    appStore.setLlAnalyticsMode?.("2look");
+  settingsOllMode2LookBtn?.addEventListener("click", () => {
+    appStore.setOllMode?.("2look");
+    renderToggles();
+  });
+  settingsPllModeFullBtn?.addEventListener("click", () => {
+    appStore.setPllMode?.("full");
+    renderToggles();
+  });
+  settingsPllMode2LookBtn?.addEventListener("click", () => {
+    appStore.setPllMode?.("2look");
     renderToggles();
   });
   settingsFocusMode?.addEventListener("change", (e) => {

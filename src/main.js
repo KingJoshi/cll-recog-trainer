@@ -355,6 +355,10 @@ studyView = new StudyView({
   onSetOhHand: (hand) => appStore.setOhHand(hand),
   getOhTableAbuse: () => appStore.state.ohTableAbuse !== false,
   onSetOhTableAbuse: (enabled) => appStore.setOhTableAbuse(enabled),
+  getOllMode: () => appStore.state.ollMode || appStore.state.llAnalyticsMode || "full",
+  onSetOllMode: (mode) => appStore.setOllMode(mode),
+  getPllMode: () => appStore.state.pllMode || appStore.state.llAnalyticsMode || "full",
+  onSetPllMode: (mode) => appStore.setPllMode(mode),
   getSimSpeed: () => appStore.state.simSpeed ?? 1,
   onSetSimSpeed: (spd) => appStore.setSimSpeed(spd),
   getAlgCustomLabel,
@@ -407,6 +411,7 @@ appStore.subscribe((evt) => {
   } else if (evt === "llAnalyticsMode") {
     settingsModal?.renderToggles?.();
     statsCtrl?.updateStatsTable?.();
+    if (appStore.state.mode === "study") studyView?.render?.();
   } else if (evt === "desktopMultiPane") {
     settingsModal?.renderToggles?.();
     navCtrl?.renderStage?.();

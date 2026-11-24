@@ -273,8 +273,21 @@ export class AppStore {
       showLayerSolutionsWidget: savedSettings.showLayerSolutionsWidget ?? cookiePrefs.showLayerSolutionsWidget ?? true,
       showCrossSolutionsWidget: savedSettings.showCrossSolutionsWidget ?? cookiePrefs.showCrossSolutionsWidget ?? true,
       showStatsPanel,
-      showFreeFaceTurns: savedSettings.showFreeFaceTurns ?? cookiePrefs.showFreeFaceTurns ?? false,
-      llAnalyticsMode: (savedSettings.llAnalyticsMode === "2look" || cookiePrefs.llAnalyticsMode === "2look") ? "2look" : "full",
+      showFreeFaceTurns: Boolean(savedSettings.showFreeFaceTurns ?? cookiePrefs.showFreeFaceTurns ?? false),
+      ...(() => {
+        const legacyLlMode = (savedSettings.llAnalyticsMode === "2look" || (!savedSettings.llAnalyticsMode && cookiePrefs.llAnalyticsMode === "2look")) ? "2look" : "full";
+        const ollMode = (savedSettings.ollMode === "2look" || (!savedSettings.ollMode && cookiePrefs.ollMode === "2look"))
+          ? "2look"
+          : ((savedSettings.ollMode === "full" || cookiePrefs.ollMode === "full") ? "full" : legacyLlMode);
+        const pllMode = (savedSettings.pllMode === "2look" || (!savedSettings.pllMode && cookiePrefs.pllMode === "2look"))
+          ? "2look"
+          : ((savedSettings.pllMode === "full" || cookiePrefs.pllMode === "full") ? "full" : legacyLlMode);
+        return {
+          ollMode,
+          pllMode,
+          llAnalyticsMode: (ollMode === "2look" && pllMode === "2look") ? "2look" : "full"
+        };
+      })(),
       trainSubMode,
       desktopMultiPane: savedSettings.desktopMultiPane ?? cookiePrefs.desktopMultiPane ?? true,
       customEvents,
@@ -737,12 +750,44 @@ export class AppStore {
     this.notify("solveOptions", { solveInspection: next });
   }
 
+  setOllMode(mode) {
+    const next = mode === "2look" ? "2look" : "full";
+    if (this.state.ollMode === next) return;
+    this.state.ollMode = next;
+    this.state.llAnalyticsMode = (this.state.ollMode === "2look" && this.state.pllMode === "2look") ? "2look" : "full";
+    this.saveSettings();
+    this.notify("llAnalyticsMode", {
+      ollMode: this.state.ollMode,
+      pllMode: this.state.pllMode,
+      llAnalyticsMode: this.state.llAnalyticsMode
+    });
+  }
+
+  setPllMode(mode) {
+    const next = mode === "2look" ? "2look" : "full";
+    if (this.state.pllMode === next) return;
+    this.state.pllMode = next;
+    this.state.llAnalyticsMode = (this.state.ollMode === "2look" && this.state.pllMode === "2look") ? "2look" : "full";
+    this.saveSettings();
+    this.notify("llAnalyticsMode", {
+      ollMode: this.state.ollMode,
+      pllMode: this.state.pllMode,
+      llAnalyticsMode: this.state.llAnalyticsMode
+    });
+  }
+
   setLlAnalyticsMode(mode) {
     const next = mode === "2look" ? "2look" : "full";
-    if (this.state.llAnalyticsMode === next) return;
+    if (this.state.llAnalyticsMode === next && this.state.ollMode === next && this.state.pllMode === next) return;
+    this.state.ollMode = next;
+    this.state.pllMode = next;
     this.state.llAnalyticsMode = next;
     this.saveSettings();
-    this.notify("llAnalyticsMode", { llAnalyticsMode: next });
+    this.notify("llAnalyticsMode", {
+      ollMode: next,
+      pllMode: next,
+      llAnalyticsMode: next
+    });
   }
 
   setTrainSubMode(subMode) {
@@ -860,7 +905,9 @@ export class AppStore {
       showStatsPanel: s.showStatsPanel !== false,
       statsPanelVisibility: ["always", "solve-only", "hidden"].includes(s.statsPanelVisibility) ? s.statsPanelVisibility : (s.showStatsPanel === false ? "hidden" : "always"),
       showFreeFaceTurns: Boolean(s.showFreeFaceTurns),
-      llAnalyticsMode: s.llAnalyticsMode === "2look" ? "2look" : "full",
+      ollMode: s.ollMode === "2look" ? "2look" : "full",
+      pllMode: s.pllMode === "2look" ? "2look" : "full",
+      llAnalyticsMode: (s.ollMode === "2look" && s.pllMode === "2look") ? "2look" : "full",
       trainSubMode: s.trainSubMode === "timed-drill" ? "timed-drill" : "recog",
       desktopMultiPane: s.desktopMultiPane !== false,
       customEvents: sanitizeCustomEvents(s.customEvents),
@@ -919,7 +966,9 @@ export class AppStore {
       showStatsPanel: s.showStatsPanel !== false,
       statsPanelVisibility: ["always", "solve-only", "hidden"].includes(s.statsPanelVisibility) ? s.statsPanelVisibility : (s.showStatsPanel === false ? "hidden" : "always"),
       showFreeFaceTurns: Boolean(s.showFreeFaceTurns),
-      llAnalyticsMode: s.llAnalyticsMode === "2look" ? "2look" : "full",
+      ollMode: s.ollMode === "2look" ? "2look" : "full",
+      pllMode: s.pllMode === "2look" ? "2look" : "full",
+      llAnalyticsMode: (s.ollMode === "2look" && s.pllMode === "2look") ? "2look" : "full",
       trainSubMode: s.trainSubMode === "timed-drill" ? "timed-drill" : "recog",
       desktopMultiPane: s.desktopMultiPane !== false,
       timerDrillPreset: s.timerDrillPreset,
@@ -1050,7 +1099,10 @@ export class AppStore {
       if (s.statsDisplayMode === "none") s.statsPanelVisibility = "hidden";
       if (s.statsPanelVisibility === "hidden") s.showStatsPanel = false;
       s.showFreeFaceTurns = savedSettings.showFreeFaceTurns ?? s.showFreeFaceTurns ?? false;
-      s.llAnalyticsMode = savedSettings.llAnalyticsMode === "2look" ? "2look" : "full";
+      const legacyLlMode = savedSettings.llAnalyticsMode === "2look" ? "2look" : "full";
+      s.ollMode = savedSettings.ollMode === "2look" ? "2look" : (savedSettings.ollMode === "full" ? "full" : legacyLlMode);
+      s.pllMode = savedSettings.pllMode === "2look" ? "2look" : (savedSettings.pllMode === "full" ? "full" : legacyLlMode);
+      s.llAnalyticsMode = (s.ollMode === "2look" && s.pllMode === "2look") ? "2look" : "full";
       s.trainSubMode = savedSettings.trainSubMode === "timed-drill" ? "timed-drill" : "recog";
       s.desktopMultiPane = savedSettings.desktopMultiPane ?? s.desktopMultiPane ?? true;
       s.customEvents = hydratedCustomEvents;

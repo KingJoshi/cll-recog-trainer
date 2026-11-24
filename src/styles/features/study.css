@@ -1499,7 +1499,8 @@
   }
 
   .oh-hand-btn,
-  .oh-table-btn {
+  .oh-table-btn,
+  .study-ll-mode-btn {
     padding: 4px 10px;
     border-radius: var(--radius-xs);
     border: 1px solid transparent;
@@ -1512,12 +1513,14 @@
   }
 
   .oh-hand-btn:hover:not(.active),
-  .oh-table-btn:hover:not(.active) {
+  .oh-table-btn:hover:not(.active),
+  .study-ll-mode-btn:hover:not(.active) {
     background: var(--surface);
   }
 
   .oh-hand-btn.active,
-  .oh-table-btn.active {
+  .oh-table-btn.active,
+  .study-ll-mode-btn.active {
     background: var(--primary);
     color: #fff;
   }

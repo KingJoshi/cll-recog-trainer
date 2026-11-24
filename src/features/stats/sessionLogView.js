@@ -256,7 +256,9 @@ export function createSessionLogView({
       html += renderCfopGoalCoachHtml(displaySolves, {
         goalSec: s.cfopGoalSec || 12,
         isOpen: s.goalCoachOpen,
-        llAnalyticsMode: s.llAnalyticsMode || "full"
+        llAnalyticsMode: s.llAnalyticsMode || "full",
+        ollMode: s.ollMode || s.llAnalyticsMode || "full",
+        pllMode: s.pllMode || s.llAnalyticsMode || "full"
       });
     }
 
@@ -601,7 +603,9 @@ export function createSessionLogView({
           pllOpen: s.pllCasesStatsOpen,
           sortStateByTrack: ollPllBreakdownSort,
           caseTags: s.caseTags || {},
-          llAnalyticsMode: s.llAnalyticsMode || "full"
+          llAnalyticsMode: s.llAnalyticsMode || "full",
+          ollMode: s.ollMode || s.llAnalyticsMode || "full",
+          pllMode: s.pllMode || s.llAnalyticsMode || "full"
         });
       }
     } else if (!isAdvanced) {
@@ -772,6 +776,26 @@ export function createSessionLogView({
         if (!nextGoal || nextGoal === Number(s.cfopGoalSec)) return;
         s.cfopGoalSec = nextGoal;
         appStore.saveSettings();
+        render(container);
+      });
+    });
+
+    container.querySelectorAll("[data-oll-mode]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const nextOllMode = btn.dataset.ollMode === "2look" ? "2look" : "full";
+        if (nextOllMode === (s.ollMode || s.llAnalyticsMode || "full")) return;
+        appStore.setOllMode?.(nextOllMode);
+        render(container);
+      });
+    });
+
+    container.querySelectorAll("[data-pll-mode]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const nextPllMode = btn.dataset.pllMode === "2look" ? "2look" : "full";
+        if (nextPllMode === (s.pllMode || s.llAnalyticsMode || "full")) return;
+        appStore.setPllMode?.(nextPllMode);
         render(container);
       });
     });

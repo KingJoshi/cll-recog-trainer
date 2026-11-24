@@ -11,6 +11,8 @@ import {
 } from '../src/cfopAnalyzer.js';
 import { prewarmOllPllSvgs } from '../src/caseVisualizer.js';
 import { renderOllPllCasesBreakdownHtml } from '../src/features/solve/cfopBreakdownRenderer.js';
+import { StudyView, TWO_LOOK_OLL_STUDY_IDS, TWO_LOOK_PLL_STUDY_IDS } from '../src/studyView.js';
+import { getTrack } from '../src/data/algRegistry.js';
 import {
   AppStore,
   STORAGE_KEYS,
@@ -130,6 +132,10 @@ test('computeOllPllCaseStats and renderOllPllCasesBreakdownHtml merge 2-Look cas
   assert.equal(fullStats.ollCases.length, 4);
   assert.equal(fullStats.pllCases.length, 4);
 
+  const mixedStats = computeOllPllCaseStats(solves, { ollMode: '2look', pllMode: 'full' });
+  assert.equal(mixedStats.ollCases.length, 3);
+  assert.equal(mixedStats.pllCases.length, 4);
+
   const twoLookStats = computeOllPllCaseStats(solves, { llAnalyticsMode: '2look' });
   assert.equal(twoLookStats.ollCases.length, 3);
   assert.equal(twoLookStats.pllCases.length, 3);
@@ -147,14 +153,21 @@ test('computeOllPllCaseStats and renderOllPllCasesBreakdownHtml merge 2-Look cas
   assert.equal(adjEntry.svgCaseId, 'T');
 
   await prewarmOllPllSvgs(ollCases, pllCases);
-  const html = renderOllPllCasesBreakdownHtml(solves, { llAnalyticsMode: '2look' });
-  assert.ok(html.includes('data-ll-analytics-mode="full"'));
-  assert.ok(html.includes('data-ll-analytics-mode="2look"'));
+  const html = renderOllPllCasesBreakdownHtml(solves, { ollMode: '2look', pllMode: 'full' });
+  assert.ok(html.includes('data-oll-mode="full"'));
+  assert.ok(html.includes('data-oll-mode="2look"'));
+  assert.ok(html.includes('data-pll-mode="full"'));
+  assert.ok(html.includes('data-pll-mode="2look"'));
   assert.ok(html.includes('OLL Cases (2-Look)'));
-  assert.ok(html.includes('PLL Cases (2-Look)'));
+  assert.ok(!html.includes('PLL Cases (2-Look)'));
   assert.ok(html.includes('EO: Dot'));
-  assert.ok(html.includes('Adj Corners'));
+  assert.ok(!html.includes('Adj Corners'));
   assert.ok(html.includes('<svg'));
+
+  const htmlBoth = renderOllPllCasesBreakdownHtml(solves, { llAnalyticsMode: '2look' });
+  assert.ok(htmlBoth.includes('OLL Cases (2-Look)'));
+  assert.ok(htmlBoth.includes('PLL Cases (2-Look)'));
+  assert.ok(htmlBoth.includes('Adj Corners'));
 });
 
 test('isTimerViewMode separates Solve and Train -> Timed Drills from Learn, Recognition Training, and Simulate', () => {
@@ -170,6 +183,8 @@ test('isTimerViewMode separates Solve and Train -> Timed Drills from Learn, Reco
 test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy drill migration, and syncMerge', () => {
   withMockStorage({}, () => {
     const store = new AppStore();
+    assert.equal(store.state.ollMode, 'full');
+    assert.equal(store.state.pllMode, 'full');
     assert.equal(store.state.llAnalyticsMode, 'full');
     assert.equal(store.state.trainSubMode, 'recog');
     assert.equal(store.state.desktopMultiPane, true);
@@ -177,7 +192,22 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
     const events = [];
     store.subscribe((evt, data) => events.push([evt, data]));
 
+    store.setOllMode('2look');
+    assert.equal(store.state.ollMode, '2look');
+    assert.equal(store.state.pllMode, 'full');
+    assert.equal(store.state.llAnalyticsMode, 'full');
+
+    store.setPllMode('2look');
+    assert.equal(store.state.pllMode, '2look');
+    assert.equal(store.state.llAnalyticsMode, '2look');
+
+    store.setPllMode('full');
+    assert.equal(store.state.ollMode, '2look');
+    assert.equal(store.state.pllMode, 'full');
+
     store.setLlAnalyticsMode('2look');
+    assert.equal(store.state.ollMode, '2look');
+    assert.equal(store.state.pllMode, '2look');
     store.setTrainSubMode('timed-drill');
     store.setDesktopMultiPane(false);
 
@@ -186,6 +216,8 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
     assert.equal(store.state.desktopMultiPane, false);
 
     const payload = store.getSettingsPayload();
+    assert.equal(payload.ollMode, '2look');
+    assert.equal(payload.pllMode, '2look');
     assert.equal(payload.llAnalyticsMode, '2look');
     assert.equal(payload.trainSubMode, 'timed-drill');
     assert.equal(payload.desktopMultiPane, false);
@@ -263,6 +295,8 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
     schemaVersion: 2,
     settings: {
       llAnalyticsMode: 'full',
+      ollMode: 'full',
+      pllMode: 'full',
       trainSubMode: 'recog',
       desktopMultiPane: true,
       statsDisplayMode: 'basic',
@@ -272,6 +306,8 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
     timestamps: {
       settings: {
         llAnalyticsMode: 1000,
+        ollMode: 3000,
+        pllMode: 1000,
         trainSubMode: 3000,
         desktopMultiPane: 1000,
         statsDisplayMode: 1000,
@@ -285,6 +321,8 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
     schemaVersion: 2,
     settings: {
       llAnalyticsMode: '2look',
+      ollMode: '2look',
+      pllMode: '2look',
       trainSubMode: 'timed-drill',
       desktopMultiPane: false,
       statsDisplayMode: 'none',
@@ -294,6 +332,8 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
     timestamps: {
       settings: {
         llAnalyticsMode: 2000,
+        ollMode: 2000,
+        pllMode: 2000,
         trainSubMode: 2000,
         desktopMultiPane: 2000,
         statsDisplayMode: 2500,
@@ -305,6 +345,8 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
   };
   const merged = mergeSyncPayloads(localSnap, remoteSnap).merged;
   assert.equal(merged.settings.llAnalyticsMode, '2look');
+  assert.equal(merged.settings.ollMode, 'full');
+  assert.equal(merged.settings.pllMode, '2look');
   assert.equal(merged.settings.trainSubMode, 'recog');
   assert.equal(merged.settings.desktopMultiPane, false);
   assert.equal(merged.settings.statsDisplayMode, 'none');
@@ -339,7 +381,10 @@ test('UI markup & CSS wire Learn/Train/Solve tabs, Train submodes, desktop multi
   assert.ok(html.includes('id="trainSubmodeBar"'));
   assert.ok(html.includes('id="solveLeftPane"'));
   assert.ok(html.includes('id="solveRightPane"'));
-  assert.ok(html.includes('id="settingsLlMode2LookBtn"'));
+  assert.ok(html.includes('id="settingsOllMode2LookBtn"'));
+  assert.ok(html.includes('id="settingsPllMode2LookBtn"'));
+  assert.ok(html.includes('data-settings-oll-mode="2look"'));
+  assert.ok(html.includes('data-settings-pll-mode="2look"'));
   assert.ok(html.includes('id="settingsDesktopMultiPane"'));
   assert.ok(html.includes('id="settingsStatsModeNoneBtn"'));
   assert.ok(html.includes('id="settingsStatsVisHiddenBtn"'));
@@ -365,4 +410,71 @@ test('UI markup & CSS wire Learn/Train/Solve tabs, Train submodes, desktop multi
   assert.ok(statsCss.includes('.cfop-seg-f2l { background: #16a34a;'));
   assert.ok(statsCss.includes('.cfop-seg-oll { background: #ea580c;'));
   assert.ok(statsCss.includes('.cfop-seg-pll { background: #7c3aed;'));
+});
+
+test('StudyView supports independent Full vs 2-Look OLL (10) and PLL (6) toggles & filtering across 333 and 333oh', () => {
+  assert.equal(TWO_LOOK_OLL_STUDY_IDS.size, 10);
+  assert.equal(TWO_LOOK_PLL_STUDY_IDS.size, 6);
+
+  let ollMode = '2look';
+  let pllMode = 'full';
+  const handlers = { oll: [], pll: [] };
+  const makeBtn = (dataset) => {
+    const btn = { dataset, _listeners: {} };
+    btn.addEventListener = (evt, fn) => { btn._listeners[evt] = fn; };
+    btn.click = () => btn._listeners.click?.();
+    return btn;
+  };
+  const container = {
+    innerHTML: '',
+    querySelectorAll(sel) {
+      if (sel === '[data-study-oll-mode]') {
+        handlers.oll = [makeBtn({ studyOllMode: 'full' }), makeBtn({ studyOllMode: '2look' })];
+        return handlers.oll;
+      }
+      if (sel === '[data-study-pll-mode]') {
+        handlers.pll = [makeBtn({ studyPllMode: 'full' }), makeBtn({ studyPllMode: '2look' })];
+        return handlers.pll;
+      }
+      return [];
+    },
+    querySelector() { return null; }
+  };
+
+  const sv = new StudyView({
+    container,
+    getOllMode: () => ollMode,
+    onSetOllMode: (m) => { ollMode = m; sv.render(); },
+    getPllMode: () => pllMode,
+    onSetPllMode: (m) => { pllMode = m; sv.render(); }
+  });
+
+  // 333 OLL in 2-Look shows 10 cases + toggle
+  sv.setTrack('333', 'oll');
+  assert.ok(container.innerHTML.includes('data-study-oll-mode="full"'));
+  assert.ok(container.innerHTML.includes('data-study-oll-mode="2look"'));
+  assert.ok(container.innerHTML.includes('Case Grid (10)'));
+  assert.ok(container.innerHTML.includes('All (10)'));
+  assert.equal(sv.getTrackBaseCases(getTrack('333', 'oll')).length, 10);
+
+  // Clicking Full OLL button invokes onSetOllMode('full') -> 57 cases while PLL stays untouched
+  handlers.oll[0].click();
+  assert.equal(ollMode, 'full');
+  assert.equal(pllMode, 'full');
+  assert.ok(container.innerHTML.includes('Case Grid (57)'));
+  assert.equal(sv.getTrackBaseCases(getTrack('333', 'oll')).length, 57);
+
+  // Switch to 333oh PLL -> starts Full (21), then click 2-Look button -> 6 cases
+  sv.setTrack('333oh', 'pll');
+  assert.ok(container.innerHTML.includes('data-study-pll-mode="full"'));
+  assert.ok(container.innerHTML.includes('data-study-pll-mode="2look"'));
+  assert.ok(container.innerHTML.includes('Case Grid (21)'));
+
+  sv.selectedCaseId = 'Ja'; // Not in 2-Look PLL
+  handlers.pll[1].click();
+  sv.setView('hybrid', { keepSelected: true });
+  assert.equal(pllMode, '2look');
+  assert.ok(container.innerHTML.includes('Case Grid (6)'));
+  assert.ok(TWO_LOOK_PLL_STUDY_IDS.has(sv.selectedCaseId), 'Hybrid falls back to a visible 2-Look PLL case');
+  assert.equal(sv.getTrackBaseCases(getTrack('333oh', 'pll')).length, 6);
 });
