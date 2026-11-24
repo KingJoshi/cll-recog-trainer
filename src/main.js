@@ -302,7 +302,9 @@ solveDetailModal = createSolveDetailModal({
   solveReplayViewer,
   getSolvePanel: () => solvePanelView,
   getNavCtrl: () => navCtrl,
-  getSimulatorCtrl: () => simulatorCtrl
+  getSimulatorCtrl: () => simulatorCtrl,
+  getStatsCtrl: () => statsCtrl,
+  getSessionModal: () => sessionModal
 });
 shortcutsModal = createShortcutsModalController({
   appStore,

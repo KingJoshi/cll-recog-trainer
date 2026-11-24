@@ -2,6 +2,9 @@
 
 import { ensureSolveCfop } from '../../cfopAnalyzer.js';
 import { escapeHtml, formatSolveDate, formatSolveDisplay, formatCfopSplitMs } from '../../services/htmlUtils.js';
+import { getSolveFingerprint } from '../../services/syncMerge.js';
+import { recordTombstone } from '../../services/syncStorage.js';
+import { showToast } from '../../ui/toastService.js';
 import { renderCfopStepTable } from '../solve/cfopBreakdownRenderer.js';
 
 export function createSolveDetailModal({
@@ -10,13 +13,16 @@ export function createSolveDetailModal({
   solveReplayViewer,
   getSolvePanel = () => null,
   getNavCtrl = () => null,
-  getSimulatorCtrl = () => null
+  getSimulatorCtrl = () => null,
+  getStatsCtrl = () => null,
+  getSessionModal = () => null
 } = {}) {
   const modal = typeof document !== "undefined" ? document.getElementById("solveDetailModal") : null;
   const titleEl = typeof document !== "undefined" ? document.getElementById("solveModalTitle") : null;
   const timeEl = typeof document !== "undefined" ? document.getElementById("solveModalTime") : null;
   const scrambleEl = typeof document !== "undefined" ? document.getElementById("solveModalScramble") : null;
   const dateEl = typeof document !== "undefined" ? document.getElementById("solveModalDate") : null;
+  const noteInput = typeof document !== "undefined" ? document.getElementById("solveModalNoteInput") : null;
   const phasesField = typeof document !== "undefined" ? document.getElementById("solveModalPhasesField") : null;
   const phasesLabel = typeof document !== "undefined" ? document.getElementById("solveModalPhasesLabel") : null;
   const phasesContent = typeof document !== "undefined" ? document.getElementById("solveModalPhasesContent") : null;
@@ -27,6 +33,7 @@ export function createSolveDetailModal({
   const tpsEl = typeof document !== "undefined" ? document.getElementById("solveModalTps") : null;
   const deviceEl = typeof document !== "undefined" ? document.getElementById("solveModalDevice") : null;
   const movesTapeEl = typeof document !== "undefined" ? document.getElementById("solveModalMovesTape") : null;
+  const deleteBtn = typeof document !== "undefined" ? document.getElementById("solveModalDeleteBtn") : null;
   const replayBtn = typeof document !== "undefined" ? document.getElementById("solveModalReplayBtn") : null;
   const closeBtn = typeof document !== "undefined" ? document.getElementById("solveModalCloseBtn") : null;
   const dismissBtn = typeof document !== "undefined" ? document.getElementById("solveModalDismissBtn") : null;
@@ -35,16 +42,34 @@ export function createSolveDetailModal({
   const simBtn = typeof document !== "undefined" ? document.getElementById("solveModalSimBtn") : null;
 
   let activeSolve = null;
+  let activeSolveNum = null;
+
+  function saveActiveNote() {
+    if (!activeSolve || !noteInput) return;
+    const nextComment = String(noteInput.value || "").trim();
+    const prevComment = String(activeSolve.comment || "").trim();
+    if (nextComment === prevComment) return;
+    if (nextComment) {
+      activeSolve.comment = nextComment;
+    } else {
+      delete activeSolve.comment;
+    }
+    activeSolve.updatedAt = Date.now();
+    appStore.saveSessions?.();
+    getStatsCtrl()?.updateStatsTable?.();
+  }
 
   function open(solve, solveNum) {
     if (!solve || !modal) return;
     activeSolve = solve;
+    activeSolveNum = solveNum;
     const sess = appStore.getActiveSession();
 
     if (titleEl) titleEl.textContent = `Solve #${solveNum} (${sess.name})`;
     if (timeEl) timeEl.textContent = formatSolveDisplay(solve);
     if (scrambleEl) scrambleEl.textContent = solve.scramble || "(no scramble recorded)";
     if (dateEl) dateEl.textContent = formatSolveDate(solve.at);
+    if (noteInput) noteInput.value = solve.comment || "";
     if (copyScrambleBtn) copyScrambleBtn.textContent = "Copy";
 
     if (phasesField && phasesContent) {
@@ -130,7 +155,11 @@ export function createSolveDetailModal({
     }
 
     modalManager.open(modal, {
-      onClose: () => { activeSolve = null; }
+      onClose: () => {
+        saveActiveNote();
+        activeSolve = null;
+        activeSolveNum = null;
+      }
     });
   }
 
@@ -140,6 +169,47 @@ export function createSolveDetailModal({
 
   closeBtn?.addEventListener("click", close);
   dismissBtn?.addEventListener("click", close);
+  noteInput?.addEventListener("change", saveActiveNote);
+  noteInput?.addEventListener("blur", saveActiveNote);
+
+  deleteBtn?.addEventListener("click", async () => {
+    if (!activeSolve) return;
+    const targetSolve = activeSolve;
+    const targetNum = activeSolveNum;
+    const label = targetNum != null ? `#${targetNum} ` : "";
+    const ok = await modalManager.confirmDialog({
+      title: "Delete Solve",
+      message: `Delete solve ${label}(${formatSolveDisplay(targetSolve)})?`,
+      confirmLabel: "Delete",
+      danger: true
+    });
+    if (!ok) return;
+
+    const allSolves = appStore.getSolves?.() || [];
+    let idx = allSolves.indexOf(targetSolve);
+    if (idx < 0) {
+      idx = allSolves.findIndex(sv =>
+        sv && ((targetSolve.uid && sv.uid === targetSolve.uid) || (sv.at === targetSolve.at && sv.ms === targetSolve.ms))
+      );
+    }
+    if (idx >= 0) {
+      const [removed] = allSolves.splice(idx, 1);
+      const fp = getSolveFingerprint(removed);
+      if (fp) recordTombstone("solves", fp);
+      const st = appStore.state;
+      if (st.lastSolve === removed || (st.lastSolve && st.lastSolve.at === removed.at && st.lastSolve.ms === removed.ms)) {
+        st.lastSolve = allSolves.length ? allSolves[allSolves.length - 1] : null;
+      }
+      appStore.setSolves(allSolves);
+    }
+    activeSolve = null;
+    activeSolveNum = null;
+    close();
+    getSessionModal()?.populateSessionSelect?.();
+    getSolvePanel()?.renderSolvePanel?.();
+    getStatsCtrl()?.updateStatsTable?.();
+    showToast("Solve deleted", "info", 1800);
+  });
 
   copyScrambleBtn?.addEventListener("click", async () => {
     if (!activeSolve?.scramble) return;

@@ -310,6 +310,25 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
   assert.equal(merged.settings.statsDisplayMode, 'none');
   assert.equal(merged.settings.statsPanelVisibility, 'solve-only');
   assert.deepEqual(merged.settings.visibleEvents, ['333', 'fto']);
+
+  // Solve comment note merges by latest updatedAt in mergeSyncPayloads
+  const noteMerged = mergeSyncPayloads(
+    {
+      schemaVersion: 2,
+      settings: {},
+      sessions: [
+        { id: 's1', name: 'Main', puzzle: '333', solves: [{ uid: 'u1', ms: 10000, at: 1000, comment: 'Old note', updatedAt: 1000 }] }
+      ]
+    },
+    {
+      schemaVersion: 2,
+      settings: {},
+      sessions: [
+        { id: 's1', name: 'Main', puzzle: '333', solves: [{ uid: 'u1', ms: 10000, at: 1000, comment: 'Locked up on G-perm', updatedAt: 3000 }] }
+      ]
+    }
+  ).merged;
+  assert.equal(noteMerged.sessions[0].solves[0].comment, 'Locked up on G-perm');
 });
 
 test('UI markup & CSS wire Learn/Train/Solve tabs, Train submodes, desktop multi-pane, and high-contrast CFOP chart colors', () => {
@@ -324,12 +343,22 @@ test('UI markup & CSS wire Learn/Train/Solve tabs, Train submodes, desktop multi
   assert.ok(html.includes('id="settingsDesktopMultiPane"'));
   assert.ok(html.includes('id="settingsStatsModeNoneBtn"'));
   assert.ok(html.includes('id="settingsStatsVisHiddenBtn"'));
+  const idxHidden = html.indexOf('id="settingsStatsVisHiddenBtn"');
+  const idxSolveOnly = html.indexOf('id="settingsStatsVisSolveBtn"');
+  const idxAlways = html.indexOf('id="settingsStatsVisAlwaysBtn"');
+  assert.ok(idxHidden > 0 && idxHidden < idxSolveOnly && idxSolveOnly < idxAlways);
   assert.ok(html.includes('id="settingsEventsGrid"'));
   assert.ok(html.includes('data-settings-tab="events"'));
   assert.ok(html.includes('data-settings-tab="event-specific"'));
   assert.ok(html.includes('id="hideLayerSolutionsBtn"'));
   assert.ok(html.includes('id="hideCrossSolutionsBtn"'));
   assert.ok(html.includes('id="settingsShowLayerWidget"'));
+  assert.ok(html.includes('id="solveModalNoteInput"'));
+  assert.ok(html.includes('id="solveModalDeleteBtn"'));
+
+  const settingsJs = fs.readFileSync(new URL('../src/features/modals/settingsModal.js', import.meta.url), 'utf8');
+  assert.ok(!settingsJs.includes('Non-WCA'));
+  assert.ok(settingsJs.includes('Big Cubes & FTO'));
 
   const statsCss = fs.readFileSync(new URL('../src/styles/features/stats.css', import.meta.url), 'utf8');
   assert.ok(statsCss.includes('.cfop-seg-cross { background: #2563eb;'));

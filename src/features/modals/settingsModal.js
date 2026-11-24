@@ -321,7 +321,7 @@ export function createSettingsModalController({
     const visibleSet = new Set(visibleList);
     const groups = [
       { label: "Core Cubes (Learn, Train, Solve)", ids: ["222", "333", "333oh", "444", "555"] },
-      { label: "Big Cubes & Non-WCA", ids: ["666", "777", "fto"] },
+      { label: "Big Cubes & FTO", ids: ["666", "777", "fto"] },
       { label: "WCA Side Events & BLD", ids: ["pyram", "skewb", "minx", "sq1", "clock", "333bf"] }
     ];
     settingsEventsGrid.innerHTML = groups.map(grp => `

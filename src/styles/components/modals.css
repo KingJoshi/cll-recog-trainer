@@ -162,6 +162,31 @@
     width: 95vw;
 }
 
+.solve-modal-note-input {
+    width: 100%;
+    min-height: 54px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.solve-modal-note-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+#solveModalDeleteBtn {
+    margin-right: auto;
+}
+
   .modal-close-btn {
     width: 32px;
     height: 32px;

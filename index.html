@@ -543,6 +543,10 @@
         <span class="solve-modal-label">Date &amp; Time</span>
         <p id="solveModalDate" class="solve-modal-date"></p>
       </div>
+      <div class="solve-modal-field">
+        <label for="solveModalNoteInput" class="solve-modal-label">Notes / Comments</label>
+        <textarea id="solveModalNoteInput" class="solve-modal-note-input" rows="2" maxlength="500" placeholder="Add notes or comments about this solve…"></textarea>
+      </div>
       <div class="solve-modal-field" id="solveModalPhasesField" hidden>
         <span id="solveModalPhasesLabel" class="solve-modal-label">Timer · Pick-up &amp; Put-down</span>
         <div id="solveModalPhasesContent" class="solve-modal-phases"></div>
@@ -562,6 +566,7 @@
       </div>
     </div>
     <div class="solve-modal-actions">
+      <button type="button" id="solveModalDeleteBtn" class="btn btn-small btn-danger">🗑️ Delete</button>
       <button type="button" id="solveModalReplayBtn" class="btn btn-primary btn-small" hidden>
         <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="4.5,2.8 13.2,8 4.5,13.2"/></svg></span><span>Replay Solve (3D)</span>
       </button>
@@ -996,9 +1001,9 @@
               <div class="settings-speed-row">
                 <span class="settings-oh-label"><strong>Stats &amp; History Widget:</strong></span>
                 <div class="settings-speed-group" role="group" aria-label="Stats and History widget visibility">
-                  <button type="button" id="settingsStatsVisAlwaysBtn" class="settings-speed-btn active" data-settings-stats-vis="always" aria-pressed="true">Always</button>
-                  <button type="button" id="settingsStatsVisSolveBtn" class="settings-speed-btn" data-settings-stats-vis="solve-only" aria-pressed="false">Solve Only</button>
                   <button type="button" id="settingsStatsVisHiddenBtn" class="settings-speed-btn" data-settings-stats-vis="hidden" aria-pressed="false">Hidden</button>
+                  <button type="button" id="settingsStatsVisSolveBtn" class="settings-speed-btn" data-settings-stats-vis="solve-only" aria-pressed="false">Solve Only</button>
+                  <button type="button" id="settingsStatsVisAlwaysBtn" class="settings-speed-btn active" data-settings-stats-vis="always" aria-pressed="true">Always</button>
                 </div>
               </div>
             </div>
