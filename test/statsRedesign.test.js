@@ -3,8 +3,10 @@ import assert from 'node:assert';
 import { AppStore } from '../src/state/appStore.js';
 import { SHORTCUT_ACTION_IDS } from '../src/services/keyboardShortcuts.js';
 import { mergeSyncPayloads } from '../src/services/syncMerge.js';
+import { analyzeCfopSolve, computeCfopAverages } from '../src/cfopAnalyzer.js';
 import { renderCfopStepTable, renderLastSolveCfopInline } from '../src/features/solve/cfopBreakdownRenderer.js';
 import { renderSolveStatsBar } from '../src/features/solve/solvePanelView.js';
+import { renderStatsChartsHtml } from '../src/features/stats/statsChartsView.js';
 import { createSessionLogView } from '../src/features/stats/sessionLogView.js';
 
 function makeMockContainer() {
@@ -210,7 +212,8 @@ test('createSessionLogView omits redundant Session Summary, supports Last 5/12/1
   assert.ok(container.innerHTML.includes('data-cfop-metric="mean"'));
   assert.ok(container.innerHTML.includes('data-cfop-metric="all"'));
 
-  // Full 3x3 Solve Log columns in Advanced
+  // Full 3x3 Solve Log columns in Advanced + Performance Charts
+  assert.ok(container.innerHTML.includes('stats-charts-card'));
   assert.ok(container.innerHTML.includes('data-log-sort="f2l1"'));
   assert.ok(container.innerHTML.includes('data-log-sort="pauseMs"'));
   assert.ok(container.innerHTML.includes('cfop-case-breakdown-card'));
@@ -224,6 +227,8 @@ test('createSessionLogView omits redundant Session Summary, supports Last 5/12/1
   // Basic mode on 3x3
   store.state.advancedMode = false;
   view.render(container);
+
+  assert.ok(!container.innerHTML.includes('stats-charts-card'));
 
   assert.ok(!container.innerHTML.includes('stats-session-scope-head'));
   assert.ok(!container.innerHTML.includes('layer-stats-grid'));
@@ -273,4 +278,125 @@ test('AppStore manages advancedMode preference, sync metadata, and keyboard shor
 
   store.hydrateFromSync({ settings: { advancedMode: false }, sessions: store.state.sessions });
   assert.strictEqual(store.state.advancedMode, false);
+});
+
+test('analyzeCfopSolve extracts separate AUF split without shrinking PLL time, and renderCfopStepTable colors splits vs rolling median', async () => {
+  const scrambleWithAuf = "U F R U' R' U R U R2' F' R U R U' R' U' R U2' R' U' R U' R' U' R U' R' U L' U L U2' R' U' R U' L U L' U' D F R' D'";
+  const movesWithAuf = [
+    { move: "D", t: 180, split: 180 },
+    { move: "R", t: 360, split: 180 },
+    { move: "F'", t: 540, split: 180 },
+    { move: "D'", t: 720, split: 180 },
+    { move: "U", t: 1240, split: 520 },
+    { move: "L", t: 1420, split: 180 },
+    { move: "U'", t: 1600, split: 180 },
+    { move: "L'", t: 1780, split: 180 },
+    { move: "U", t: 2240, split: 460 },
+    { move: "R'", t: 2420, split: 180 },
+    { move: "U", t: 2600, split: 180 },
+    { move: "R", t: 2780, split: 180 },
+    { move: "U2", t: 3100, split: 320 },
+    { move: "L'", t: 3280, split: 180 },
+    { move: "U'", t: 3460, split: 180 },
+    { move: "L", t: 3640, split: 180 },
+    { move: "U'", t: 3920, split: 280 },
+    { move: "R", t: 4100, split: 180 },
+    { move: "U", t: 4280, split: 180 },
+    { move: "R'", t: 4460, split: 180 },
+    { move: "U", t: 5010, split: 550 },
+    { move: "R", t: 5210, split: 200 },
+    { move: "U", t: 5390, split: 180 },
+    { move: "R'", t: 5570, split: 180 },
+    { move: "U", t: 5750, split: 180 },
+    { move: "R", t: 5930, split: 180 },
+    { move: "U2", t: 6150, split: 220 },
+    { move: "R'", t: 6330, split: 180 },
+    { move: "U", t: 6960, split: 630 },
+    { move: "R", t: 7160, split: 200 },
+    { move: "U", t: 7360, split: 200 },
+    { move: "R'", t: 7560, split: 200 },
+    { move: "U'", t: 7760, split: 200 },
+    { move: "R'", t: 7960, split: 200 },
+    { move: "F", t: 8160, split: 200 },
+    { move: "R2", t: 8360, split: 200 },
+    { move: "U'", t: 8560, split: 200 },
+    { move: "R'", t: 8760, split: 200 },
+    { move: "U'", t: 8960, split: 200 },
+    { move: "R", t: 9160, split: 200 },
+    { move: "U", t: 9360, split: 200 },
+    { move: "R'", t: 9560, split: 200 },
+    { move: "F'", t: 9760, split: 200 },
+    { move: "U'", t: 9960, split: 200 }
+  ];
+  const solve = { puzzle: '333', target: 'full', ms: 9960, rawMs: 9960, scramble: scrambleWithAuf, moves: movesWithAuf };
+  const cfop = await analyzeCfopSolve(solve);
+
+  assert.strictEqual(cfop.splits.pll, 3630);
+  assert.strictEqual(cfop.splits.auf, 200);
+  assert.ok(cfop.aufSummary);
+  assert.strictEqual(cfop.aufSummary.label, 'AUF');
+  assert.strictEqual(cfop.aufSummary.caseId, "U'");
+  assert.strictEqual(cfop.aufSummary.ms, 200);
+  assert.strictEqual(cfop.aufSummary.accumMs, 9960);
+
+  solve.cfop = cfop;
+  const avg = computeCfopAverages([solve]);
+  assert.strictEqual(avg.median.auf, 200);
+
+  // Also test zero-AUF case cleanly reports 0ms / None
+  const noAufScramble = "F R U' R' U R U R2' F' R U R U' R' U' R U2' R' U' R U' R' U' R U' R' U L' U L U2' R' U' R U' L U L' U' D F R' D'";
+  const noAufMoves = movesWithAuf.slice(0, -1).map(m => ({ ...m }));
+  const noAufCfop = await analyzeCfopSolve({ puzzle: '333', target: 'full', ms: 9760, rawMs: 9760, scramble: noAufScramble, moves: noAufMoves });
+  assert.strictEqual(noAufCfop.splits.auf, 0);
+  assert.strictEqual(noAufCfop.aufSummary.caseId, 'None');
+
+  // Step table includes AUF row and highlights faster (green) / slower (red) vs median
+  const refMedians = { cross: 900, f2lTotal: 3500, oll: 2000, pll: 3500, auf: 200, totalMs: 10500 };
+  const coloredAdv = renderCfopStepTable(solve, { detailed: false, basic: false, refMedians });
+  assert.ok(coloredAdv.includes('cfop-row-auf'));
+  assert.ok(coloredAdv.includes('cfop-step-badge-auf'));
+  assert.ok(coloredAdv.includes('cfop-split-faster')); // Cross 720 < 900, OLL 1870 < 2000, total 9960 < 10500
+  assert.ok(coloredAdv.includes('cfop-split-slower')); // F2L Total 3740 > 3500, PLL 3630 > 3500
+
+  const coloredBasic = renderCfopStepTable(solve, { basic: true, refMedians });
+  assert.ok(coloredBasic.includes('cfop-row-auf'));
+  assert.ok(coloredBasic.includes('cfop-split-faster'));
+  assert.ok(coloredBasic.includes('cfop-split-slower'));
+});
+
+test('renderStatsChartsHtml renders SVG trend, histogram, and CFOP stacked bars cleanly with DNFs, and AppStore toggles Focus mode', () => {
+  assert.ok(SHORTCUT_ACTION_IDS.has('action:toggleFocusMode'));
+
+  const solves = Array.from({ length: 15 }, (_, i) => {
+    const sv = makeCfopSolve(i, 9500 + (i % 5) * 300);
+    if (i === 7) sv.penalty = -1; // ensure DNFs do not produce NaN or break paths
+    return sv;
+  });
+  const cfopScopes = [
+    { title: 'Last 5', avg: computeCfopAverages(solves.slice(-5).reverse()) },
+    { title: 'Session', avg: computeCfopAverages(solves) }
+  ];
+  const html = renderStatsChartsHtml(solves, { is3x3: true, isOpen: true, cfopScopes });
+  assert.ok(html.includes('Performance Charts'));
+  assert.ok(html.includes('Progress Trend'));
+  assert.ok(html.includes('Time Distribution'));
+  assert.ok(html.includes('CFOP Phase Proportions'));
+  assert.ok(html.includes('chart-line-ao5'));
+  assert.ok(html.includes('chart-line-ao12'));
+  assert.ok(html.includes('chart-hist-bar'));
+  assert.ok(html.includes('cfop-seg-cross'));
+  assert.ok(!html.includes('NaN'));
+
+  const store = new AppStore();
+  let focusEvents = 0;
+  store.subscribe((evt) => {
+    if (evt === 'focusMode') focusEvents++;
+  });
+  assert.strictEqual(store.state.focusMode, false);
+  store.setFocusMode(true);
+  assert.strictEqual(store.state.focusMode, true);
+  assert.strictEqual(focusEvents, 1);
+
+  store.state.chartsStatsOpen = false;
+  assert.strictEqual(store.getSettingsPayload().chartsStatsOpen, false);
 });

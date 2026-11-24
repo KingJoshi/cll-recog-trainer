@@ -420,7 +420,8 @@ export function analyzeCfopSolveSync(solve, options = {}) {
           f2l4: null,
           f2lTotal: null,
           oll: isOll ? rawMs : null,
-          pll: !isOll ? rawMs : null
+          pll: !isOll ? rawMs : null,
+          auf: null
         },
         steps: [],
         ollCase: isOll ? {
@@ -614,7 +615,8 @@ export function analyzeCfopSolveSync(solve, options = {}) {
     f2l4: null,
     f2lTotal: null,
     oll: null,
-    pll: null
+    pll: null,
+    auf: null
   };
 
   // Pre-identify OLL and PLL cases so each step row has its caseId
@@ -786,12 +788,52 @@ export function analyzeCfopSolveSync(solve, options = {}) {
     }
   }
 
+  // Separate trailing AUF summary row without altering PLL time or totals
+  let aufSummary = null;
+  const pllStep = steps.find(s => s.phase === "pll");
+  if (pllStep) {
+    let aufStartIdx = pllEnd;
+    while (aufStartIdx > ollEnd && isCrossSetupMove(normMoves[aufStartIdx - 1]?.move, bestCandidate.cand)) {
+      aufStartIdx--;
+    }
+    const aufRawMoves = normMoves.slice(aufStartIdx, pllEnd);
+    const aufMs = aufStartIdx < pllEnd
+      ? Math.max(0, Math.round(timeAtIndex(pllEnd) - timeAtIndex(aufStartIdx)))
+      : 0;
+    const aufMovesStr = aufRawMoves.length > 0
+      ? (collapseDoubleFlickMoves(aufRawMoves.map(m => m.move)).join(" ") || "None")
+      : "None";
+    const aufPauses = aufRawMoves.filter(m => m.split >= pauseThresholdMs);
+    const aufPauseMs = aufPauses.reduce((acc, m) => acc + m.split, 0);
+    const aufTps = (aufMs > 0 && aufRawMoves.length > 0)
+      ? Number((aufRawMoves.length / (aufMs / 1000)).toFixed(2))
+      : 0;
+    splits.auf = aufMs;
+    aufSummary = {
+      phase: "auf",
+      label: "AUF",
+      caseId: aufMovesStr,
+      ms: aufMs,
+      recogMs: null,
+      setupMoves: "",
+      execMs: aufMs,
+      execMoves: aufMovesStr === "None" ? "" : aufMovesStr,
+      accumMs: pllStep.accumMs,
+      moveCount: aufRawMoves.length,
+      tps: aufTps,
+      moves: aufMovesStr === "None" ? "" : aufMovesStr,
+      pauseCount: aufPauses.length,
+      pauseMs: aufPauseMs
+    };
+  }
+
   return {
     isFullCfop,
     crossColor,
     splits,
     steps,
     f2lSummary,
+    aufSummary,
     ollCase,
     pllCase,
     pauses: {
@@ -814,7 +856,8 @@ export function ensureSolveCfop(solve, options = {}) {
   const hasUpgradedSteps =
     solve.cfop &&
     solve.cfop.splits &&
-    (!solve.cfop.steps?.length || solve.cfop.steps[0].accumMs !== undefined);
+    (!solve.cfop.steps?.length || solve.cfop.steps[0].accumMs !== undefined) &&
+    (!solve.moves?.length || solve.cfop.splits.pll == null || solve.cfop.aufSummary !== undefined);
   if (hasUpgradedSteps) return solve.cfop;
   if (isCfopAnalyzerReady()) {
     const analyzed = analyzeCfopSolveSync(solve, options);
@@ -877,6 +920,7 @@ export function computeCfopAverages(solves = [], options = {}) {
   const f2lTotalVals = [];
   const ollVals = [];
   const pllVals = [];
+  const aufVals = [];
   const pauseCountVals = [];
   const pauseMsVals = [];
   const cubeVals = [];
@@ -906,6 +950,7 @@ export function computeCfopAverages(solves = [], options = {}) {
     if (sp.f2lTotal != null) f2lTotalVals.push(sp.f2lTotal);
     if (sp.oll != null) ollVals.push(sp.oll);
     if (sp.pll != null) pllVals.push(sp.pll);
+    if (sp.auf != null) aufVals.push(sp.auf);
     if (cfop.pauses) {
       pauseCountVals.push(cfop.pauses.totalCount);
       pauseMsVals.push(cfop.pauses.totalMs);
@@ -928,6 +973,7 @@ export function computeCfopAverages(solves = [], options = {}) {
     f2lTotal: avgOf(f2lTotalVals),
     oll: avgOf(ollVals),
     pll: avgOf(pllVals),
+    auf: avgOf(aufVals),
     avgPauseCount: avgFloat(pauseCountVals, 1),
     avgPauseMs: avgOf(pauseMsVals),
     median: {
@@ -944,6 +990,7 @@ export function computeCfopAverages(solves = [], options = {}) {
       f2lTotal: computeMedian(f2lTotalVals),
       oll: computeMedian(ollVals),
       pll: computeMedian(pllVals),
+      auf: computeMedian(aufVals),
       pauseCount: medianFloat(pauseCountVals, 1),
       pauseMs: computeMedian(pauseMsVals)
     },
@@ -961,6 +1008,7 @@ export function computeCfopAverages(solves = [], options = {}) {
       f2lTotal: computeTrimmedMean(f2lTotalVals, 0.10),
       oll: computeTrimmedMean(ollVals, 0.10),
       pll: computeTrimmedMean(pllVals, 0.10),
+      auf: computeTrimmedMean(aufVals, 0.10),
       pauseCount: trimFloat(pauseCountVals, 1, 0.10),
       pauseMs: computeTrimmedMean(pauseMsVals, 0.10)
     }

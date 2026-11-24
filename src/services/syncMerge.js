@@ -35,6 +35,7 @@ const SETTINGS_SCALAR_FIELDS = [
   "freeMovesOpen",
   "layerSolutionsOpen",
   "crossSolutionsOpen",
+  "chartsStatsOpen",
   "solveLogOpen",
   "cfopSummaryOpen",
   "ollCasesStatsOpen",

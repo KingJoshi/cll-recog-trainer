@@ -206,6 +206,7 @@ export function createNavController({
     if (typeof document !== "undefined" && document.body) {
       document.body.dataset.puzzle = s.currentPuzzle;
       document.body.dataset.mode = s.mode;
+      document.body.classList.toggle("is-focus-mode", Boolean(s.focusMode && solving));
     }
 
     if (solveScramble) solveScramble.hidden = !solving;

@@ -176,6 +176,7 @@ export class AppStore {
       showReflection: savedSettings.showReflection ?? true,
       darkMode: savedSettings.darkMode ?? false,
       advancedMode: savedSettings.advancedMode ?? cookiePrefs.advancedMode ?? (hasExistingSettings || hasRecordedSolves),
+      focusMode: false,
       showTooltips: savedSettings.showTooltips ?? cookiePrefs.showTooltips ?? true,
       onboardingCompleted: savedSettings.onboardingCompleted ?? cookiePrefs.onboardingCompleted ?? (hasExistingSettings || hasRecordedSolves),
       onboardingProfile: savedSettings.onboardingProfile || null,
@@ -184,6 +185,7 @@ export class AppStore {
       freeMovesOpen: savedSettings.freeMovesOpen ?? cookiePrefs.freeMovesOpen ?? false,
       layerSolutionsOpen: savedSettings.layerSolutionsOpen ?? cookiePrefs.layerSolutionsOpen ?? false,
       crossSolutionsOpen: savedSettings.crossSolutionsOpen ?? cookiePrefs.crossSolutionsOpen ?? false,
+      chartsStatsOpen: savedSettings.chartsStatsOpen ?? cookiePrefs.chartsStatsOpen ?? true,
       solveLogOpen: savedSettings.solveLogOpen ?? cookiePrefs.solveLogOpen ?? true,
       cfopSummaryOpen: savedSettings.cfopSummaryOpen ?? cookiePrefs.cfopSummaryOpen ?? true,
       ollCasesStatsOpen: savedSettings.ollCasesStatsOpen ?? cookiePrefs.ollCasesStatsOpen ?? true,
@@ -534,6 +536,13 @@ export class AppStore {
     this.notify("advancedMode", { advancedMode: next });
   }
 
+  setFocusMode(enabled) {
+    const next = Boolean(enabled);
+    if (Boolean(this.state.focusMode) === next) return;
+    this.state.focusMode = next;
+    this.notify("focusMode", { focusMode: next });
+  }
+
   getKeyboardShortcuts() {
     return getEffectiveShortcutsMap(this.state.keyboardShortcuts);
   }
@@ -579,6 +588,7 @@ export class AppStore {
       freeMovesOpen: s.freeMovesOpen,
       layerSolutionsOpen: s.layerSolutionsOpen,
       crossSolutionsOpen: s.crossSolutionsOpen,
+      chartsStatsOpen: s.chartsStatsOpen,
       solveLogOpen: s.solveLogOpen,
       cfopSummaryOpen: s.cfopSummaryOpen,
       ollCasesStatsOpen: s.ollCasesStatsOpen,
@@ -620,6 +630,7 @@ export class AppStore {
       freeMovesOpen: s.freeMovesOpen,
       layerSolutionsOpen: s.layerSolutionsOpen,
       crossSolutionsOpen: s.crossSolutionsOpen,
+      chartsStatsOpen: s.chartsStatsOpen,
       solveLogOpen: s.solveLogOpen,
       cfopSummaryOpen: s.cfopSummaryOpen,
       ollCasesStatsOpen: s.ollCasesStatsOpen,
@@ -710,6 +721,7 @@ export class AppStore {
       s.freeMovesOpen = savedSettings.freeMovesOpen ?? false;
       s.layerSolutionsOpen = savedSettings.layerSolutionsOpen ?? false;
       s.crossSolutionsOpen = savedSettings.crossSolutionsOpen ?? false;
+      s.chartsStatsOpen = savedSettings.chartsStatsOpen ?? true;
       s.solveLogOpen = savedSettings.solveLogOpen ?? true;
       s.cfopSummaryOpen = savedSettings.cfopSummaryOpen ?? true;
       s.ollCasesStatsOpen = savedSettings.ollCasesStatsOpen ?? true;

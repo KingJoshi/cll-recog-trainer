@@ -13,7 +13,7 @@ export function renderSolvePhaseInline(solve) {
   return `<span class="solve-phase-inline" title="Measured across inspection, timer, and smart cube events">⏱ ${parts.join(" · ")}</span>`;
 }
 
-export function renderCfopStepTable(solve, { detailed = false, basic = false } = {}) {
+export function renderCfopStepTable(solve, { detailed = false, basic = false, refMedians = null } = {}) {
   const cfop = ensureSolveCfop(solve);
   if (!cfop || (!cfop.steps?.length && !cfop.splits)) return "";
 
@@ -32,6 +32,45 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false } =
   const totalMoves = solve.moveCount ?? realSteps.reduce((acc, s) => acc + (s.moveCount || 0), 0);
   const pCnt = cfop.pauses?.totalCount || 0;
   const pMs = cfop.pauses?.totalMs || 0;
+
+  const phaseRefKeyMap = {
+    pickup: "pickupMs",
+    cross: "cross",
+    f2l1: "f2l1",
+    f2l2: "f2l2",
+    f2l3: "f2l3",
+    f2l4: "f2l4",
+    f2lTotal: "f2lTotal",
+    oll: "oll",
+    pll: "pll",
+    auf: "auf",
+    cubeTotal: "cubeMs",
+    putdown: "putdownMs",
+    solveTotal: "totalMs"
+  };
+  const getSplitCompareMeta = (phaseKey, valMs) => {
+    if (!refMedians || typeof valMs !== "number" || !Number.isFinite(valMs)) {
+      return { cls: "", titleAttr: "" };
+    }
+    const refKey = phaseRefKeyMap[phaseKey];
+    const refVal = refKey ? refMedians[refKey] : null;
+    if (typeof refVal !== "number" || !Number.isFinite(refVal)) {
+      return { cls: "", titleAttr: "" };
+    }
+    if (valMs < refVal) {
+      return {
+        cls: "cfop-split-faster",
+        titleAttr: ` title="${escapeHtml(`Faster than median (${formatCfopSplitMs(refVal)})`)}"`
+      };
+    }
+    if (valMs > refVal) {
+      return {
+        cls: "cfop-split-slower",
+        titleAttr: ` title="${escapeHtml(`Slower than median (${formatCfopSplitMs(refVal)})`)}"`
+      };
+    }
+    return { cls: "", titleAttr: "" };
+  };
 
   const displayRows = [];
   if (hasPickup) {
@@ -59,6 +98,12 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false } =
       displayRows.push({
         ...cfop.f2lSummary,
         accumMs: cfop.f2lSummary.accumMs != null ? cfop.f2lSummary.accumMs + pickupOffset : null
+      });
+    }
+    if (st.phase === "pll" && cfop.aufSummary) {
+      displayRows.push({
+        ...cfop.aufSummary,
+        accumMs: cfop.aufSummary.accumMs != null ? cfop.aufSummary.accumMs + pickupOffset : null
       });
     }
   }
@@ -97,14 +142,16 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false } =
   }
 
   const rowsHtml = displayRows.map(row => {
-    const isSummaryRow = row.phase === "f2lTotal" || row.phase === "cubeTotal";
+    const isSummaryRow = row.phase === "f2lTotal" || row.phase === "cubeTotal" || row.phase === "auf";
     const isHandlingRow = row.phase === "pickup" || row.phase === "putdown";
     let stepBadgeClass = "cfop-step-badge-default";
     if (row.phase === "f2lTotal" || row.phase === "cubeTotal") stepBadgeClass = "cfop-step-badge-f2lsum";
+    else if (row.phase === "auf") stepBadgeClass = "cfop-step-badge-auf";
     else if (row.phase === "oll") stepBadgeClass = "cfop-step-badge-oll";
     else if (row.phase === "pll") stepBadgeClass = "cfop-step-badge-pll";
     else if (row.phase === "cross") stepBadgeClass = "cfop-step-badge-cross";
 
+    const splitCmp = getSplitCompareMeta(row.phase, row.ms);
     const totalTxt = `<strong>${formatCfopSplitMs(row.ms)}</strong>`;
     const accumTxt = formatCfopSplitMs(row.accumMs);
 
@@ -112,7 +159,7 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false } =
       return `
         <tr class="cfop-step-row cfop-row-${row.phase} ${isSummaryRow ? "cfop-row-f2l-summary" : ""}">
           <td class="cfop-col-step"><span class="cfop-step-badge ${stepBadgeClass}">${escapeHtml(row.label)}</span></td>
-          <td class="cfop-col-total">${totalTxt}</td>
+          <td class="cfop-col-total ${splitCmp.cls}"${splitCmp.titleAttr}>${totalTxt}</td>
           <td class="cfop-col-accum">${accumTxt}</td>
         </tr>
       `;
@@ -127,11 +174,15 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false } =
       caseDisplay = `<span class="badge badge-pll-case"${fullTitle}>${escapeHtml(row.caseId)}</span>`;
     } else if (row.phase.startsWith("f2l") && row.phase !== "f2lTotal") {
       caseDisplay = `<span class="cfop-slot-tag">${escapeHtml(row.caseId || "-")}</span>`;
+    } else if (row.phase === "auf") {
+      caseDisplay = row.caseId && row.caseId !== "None"
+        ? `<code class="cfop-setup-code">${escapeHtml(row.caseId)}</code>`
+        : `<span class="cfop-slot-tag">None</span>`;
     } else if (isHandlingRow || row.phase === "cubeTotal") {
       caseDisplay = `<span class="cfop-slot-tag">${escapeHtml(row.caseId || "-")}</span>`;
     }
 
-    const recogTxt = (row.phase === "cross" || isHandlingRow)
+    const recogTxt = (row.phase === "cross" || row.phase === "auf" || isHandlingRow)
       ? `<span class="cfop-muted-dash">-</span>`
       : formatCfopSplitMs(row.recogMs);
 
@@ -165,7 +216,7 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false } =
         <td class="cfop-col-recog">${recogTxt}</td>
         <td class="cfop-col-setup">${setupTxt}</td>
         <td class="cfop-col-exec">${execTxt}</td>
-        <td class="cfop-col-total">${totalTxt}</td>
+        <td class="cfop-col-total ${splitCmp.cls}"${splitCmp.titleAttr}>${totalTxt}</td>
         <td class="cfop-col-accum">${accumTxt}</td>
         <td class="cfop-col-moves">${movesTxt}</td>
         <td class="cfop-col-pauses">${pauseTxt}</td>
@@ -173,6 +224,8 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false } =
       </tr>
     `;
   }).join("");
+
+  const totalSolveCmp = getSplitCompareMeta("solveTotal", solveMs);
 
   if (basic) {
     return `
@@ -189,7 +242,7 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false } =
           <tfoot>
             <tr class="cfop-step-tfoot-row">
               <th scope="row">Solve Total</th>
-              <td><strong>${formatCfopSplitMs(solveMs)}</strong></td>
+              <td class="${totalSolveCmp.cls}"${totalSolveCmp.titleAttr}><strong>${formatCfopSplitMs(solveMs)}</strong></td>
               <td><strong>${formatCfopSplitMs(solveMs)}</strong></td>
             </tr>
           </tfoot>
@@ -222,7 +275,7 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false } =
             <td>${formatCfopSplitMs(totalRecogMs)}</td>
             <td><span class="cfop-muted-dash">-</span></td>
             <td>${formatCfopSplitMs(totalExecMs)}</td>
-            <td><strong>${formatCfopSplitMs(solveMs)}</strong></td>
+            <td class="${totalSolveCmp.cls}"${totalSolveCmp.titleAttr}><strong>${formatCfopSplitMs(solveMs)}</strong></td>
             <td><strong>${formatCfopSplitMs(solveMs)}</strong></td>
             <td><strong>${totalMoves}</strong>${solve.tps ? ` <small class="cfop-sub-meta">(${solve.tps} TPS)</small>` : ""}</td>
             <td>
@@ -238,8 +291,8 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false } =
   `;
 }
 
-export function renderLastSolveCfopInline(solve, { basic = false } = {}) {
-  return renderCfopStepTable(solve, { detailed: false, basic });
+export function renderLastSolveCfopInline(solve, { basic = false, refMedians = null } = {}) {
+  return renderCfopStepTable(solve, { detailed: false, basic, refMedians });
 }
 
 export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pllOpen = true, sortStateByTrack = {} } = {}) {

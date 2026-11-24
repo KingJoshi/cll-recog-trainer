@@ -1,7 +1,7 @@
 // Solve Panel View: compact rolling-stats strip (Ao5/Ao12/Ao100/Best/Mean), last solve breakdown, timer drill banner, and custom scramble
 
 import { Alg } from 'cubing/alg';
-import { initCfopAnalyzer, ensureSolveCfop, isCfopAnalyzerReady, computeMedian, computeTrimmedMean } from '../../cfopAnalyzer.js';
+import { initCfopAnalyzer, ensureSolveCfop, computeCfopAverages, isCfopAnalyzerReady, computeMedian, computeTrimmedMean } from '../../cfopAnalyzer.js';
 import { averagePhase, medianPhase, trimMeanPhase, ganTimer } from '../../ganTimer.js';
 import { smartCube } from '../../smartCube.js';
 import { getSolveTargetLabel } from '../../data/algRegistry.js';
@@ -190,6 +190,7 @@ export function createSolvePanelView({
   const solveTimesEl = typeof document !== "undefined" ? document.getElementById("solveTimes") : null;
   const solveNewScrambleBtn = typeof document !== "undefined" ? document.getElementById("solveNewScrambleBtn") : null;
   const solveCustomScrambleBtn = typeof document !== "undefined" ? document.getElementById("solveCustomScrambleBtn") : null;
+  const solveFocusToggleBtn = typeof document !== "undefined" ? document.getElementById("solveFocusToggleBtn") : null;
   const solveCustomScrambleRow = typeof document !== "undefined" ? document.getElementById("solveCustomScrambleRow") : null;
   const solveCustomInput = typeof document !== "undefined" ? document.getElementById("solveCustomInput") : null;
   const solveCustomClearBtn = typeof document !== "undefined" ? document.getElementById("solveCustomClearBtn") : null;
@@ -315,6 +316,12 @@ export function createSolvePanelView({
 
     if (solveShowCubeToggle) solveShowCubeToggle.checked = s.solveShowCube;
     if (solveInspectionToggle) solveInspectionToggle.checked = s.solveInspection;
+    if (solveFocusToggleBtn) {
+      const focused = Boolean(s.focusMode);
+      solveFocusToggleBtn.classList.toggle("active", focused);
+      solveFocusToggleBtn.setAttribute("aria-pressed", String(focused));
+      solveFocusToggleBtn.textContent = focused ? "Exit Focus" : "Focus";
+    }
 
     const currentScr = s.scrambleMoves || s.currentSolveScramble || s.scramble;
     const st = smartCube.getStatus();
@@ -352,6 +359,10 @@ export function createSolvePanelView({
         });
       }
       ensureSolveCfop(lastSolve);
+      const refWindow = solves.slice(-100);
+      const refMedians = (isCfopAnalyzerReady() || refWindow.some(sv => sv?.cfop?.splits)) && refWindow.length >= 2
+        ? computeCfopAverages(refWindow).median
+        : null;
       if (solveTimeEl) solveTimeEl.textContent = formatSolveDisplay(lastSolve);
       let metaLine = "";
       if (lastSolve.id && caseById.has(lastSolve.id)) {
@@ -368,7 +379,7 @@ export function createSolvePanelView({
       if (phaseMeta) metaLine += ` · ${phaseMeta}`;
       if (solveCaseEl) {
         solveCaseEl.innerHTML = `<div class="solve-case-meta">${metaLine}</div>` +
-          (s.advancedMode && lastSolve.moves && lastSolve.moves.length > 0 ? renderLastSolveCfopInline(lastSolve, { basic: false }) : "");
+          (s.advancedMode && lastSolve.moves && lastSolve.moves.length > 0 ? renderLastSolveCfopInline(lastSolve, { basic: false, refMedians }) : "");
       }
       if (solvePostSummary && solvePostReplayBtn) {
         const hasMoves = Boolean(lastSolve.moves && lastSolve.moves.length > 0);
@@ -430,8 +441,12 @@ export function createSolvePanelView({
         const showInline = s.mode === "solve" && solves.length > 0;
         solveInlineRecentStats.hidden = !showInline;
         if (showInline) {
+          const refWindow = solves.slice(-100);
+          const basicRefMedians = (lastSolve && refWindow.length >= 2)
+            ? computeCfopAverages(refWindow).median
+            : null;
           const basicStepHtml = (lastSolve && lastSolve.moves && lastSolve.moves.length > 0)
-            ? renderLastSolveCfopInline(lastSolve, { basic: true })
+            ? renderLastSolveCfopInline(lastSolve, { basic: true, refMedians: basicRefMedians })
             : "";
           renderSolveStatsBar(solveInlineRecentStats, solves, {
             sessionName: activeSess?.name || "",
@@ -580,6 +595,9 @@ export function createSolvePanelView({
   solveNewScrambleBtn?.addEventListener("click", () => {
     solveScrambleSource = "";
     getNavCtrl()?.regenerateScramble?.();
+  });
+  solveFocusToggleBtn?.addEventListener("click", () => {
+    appStore.setFocusMode(!appStore.state.focusMode);
   });
   solveCustomScrambleBtn?.addEventListener("click", () => toggleSolveCustomScramble());
   solveCustomCancelBtn?.addEventListener("click", () => toggleSolveCustomScramble(false));

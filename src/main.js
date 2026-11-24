@@ -401,6 +401,9 @@ appStore.subscribe((evt) => {
     solvePanelView?.renderSolvePanel?.();
     navCtrl?.renderStage?.();
     statsCtrl?.updateStatsTable?.();
+  } else if (evt === "focusMode") {
+    solvePanelView?.renderSolvePanel?.();
+    navCtrl?.renderStage?.();
   }
 });
 
@@ -540,6 +543,11 @@ function handleCustomShortcutKeyDown(e) {
       e.preventDefault();
       appStore.setAdvancedMode(!s.advancedMode);
       showToast(`Stats mode: ${appStore.state.advancedMode ? "Advanced" : "Basic"}`, "info", 1800);
+      return true;
+    case "action:toggleFocusMode":
+      e.preventDefault();
+      appStore.setFocusMode(!s.focusMode);
+      showToast(`Focus mode: ${appStore.state.focusMode ? "On" : "Off"}`, "info", 1600);
       return true;
     case "action:openSettings":
       e.preventDefault();

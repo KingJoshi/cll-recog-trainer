@@ -74,6 +74,7 @@ export const SHORTCUT_ACTIONS = [
   { id: "action:toggleOhHand", category: "actions", label: "Switch 3x3 OH Hand (Left/Right)" },
   { id: "action:toggleDark", category: "actions", label: "Toggle Dark Theme" },
   { id: "action:toggleAdvancedMode", category: "actions", label: "Toggle Basic / Advanced Stats Mode" },
+  { id: "action:toggleFocusMode", category: "actions", label: "Toggle Focus / Zen Mode" },
   { id: "action:openSettings", category: "actions", label: "Open Trainer Settings" },
   { id: "action:openShortcuts", category: "actions", label: "Open Keyboard Shortcuts" },
   { id: "action:resetAngle", category: "actions", label: "Reset 3D Cube Angle" },

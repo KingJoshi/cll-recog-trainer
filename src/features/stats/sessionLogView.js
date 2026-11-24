@@ -24,6 +24,7 @@ import {
   formatCfopSplitMs
 } from '../../services/htmlUtils.js';
 import { renderOllPllCasesBreakdownHtml } from '../solve/cfopBreakdownRenderer.js';
+import { renderStatsChartsHtml } from './statsChartsView.js';
 import { ICON_PLAY, ICON_RESET_ANGLE } from '../../ui/transportIcons.js';
 
 export function createSessionLogView({
@@ -228,8 +229,8 @@ export function createSessionLogView({
       `;
     };
 
+    let cfopScopes = [];
     if (is3x3Puzzle && isAdvanced) {
-      const cfopScopes = [];
       if (last5Avg) cfopScopes.push({ id: "last5", title: "Last 5", meta: "(5 solves)", avg: last5Avg, rowClass: "" });
       if (last12Avg) cfopScopes.push({ id: "last12", title: "Last 12", meta: "(12 solves)", avg: last12Avg, rowClass: "" });
       if (last100Avg) cfopScopes.push({ id: "last100", title: "Last 100", meta: "(100 solves)", avg: last100Avg, rowClass: "" });
@@ -240,6 +241,17 @@ export function createSessionLogView({
         avg: sessionAvg,
         rowClass: "cfop-session-avg-row"
       });
+    }
+
+    if (isAdvanced && displaySolves.length >= 2) {
+      html += renderStatsChartsHtml(displaySolves, {
+        is3x3: is3x3Puzzle,
+        isOpen: s.chartsStatsOpen,
+        cfopScopes
+      });
+    }
+
+    if (is3x3Puzzle && isAdvanced) {
 
       const metricLabels = {
         median: "Median",
@@ -749,6 +761,7 @@ export function createSessionLogView({
         if (!key || !card) return;
         let nextOpen = true;
         if (key === "solveLog") nextOpen = s.solveLogOpen = !s.solveLogOpen;
+        else if (key === "charts") nextOpen = s.chartsStatsOpen = !s.chartsStatsOpen;
         else if (key === "cfopSummary") nextOpen = s.cfopSummaryOpen = !s.cfopSummaryOpen;
         else if (key === "ollCases") nextOpen = s.ollCasesStatsOpen = !s.ollCasesStatsOpen;
         else if (key === "pllCases") nextOpen = s.pllCasesStatsOpen = !s.pllCasesStatsOpen;
