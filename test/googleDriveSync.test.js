@@ -2,8 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AppStore } from '../src/state/appStore.js';
 import { clearPreferredAlgsCache, getAllPreferredAlgs, onPreferredAlgChange, setPreferredAlg } from '../src/data/algRegistry.js';
-import { initSyncTracking } from '../src/services/syncStorage.js';
-import { GoogleDriveSyncService } from '../src/services/googleDriveSync.js';
+import {
+  initSyncTracking,
+  loadSessionToken,
+  saveSessionToken,
+  clearSessionToken
+} from '../src/services/syncStorage.js';
+import {
+  GoogleDriveSyncService,
+  AUTO_SYNC_DEBOUNCE_MS,
+  VISIBILITY_PULL_COOLDOWN_MS
+} from '../src/services/googleDriveSync.js';
 
 function createMemoryStorage() {
   const store = new Map();
@@ -348,5 +357,143 @@ test('GoogleDriveSyncService transitions to needs_reauth when non-interactive re
   } finally {
     sync?.destroy();
     env.restore();
+  }
+});
+
+test('Session token shares across same-origin tabs via localStorage fallback and clears cleanly', () => {
+  const env = installStorageGlobals();
+  try {
+    const tok = { accessToken: "shared-tok", expiresAt: Date.now() + 3600_000, scope: "drive.appdata" };
+    saveSessionToken(tok);
+    assert.deepStrictEqual(loadSessionToken(), tok);
+
+    // New tab has empty sessionStorage -> falls back to localStorage copy
+    env.session.clear();
+    assert.deepStrictEqual(loadSessionToken(), tok);
+
+    clearSessionToken();
+    assert.strictEqual(loadSessionToken(), null);
+  } finally {
+    env.restore();
+  }
+});
+
+test('GoogleDriveSyncService flushes pending settings on tab hide and pulls on window focus with 5s cooldown', async () => {
+  assert.strictEqual(AUTO_SYNC_DEBOUNCE_MS, 1200);
+  assert.strictEqual(VISIBILITY_PULL_COOLDOWN_MS, 5000);
+
+  const prevWindow = globalThis.window;
+  const prevDoc = globalThis.document;
+  const winListeners = new Map();
+  const docListeners = new Map();
+
+  globalThis.window = {
+    location: { search: "" },
+    addEventListener(type, fn) {
+      if (!winListeners.has(type)) winListeners.set(type, new Set());
+      winListeners.get(type).add(fn);
+    },
+    removeEventListener(type, fn) {
+      winListeners.get(type)?.delete(fn);
+    },
+    dispatch(type) {
+      for (const fn of [...(winListeners.get(type) || [])]) fn();
+    }
+  };
+  globalThis.document = {
+    visibilityState: "visible",
+    cookie: "",
+    documentElement: { style: { setProperty() {} } },
+    addEventListener(type, fn) {
+      if (!docListeners.has(type)) docListeners.set(type, new Set());
+      docListeners.get(type).add(fn);
+    },
+    removeEventListener(type, fn) {
+      docListeners.get(type)?.delete(fn);
+    },
+    dispatch(type) {
+      for (const fn of [...(docListeners.get(type) || [])]) fn();
+    }
+  };
+
+  const env = installStorageGlobals();
+  let clock = 20000;
+  let unsubTrack;
+  let sync;
+  try {
+    const driveFiles = new Map();
+    const store = new AppStore();
+    unsubTrack = initSyncTracking(store, { onPreferredAlgChange });
+
+    const mockFetch = createFakeDriveFetch(driveFiles);
+    const gis = createFakeGisLoader({ tokenPrefix: "tokFocus" });
+    sync = new GoogleDriveSyncService({
+      appStore: store,
+      fetchImpl: mockFetch.fetchImpl,
+      loadGis: gis.loadGis,
+      getClientId: () => "test-client-id.apps.googleusercontent.com",
+      nowFn: () => clock,
+      autoAttachBrowserListeners: true
+    });
+
+    await sync.signIn({ interactive: true });
+    assert.strictEqual(sync.pendingChanges, false);
+
+    // Local setting edit schedules debounced push, then hiding the tab flushes it immediately
+    clock += 1000;
+    store.state.darkMode = true;
+    store.saveSettings();
+    sync.scheduleAutoSync();
+    assert.strictEqual(sync.pendingChanges, true);
+
+    globalThis.document.visibilityState = "hidden";
+    globalThis.document.dispatch("visibilitychange");
+    await new Promise(r => setTimeout(r, 30));
+
+    assert.strictEqual(sync.pendingChanges, false);
+    const afterFlush = JSON.parse(driveFiles.get("drive-file-1").content);
+    assert.strictEqual(afterFlush.settings.darkMode, true);
+
+    // Simulate remote edit made on another domain (e.g. cubing.cc), then focus within vs after 5s cooldown
+    clock += 2000;
+    const remoteDoc = JSON.parse(driveFiles.get("drive-file-1").content);
+    remoteDoc.settings.simSpeed = 2;
+    remoteDoc.timestamps.settings.simSpeed = clock + 500;
+    driveFiles.get("drive-file-1").content = JSON.stringify(remoteDoc);
+
+    // Initial focus pulls immediately (lastVisibilityPullAt starts at 0 -> > 5000)
+    clock += 1000;
+    globalThis.window.dispatch("focus");
+    await new Promise(r => setTimeout(r, 30));
+    assert.strictEqual(store.state.simSpeed, 2);
+
+    // Rapid second focus within 5s cooldown is throttled (won't overwrite or spam Drive)
+    remoteDoc.settings.simSpeed = 0.5;
+    remoteDoc.timestamps.settings.simSpeed = clock + 2000;
+    driveFiles.get("drive-file-1").content = JSON.stringify(remoteDoc);
+
+    clock += 2000; // only 2s elapsed < 5s cooldown
+    globalThis.window.dispatch("focus");
+    await new Promise(r => setTimeout(r, 30));
+    assert.strictEqual(store.state.simSpeed, 2);
+
+    // After 5s cooldown expires, focus pulls new remote value
+    clock += 4000;
+    globalThis.window.dispatch("focus");
+    await new Promise(r => setTimeout(r, 30));
+    assert.strictEqual(store.state.simSpeed, 0.5);
+
+    sync.destroy();
+    assert.strictEqual(winListeners.get("focus")?.size || 0, 0);
+    assert.strictEqual(winListeners.get("pagehide")?.size || 0, 0);
+    assert.strictEqual(docListeners.get("visibilitychange")?.size || 0, 0);
+  } finally {
+    unsubTrack?.();
+    sync?.destroy();
+    env.restore();
+    if (prevWindow === undefined) delete globalThis.window;
+    else globalThis.window = prevWindow;
+    if (prevDoc === undefined) delete globalThis.document;
+    else globalThis.document = prevDoc;
   }
 });

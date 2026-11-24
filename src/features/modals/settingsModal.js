@@ -725,13 +725,18 @@ export function createSettingsModalController({
       evt === "desktopMultiPane" ||
       evt === "focusMode" ||
       evt === "widgetVisibility" ||
-      evt === "solveOptions" ||
-      evt === "visibleEvents"
-    ) renderToggles();
-    else if (evt === "customEvents") renderCustomEvents();
-    else if (evt === "hydrate") {
+      evt === "solveOptions"
+    ) {
+      renderToggles();
+    } else if (evt === "visibleEvents") {
+      renderToggles();
+      renderEventsGrid();
+    } else if (evt === "customEvents") {
+      renderCustomEvents();
+    } else if (evt === "hydrate") {
       renderColorPickers();
       renderToggles();
+      renderEventsGrid();
       renderCustomEvents();
       solverWidgets?.updateFaceChipsUI?.();
       solverWidgets?.updateCrossFacesUI?.();

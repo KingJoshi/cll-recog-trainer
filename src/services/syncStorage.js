@@ -180,7 +180,8 @@ export function clearSyncMeta() {
 }
 
 export function loadSessionToken() {
-  return readSessionStorageJSON(SYNC_TOKEN_SESSION_KEY, null);
+  return readSessionStorageJSON(SYNC_TOKEN_SESSION_KEY, null)
+    || readStorageJSON(SYNC_TOKEN_SESSION_KEY, null);
 }
 
 export function saveSessionToken(tokenObj) {
@@ -189,13 +190,16 @@ export function saveSessionToken(tokenObj) {
     return;
   }
   writeSessionStorageJSON(SYNC_TOKEN_SESSION_KEY, tokenObj);
+  writeStorageJSON(SYNC_TOKEN_SESSION_KEY, tokenObj);
 }
 
 export function clearSessionToken() {
-  if (!hasSessionStorage()) return;
-  try {
-    sessionStorage.removeItem(SYNC_TOKEN_SESSION_KEY);
-  } catch {}
+  if (hasSessionStorage()) {
+    try {
+      sessionStorage.removeItem(SYNC_TOKEN_SESSION_KEY);
+    } catch {}
+  }
+  removeStorageKey(SYNC_TOKEN_SESSION_KEY);
 }
 
 export function loadStoredClientId() {

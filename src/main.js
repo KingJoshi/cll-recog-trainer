@@ -767,7 +767,7 @@ const googleDriveSync = new GoogleDriveSyncService({
   appStore,
   onDataHydrated: (summary, _merged, reason) => {
     refreshAllViewsAfterHydrate();
-    if (reason === "startup" || reason === "visibility" || reason === "online") {
+    if (reason === "startup" || reason === "visibility" || reason === "focus" || reason === "online") {
       const msg = formatMergeSummary(summary);
       if (msg && msg !== "Up to date") {
         showToast(`Synced from Google Drive · ${msg}`, "info", 3200);

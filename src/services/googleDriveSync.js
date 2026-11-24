@@ -26,8 +26,8 @@ export const DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files";
 export const DRIVE_UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files";
 export const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
 export const GOOGLE_REVOKE_URL = "https://oauth2.googleapis.com/revoke";
-export const AUTO_SYNC_DEBOUNCE_MS = 3000;
-export const VISIBILITY_PULL_COOLDOWN_MS = 60000;
+export const AUTO_SYNC_DEBOUNCE_MS = 1200;
+export const VISIBILITY_PULL_COOLDOWN_MS = 5000;
 
 let gisLoadPromise = null;
 
@@ -168,6 +168,20 @@ export class GoogleDriveSyncService {
     this.status = this._computeInitialStatus();
 
     if (autoAttachBrowserListeners && typeof window !== "undefined") {
+      this._triggerForegroundPull = (reason = "visibility") => {
+        if (!this.isSignedIn() || this.meta.autoSync === false) return;
+        const now = this.nowFn();
+        if (now - this.lastVisibilityPullAt < VISIBILITY_PULL_COOLDOWN_MS) return;
+        this.lastVisibilityPullAt = now;
+        void this.syncNow({ reason, interactive: false });
+      };
+      this._flushPendingSync = () => {
+        if (!this.isSignedIn() || this.meta.autoSync === false) return;
+        if (!this.pendingChanges && !this.autoSyncTimer) return;
+        clearTimeout(this.autoSyncTimer);
+        this.autoSyncTimer = 0;
+        void this.syncNow({ reason: "hide", interactive: false });
+      };
       this._onOnline = () => {
         if (!this.isSignedIn()) return;
         if (this.pendingChanges || this.meta.autoSync !== false) {
@@ -175,14 +189,24 @@ export class GoogleDriveSyncService {
         }
       };
       this._onVisibilityChange = () => {
-        if (typeof document === "undefined" || document.visibilityState !== "visible") return;
-        if (!this.isSignedIn() || this.meta.autoSync === false) return;
-        const now = this.nowFn();
-        if (now - this.lastVisibilityPullAt < VISIBILITY_PULL_COOLDOWN_MS) return;
-        this.lastVisibilityPullAt = now;
-        void this.syncNow({ reason: "visibility", interactive: false });
+        if (typeof document === "undefined") return;
+        if (document.visibilityState === "hidden") {
+          this._flushPendingSync();
+          return;
+        }
+        if (document.visibilityState === "visible") {
+          this._triggerForegroundPull("visibility");
+        }
+      };
+      this._onFocus = () => {
+        this._triggerForegroundPull("focus");
+      };
+      this._onPageHide = () => {
+        this._flushPendingSync();
       };
       window.addEventListener("online", this._onOnline);
+      window.addEventListener("focus", this._onFocus);
+      window.addEventListener("pagehide", this._onPageHide);
       if (typeof document !== "undefined") {
         document.addEventListener("visibilitychange", this._onVisibilityChange);
       }
@@ -198,10 +222,16 @@ export class GoogleDriveSyncService {
   }
 
   _hasValidToken() {
-    return Boolean(
-      this.token?.accessToken &&
-      Number(this.token?.expiresAt || 0) > this.nowFn() + 60000
-    );
+    const minValidUntil = this.nowFn() + 60000;
+    if (this.token?.accessToken && Number(this.token?.expiresAt || 0) > minValidUntil) {
+      return true;
+    }
+    const shared = loadSessionToken();
+    if (shared?.accessToken && Number(shared?.expiresAt || 0) > minValidUntil) {
+      this.token = shared;
+      return true;
+    }
+    return false;
   }
 
   getEffectiveClientId() {
@@ -736,8 +766,10 @@ export class GoogleDriveSyncService {
 
   destroy() {
     clearTimeout(this.autoSyncTimer);
-    if (typeof window !== "undefined" && this._onOnline) {
-      window.removeEventListener("online", this._onOnline);
+    if (typeof window !== "undefined") {
+      if (this._onOnline) window.removeEventListener("online", this._onOnline);
+      if (this._onFocus) window.removeEventListener("focus", this._onFocus);
+      if (this._onPageHide) window.removeEventListener("pagehide", this._onPageHide);
     }
     if (typeof document !== "undefined" && this._onVisibilityChange) {
       document.removeEventListener("visibilitychange", this._onVisibilityChange);
