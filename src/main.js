@@ -418,6 +418,10 @@ appStore.subscribe((evt) => {
     settingsModal?.renderToggles?.();
     statsCtrl?.updateStatsTable?.();
     if (appStore.state.mode === "study") studyView?.render?.();
+  } else if (evt === "twoByTwoMethod") {
+    settingsModal?.renderToggles?.();
+    solvePanelView?.renderSolvePanel?.();
+    statsCtrl?.updateStatsTable?.();
   } else if (evt === "desktopMultiPane") {
     settingsModal?.renderToggles?.();
     navCtrl?.renderStage?.();

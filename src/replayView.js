@@ -1,6 +1,7 @@
 // Solve Replay Viewer - Interactive 3D replay, scrubber timeline, move tape, and reconstruction
 import { parseScrambleInput } from './algParser.js';
 import { ensureSolveCfop, DEFAULT_PAUSE_THRESHOLD_MS } from './cfopAnalyzer.js';
+import { ensureSolveTwoByTwo } from './twoByTwoAnalyzer.js';
 import { applyColorsTo3DCube } from './caseVisualizer.js';
 import { getSolveTime } from './services/solveStats.js';
 import { ICON_PLAY, ICON_PAUSE, ICON_REPLAY } from './ui/transportIcons.js';
@@ -321,10 +322,14 @@ export class SolveReplayViewer {
       return;
     }
 
-    const cfop = this.activeSolve ? ensureSolveCfop(this.activeSolve) : null;
+    const analysis = this.activeSolve
+      ? (this.activeSolve.puzzle === "222"
+          ? ensureSolveTwoByTwo(this.activeSolve)
+          : ensureSolveCfop(this.activeSolve))
+      : null;
     const movePhaseMap = new Map();
-    if (cfop && Array.isArray(cfop.steps)) {
-      for (const st of cfop.steps) {
+    if (analysis && Array.isArray(analysis.steps)) {
+      for (const st of analysis.steps) {
         for (let i = st.startMoveIdx; i < st.endMoveIdx; i++) {
           movePhaseMap.set(i, st);
         }

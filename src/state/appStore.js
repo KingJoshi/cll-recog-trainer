@@ -310,6 +310,10 @@ export class AppStore {
           llAnalyticsMode: (ollMode === "2look" && pllMode === "2look") ? "2look" : "full"
         };
       })(),
+      twoByTwoMethod: (() => {
+        const rawMethod = savedSettings.twoByTwoMethod ?? cookiePrefs.twoByTwoMethod;
+        return ["cll", "auto", "ortega"].includes(rawMethod) ? rawMethod : "cll";
+      })(),
       trainSubMode,
       desktopMultiPane: savedSettings.desktopMultiPane ?? cookiePrefs.desktopMultiPane ?? true,
       customEvents,
@@ -848,6 +852,14 @@ export class AppStore {
     });
   }
 
+  setTwoByTwoMethod(method) {
+    const next = ["cll", "auto", "ortega"].includes(method) ? method : "cll";
+    if (this.state.twoByTwoMethod === next) return;
+    this.state.twoByTwoMethod = next;
+    this.saveSettings();
+    this.notify("twoByTwoMethod", { twoByTwoMethod: next });
+  }
+
   setTrainSubMode(subMode) {
     const next = subMode === "timed-drill" ? "timed-drill" : "recog";
     if (this.state.trainSubMode === next) return;
@@ -967,6 +979,7 @@ export class AppStore {
       ollMode: s.ollMode === "2look" ? "2look" : "full",
       pllMode: s.pllMode === "2look" ? "2look" : "full",
       llAnalyticsMode: (s.ollMode === "2look" && s.pllMode === "2look") ? "2look" : "full",
+      twoByTwoMethod: ["cll", "auto", "ortega"].includes(s.twoByTwoMethod) ? s.twoByTwoMethod : "cll",
       trainSubMode: s.trainSubMode === "timed-drill" ? "timed-drill" : "recog",
       desktopMultiPane: s.desktopMultiPane !== false,
       customEvents: sanitizeCustomEvents(s.customEvents),
@@ -1030,6 +1043,7 @@ export class AppStore {
       ollMode: s.ollMode === "2look" ? "2look" : "full",
       pllMode: s.pllMode === "2look" ? "2look" : "full",
       llAnalyticsMode: (s.ollMode === "2look" && s.pllMode === "2look") ? "2look" : "full",
+      twoByTwoMethod: ["cll", "auto", "ortega"].includes(s.twoByTwoMethod) ? s.twoByTwoMethod : "cll",
       trainSubMode: s.trainSubMode === "timed-drill" ? "timed-drill" : "recog",
       desktopMultiPane: s.desktopMultiPane !== false,
       timerDrillPreset: s.timerDrillPreset,
@@ -1176,6 +1190,8 @@ export class AppStore {
       s.ollMode = savedSettings.ollMode === "2look" ? "2look" : (savedSettings.ollMode === "full" ? "full" : legacyLlMode);
       s.pllMode = savedSettings.pllMode === "2look" ? "2look" : (savedSettings.pllMode === "full" ? "full" : legacyLlMode);
       s.llAnalyticsMode = (s.ollMode === "2look" && s.pllMode === "2look") ? "2look" : "full";
+      const rawSynced222Method = savedSettings.twoByTwoMethod ?? s.twoByTwoMethod;
+      s.twoByTwoMethod = ["cll", "auto", "ortega"].includes(rawSynced222Method) ? rawSynced222Method : "cll";
       s.trainSubMode = savedSettings.trainSubMode === "timed-drill" ? "timed-drill" : "recog";
       s.desktopMultiPane = savedSettings.desktopMultiPane ?? s.desktopMultiPane ?? true;
       s.customEvents = hydratedCustomEvents;

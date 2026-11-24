@@ -1197,9 +1197,17 @@
           <div class="settings-section">
             <div class="settings-section-head">
               <h4 class="settings-section-title">2x2x2 Settings</h4>
-              <span class="settings-section-desc">Configure 1st Layer / 1st Face solver hints and target face colors</span>
+              <span class="settings-section-desc">Configure 2x2 solve breakdown method, 1st Layer / 1st Face solver hints, and target face colors</span>
             </div>
             <div class="settings-toggles-list">
+              <div class="settings-speed-row" style="border-top: none; padding-top: 0;">
+                <span class="settings-oh-label"><strong>2x2 Alg Set / Method:</strong></span>
+                <div class="settings-speed-group" role="group" aria-label="2x2 solve analyzer method">
+                  <button type="button" id="settings222MethodCllBtn" class="settings-speed-btn active" data-settings-222-method="cll" aria-pressed="true" title="Detect color-neutral 1st Layer + exact CLL case + AUF">CLL</button>
+                  <button type="button" id="settings222MethodAutoBtn" class="settings-speed-btn" data-settings-222-method="auto" aria-pressed="false" title="Automatically detect CLL (1st Layer) vs Ortega (1st Face) per solve">Auto</button>
+                  <button type="button" id="settings222MethodOrtegaBtn" class="settings-speed-btn" data-settings-222-method="ortega" aria-pressed="false" title="Detect color-neutral 1st Face + OLL + PBL">Ortega</button>
+                </div>
+              </div>
               <label class="solve-toggle-label">
                 <input type="checkbox" id="settingsShowLayerWidget">
                 <span>Show 1st Layer / 1st Face solutions widget</span>

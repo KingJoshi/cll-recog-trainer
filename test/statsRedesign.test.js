@@ -244,6 +244,16 @@ test('createSessionLogView omits redundant Session Summary, supports Last 5/12/1
   sess.puzzle = '222';
   sess.solves = [{ ms: 3200, puzzle: '222', target: 'cll', id: 'H1', scramble: "R U R' U'", at: Date.now() }];
   view.render(container);
+  assert.ok(container.innerHTML.includes('cfop-solve-log-table is-basic-log'));
+  assert.ok(container.innerHTML.includes('data-log-sort="layer"'));
+  assert.ok(container.innerHTML.includes('data-log-sort="cll"'));
+  assert.ok(!container.innerHTML.includes('data-log-sort="pickupMs"'));
+
+  // Basic mode on standard non-split puzzle (4x4)
+  store.state.currentPuzzle = '444';
+  sess.puzzle = '444';
+  sess.solves = [{ ms: 42000, puzzle: '444', target: 'full', scramble: "R U R' U'", at: Date.now() }];
+  view.render(container);
   assert.ok(container.innerHTML.includes('standard-solve-log-table is-basic-log'));
   assert.ok(container.innerHTML.includes('data-log-sort="id"'));
   assert.ok(!container.innerHTML.includes('data-log-sort="pickupMs"'));

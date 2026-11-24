@@ -15,8 +15,10 @@ export {
 export {
   clearSvgCache,
   isOllPllSvgsPrewarmed,
+  isCllSvgsPrewarmed,
   getCachedCaseSvg,
   prewarmOllPllSvgs,
+  prewarmCllSvgs,
   renderCaseSvg,
   renderCllSvg,
   renderOrtegaSvg,

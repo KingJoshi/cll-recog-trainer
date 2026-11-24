@@ -3,6 +3,7 @@
 import { ganTimer, computeSolvePhaseSplits } from '../../ganTimer.js';
 import { smartCube } from '../../smartCube.js';
 import { ensureSolveCfop } from '../../cfopAnalyzer.js';
+import { ensureSolveTwoByTwo } from '../../twoByTwoAnalyzer.js';
 import { MAX_SOLVES, isTimerViewMode } from '../../state/appStore.js';
 import { playInspectionBeep, playInspectionCallout, cancelInspectionCallout, startMetronome, stopMetronome, playPauseAlert } from '../../services/audioService.js';
 import { formatSolveTime, formatSolveDisplay } from '../../services/htmlUtils.js';
@@ -338,6 +339,12 @@ export function createTimerController({
     s.lastSolve = lastSolve;
     resetTimerPhaseTracking();
     ensureSolveCfop(lastSolve);
+    if ((lastSolve.puzzle || s.currentPuzzle) === "222") {
+      ensureSolveTwoByTwo(lastSolve, {
+        twoByTwoMethod: s.twoByTwoMethod || "cll",
+        layerTargetFaces: s.layerTargetFaces
+      });
+    }
     s.sessionLogPage = 1;
 
     const solves = appStore.getSolves();

@@ -1,6 +1,7 @@
 // Per-Case Solve Timing & Pause Statistics Table
 
 import { getTrack } from '../../data/algRegistry.js';
+import { cllCases } from '../../data/cllData.js';
 import { ollCases } from '../../data/ollData.js';
 import { pllCases } from '../../data/pllData.js';
 import {
@@ -10,7 +11,18 @@ import {
   computeTrimmedMean,
   isCfopAnalyzerReady
 } from '../../cfopAnalyzer.js';
-import { getCachedCaseSvg, prewarmOllPllSvgs, isOllPllSvgsPrewarmed } from '../../caseVisualizer.js';
+import {
+  initTwoByTwoAnalyzer,
+  ensureSolveTwoByTwo,
+  isTwoByTwoAnalyzerReady
+} from '../../twoByTwoAnalyzer.js';
+import {
+  getCachedCaseSvg,
+  prewarmOllPllSvgs,
+  isOllPllSvgsPrewarmed,
+  prewarmCllSvgs,
+  isCllSvgsPrewarmed
+} from '../../caseVisualizer.js';
 import { getSolveTime } from '../../services/solveStats.js';
 import { escapeHtml, formatSolveTime, formatCfopSplitMs } from '../../services/htmlUtils.js';
 
@@ -20,18 +32,33 @@ export function createCaseSolveStatsView({ appStore } = {}) {
   function render(container) {
     if (!container) return;
 
-    if (!isCfopAnalyzerReady()) {
-      initCfopAnalyzer().then(() => {
-        if (appStore.state.statsType === "cll") render(container);
-      });
-    }
-    if (!isOllPllSvgsPrewarmed()) {
-      prewarmOllPllSvgs(ollCases, pllCases).then(() => {
-        if (appStore.state.statsType === "cll") render(container);
-      });
+    const { currentPuzzle, currentTrackId } = appStore.state;
+    const is222 = currentPuzzle === "222";
+
+    if (is222) {
+      if (!isTwoByTwoAnalyzerReady()) {
+        initTwoByTwoAnalyzer().then(() => {
+          if (appStore.state.statsType === "cll") render(container);
+        });
+      }
+      if (!isCllSvgsPrewarmed()) {
+        prewarmCllSvgs(cllCases).then(() => {
+          if (appStore.state.statsType === "cll") render(container);
+        });
+      }
+    } else {
+      if (!isCfopAnalyzerReady()) {
+        initCfopAnalyzer().then(() => {
+          if (appStore.state.statsType === "cll") render(container);
+        });
+      }
+      if (!isOllPllSvgsPrewarmed()) {
+        prewarmOllPllSvgs(ollCases, pllCases).then(() => {
+          if (appStore.state.statsType === "cll") render(container);
+        });
+      }
     }
 
-    const { currentPuzzle, currentTrackId } = appStore.state;
     const track = getTrack(currentPuzzle, currentTrackId);
     const trackCases = track?.cases || [];
     const trackCaseIds = trackCases.map(c => c.id);
@@ -39,6 +66,10 @@ export function createCaseSolveStatsView({ appStore } = {}) {
 
     const currentSess = appStore.getActiveSession();
     const currentSolves = currentSess.solves || [];
+    const twoByTwoOpts = {
+      twoByTwoMethod: appStore.state.twoByTwoMethod || "cll",
+      layerTargetFaces: appStore.state.layerTargetFaces
+    };
 
     const caseSolves = new Map();
     const addCaseRecord = (caseId, msVal, pauseCount = 0, pauseMs = 0) => {
@@ -54,11 +85,15 @@ export function createCaseSolveStatsView({ appStore } = {}) {
 
     for (const s of currentSolves) {
       if (s.penalty === "DNF" || s.penalty === -1) continue;
-      const cfop = ensureSolveCfop(s);
+      const cfop = is222 ? null : ensureSolveCfop(s);
+      const two = is222 ? ensureSolveTwoByTwo(s, twoByTwoOpts) : null;
       const isTrackMatch = s.track ? s.track === currentTrackId : true;
 
       if (s.id && trackCaseIds.includes(s.id) && isTrackMatch) {
-        addCaseRecord(s.id, getSolveTime(s), cfop?.pauses?.totalCount || 0, cfop?.pauses?.totalMs || 0);
+        const pauses = is222 ? two?.pauses : cfop?.pauses;
+        addCaseRecord(s.id, getSolveTime(s), pauses?.totalCount || 0, pauses?.totalMs || 0);
+      } else if (is222 && currentTrackId === "cll" && two?.cllCase?.id && trackCaseIds.includes(two.cllCase.id)) {
+        addCaseRecord(two.cllCase.id, two.cllCase.ms, two.cllCase.pauseCount || 0, two.cllCase.pauseMs || 0);
       } else if (cfop) {
         if (currentTrackId === "oll" && cfop.ollCase?.id && trackCaseIds.includes(cfop.ollCase.id)) {
           addCaseRecord(cfop.ollCase.id, cfop.ollCase.ms, cfop.ollCase.pauseCount || 0, cfop.ollCase.pauseMs || 0);
@@ -71,7 +106,8 @@ export function createCaseSolveStatsView({ appStore } = {}) {
     const casesWithTimes = trackCaseIds.filter(id => caseSolves.has(id));
     const isOllTrack = (currentPuzzle === "333" || currentPuzzle === "333oh") && currentTrackId === "oll";
     const isPllTrack = (currentPuzzle === "333" || currentPuzzle === "333oh") && currentTrackId === "pll";
-    const showCubeSvgCol = isOllTrack || isPllTrack;
+    const isCllTrack = is222 && currentTrackId === "cll";
+    const showCubeSvgCol = isOllTrack || isPllTrack || isCllTrack;
     const showGroupCol = !isPllTrack;
 
     const sortCols = [
@@ -103,7 +139,7 @@ export function createCaseSolveStatsView({ appStore } = {}) {
     if (casesWithTimes.length === 0) {
       html += `<tr><td colspan="${sortCols.length}" class="empty-stats" style="padding: 24px 12px; text-align: center;">
         <p style="margin-bottom: 4px; font-weight: 600;">No ${escapeHtml(track?.shortName || "")} case solves recorded in session "${escapeHtml(currentSess.name)}".</p>
-        <p style="font-size: 0.85rem; color: var(--muted); margin: 0;">Complete 3x3 CFOP solves with your Smart Cube or time solves with Target set to <strong>${escapeHtml(track?.shortName || "")}</strong> to build per-case statistics.</p>
+        <p style="font-size: 0.85rem; color: var(--muted); margin: 0;">Complete ${is222 ? "2x2" : "3x3 CFOP"} solves with your Smart Cube or time solves with Target set to <strong>${escapeHtml(track?.shortName || "")}</strong> to build per-case statistics.</p>
       </td></tr></tbody></table>`;
       container.innerHTML = html;
       attachSortListeners(container);
@@ -146,7 +182,7 @@ export function createCaseSolveStatsView({ appStore } = {}) {
 
     caseStatsList.forEach(stat => {
       const svgDiagram = showCubeSvgCol
-        ? getCachedCaseSvg("333", isOllTrack ? "oll" : "pll", stat.id)
+        ? getCachedCaseSvg(isCllTrack ? "222" : "333", isCllTrack ? "cll" : (isOllTrack ? "oll" : "pll"), stat.id)
         : "";
       html += `<tr>
         <th scope="row"><strong>${escapeHtml(stat.id)}</strong></th>

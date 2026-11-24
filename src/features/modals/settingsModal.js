@@ -96,6 +96,7 @@ export function createSettingsModalController({
   const settingsOllMode2LookBtn = typeof document !== "undefined" ? document.getElementById("settingsOllMode2LookBtn") : null;
   const settingsPllModeFullBtn = typeof document !== "undefined" ? document.getElementById("settingsPllModeFullBtn") : null;
   const settingsPllMode2LookBtn = typeof document !== "undefined" ? document.getElementById("settingsPllMode2LookBtn") : null;
+  const settings222MethodBtns = typeof document !== "undefined" ? document.querySelectorAll("[data-settings-222-method]") : [];
   const settingsFocusMode = typeof document !== "undefined" ? document.getElementById("settingsFocusMode") : null;
   const settingsDesktopMultiPane = typeof document !== "undefined" ? document.getElementById("settingsDesktopMultiPane") : null;
   const settingsShowLayerWidget = typeof document !== "undefined" ? document.getElementById("settingsShowLayerWidget") : null;
@@ -206,6 +207,12 @@ export function createSettingsModalController({
       settingsPllMode2LookBtn.classList.toggle("active", is2LookPll);
       settingsPllMode2LookBtn.setAttribute("aria-pressed", String(is2LookPll));
     }
+    const twoByTwoMethod = ["cll", "auto", "ortega"].includes(s.twoByTwoMethod) ? s.twoByTwoMethod : "cll";
+    settings222MethodBtns.forEach(btn => {
+      const isMatch = btn.dataset.settings222Method === twoByTwoMethod;
+      btn.classList.toggle("active", isMatch);
+      btn.setAttribute("aria-pressed", String(isMatch));
+    });
     if (settingsFocusMode) settingsFocusMode.checked = Boolean(s.focusMode);
     if (settingsDesktopMultiPane) settingsDesktopMultiPane.checked = s.desktopMultiPane !== false;
     if (settingsShowLayerWidget) settingsShowLayerWidget.checked = s.showLayerSolutionsWidget !== false;
@@ -729,6 +736,14 @@ export function createSettingsModalController({
     appStore.setPllMode?.("2look");
     renderToggles();
   });
+  settings222MethodBtns.forEach(btn => {
+    btn?.addEventListener("click", () => {
+      const m = btn.dataset.settings222Method;
+      if (!m) return;
+      appStore.setTwoByTwoMethod?.(m);
+      renderToggles();
+    });
+  });
   settingsFocusMode?.addEventListener("change", (e) => {
     const enabled = Boolean(e.target.checked);
     if (enabled && !isTimerViewMode(appStore.state)) {
@@ -923,7 +938,8 @@ export function createSettingsModalController({
       evt === "focusMode" ||
       evt === "widgetVisibility" ||
       evt === "solveOptions" ||
-      evt === "inspectionAudioMode"
+      evt === "inspectionAudioMode" ||
+      evt === "twoByTwoMethod"
     ) {
       renderToggles();
     } else if (evt === "themeColors") {

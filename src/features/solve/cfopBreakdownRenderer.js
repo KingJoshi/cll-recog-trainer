@@ -1,8 +1,41 @@
 // Pure HTML renderers for CFOP split breakdown tables, OLL/PLL per-case stats, and GAN phase inline summaries
 
 import { ensureSolveCfop, computeOllPllCaseStats } from '../../cfopAnalyzer.js';
+import { ensureSolveTwoByTwo, computeCllCaseStats } from '../../twoByTwoAnalyzer.js';
 import { getCachedCaseSvg } from '../../caseVisualizer.js';
 import { escapeHtml, formatCfopSplitMs } from '../../services/htmlUtils.js';
+
+const TAG_LABELS = {
+  none: "+ Tag",
+  learning: "Learning",
+  review: "Review",
+  mastered: "Mastered"
+};
+
+function sortBreakdownItems(items, sortState) {
+  const col = sortState?.col || "medianMs";
+  const dir = sortState?.dir === "asc" ? "asc" : "desc";
+  return [...items].sort((a, b) => {
+    let vA = a[col];
+    let vB = b[col];
+    if (col === "shortName" || col === "group") {
+      vA = String(vA || "").toLowerCase();
+      vB = String(vB || "").toLowerCase();
+    } else {
+      vA = Number.isFinite(vA) ? vA : -1;
+      vB = Number.isFinite(vB) ? vB : -1;
+    }
+    if (vA < vB) return dir === "asc" ? -1 : 1;
+    if (vA > vB) return dir === "asc" ? 1 : -1;
+    return 0;
+  });
+}
+
+function renderColorDotHtml(colorName) {
+  const slug = String(colorName || "").trim().toLowerCase();
+  if (!["white", "yellow", "green", "blue", "red", "orange"].includes(slug)) return "";
+  return `<span class="face-chip-dot face-dot-${slug}" aria-hidden="true"></span>`;
+}
 
 export function renderSolvePhaseInline(solve) {
   if (!solve || (solve.inspectionMs == null && solve.pickupMs == null && solve.putdownMs == null)) return "";
@@ -13,29 +46,35 @@ export function renderSolvePhaseInline(solve) {
   return `<span class="solve-phase-inline" title="Measured across inspection, timer, and smart cube events">⏱ ${parts.join(" · ")}</span>`;
 }
 
-export function renderCfopStepTable(solve, { detailed = false, basic = false, refMedians = null } = {}) {
-  const cfop = ensureSolveCfop(solve);
-  if (!cfop || (!cfop.steps?.length && !cfop.splits)) return "";
+export function renderCfopStepTable(solve, { detailed = false, basic = false, refMedians = null, twoByTwoMethod = "cll" } = {}) {
+  const is2x2 = solve?.puzzle === "222";
+  const analysis = is2x2
+    ? ensureSolveTwoByTwo(solve, { twoByTwoMethod })
+    : ensureSolveCfop(solve);
+  if (!analysis || (!analysis.steps?.length && !analysis.splits)) return "";
 
-  const realSteps = (cfop.steps || []);
+  const realSteps = (analysis.steps || []);
   if (realSteps.length === 0) return "";
 
   const hasPickup = typeof solve.pickupMs === "number" && Number.isFinite(solve.pickupMs);
   const hasPutdown = typeof solve.putdownMs === "number" && Number.isFinite(solve.putdownMs);
   const pickupOffset = hasPickup ? solve.pickupMs : 0;
 
-  const totalRecogMs = realSteps.reduce((acc, s) => acc + (s.phase === "cross" ? 0 : (s.recogMs || 0)), 0);
+  const isNoRecogPhase = (phase) => phase === "cross" || phase === "layer" || phase === "face";
+  const totalRecogMs = realSteps.reduce((acc, s) => acc + (isNoRecogPhase(s.phase) ? 0 : (s.recogMs || 0)), 0);
   const totalExecMs = realSteps.reduce((acc, s) => acc + (s.execMs || 0), 0);
   const stepsTotalMs = realSteps.reduce((acc, s) => acc + (s.ms || 0), 0);
   const cubeSolveMs = typeof solve.cubeMs === "number" && Number.isFinite(solve.cubeMs) ? solve.cubeMs : stepsTotalMs;
   const solveMs = solve.rawMs ?? solve.ms ?? (pickupOffset + cubeSolveMs + (hasPutdown ? solve.putdownMs : 0));
   const totalMoves = solve.moveCount ?? realSteps.reduce((acc, s) => acc + (s.moveCount || 0), 0);
-  const pCnt = cfop.pauses?.totalCount || 0;
-  const pMs = cfop.pauses?.totalMs || 0;
+  const pCnt = analysis.pauses?.totalCount || 0;
+  const pMs = analysis.pauses?.totalMs || 0;
 
   const phaseRefKeyMap = {
     pickup: "pickupMs",
     cross: "cross",
+    layer: "layer",
+    face: "face",
     f2l1: "f2l1",
     f2l2: "f2l2",
     f2l3: "f2l3",
@@ -43,6 +82,8 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
     f2lTotal: "f2lTotal",
     oll: "oll",
     pll: "pll",
+    cll: "cll",
+    pbl: "pbl",
     auf: "auf",
     cubeTotal: "cubeMs",
     putdown: "putdownMs",
@@ -94,16 +135,16 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
       ...st,
       accumMs: st.accumMs != null ? st.accumMs + pickupOffset : null
     });
-    if (st.phase === "f2l4" && cfop.f2lSummary) {
+    if (st.phase === "f2l4" && analysis.f2lSummary) {
       displayRows.push({
-        ...cfop.f2lSummary,
-        accumMs: cfop.f2lSummary.accumMs != null ? cfop.f2lSummary.accumMs + pickupOffset : null
+        ...analysis.f2lSummary,
+        accumMs: analysis.f2lSummary.accumMs != null ? analysis.f2lSummary.accumMs + pickupOffset : null
       });
     }
-    if (st.phase === "pll" && cfop.aufSummary) {
+    if ((st.phase === "pll" || st.phase === "cll") && analysis.aufSummary) {
       displayRows.push({
-        ...cfop.aufSummary,
-        accumMs: cfop.aufSummary.accumMs != null ? cfop.aufSummary.accumMs + pickupOffset : null
+        ...analysis.aufSummary,
+        accumMs: analysis.aufSummary.accumMs != null ? analysis.aufSummary.accumMs + pickupOffset : null
       });
     }
   }
@@ -148,8 +189,8 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
     if (row.phase === "f2lTotal" || row.phase === "cubeTotal") stepBadgeClass = "cfop-step-badge-f2lsum";
     else if (row.phase === "auf") stepBadgeClass = "cfop-step-badge-auf";
     else if (row.phase === "oll") stepBadgeClass = "cfop-step-badge-oll";
-    else if (row.phase === "pll") stepBadgeClass = "cfop-step-badge-pll";
-    else if (row.phase === "cross") stepBadgeClass = "cfop-step-badge-cross";
+    else if (row.phase === "pll" || row.phase === "cll" || row.phase === "pbl") stepBadgeClass = "cfop-step-badge-pll";
+    else if (row.phase === "cross" || row.phase === "layer" || row.phase === "face") stepBadgeClass = "cfop-step-badge-cross";
 
     const splitCmp = getSplitCompareMeta(row.phase, row.ms);
     const totalTxt = `<strong>${formatCfopSplitMs(row.ms)}</strong>`;
@@ -167,11 +208,16 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
 
     let caseDisplay = escapeHtml(row.caseId || "-");
     if (row.phase === "oll" && row.caseId && row.caseId !== "-") {
-      const fullTitle = cfop.ollCase?.name ? ` title="${escapeHtml(cfop.ollCase.name)}"` : "";
+      const fullTitle = analysis.ollCase?.name ? ` title="${escapeHtml(analysis.ollCase.name)}"` : "";
       caseDisplay = `<span class="badge badge-oll-case"${fullTitle}>${escapeHtml(row.caseId)}</span>`;
     } else if (row.phase === "pll" && row.caseId && row.caseId !== "-") {
-      const fullTitle = cfop.pllCase?.name ? ` title="${escapeHtml(cfop.pllCase.name)}"` : "";
+      const fullTitle = analysis.pllCase?.name ? ` title="${escapeHtml(analysis.pllCase.name)}"` : "";
       caseDisplay = `<span class="badge badge-pll-case"${fullTitle}>${escapeHtml(row.caseId)}</span>`;
+    } else if (row.phase === "cll" && row.caseId && row.caseId !== "-") {
+      const fullTitle = analysis.cllCase?.name ? ` title="${escapeHtml(analysis.cllCase.name)}"` : "";
+      caseDisplay = `<span class="badge badge-pll-case"${fullTitle}>${escapeHtml(row.caseId)}</span>`;
+    } else if ((row.phase === "layer" || row.phase === "face") && row.caseId && row.caseId !== "-") {
+      caseDisplay = `<span class="cfop-slot-tag">${renderColorDotHtml(row.caseId)} ${escapeHtml(row.caseId)}</span>`;
     } else if (row.phase.startsWith("f2l") && row.phase !== "f2lTotal") {
       caseDisplay = `<span class="cfop-slot-tag">${escapeHtml(row.caseId || "-")}</span>`;
     } else if (row.phase === "auf") {
@@ -182,7 +228,7 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
       caseDisplay = `<span class="cfop-slot-tag">${escapeHtml(row.caseId || "-")}</span>`;
     }
 
-    const recogTxt = (row.phase === "cross" || row.phase === "auf" || isHandlingRow)
+    const recogTxt = (isNoRecogPhase(row.phase) || row.phase === "auf" || isHandlingRow)
       ? `<span class="cfop-muted-dash">-</span>`
       : formatCfopSplitMs(row.recogMs);
 
@@ -291,8 +337,112 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
   `;
 }
 
-export function renderLastSolveCfopInline(solve, { basic = false, refMedians = null } = {}) {
-  return renderCfopStepTable(solve, { detailed: false, basic, refMedians });
+export function renderLastSolveCfopInline(solve, { basic = false, refMedians = null, twoByTwoMethod = "cll" } = {}) {
+  return renderCfopStepTable(solve, { detailed: false, basic, refMedians, twoByTwoMethod });
+}
+
+function renderBreakdownCaseTable({
+  puzzleId = "333",
+  title,
+  subtitle,
+  items,
+  badgeClass,
+  trackId,
+  collapseKey,
+  isOpen = true,
+  modeToggleHtml = "",
+  sortStateByTrack = {},
+  caseTags = {},
+  showGroupCol = false,
+  showAvgMovesCol = false
+}) {
+  if (!items || items.length === 0) {
+    return `
+      <div class="cfop-case-breakdown-card stats-subwidget ${isOpen ? "" : "is-collapsed"}" data-stats-widget="${collapseKey}">
+        <div class="cfop-case-breakdown-head stats-subwidget-head">
+          <button type="button" class="stats-subwidget-toggle" data-stats-collapse="${collapseKey}" aria-expanded="${isOpen ? "true" : "false"}">
+            <span class="chevron" aria-hidden="true"></span>
+            <span class="stats-subwidget-title">${escapeHtml(title)}</span>
+            <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
+          </button>
+          ${modeToggleHtml}
+        </div>
+        <div class="stats-subwidget-body">
+          <p class="cfop-case-empty">No ${escapeHtml(title)} tracked yet in this session. Solve with your Smart Cube to automatically identify cases, times, and pauses.</p>
+        </div>
+      </div>
+    `;
+  }
+
+  const sortState = sortStateByTrack[trackId] || { col: "medianMs", dir: "desc" };
+  const sortedItems = sortBreakdownItems(items, sortState);
+  const sortArrow = (col) => sortState.col === col ? (sortState.dir === "asc" ? " ▲" : " ▼") : "";
+
+  const rowsHtml = sortedItems.map((item) => {
+    const rawTag = ["learning", "review", "mastered"].includes(caseTags?.[item.id]) ? caseTags[item.id] : "none";
+    const tagLabel = TAG_LABELS[rawTag] || "+ Tag";
+    const tagBtnHtml = `<button type="button" class="cfop-case-tag-btn tag-${rawTag}" data-case-tag-id="${escapeHtml(item.id)}" data-tooltip="Click to cycle study tag (Pending → Learning → Review → Mastered)" aria-label="Study tag for ${escapeHtml(item.shortName)}: ${escapeHtml(tagLabel)}">${escapeHtml(tagLabel)}</button>`;
+    const svgDiagram = item.isSkip
+      ? `<span class="cfop-slot-tag">Solved</span>`
+      : getCachedCaseSvg(puzzleId, trackId, item.svgCaseId || item.id);
+    return `
+      <tr>
+        <td class="cfop-case-id-cell">
+          <span class="badge ${badgeClass}"><strong>${escapeHtml(item.shortName)}</strong></span>
+          ${tagBtnHtml}
+        </td>
+        <td class="case-svg-cell"><div class="case-table-svg">${svgDiagram}</div></td>
+        ${showGroupCol ? `<td class="cfop-case-group-cell">${escapeHtml(item.group)}</td>` : ""}
+        <td>${item.attempts}</td>
+        <td><strong>${formatCfopSplitMs(item.medianMs)}</strong></td>
+        <td><strong>${formatCfopSplitMs(item.trimMeanMs)}</strong></td>
+        <td>${formatCfopSplitMs(item.avgMs)}</td>
+        <td>${formatCfopSplitMs(item.bestMs)}</td>
+        <td>${formatCfopSplitMs(item.worstMs)}</td>
+        <td class="${item.avgPauseCount > 0 ? "pause-cell-warn" : ""}">
+          ${item.avgPauseCount} <small>(${formatCfopSplitMs(item.avgPauseMs)})</small>
+        </td>
+        <td>${formatCfopSplitMs(item.avgRecogMs)}</td>
+        ${showAvgMovesCol ? `<td>${item.avgMoves != null ? item.avgMoves : "-"}</td>` : ""}
+      </tr>
+    `;
+  }).join("");
+
+  return `
+    <div class="cfop-case-breakdown-card stats-subwidget ${isOpen ? "" : "is-collapsed"}" data-stats-widget="${collapseKey}">
+      <div class="cfop-case-breakdown-head stats-subwidget-head">
+        <button type="button" class="stats-subwidget-toggle" data-stats-collapse="${collapseKey}" aria-expanded="${isOpen ? "true" : "false"}">
+          <span class="chevron" aria-hidden="true"></span>
+          <span class="stats-subwidget-title">${escapeHtml(title)} (${items.length} case${items.length === 1 ? "" : "s"} solved)</span>
+          <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
+        </button>
+        ${modeToggleHtml}
+      </div>
+      <div class="stats-subwidget-body">
+        <div class="cfop-table-scroll">
+          <table class="layer-log-table cfop-cases-table" data-breakdown-track="${trackId}">
+            <thead>
+              <tr>
+                <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="shortName">Case<span class="sort-icon">${sortArrow("shortName")}</span></th>
+                <th scope="col">Cube</th>
+                ${showGroupCol ? `<th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="group">Group<span class="sort-icon">${sortArrow("group")}</span></th>` : ""}
+                <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="attempts">Solves<span class="sort-icon">${sortArrow("attempts")}</span></th>
+                <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="medianMs" title="Median time (1st priority)">Median<span class="sort-icon">${sortArrow("medianMs")}</span></th>
+                <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="trimMeanMs" title="Trimmed mean (excludes top & bottom 10%)">Trim10%<span class="sort-icon">${sortArrow("trimMeanMs")}</span></th>
+                <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="avgMs" title="Arithmetic mean time">Mean<span class="sort-icon">${sortArrow("avgMs")}</span></th>
+                <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="bestMs">Best<span class="sort-icon">${sortArrow("bestMs")}</span></th>
+                <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="worstMs">Worst<span class="sort-icon">${sortArrow("worstMs")}</span></th>
+                <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="avgPauseMs" title="Average pauses (≥0.40s) and pause time per case">Avg Pauses<span class="sort-icon">${sortArrow("avgPauseMs")}</span></th>
+                <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="avgRecogMs" title="Average pre-algorithm recognition / AUF time">Avg Recog<span class="sort-icon">${sortArrow("avgRecogMs")}</span></th>
+                ${showAvgMovesCol ? `<th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="avgMoves" title="Average move count">Avg Moves<span class="sort-icon">${sortArrow("avgMoves")}</span></th>` : ""}
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pllOpen = true, sortStateByTrack = {}, caseTags = {}, llAnalyticsMode = "full", ollMode = null, pllMode = null } = {}) {
@@ -303,115 +453,6 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
     ollMode: resolvedOllMode,
     pllMode: resolvedPllMode
   });
-
-  const TAG_LABELS = {
-    none: "+ Tag",
-    learning: "Learning",
-    review: "Review",
-    mastered: "Mastered"
-  };
-
-  const renderCaseSubTable = (title, subtitle, items, badgeClass, trackId, isOpen, modeToggleHtml = "") => {
-    const collapseKey = trackId === "oll" ? "ollCases" : "pllCases";
-    if (!items || items.length === 0) {
-      return `
-        <div class="cfop-case-breakdown-card stats-subwidget ${isOpen ? "" : "is-collapsed"}" data-stats-widget="${collapseKey}">
-          <div class="cfop-case-breakdown-head stats-subwidget-head">
-            <button type="button" class="stats-subwidget-toggle" data-stats-collapse="${collapseKey}" aria-expanded="${isOpen ? "true" : "false"}">
-              <span class="chevron" aria-hidden="true"></span>
-              <span class="stats-subwidget-title">${escapeHtml(title)}</span>
-              <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
-            </button>
-            ${modeToggleHtml}
-          </div>
-          <div class="stats-subwidget-body">
-            <p class="cfop-case-empty">No ${escapeHtml(title)} tracked yet in this session. Solve with your Smart Cube to automatically identify cases, times, and pauses.</p>
-          </div>
-        </div>
-      `;
-    }
-
-    const showGroupCol = trackId === "oll";
-    const sortState = sortStateByTrack[trackId] || { col: "medianMs", dir: "desc" };
-    const sortedItems = [...items].sort((a, b) => {
-      const col = sortState.col;
-      let vA = a[col];
-      let vB = b[col];
-      if (col === "shortName" || col === "group") {
-        vA = String(vA || "").toLowerCase();
-        vB = String(vB || "").toLowerCase();
-      } else {
-        vA = Number.isFinite(vA) ? vA : -1;
-        vB = Number.isFinite(vB) ? vB : -1;
-      }
-      if (vA < vB) return sortState.dir === "asc" ? -1 : 1;
-      if (vA > vB) return sortState.dir === "asc" ? 1 : -1;
-      return 0;
-    });
-    const sortArrow = (col) => sortState.col === col ? (sortState.dir === "asc" ? " ▲" : " ▼") : "";
-
-    const rowsHtml = sortedItems.map((item) => {
-      const rawTag = ["learning", "review", "mastered"].includes(caseTags?.[item.id]) ? caseTags[item.id] : "none";
-      const tagLabel = TAG_LABELS[rawTag] || "+ Tag";
-      const tagBtnHtml = `<button type="button" class="cfop-case-tag-btn tag-${rawTag}" data-case-tag-id="${escapeHtml(item.id)}" data-tooltip="Click to cycle study tag (Pending → Learning → Review → Mastered)" aria-label="Study tag for ${escapeHtml(item.shortName)}: ${escapeHtml(tagLabel)}">${escapeHtml(tagLabel)}</button>`;
-      const svgDiagram = getCachedCaseSvg("333", trackId, item.svgCaseId || item.id);
-      return `
-        <tr>
-          <td class="cfop-case-id-cell">
-            <span class="badge ${badgeClass}"><strong>${escapeHtml(item.shortName)}</strong></span>
-            ${tagBtnHtml}
-          </td>
-          <td class="case-svg-cell"><div class="case-table-svg">${svgDiagram}</div></td>
-          ${showGroupCol ? `<td class="cfop-case-group-cell">${escapeHtml(item.group)}</td>` : ""}
-          <td>${item.attempts}</td>
-          <td><strong>${formatCfopSplitMs(item.medianMs)}</strong></td>
-          <td><strong>${formatCfopSplitMs(item.trimMeanMs)}</strong></td>
-          <td>${formatCfopSplitMs(item.avgMs)}</td>
-          <td>${formatCfopSplitMs(item.bestMs)}</td>
-          <td>${formatCfopSplitMs(item.worstMs)}</td>
-          <td class="${item.avgPauseCount > 0 ? "pause-cell-warn" : ""}">
-            ${item.avgPauseCount} <small>(${formatCfopSplitMs(item.avgPauseMs)})</small>
-          </td>
-          <td>${formatCfopSplitMs(item.avgRecogMs)}</td>
-        </tr>
-      `;
-    }).join("");
-
-    return `
-      <div class="cfop-case-breakdown-card stats-subwidget ${isOpen ? "" : "is-collapsed"}" data-stats-widget="${collapseKey}">
-        <div class="cfop-case-breakdown-head stats-subwidget-head">
-          <button type="button" class="stats-subwidget-toggle" data-stats-collapse="${collapseKey}" aria-expanded="${isOpen ? "true" : "false"}">
-            <span class="chevron" aria-hidden="true"></span>
-            <span class="stats-subwidget-title">${escapeHtml(title)} (${items.length} case${items.length === 1 ? "" : "s"} solved)</span>
-            <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
-          </button>
-          ${modeToggleHtml}
-        </div>
-        <div class="stats-subwidget-body">
-          <div class="cfop-table-scroll">
-            <table class="layer-log-table cfop-cases-table" data-breakdown-track="${trackId}">
-              <thead>
-                <tr>
-                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="shortName">Case<span class="sort-icon">${sortArrow("shortName")}</span></th>
-                  <th scope="col">Cube</th>
-                  ${showGroupCol ? `<th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="group">Group<span class="sort-icon">${sortArrow("group")}</span></th>` : ""}
-                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="attempts">Solves<span class="sort-icon">${sortArrow("attempts")}</span></th>
-                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="medianMs" title="Median time (1st priority)">Median<span class="sort-icon">${sortArrow("medianMs")}</span></th>
-                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="trimMeanMs" title="Trimmed mean (excludes top & bottom 10%)">Trim10%<span class="sort-icon">${sortArrow("trimMeanMs")}</span></th>
-                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="avgMs" title="Arithmetic mean time">Mean<span class="sort-icon">${sortArrow("avgMs")}</span></th>
-                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="bestMs">Best<span class="sort-icon">${sortArrow("bestMs")}</span></th>
-                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="worstMs">Worst<span class="sort-icon">${sortArrow("worstMs")}</span></th>
-                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="avgPauseMs" title="Average pauses (≥0.40s) and pause time per case">Avg Pauses<span class="sort-icon">${sortArrow("avgPauseMs")}</span></th>
-                  <th scope="col" class="sortable" data-breakdown-track="${trackId}" data-breakdown-sort="avgRecogMs" title="Average pre-algorithm recognition / AUF time">Avg Recog<span class="sort-icon">${sortArrow("avgRecogMs")}</span></th>
-                </tr>
-              </thead>
-              <tbody>${rowsHtml}</tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    `;
-  };
 
   const ollTitle = resolvedOllMode === "2look" ? "OLL Cases (2-Look)" : "OLL Cases";
   const ollSub = resolvedOllMode === "2look"
@@ -444,8 +485,73 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
         </div>
       </div>
       <div class="cfop-cases-grid">
-        ${renderCaseSubTable(ollTitle, ollSub, ollStats, "badge-oll-case", "oll", ollOpen, ollModeHtml)}
-        ${renderCaseSubTable(pllTitle, pllSub, pllStats, "badge-pll-case", "pll", pllOpen, pllModeHtml)}
+        ${renderBreakdownCaseTable({
+          puzzleId: "333",
+          title: ollTitle,
+          subtitle: ollSub,
+          items: ollStats,
+          badgeClass: "badge-oll-case",
+          trackId: "oll",
+          collapseKey: "ollCases",
+          isOpen: ollOpen,
+          modeToggleHtml: ollModeHtml,
+          sortStateByTrack,
+          caseTags,
+          showGroupCol: true
+        })}
+        ${renderBreakdownCaseTable({
+          puzzleId: "333",
+          title: pllTitle,
+          subtitle: pllSub,
+          items: pllStats,
+          badgeClass: "badge-pll-case",
+          trackId: "pll",
+          collapseKey: "pllCases",
+          isOpen: pllOpen,
+          modeToggleHtml: pllModeHtml,
+          sortStateByTrack,
+          caseTags,
+          showGroupCol: false
+        })}
+      </div>
+    </div>
+  `;
+}
+
+export function renderCllCasesBreakdownHtml(solvesList, { cllOpen = true, sortStateByTrack = {}, caseTags = {}, twoByTwoMethod = "cll" } = {}) {
+  const cllStats = computeCllCaseStats(solvesList, { twoByTwoMethod });
+  const methodToggleHtml = `
+    <div class="cfop-metric-pills ll-analytics-mode-group" role="group" aria-label="2x2 alg set method">
+      <button type="button" class="cfop-metric-pill ${twoByTwoMethod === "cll" ? "active" : ""}" data-two-method="cll" aria-pressed="${twoByTwoMethod === "cll" ? "true" : "false"}" title="Analyze 2x2 solves as 1st Layer + CLL">CLL</button>
+      <button type="button" class="cfop-metric-pill ${twoByTwoMethod === "auto" ? "active" : ""}" data-two-method="auto" aria-pressed="${twoByTwoMethod === "auto" ? "true" : "false"}" title="Auto-detect CLL vs Ortega per solve">Auto</button>
+      <button type="button" class="cfop-metric-pill ${twoByTwoMethod === "ortega" ? "active" : ""}" data-two-method="ortega" aria-pressed="${twoByTwoMethod === "ortega" ? "true" : "false"}" title="Analyze 2x2 solves as 1st Face + OLL + PBL">Ortega</button>
+    </div>
+  `;
+
+  return `
+    <div class="cfop-cases-improvement-section">
+      <div class="layer-log-header" style="margin-top: 20px;">
+        <div class="layer-log-title-wrap">
+          <h3 class="layer-log-title">2x2 CLL Case Performance &amp; Pauses (Where to Improve)</h3>
+          <span class="layer-log-hint">Color-neutral 1st Layer + CLL detection · Sorted by slowest Median first · Click any column header to sort</span>
+        </div>
+      </div>
+      <div class="cfop-cases-grid">
+        ${renderBreakdownCaseTable({
+          puzzleId: "222",
+          title: "CLL Cases",
+          subtitle: "Corners of the Last Layer — Median, TrimMean, Mean, Recog & Moves per Case",
+          items: cllStats,
+          badgeClass: "badge-pll-case",
+          trackId: "cll",
+          collapseKey: "ollCases",
+          isOpen: cllOpen,
+          modeToggleHtml: methodToggleHtml,
+          sortStateByTrack,
+          caseTags,
+          showGroupCol: true,
+          showAvgMovesCol: true
+        })}
       </div>
     </div>
   `;

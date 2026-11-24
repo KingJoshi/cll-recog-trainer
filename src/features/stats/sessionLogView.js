@@ -1,6 +1,7 @@
 // Paginated Full Session Solve Log, CFOP Averages, and OLL/PLL Case Performance View
 
 import { getTrack, getSolveTargetLabel, PUZZLES } from '../../data/algRegistry.js';
+import { cllCases } from '../../data/cllData.js';
 import { ollCases } from '../../data/ollData.js';
 import { pllCases } from '../../data/pllData.js';
 import {
@@ -9,7 +10,18 @@ import {
   computeCfopAverages,
   isCfopAnalyzerReady
 } from '../../cfopAnalyzer.js';
-import { prewarmOllPllSvgs, isOllPllSvgsPrewarmed } from '../../caseVisualizer.js';
+import {
+  initTwoByTwoAnalyzer,
+  isTwoByTwoAnalyzerReady,
+  ensureSolveTwoByTwo,
+  computeTwoByTwoAverages
+} from '../../twoByTwoAnalyzer.js';
+import {
+  prewarmOllPllSvgs,
+  isOllPllSvgsPrewarmed,
+  prewarmCllSvgs,
+  isCllSvgsPrewarmed
+} from '../../caseVisualizer.js';
 import { getSolveTime } from '../../services/solveStats.js';
 import { getSolveFingerprint } from '../../services/syncMerge.js';
 import { recordTombstone } from '../../services/syncStorage.js';
@@ -23,10 +35,67 @@ import {
   formatSolveDisplay,
   formatCfopSplitMs
 } from '../../services/htmlUtils.js';
-import { renderOllPllCasesBreakdownHtml } from '../solve/cfopBreakdownRenderer.js';
+import { renderOllPllCasesBreakdownHtml, renderCllCasesBreakdownHtml } from '../solve/cfopBreakdownRenderer.js';
 import { renderStatsChartsHtml } from './statsChartsView.js';
 import { renderCfopGoalCoachHtml } from './cfopGoalCoach.js';
 import { ICON_PLAY, ICON_RESET_ANGLE } from '../../ui/transportIcons.js';
+
+function renderTwoByTwoLayerCellHtml(two, sv, { compact = false } = {}) {
+  const sp = two?.splits || {};
+  const isOrtega = two?.method === "ortega";
+  const layerMs = isOrtega ? (sp.face ?? sp.layer) : (sp.layer ?? sp.face);
+  const step = two?.steps?.find(st => st.phase === "layer" || st.phase === "face");
+  const colorName = two?.layerColor || "";
+  const slug = String(colorName || "").trim().toLowerCase();
+  const dotHtml = ["white", "yellow", "green", "blue", "red", "orange"].includes(slug)
+    ? `<span class="face-chip-dot face-dot-${slug}" aria-hidden="true"></span>`
+    : "";
+  const movesLabel = step?.moveCount != null ? `${step.moveCount}m` : "";
+  if (layerMs == null && !colorName) {
+    return sv?.target === "layer" ? `<span class="badge badge-subtle">1st Layer</span>` : "-";
+  }
+  const metaLabel = [
+    colorName ? `${dotHtml}${escapeHtml(colorName)}` : "",
+    movesLabel ? `${escapeHtml(movesLabel)}` : ""
+  ].filter(Boolean).join(" &middot; ");
+  return `
+    <div class="cfop-cell-stack">
+      <span class="cfop-split-val">${layerMs != null ? formatCfopSplitMs(layerMs) : "-"}</span>
+      ${metaLabel ? `<small class="cfop-sub-meta">${compact && colorName && movesLabel ? `${dotHtml}${escapeHtml(colorName)} &middot; ${escapeHtml(movesLabel)}` : metaLabel}</small>` : ""}
+    </div>
+  `;
+}
+
+function renderTwoByTwoCllCellHtml(two, sv, { compact = false } = {}) {
+  const sp = two?.splits || {};
+  if (two?.method === "ortega") {
+    const llMs = (sp.oll != null || sp.pbl != null) ? ((sp.oll || 0) + (sp.pbl || 0)) : null;
+    if (llMs == null) return "-";
+    return `
+      <div class="cfop-cell-stack">
+        <span class="cfop-split-val">${formatCfopSplitMs(llMs)}</span>
+        <span class="badge badge-pll-case" title="Ortega OLL + PBL">Ortega</span>
+      </div>
+    `;
+  }
+  const cllCase = two?.cllCase;
+  const cllStep = two?.steps?.find(st => st.phase === "cll");
+  const cllMs = sp.cll;
+  const cllMoves = cllCase?.moveCount ?? cllStep?.moveCount;
+  if (cllMs != null || cllCase) {
+    return `
+      <div class="cfop-cell-stack">
+        <span class="cfop-split-val">${formatCfopSplitMs(cllMs)}</span>
+        ${cllCase?.shortName ? `<span class="badge badge-pll-case" title="${escapeHtml(cllCase.name || cllCase.shortName)}">${escapeHtml(cllCase.shortName)}</span>` : ""}
+        ${!compact && cllMoves != null ? `<small class="cfop-sub-meta">${cllMoves}m</small>` : ""}
+      </div>
+    `;
+  }
+  if (sv?.target === "cll" && sv?.id) {
+    return `<span class="badge badge-pll-case">${escapeHtml(sv.id)}</span>`;
+  }
+  return "-";
+}
 
 export function createSessionLogView({
   appStore,
@@ -42,13 +111,17 @@ export function createSessionLogView({
   const sessionLogSort = { col: "num", dir: "desc" };
   const ollPllBreakdownSort = {
     oll: { col: "medianMs", dir: "desc" },
-    pll: { col: "medianMs", dir: "desc" }
+    pll: { col: "medianMs", dir: "desc" },
+    cll: { col: "medianMs", dir: "desc" }
   };
 
   function render(container) {
     if (!container) return;
     const s = appStore.state;
     const is3x3Puzzle = s.currentPuzzle === "333" || s.currentPuzzle === "333oh";
+    const is2x2Puzzle = s.currentPuzzle === "222";
+    const twoByTwoMethod = s.twoByTwoMethod || "cll";
+    const twoByTwoOpts = { twoByTwoMethod, layerTargetFaces: s.layerTargetFaces };
     const isAdvanced = Boolean(s.advancedMode);
 
     if (is3x3Puzzle && !isCfopAnalyzerReady()) {
@@ -61,15 +134,28 @@ export function createSessionLogView({
         if (s.statsType === "log" || s.statsType === "solve") render(container);
       });
     }
+    if (is2x2Puzzle && !isTwoByTwoAnalyzerReady()) {
+      initTwoByTwoAnalyzer().then(() => {
+        if (s.statsType === "log" || s.statsType === "solve") render(container);
+      });
+    }
+    if (is2x2Puzzle && !isCllSvgsPrewarmed()) {
+      prewarmCllSvgs(cllCases).then(() => {
+        if (s.statsType === "log" || s.statsType === "solve") render(container);
+      });
+    }
 
     const sess = appStore.getActiveSession();
     const allSessSolves = sess.solves || [];
 
     if (allSessSolves.length === 0) {
+      const emptyExtra = is3x3Puzzle
+        ? ", CFOP step splits, and OLL/PLL case analytics"
+        : (is2x2Puzzle ? ", 1st Layer splits, and CLL case analytics" : "");
       container.innerHTML = `
         <div class="empty-stats" style="text-align: center; padding: 24px;">
           <p>No solves recorded in <strong>${escapeHtml(sess.name)}</strong> yet.</p>
-          <p style="color: var(--muted); font-size: 0.9rem;">Time your solves in the <strong>Solve</strong> tab to build your session history${is3x3Puzzle ? ", CFOP step splits, and OLL/PLL case analytics" : ""}.</p>
+          <p style="color: var(--muted); font-size: 0.9rem;">Time your solves in the <strong>Solve</strong> tab to build your session history${emptyExtra}.</p>
         </div>
       `;
       return;
@@ -114,6 +200,8 @@ export function createSessionLogView({
 
     if (is3x3Puzzle) {
       displaySolves.forEach(sv => ensureSolveCfop(sv));
+    } else if (is2x2Puzzle) {
+      displaySolves.forEach(sv => ensureSolveTwoByTwo(sv, twoByTwoOpts));
     }
 
     const count = displaySolves.length;
@@ -148,6 +236,26 @@ export function createSessionLogView({
       if (col === "inspectionMs") return sv.inspectionMs != null ? sv.inspectionMs : Infinity;
       if (col === "pickupMs") return sv.pickupMs != null ? sv.pickupMs : Infinity;
       if (col === "putdownMs") return sv.putdownMs != null ? sv.putdownMs : Infinity;
+      if (is2x2Puzzle) {
+        const two = ensureSolveTwoByTwo(sv, twoByTwoOpts);
+        const sp2 = two?.splits || {};
+        if (col === "layer") {
+          const val = two?.method === "ortega" ? (sp2.face ?? sp2.layer) : (sp2.layer ?? sp2.face);
+          return val != null ? val : Infinity;
+        }
+        if (col === "layerMoves") {
+          const st = two?.steps?.find(st => st.phase === "layer" || st.phase === "face");
+          return st?.moveCount != null ? st.moveCount : Infinity;
+        }
+        if (col === "cll") {
+          const val = two?.method === "ortega"
+            ? ((sp2.oll != null || sp2.pbl != null) ? ((sp2.oll || 0) + (sp2.pbl || 0)) : null)
+            : sp2.cll;
+          return val != null ? val : Infinity;
+        }
+        if (col === "pauseMs") return two?.pauses?.totalMs != null ? two.pauses.totalMs : Infinity;
+        return entry.num;
+      }
       const cfop = is3x3Puzzle ? ensureSolveCfop(sv) : null;
       const sp = cfop?.splits || {};
       if (col in sp) return sp[col] != null ? sp[col] : Infinity;
@@ -179,11 +287,12 @@ export function createSessionLogView({
     const pageRows = allReversed.slice(startIdx, endIdx);
     const pageSolves = pageRows.map(r => r.s);
     const newestFirstSolves = [...allIndexed].reverse().map(r => r.s);
-    const last5Avg = displaySolves.length >= 5 ? computeCfopAverages(newestFirstSolves.slice(0, 5)) : null;
-    const last12Avg = displaySolves.length >= 12 ? computeCfopAverages(newestFirstSolves.slice(0, 12)) : null;
-    const last100Avg = displaySolves.length >= 100 ? computeCfopAverages(newestFirstSolves.slice(0, 100)) : null;
-    const pageAvg = computeCfopAverages(pageSolves);
-    const sessionAvg = computeCfopAverages(displaySolves);
+    const computeAvgWindow = (list) => (is2x2Puzzle ? computeTwoByTwoAverages(list, twoByTwoOpts) : computeCfopAverages(list));
+    const last5Avg = displaySolves.length >= 5 ? computeAvgWindow(newestFirstSolves.slice(0, 5)) : null;
+    const last12Avg = displaySolves.length >= 12 ? computeAvgWindow(newestFirstSolves.slice(0, 12)) : null;
+    const last100Avg = displaySolves.length >= 100 ? computeAvgWindow(newestFirstSolves.slice(0, 100)) : null;
+    const pageAvg = computeAvgWindow(pageSolves);
+    const sessionAvg = computeAvgWindow(displaySolves);
     const fmtPauseSummary = (countVal, msVal) => countVal == null ? "-" : `${countVal} (${formatCfopSplitMs(msVal || 0)})`;
 
     const activeFilterLabel = filterTarget ? getSolveTargetLabel(sessPuzzle, filterTarget) : "All Solves";
@@ -337,7 +446,120 @@ export function createSessionLogView({
           </div>
         </div>
       `;
+    } else if (is2x2Puzzle && isAdvanced) {
+      const twoScopes = [];
+      if (last5Avg) twoScopes.push({ id: "last5", title: "Last 5", meta: "(5 solves)", avg: last5Avg, rowClass: "" });
+      if (last12Avg) twoScopes.push({ id: "last12", title: "Last 12", meta: "(12 solves)", avg: last12Avg, rowClass: "" });
+      if (last100Avg) twoScopes.push({ id: "last100", title: "Last 100", meta: "(100 solves)", avg: last100Avg, rowClass: "" });
+      twoScopes.push({
+        id: "session",
+        title: "Session",
+        meta: `(${count.toLocaleString()} ${count === 1 ? "solve" : "solves"})`,
+        avg: sessionAvg,
+        rowClass: "cfop-session-avg-row"
+      });
+
+      const metricLabels = {
+        median: "Median",
+        trim: "TrimMean 10%",
+        mean: "Mean",
+        all: "Median, TrimMean 10%, Mean"
+      };
+      const metricHeading = metricLabels[cfopAvgMetric] || "Median";
+
+      const renderTwoStatRowHtml = (scopeTitle, subMeta, statsObj, pauseCnt, pauseMsVal, rowClass = "") => {
+        if (!statsObj) return "";
+        const layerMsVal = twoByTwoMethod === "ortega"
+          ? (statsObj.face ?? statsObj.layer)
+          : (statsObj.layer ?? statsObj.face);
+        const llMsVal = statsObj.cll != null
+          ? statsObj.cll
+          : ((statsObj.oll != null || statsObj.pbl != null) ? ((statsObj.oll || 0) + (statsObj.pbl || 0)) : null);
+        return `
+          <tr class="${rowClass}">
+            <td class="cfop-avg-scope-cell"><strong>${scopeTitle}</strong> ${subMeta ? `<small class="cfop-sub-meta">${subMeta}</small>` : ""}</td>
+            <td><strong>${statsObj.totalMs != null ? formatSolveTime(statsObj.totalMs) : "-"}</strong></td>
+            <td><strong>${formatCfopSplitMs(statsObj.cubeMs)}</strong></td>
+            <td>${formatCfopSplitMs(statsObj.inspectionMs)}</td>
+            <td>${formatCfopSplitMs(statsObj.pickupMs)}</td>
+            <td>${formatCfopSplitMs(layerMsVal)}${statsObj.layerMoves != null ? ` <small class="cfop-sub-meta">(${statsObj.layerMoves}m)</small>` : ""}</td>
+            <td>${formatCfopSplitMs(llMsVal)}${statsObj.cllMoves != null ? ` <small class="cfop-sub-meta">(${statsObj.cllMoves}m)</small>` : ""}</td>
+            <td>${formatCfopSplitMs(statsObj.putdownMs)}</td>
+            <td>${fmtPauseSummary(pauseCnt, pauseMsVal)}</td>
+          </tr>
+        `;
+      };
+
+      const twoRowsHtml = twoScopes.map(scope => {
+        const rows = [];
+        if (cfopAvgMetric === "median" || cfopAvgMetric === "all") {
+          const label = cfopAvgMetric === "all" ? `${scope.title} &middot; Median` : scope.title;
+          rows.push(renderTwoStatRowHtml(label, scope.meta, scope.avg.median, scope.avg.median?.pauseCount, scope.avg.median?.pauseMs, cfopAvgMetric === "all" ? "cfop-trim-highlight-row" : scope.rowClass));
+        }
+        if (cfopAvgMetric === "trim" || cfopAvgMetric === "all") {
+          const label = cfopAvgMetric === "all" ? `${scope.title} &middot; Trim10%` : scope.title;
+          const meta = cfopAvgMetric === "all" ? "(-top/bot 10%)" : scope.meta;
+          rows.push(renderTwoStatRowHtml(label, meta, scope.avg.trimMean, scope.avg.trimMean?.pauseCount, scope.avg.trimMean?.pauseMs, cfopAvgMetric === "trim" ? scope.rowClass : ""));
+        }
+        if (cfopAvgMetric === "mean" || cfopAvgMetric === "all") {
+          const label = cfopAvgMetric === "all" ? `${scope.title} &middot; Mean` : scope.title;
+          rows.push(renderTwoStatRowHtml(label, scope.meta, scope.avg, scope.avg.avgPauseCount, scope.avg.avgPauseMs, scope.rowClass));
+        }
+        return rows.join("");
+      }).join("");
+
+      const twoSummaryTitle = twoByTwoMethod === "ortega" ? "2x2 Phase &amp; Pause Stats" : "2x2 CLL Phase &amp; Pause Stats";
+      const layerColLabel = twoByTwoMethod === "ortega" ? "1st Face" : "1st Layer";
+      const llColLabel = twoByTwoMethod === "ortega" ? "OLL+PBL" : (twoByTwoMethod === "auto" ? "CLL / LL" : "CLL");
+
+      html += `
+        <div class="cfop-averages-summary-card stats-subwidget ${s.cfopSummaryOpen ? "" : "is-collapsed"}" data-stats-widget="cfopSummary">
+          <div class="cfop-averages-head stats-subwidget-head">
+            <button type="button" class="stats-subwidget-toggle" data-stats-collapse="cfopSummary" aria-expanded="${s.cfopSummaryOpen ? "true" : "false"}">
+              <span class="chevron" aria-hidden="true"></span>
+              <span class="cfop-averages-title">${twoSummaryTitle} &mdash; ${metricHeading} (${escapeHtml(sess.name)} &middot; ${escapeHtml(activeFilterLabel)} &middot; ${count.toLocaleString()})</span>
+              <span class="cfop-averages-hint">Last 5 &middot; Last 12 &middot; Last 100 &middot; Session &middot; Pauses &ge;0.40s</span>
+            </button>
+            <div class="cfop-metric-pills" role="group" aria-label="2x2 summary metric">
+              ${[
+                { id: "median", label: "Median" },
+                { id: "trim", label: "Trim 10%" },
+                { id: "mean", label: "Mean" },
+                { id: "all", label: "All" }
+              ].map(opt => `<button type="button" class="cfop-metric-pill ${cfopAvgMetric === opt.id ? "active" : ""}" data-cfop-metric="${opt.id}" aria-pressed="${cfopAvgMetric === opt.id ? "true" : "false"}">${opt.label}</button>`).join("")}
+            </div>
+          </div>
+          <div class="stats-subwidget-body">
+            <div class="cfop-table-scroll">
+              <table class="layer-log-table cfop-avg-comparison-table">
+                <thead>
+                  <tr>
+                    <th scope="col" class="cfop-avg-scope-cell">${cfopAvgMetric === "all" ? "Scope / Metric" : "Scope"}</th>
+                    <th scope="col">Total</th>
+                    <th scope="col" title="Pure smart cube solving time (first turn → solved)">Cube</th>
+                    <th scope="col" title="WCA inspection duration before timer start">Insp</th>
+                    <th scope="col" title="Time from timer start to first smart cube turn">Pick-up</th>
+                    <th scope="col">${layerColLabel}</th>
+                    <th scope="col">${llColLabel}</th>
+                    <th scope="col" title="Time from smart cube solved to timer stop">Put-down</th>
+                    <th scope="col">Pauses</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${twoRowsHtml}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
     }
+
+    const solveLogHint = is3x3Puzzle
+      ? "Click any column header to sort · Tap any row for full CFOP breakdown &amp; 3D replay"
+      : (is2x2Puzzle
+          ? "Click any column header to sort · Tap any row for full 1st Layer &amp; CLL breakdown &amp; 3D replay"
+          : "Click any column header to sort · Tap any row for solve details");
 
     html += `
       <div class="stats-subwidget stats-subwidget-log ${s.solveLogOpen ? "" : "is-collapsed"}" data-stats-widget="solveLog">
@@ -346,7 +568,7 @@ export function createSessionLogView({
             <span class="chevron" aria-hidden="true"></span>
             <span class="layer-log-title-wrap">
               <span class="layer-log-title">Solve Log &mdash; ${escapeHtml(sess.name)} (${allReversed.length.toLocaleString()}${isCapped ? ` of ${allSessSolves.length.toLocaleString()} total` : ""})</span>
-              <span class="layer-log-hint">${is3x3Puzzle ? "Click any column header to sort · Tap any row for full CFOP breakdown &amp; 3D replay" : "Click any column header to sort · Tap any row for solve details"}</span>
+              <span class="layer-log-hint">${solveLogHint}</span>
             </span>
           </button>
           <div class="layer-log-pagination-controls">
@@ -608,6 +830,201 @@ export function createSessionLogView({
           pllMode: s.pllMode || s.llAnalyticsMode || "full"
         });
       }
+    } else if (is2x2Puzzle && !isAdvanced) {
+      const layerHdr = twoByTwoMethod === "ortega" ? "1st Face" : "1st Layer";
+      const llHdr = twoByTwoMethod === "ortega" ? "OLL+PBL" : "CLL";
+      html += `
+        <div class="cfop-table-scroll">
+          <table class="layer-log-table cfop-solve-log-table is-basic-log">
+            <thead>
+              <tr>
+                <th scope="col" class="sortable" data-log-sort="num" style="width: 42px;">#<span class="sort-icon">${logSortArrow("num")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="ms">Time<span class="sort-icon">${logSortArrow("ms")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="layer">${layerHdr}<span class="sort-icon">${logSortArrow("layer")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="cll">${llHdr}<span class="sort-icon">${logSortArrow("cll")}</span></th>
+                <th scope="col" style="width: 78px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      if (pageRows.length === 0) {
+        html += `<tr><td colspan="5" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+      } else {
+        pageRows.forEach(({ s: sv, num, origIdx }) => {
+          const two = ensureSolveTwoByTwo(sv, twoByTwoOpts);
+          const hasReplay = Array.isArray(sv.moves) && sv.moves.length > 0;
+          html += `
+            <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click for solve breakdown">
+              <td>${num}</td>
+              <td class="layer-time-cell"><strong>${formatSolveDisplay(sv)}</strong></td>
+              <td>${renderTwoByTwoLayerCellHtml(two, sv, { compact: true })}</td>
+              <td>${renderTwoByTwoCllCellHtml(two, sv, { compact: true })}</td>
+              <td>
+                <div class="layer-log-actions">
+                  ${hasReplay ? `<button type="button" class="btn-replay-solve" data-index="${origIdx}" data-num="${num}" aria-label="Replay solve ${num}" data-tooltip="Replay solve #${num}">${ICON_PLAY}</button>` : ""}
+                  <button type="button" class="btn-reattempt-solve" data-index="${origIdx}" data-num="${num}" aria-label="Reattempt solve ${num}" data-tooltip="Reattempt scramble">${ICON_RESET_ANGLE}</button>
+                  <button type="button" class="btn-del-solve" data-index="${origIdx}" data-num="${num}" aria-label="Delete solve ${num}" data-tooltip="Delete solve #${num}">&times;</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+      }
+
+      const pageLayerMed = twoByTwoMethod === "ortega"
+        ? (pageAvg.median?.face ?? pageAvg.median?.layer)
+        : (pageAvg.median?.layer ?? pageAvg.median?.face);
+      const pageLlMed = pageAvg.median?.cll != null
+        ? pageAvg.median.cll
+        : ((pageAvg.median?.oll != null || pageAvg.median?.pbl != null) ? ((pageAvg.median?.oll || 0) + (pageAvg.median?.pbl || 0)) : null);
+
+      html += `
+            </tbody>
+            <tfoot>
+              <tr class="cfop-tfoot-page-avg cfop-trim-highlight-row">
+                <th scope="row">Med</th>
+                <td><strong>${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : "-"}</strong></td>
+                <td>${formatCfopSplitMs(pageLayerMed)}</td>
+                <td>${formatCfopSplitMs(pageLlMed)}</td>
+                <td><small class="cfop-sub-meta">Page (${pageSolves.length})</small></td>
+              </tr>
+              <tr class="cfop-tfoot-session-avg">
+                <th scope="row">All</th>
+                <td colspan="4">
+                  <strong>Median:</strong> ${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : "-"} &bull;
+                  <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : "-"}
+                  <small class="cfop-sub-meta">(${count.toLocaleString()} solves in session)</small>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        </div>
+      </div>
+      `;
+    } else if (is2x2Puzzle) {
+      const layerHdr = twoByTwoMethod === "ortega" ? "1st Face" : "1st Layer";
+      const llHdr = twoByTwoMethod === "ortega" ? "OLL+PBL" : (twoByTwoMethod === "auto" ? "CLL / LL" : "CLL");
+      html += `
+        <div class="cfop-table-scroll">
+          <table class="layer-log-table cfop-solve-log-table">
+            <thead>
+              <tr>
+                <th scope="col" class="sortable" data-log-sort="num" style="width: 42px;">#<span class="sort-icon">${logSortArrow("num")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="ms">Time<span class="sort-icon">${logSortArrow("ms")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="cubeMs" title="Pure smart cube solving time (first turn → solved)">Cube<span class="sort-icon">${logSortArrow("cubeMs")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="inspectionMs" title="Inspection time before timer start">Insp<span class="sort-icon">${logSortArrow("inspectionMs")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="pickupMs" title="Timer start → first smart cube turn">Pick-up<span class="sort-icon">${logSortArrow("pickupMs")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="layer">${layerHdr}<span class="sort-icon">${logSortArrow("layer")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="cll">${llHdr}<span class="sort-icon">${logSortArrow("cll")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="putdownMs" title="Smart cube solved → timer stopped">Put-down<span class="sort-icon">${logSortArrow("putdownMs")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="pauseMs" title="Pauses ≥0.40s">Pauses<span class="sort-icon">${logSortArrow("pauseMs")}</span></th>
+                <th scope="col" class="sortable" data-log-sort="at" style="width: 52px; text-align: center;">Date<span class="sort-icon">${logSortArrow("at")}</span></th>
+                <th scope="col" style="width: 78px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      if (pageRows.length === 0) {
+        html += `<tr><td colspan="11" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+      } else {
+        pageRows.forEach(({ s: sv, num, origIdx }) => {
+          const two = ensureSolveTwoByTwo(sv, twoByTwoOpts);
+          const pauses = two?.pauses;
+          const pauseCellHtml = pauses
+            ? `<span class="${pauses.totalCount > 0 ? "pause-cell-warn" : "pause-cell-clean"}">${pauses.totalCount} <small>(${formatCfopSplitMs(pauses.totalMs)})</small></span>`
+            : "-";
+          const hasReplay = Array.isArray(sv.moves) && sv.moves.length > 0;
+          const cubeMsVal = getSolveCubeMs(sv);
+          html += `
+            <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click for full 1st Layer & CLL breakdown">
+              <td>${num}</td>
+              <td class="layer-time-cell"><div class="cfop-cell-stack"><strong>${formatSolveDisplay(sv)}</strong>${sv.tps ? `<small class="cfop-sub-meta">${sv.tps} TPS</small>` : ""}</div></td>
+              <td><strong>${formatCfopSplitMs(cubeMsVal)}</strong></td>
+              <td>${formatCfopSplitMs(sv.inspectionMs)}</td>
+              <td>${formatCfopSplitMs(sv.pickupMs)}</td>
+              <td>${renderTwoByTwoLayerCellHtml(two, sv, { compact: false })}</td>
+              <td>${renderTwoByTwoCllCellHtml(two, sv, { compact: false })}</td>
+              <td>${formatCfopSplitMs(sv.putdownMs)}</td>
+              <td>${pauseCellHtml}</td>
+              <td class="layer-date-cell">${renderSolveDateClockHtml(sv.at)}</td>
+              <td>
+                <div class="layer-log-actions">
+                  ${hasReplay ? `<button type="button" class="btn-replay-solve" data-index="${origIdx}" data-num="${num}" aria-label="Replay solve ${num}" data-tooltip="Replay solve #${num}">${ICON_PLAY}</button>` : ""}
+                  <button type="button" class="btn-reattempt-solve" data-index="${origIdx}" data-num="${num}" aria-label="Reattempt solve ${num}" data-tooltip="Reattempt scramble">${ICON_RESET_ANGLE}</button>
+                  <button type="button" class="btn-del-solve" data-index="${origIdx}" data-num="${num}" aria-label="Delete solve ${num}" data-tooltip="Delete solve #${num}">&times;</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+      }
+
+      const pickLayerVal = (obj) => twoByTwoMethod === "ortega" ? (obj?.face ?? obj?.layer) : (obj?.layer ?? obj?.face);
+      const pickLlVal = (obj) => obj?.cll != null ? obj.cll : ((obj?.oll != null || obj?.pbl != null) ? ((obj?.oll || 0) + (obj?.pbl || 0)) : null);
+
+      html += `
+            </tbody>
+            <tfoot>
+              <tr class="cfop-tfoot-page-avg cfop-trim-highlight-row">
+                <th scope="row">Med</th>
+                <td><div class="cfop-cell-stack"><strong>${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : "-"}</strong><small class="cfop-sub-meta">Page (${pageSolves.length})</small></div></td>
+                <td><strong>${formatCfopSplitMs(pageAvg.median?.cubeMs)}</strong></td>
+                <td>${formatCfopSplitMs(pageAvg.median?.inspectionMs)}</td>
+                <td>${formatCfopSplitMs(pageAvg.median?.pickupMs)}</td>
+                <td>${formatCfopSplitMs(pickLayerVal(pageAvg.median))}${pageAvg.median?.layerMoves != null ? ` <small class="cfop-sub-meta">(${pageAvg.median.layerMoves}m)</small>` : ""}</td>
+                <td>${formatCfopSplitMs(pickLlVal(pageAvg.median))}${pageAvg.median?.cllMoves != null ? ` <small class="cfop-sub-meta">(${pageAvg.median.cllMoves}m)</small>` : ""}</td>
+                <td>${formatCfopSplitMs(pageAvg.median?.putdownMs)}</td>
+                <td>${fmtPauseSummary(pageAvg.median?.pauseCount, pageAvg.median?.pauseMs)}</td>
+                <td colspan="2"><small class="cfop-sub-meta">Page Median</small></td>
+              </tr>
+              <tr class="cfop-tfoot-page-avg">
+                <th scope="row">Trim</th>
+                <td><div class="cfop-cell-stack"><strong>${pageAvg.trimMean?.totalMs != null ? formatSolveTime(pageAvg.trimMean.totalMs) : "-"}</strong><small class="cfop-sub-meta">Trim10%</small></div></td>
+                <td><strong>${formatCfopSplitMs(pageAvg.trimMean?.cubeMs)}</strong></td>
+                <td>${formatCfopSplitMs(pageAvg.trimMean?.inspectionMs)}</td>
+                <td>${formatCfopSplitMs(pageAvg.trimMean?.pickupMs)}</td>
+                <td>${formatCfopSplitMs(pickLayerVal(pageAvg.trimMean))}</td>
+                <td>${formatCfopSplitMs(pickLlVal(pageAvg.trimMean))}</td>
+                <td>${formatCfopSplitMs(pageAvg.trimMean?.putdownMs)}</td>
+                <td>${fmtPauseSummary(pageAvg.trimMean?.pauseCount, pageAvg.trimMean?.pauseMs)}</td>
+                <td colspan="2"><small class="cfop-sub-meta">Page TrimMean 10%</small></td>
+              </tr>
+              <tr class="cfop-tfoot-page-avg">
+                <th scope="row">Mean</th>
+                <td><div class="cfop-cell-stack"><strong>${pageAvg.totalMs != null ? formatSolveTime(pageAvg.totalMs) : "-"}</strong><small class="cfop-sub-meta">Page (${pageSolves.length})</small></div></td>
+                <td><strong>${formatCfopSplitMs(pageAvg.cubeMs)}</strong></td>
+                <td>${formatCfopSplitMs(pageAvg.inspectionMs)}</td>
+                <td>${formatCfopSplitMs(pageAvg.pickupMs)}</td>
+                <td>${formatCfopSplitMs(pickLayerVal(pageAvg))}${pageAvg.layerMoves != null ? ` <small class="cfop-sub-meta">(${pageAvg.layerMoves}m)</small>` : ""}</td>
+                <td>${formatCfopSplitMs(pickLlVal(pageAvg))}${pageAvg.cllMoves != null ? ` <small class="cfop-sub-meta">(${pageAvg.cllMoves}m)</small>` : ""}</td>
+                <td>${formatCfopSplitMs(pageAvg.putdownMs)}</td>
+                <td>${fmtPauseSummary(pageAvg.avgPauseCount, pageAvg.avgPauseMs)}</td>
+                <td colspan="2"><small class="cfop-sub-meta">Page Mean</small></td>
+              </tr>
+              <tr class="cfop-tfoot-session-avg">
+                <th scope="row">All</th>
+                <td colspan="10">
+                  <strong>Median:</strong> ${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : "-"} &bull;
+                  <strong>TrimMean (10%):</strong> ${sessionAvg.trimMean?.totalMs != null ? formatSolveTime(sessionAvg.trimMean.totalMs) : "-"} &bull;
+                  <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : "-"}
+                  <small class="cfop-sub-meta">(${count} solves in session)</small>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        </div>
+      </div>
+      `;
+      html += renderCllCasesBreakdownHtml(displaySolves, {
+        cllOpen: s.ollCasesStatsOpen,
+        sortStateByTrack: ollPllBreakdownSort,
+        caseTags: s.caseTags || {},
+        twoByTwoMethod
+      });
     } else if (!isAdvanced) {
       html += `
         <div class="cfop-table-scroll">
@@ -806,6 +1223,16 @@ export function createSessionLogView({
         const nextLlMode = btn.dataset.llAnalyticsMode === "2look" ? "2look" : "full";
         if (nextLlMode === (s.llAnalyticsMode || "full")) return;
         appStore.setLlAnalyticsMode?.(nextLlMode);
+        render(container);
+      });
+    });
+
+    container.querySelectorAll("[data-two-method]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const nextMethod = btn.dataset.twoMethod;
+        if (!nextMethod || nextMethod === (s.twoByTwoMethod || "cll")) return;
+        appStore.setTwoByTwoMethod?.(nextMethod);
         render(container);
       });
     });

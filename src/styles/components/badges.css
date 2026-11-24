@@ -70,6 +70,8 @@
 }
 
 .face-chip-dot {
+    display: inline-block;
+    vertical-align: -1px;
     width: 9px;
     height: 9px;
     border-radius: 50%;

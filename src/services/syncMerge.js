@@ -56,6 +56,7 @@ const SETTINGS_SCALAR_FIELDS = [
   "llAnalyticsMode",
   "ollMode",
   "pllMode",
+  "twoByTwoMethod",
   "trainSubMode",
   "desktopMultiPane",
   "customEvents",

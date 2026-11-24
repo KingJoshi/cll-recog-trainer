@@ -1,6 +1,7 @@
 // Solve Details Modal (scramble, GAN phases, CFOP breakdown, move tape, and 3D replay trigger)
 
 import { ensureSolveCfop } from '../../cfopAnalyzer.js';
+import { ensureSolveTwoByTwo } from '../../twoByTwoAnalyzer.js';
 import { escapeHtml, formatSolveDate, formatSolveDisplay, formatCfopSplitMs } from '../../services/htmlUtils.js';
 import { getSolveFingerprint } from '../../services/syncMerge.js';
 import { recordTombstone } from '../../services/syncStorage.js';
@@ -104,24 +105,53 @@ export function createSolveDetailModal({
       }
     }
 
-    const cfop = ensureSolveCfop(solve);
+    const is222 = solve?.puzzle === "222";
+    const twoMethod = appStore?.state?.twoByTwoMethod || "cll";
     if (cfopField && cfopContent) {
-      if (cfop && (cfop.steps?.length > 0 || cfop.ollCase || cfop.pllCase)) {
-        cfopField.hidden = false;
-        const totalPauses = cfop.pauses ? `${cfop.pauses.totalCount} pause(s) (${formatCfopSplitMs(cfop.pauses.totalMs)} total)` : "0";
-        cfopContent.innerHTML = `
-          <div class="solve-modal-cfop-summary-bar">
-            <span><strong>Cross Color:</strong> ${escapeHtml(cfop.crossColor || "White")}</span>
-            ${cfop.splits?.f2lTotal != null ? `<span><strong>F2L &Sigma;:</strong> ${formatCfopSplitMs(cfop.splits.f2lTotal)}</span>` : ""}
-            ${cfop.ollCase ? `<span><strong>OLL:</strong> ${escapeHtml(cfop.ollCase.name)} (${formatCfopSplitMs(cfop.ollCase.ms)})</span>` : ""}
-            ${cfop.pllCase ? `<span><strong>PLL:</strong> ${escapeHtml(cfop.pllCase.name)} (${formatCfopSplitMs(cfop.pllCase.ms)})</span>` : ""}
-            <span><strong>Total Pauses:</strong> ${totalPauses}</span>
-          </div>
-          ${renderCfopStepTable(solve, { detailed: true })}
-        `;
+      if (is222) {
+        const analysis = ensureSolveTwoByTwo(solve, {
+          twoByTwoMethod: twoMethod,
+          layerTargetFaces: appStore?.state?.layerTargetFaces
+        });
+        if (analysis && (analysis.steps?.length > 0 || analysis.cllCase)) {
+          cfopField.hidden = false;
+          const totalPauses = analysis.pauses
+            ? `${analysis.pauses.totalCount} pause(s) (${formatCfopSplitMs(analysis.pauses.totalMs)} total)`
+            : "0";
+          const layerMs = analysis.splits?.layer ?? analysis.splits?.face;
+          const layerLabel = analysis.method === "ortega" ? "1st Face" : "1st Layer";
+          cfopContent.innerHTML = `
+            <div class="solve-modal-cfop-summary-bar">
+              <span><strong>${layerLabel}:</strong> ${escapeHtml(analysis.layerColor || "White")}${layerMs != null ? ` (${formatCfopSplitMs(layerMs)}, ${analysis.steps?.[0]?.moveCount || 0}m)` : ""}</span>
+              ${analysis.cllCase ? `<span><strong>CLL:</strong> ${escapeHtml(analysis.cllCase.name)} (${formatCfopSplitMs(analysis.cllCase.ms)})</span>` : ""}
+              ${analysis.splits?.auf != null ? `<span><strong>AUF:</strong> ${formatCfopSplitMs(analysis.splits.auf)}</span>` : ""}
+              <span><strong>Total Pauses:</strong> ${totalPauses}</span>
+            </div>
+            ${renderCfopStepTable(solve, { detailed: true, twoByTwoMethod: twoMethod })}
+          `;
+        } else {
+          cfopField.hidden = true;
+          cfopContent.innerHTML = "";
+        }
       } else {
-        cfopField.hidden = true;
-        cfopContent.innerHTML = "";
+        const cfop = ensureSolveCfop(solve);
+        if (cfop && (cfop.steps?.length > 0 || cfop.ollCase || cfop.pllCase)) {
+          cfopField.hidden = false;
+          const totalPauses = cfop.pauses ? `${cfop.pauses.totalCount} pause(s) (${formatCfopSplitMs(cfop.pauses.totalMs)} total)` : "0";
+          cfopContent.innerHTML = `
+            <div class="solve-modal-cfop-summary-bar">
+              <span><strong>Cross Color:</strong> ${escapeHtml(cfop.crossColor || "White")}</span>
+              ${cfop.splits?.f2lTotal != null ? `<span><strong>F2L &Sigma;:</strong> ${formatCfopSplitMs(cfop.splits.f2lTotal)}</span>` : ""}
+              ${cfop.ollCase ? `<span><strong>OLL:</strong> ${escapeHtml(cfop.ollCase.name)} (${formatCfopSplitMs(cfop.ollCase.ms)})</span>` : ""}
+              ${cfop.pllCase ? `<span><strong>PLL:</strong> ${escapeHtml(cfop.pllCase.name)} (${formatCfopSplitMs(cfop.pllCase.ms)})</span>` : ""}
+              <span><strong>Total Pauses:</strong> ${totalPauses}</span>
+            </div>
+            ${renderCfopStepTable(solve, { detailed: true })}
+          `;
+        } else {
+          cfopField.hidden = true;
+          cfopContent.innerHTML = "";
+        }
       }
     }
 

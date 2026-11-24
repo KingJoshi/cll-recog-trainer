@@ -131,17 +131,25 @@ function derivePllArrows(cPieces, ePieces, cornerCenters, edgeCenters) {
 const svgCache = new Map();
 let prewarmPromise = null;
 let ollPllPrewarmed = false;
+let cllPrewarmPromise = null;
+let cllPrewarmed = false;
 
 export function clearSvgCache() {
   svgCache.clear();
   prewarmPromise = null;
   ollPllPrewarmed = false;
+  cllPrewarmPromise = null;
+  cllPrewarmed = false;
 }
 
 onCubeColorsChange(clearSvgCache);
 
 export function isOllPllSvgsPrewarmed() {
   return ollPllPrewarmed;
+}
+
+export function isCllSvgsPrewarmed() {
+  return cllPrewarmed;
 }
 
 export function getCachedCaseSvg(puzzleId, trackId, caseId) {
@@ -179,6 +187,26 @@ export async function prewarmOllPllSvgs(ollList = [], pllList = []) {
     }
   })();
   return prewarmPromise;
+}
+
+export async function prewarmCllSvgs(cllList = []) {
+  if (cllPrewarmed) return;
+  if (cllPrewarmPromise) return cllPrewarmPromise;
+  const cllArr = Array.isArray(cllList) ? cllList : (cllList?.cases || []);
+  cllPrewarmPromise = (async () => {
+    try {
+      for (const c of cllArr) {
+        if (!c?.id) continue;
+        const svg = await renderCaseSvg("222", "cll", c);
+        svgCache.set(`222-cll-${c.id}`, svg);
+      }
+    } catch (e) {
+      console.warn("Could not prewarm CLL SVGs:", e);
+    } finally {
+      cllPrewarmed = true;
+    }
+  })();
+  return cllPrewarmPromise;
 }
 
 export async function renderCaseSvg(puzzleId, trackId, caseObj) {

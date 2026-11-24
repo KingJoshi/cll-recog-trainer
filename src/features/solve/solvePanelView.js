@@ -2,6 +2,7 @@
 
 import { Alg } from 'cubing/alg';
 import { initCfopAnalyzer, ensureSolveCfop, computeCfopAverages, isCfopAnalyzerReady, computeMedian, computeTrimmedMean } from '../../cfopAnalyzer.js';
+import { initTwoByTwoAnalyzer, ensureSolveTwoByTwo, computeTwoByTwoAverages, isTwoByTwoAnalyzerReady } from '../../twoByTwoAnalyzer.js';
 import { averagePhase, medianPhase, trimMeanPhase, ganTimer } from '../../ganTimer.js';
 import { smartCube } from '../../smartCube.js';
 import { getSolveTargetLabel } from '../../data/algRegistry.js';
@@ -333,16 +334,31 @@ export function createSolvePanelView({
     }
 
     if (lastSolve) {
-      if (!isCfopAnalyzerReady()) {
-        initCfopAnalyzer().then(() => {
-          if (appStore.state.lastSolve) renderSolvePanel();
-        });
-      }
-      ensureSolveCfop(lastSolve);
+      const isLast222 = (lastSolve.puzzle || s.currentPuzzle) === "222";
+      const twoByTwoOpts = { twoByTwoMethod: s.twoByTwoMethod || "cll", layerTargetFaces: s.layerTargetFaces };
       const refWindow = solves.slice(-100);
-      const refMedians = (isCfopAnalyzerReady() || refWindow.some(sv => sv?.cfop?.splits)) && refWindow.length >= 2
-        ? computeCfopAverages(refWindow).median
-        : null;
+      let refMedians = null;
+      if (isLast222) {
+        if (!isTwoByTwoAnalyzerReady()) {
+          initTwoByTwoAnalyzer().then(() => {
+            if (appStore.state.lastSolve) renderSolvePanel();
+          });
+        }
+        ensureSolveTwoByTwo(lastSolve, twoByTwoOpts);
+        if ((isTwoByTwoAnalyzerReady() || refWindow.some(sv => sv?.twoByTwo?.splits)) && refWindow.length >= 2) {
+          refMedians = computeTwoByTwoAverages(refWindow, twoByTwoOpts).median;
+        }
+      } else {
+        if (!isCfopAnalyzerReady()) {
+          initCfopAnalyzer().then(() => {
+            if (appStore.state.lastSolve) renderSolvePanel();
+          });
+        }
+        ensureSolveCfop(lastSolve);
+        if ((isCfopAnalyzerReady() || refWindow.some(sv => sv?.cfop?.splits)) && refWindow.length >= 2) {
+          refMedians = computeCfopAverages(refWindow).median;
+        }
+      }
       if (solveTimeEl) solveTimeEl.textContent = formatSolveDisplay(lastSolve);
       let metaLine = "";
       if (lastSolve.id && caseById.has(lastSolve.id)) {
@@ -360,7 +376,9 @@ export function createSolvePanelView({
       const statsMode = s.statsDisplayMode || (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic"));
       if (solveCaseEl) {
         solveCaseEl.innerHTML = `<div class="solve-case-meta">${metaLine}</div>` +
-          (statsMode === "advanced" && lastSolve.moves && lastSolve.moves.length > 0 ? renderLastSolveCfopInline(lastSolve, { basic: false, refMedians }) : "");
+          (statsMode === "advanced" && lastSolve.moves && lastSolve.moves.length > 0
+            ? renderLastSolveCfopInline(lastSolve, { basic: false, refMedians, twoByTwoMethod: s.twoByTwoMethod || "cll" })
+            : "");
       }
       if (solvePostSummary && solvePostReplayBtn) {
         const hasMoves = Boolean(lastSolve.moves && lastSolve.moves.length > 0);
@@ -424,11 +442,15 @@ export function createSolvePanelView({
         solveInlineRecentStats.hidden = !showInline;
         if (showInline) {
           const refWindow = solves.slice(-100);
+          const isBasic222 = ((lastSolve?.puzzle || s.currentPuzzle) === "222");
+          const twoByTwoOpts = { twoByTwoMethod: s.twoByTwoMethod || "cll", layerTargetFaces: s.layerTargetFaces };
           const basicRefMedians = (lastSolve && refWindow.length >= 2)
-            ? computeCfopAverages(refWindow).median
+            ? (isBasic222
+                ? computeTwoByTwoAverages(refWindow, twoByTwoOpts).median
+                : computeCfopAverages(refWindow).median)
             : null;
           const basicStepHtml = (lastSolve && lastSolve.moves && lastSolve.moves.length > 0)
-            ? renderLastSolveCfopInline(lastSolve, { basic: true, refMedians: basicRefMedians })
+            ? renderLastSolveCfopInline(lastSolve, { basic: true, refMedians: basicRefMedians, twoByTwoMethod: s.twoByTwoMethod || "cll" })
             : "";
           renderSolveStatsBar(solveInlineRecentStats, solves, {
             sessionName: activeSess?.name || "",
