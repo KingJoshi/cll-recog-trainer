@@ -580,14 +580,8 @@ export function createOnboardingWizard({
   }
 
   function shouldAutoOpen() {
-    if (!appStore?.state || appStore.state.onboardingCompleted) return false;
-    if (typeof window !== "undefined") {
-      const p = new URLSearchParams(window.location.search);
-      if (p.has("puzzle") || p.has("mode") || p.has("track") || p.has("target")) {
-        return false;
-      }
-    }
-    return true;
+    // Do not auto-open the setup popup on first load; users can open it via the header Guide button or Settings.
+    return false;
   }
 
   backBtn?.addEventListener("click", () => {

@@ -43,6 +43,61 @@ export function playInspectionBeep(freq = 440, duration = 0.08) {
   playToneSequence([{ freq, dur: duration, type: "sine", peak: 0.12 }]);
 }
 
+function playCalloutBeep(seconds) {
+  if (Number(seconds) >= 12) {
+    playToneSequence([
+      { freq: 880, start: 0, dur: 0.08, type: "sine", peak: 0.12 },
+      { freq: 880, start: 0.14, dur: 0.1, type: "sine", peak: 0.14 }
+    ]);
+  } else {
+    playInspectionBeep(520, 0.09);
+  }
+}
+
+/**
+ * Play a WCA inspection time callout ("8 seconds" / "12 seconds").
+ * Supports "voice" (Web Speech API with beep fallback), "beep", or "off".
+ */
+export function playInspectionCallout(seconds, mode = "voice") {
+  const normalized = mode === "off" || mode === "beep" || mode === "voice" ? mode : "voice";
+  if (normalized === "off") return;
+
+  if (normalized === "voice") {
+    try {
+      const host = typeof window !== "undefined" ? window : globalThis;
+      const synth = host?.speechSynthesis;
+      const Utterance = host?.SpeechSynthesisUtterance;
+      if (synth && typeof synth.speak === "function" && typeof Utterance === "function") {
+        if (typeof synth.cancel === "function") synth.cancel();
+        const utter = new Utterance(`${seconds} seconds`);
+        utter.lang = "en-US";
+        utter.rate = 1.15;
+        utter.pitch = 1.0;
+        synth.speak(utter);
+        return;
+      }
+    } catch {
+      // Fall back to beep if speech synthesis throws or is blocked
+    }
+  }
+
+  playCalloutBeep(seconds);
+}
+
+/**
+ * Cancel any queued inspection voice utterance.
+ */
+export function cancelInspectionCallout() {
+  try {
+    const host = typeof window !== "undefined" ? window : globalThis;
+    if (host?.speechSynthesis && typeof host.speechSynthesis.cancel === "function") {
+      host.speechSynthesis.cancel();
+    }
+  } catch {
+    // Ignore speech cancellation errors
+  }
+}
+
 export function playScrambleCompleteChime() {
   playToneSequence([{ freq: 587.33, endFreq: 880, dur: 0.28, type: "triangle", peak: 0.2 }]);
 }

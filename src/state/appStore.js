@@ -139,8 +139,8 @@ export class AppStore {
     const isKnownPuzzle = (pid) => VALID_PUZZLES.includes(pid) || Boolean(PUZZLES[pid]);
 
     // Navigation & puzzle/track
-    let currentPuzzle = isKnownPuzzle(savedSettings.currentPuzzle) ? savedSettings.currentPuzzle : "222";
-    let currentTrackId = savedSettings.currentTrackId || getDefaultTrack(currentPuzzle)?.id || "cll";
+    let currentPuzzle = isKnownPuzzle(savedSettings.currentPuzzle) ? savedSettings.currentPuzzle : "333";
+    let currentTrackId = savedSettings.currentTrackId || getDefaultTrack(currentPuzzle)?.id || "oll";
     let mode = MODES.includes(savedSettings.mode)
       ? savedSettings.mode
       : (savedSettings.mode === "timed" ? "practice" : "solve");
@@ -224,10 +224,17 @@ export class AppStore {
     const statsDisplayMode = hasSavedStatsDisplayMode
       ? rawStatsDisplayMode
       : (rawShowStatsPanel === false ? "none" : (rawAdvMode ? "advanced" : "basic"));
+    const rawInspectionAudio = savedSettings.inspectionAudioMode ?? cookiePrefs.inspectionAudioMode;
+    const inspectionAudioMode = ["voice", "beep", "off"].includes(rawInspectionAudio) ? rawInspectionAudio : "voice";
     const rawPanelVis = ["always", "solve-only", "hidden"].includes(savedSettings.statsPanelVisibility)
       ? savedSettings.statsPanelVisibility
       : (["always", "solve-only", "hidden"].includes(cookiePrefs.statsPanelVisibility) ? cookiePrefs.statsPanelVisibility : null);
-    let statsPanelVisibility = rawPanelVis || (rawShowStatsPanel === false ? "hidden" : "always");
+    const hasSavedShowStats = savedSettings.showStatsPanel !== undefined || cookiePrefs.showStatsPanel !== undefined;
+    let statsPanelVisibility = rawPanelVis || (
+      hasSavedShowStats
+        ? (rawShowStatsPanel === false ? "hidden" : "always")
+        : "hidden"
+    );
     if (statsDisplayMode === "none") statsPanelVisibility = "hidden";
     const advancedMode = statsDisplayMode === "advanced";
     const showStatsPanel = statsDisplayMode !== "none" && statsPanelVisibility !== "hidden";
@@ -278,8 +285,9 @@ export class AppStore {
       pauseAlertEnabled: savedSettings.pauseAlertEnabled ?? cookiePrefs.pauseAlertEnabled ?? false,
       showExtraWcaEvents,
       visibleEvents,
-      showLayerSolutionsWidget: savedSettings.showLayerSolutionsWidget ?? cookiePrefs.showLayerSolutionsWidget ?? true,
-      showCrossSolutionsWidget: savedSettings.showCrossSolutionsWidget ?? cookiePrefs.showCrossSolutionsWidget ?? true,
+      inspectionAudioMode,
+      showLayerSolutionsWidget: savedSettings.showLayerSolutionsWidget ?? cookiePrefs.showLayerSolutionsWidget ?? false,
+      showCrossSolutionsWidget: savedSettings.showCrossSolutionsWidget ?? cookiePrefs.showCrossSolutionsWidget ?? false,
       showStatsPanel,
       showFreeFaceTurns: Boolean(savedSettings.showFreeFaceTurns ?? cookiePrefs.showFreeFaceTurns ?? false),
       ...(() => {
@@ -629,6 +637,14 @@ export class AppStore {
     this.notify("ohTableAbuse", { ohTableAbuse: next });
   }
 
+  setInspectionAudioMode(mode) {
+    const next = mode === "off" || mode === "beep" || mode === "voice" ? mode : "voice";
+    if (this.state.inspectionAudioMode === next) return;
+    this.state.inspectionAudioMode = next;
+    this.saveSettings();
+    this.notify("inspectionAudioMode", { inspectionAudioMode: next });
+  }
+
   setSimSpeed(speed) {
     const next = Number(speed);
     if (!SIM_SPEED_OPTIONS.includes(next) || this.state.simSpeed === next) return;
@@ -908,6 +924,7 @@ export class AppStore {
       pauseAlertEnabled: Boolean(s.pauseAlertEnabled),
       showExtraWcaEvents: Boolean(s.showExtraWcaEvents),
       visibleEvents: sanitizeVisibleEvents(s.visibleEvents, s.showExtraWcaEvents),
+      inspectionAudioMode: ["voice", "beep", "off"].includes(s.inspectionAudioMode) ? s.inspectionAudioMode : "voice",
       showLayerSolutionsWidget: s.showLayerSolutionsWidget !== false,
       showCrossSolutionsWidget: s.showCrossSolutionsWidget !== false,
       showStatsPanel: s.showStatsPanel !== false,
@@ -969,6 +986,7 @@ export class AppStore {
       pauseAlertEnabled: Boolean(s.pauseAlertEnabled),
       showExtraWcaEvents: Boolean(s.showExtraWcaEvents),
       visibleEvents: sanitizeVisibleEvents(s.visibleEvents, s.showExtraWcaEvents),
+      inspectionAudioMode: ["voice", "beep", "off"].includes(s.inspectionAudioMode) ? s.inspectionAudioMode : "voice",
       showLayerSolutionsWidget: s.showLayerSolutionsWidget !== false,
       showCrossSolutionsWidget: s.showCrossSolutionsWidget !== false,
       showStatsPanel: s.showStatsPanel !== false,
@@ -1094,9 +1112,11 @@ export class AppStore {
       if (Array.isArray(savedSettings.visibleEvents)) {
         s.showExtraWcaEvents = s.visibleEvents.some(id => !DEFAULT_VISIBLE_EVENTS.includes(id));
       }
-      s.showLayerSolutionsWidget = savedSettings.showLayerSolutionsWidget ?? s.showLayerSolutionsWidget ?? true;
-      s.showCrossSolutionsWidget = savedSettings.showCrossSolutionsWidget ?? s.showCrossSolutionsWidget ?? true;
-      s.showStatsPanel = savedSettings.showStatsPanel ?? s.showStatsPanel ?? true;
+      const rawSyncedAudio = savedSettings.inspectionAudioMode ?? s.inspectionAudioMode;
+      s.inspectionAudioMode = ["voice", "beep", "off"].includes(rawSyncedAudio) ? rawSyncedAudio : "voice";
+      s.showLayerSolutionsWidget = savedSettings.showLayerSolutionsWidget ?? s.showLayerSolutionsWidget ?? false;
+      s.showCrossSolutionsWidget = savedSettings.showCrossSolutionsWidget ?? s.showCrossSolutionsWidget ?? false;
+      s.showStatsPanel = savedSettings.showStatsPanel ?? s.showStatsPanel ?? false;
       if (["none", "basic", "advanced"].includes(savedSettings.statsDisplayMode)) {
         s.statsDisplayMode = savedSettings.statsDisplayMode;
         s.advancedMode = savedSettings.statsDisplayMode === "advanced";
@@ -1104,9 +1124,14 @@ export class AppStore {
       } else {
         s.statsDisplayMode = s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic");
       }
+      const hasSyncedShowStats = savedSettings.showStatsPanel !== undefined;
       s.statsPanelVisibility = ["always", "solve-only", "hidden"].includes(savedSettings.statsPanelVisibility)
         ? savedSettings.statsPanelVisibility
-        : (s.showStatsPanel === false || s.statsDisplayMode === "none" ? "hidden" : "always");
+        : (s.statsDisplayMode === "none"
+            ? "hidden"
+            : (hasSyncedShowStats
+                ? (s.showStatsPanel === false ? "hidden" : "always")
+                : (s.statsPanelVisibility || "hidden")));
       if (s.statsDisplayMode === "none") s.statsPanelVisibility = "hidden";
       if (s.statsPanelVisibility === "hidden") s.showStatsPanel = false;
       s.showFreeFaceTurns = savedSettings.showFreeFaceTurns ?? s.showFreeFaceTurns ?? false;

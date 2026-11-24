@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { recommendTrainingPlan } from '../src/features/onboarding/onboardingWizard.js';
+import { recommendTrainingPlan, createOnboardingWizard } from '../src/features/onboarding/onboardingWizard.js';
 import { AppStore } from '../src/state/appStore.js';
 import { PUZZLES, getTrack, getSolveTargetInfo } from '../src/data/algRegistry.js';
 
@@ -107,6 +107,16 @@ test('AppStore defaults onboardingCompleted to false on clean storage and true w
   try {
     const cleanApp = new AppStore();
     assert.strictEqual(cleanApp.state.onboardingCompleted, false);
+    assert.strictEqual(cleanApp.state.currentPuzzle, '333');
+    assert.strictEqual(cleanApp.state.statsPanelVisibility, 'hidden');
+    assert.strictEqual(cleanApp.state.showStatsPanel, false);
+    assert.strictEqual(cleanApp.state.showLayerSolutionsWidget, false);
+    assert.strictEqual(cleanApp.state.showCrossSolutionsWidget, false);
+    const mainSessions = cleanApp.state.sessions;
+    assert.strictEqual(mainSessions.length, 1);
+    assert.strictEqual(mainSessions[0].id, 'default');
+    assert.strictEqual(mainSessions[0].puzzle, '333');
+    assert.strictEqual(createOnboardingWizard({ appStore: cleanApp }).shouldAutoOpen(), false);
     assert.strictEqual(cleanApp.state.showTooltips, true);
     assert.strictEqual(cleanApp.state.ohHand, 'left');
     assert.strictEqual(cleanApp.state.ohTableAbuse, true);

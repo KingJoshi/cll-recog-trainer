@@ -1,5 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {
+  playInspectionCallout,
+  cancelInspectionCallout
+} from '../src/services/audioService.js';
 
 import {
   PUZZLES,
@@ -76,29 +81,30 @@ test('Custom events can be added, generate configured scrambles, sync cleanly, a
   }
 });
 
-test('Widget visibility settings default true, notify subscribers, and LWW-sync across devices', () => {
+test('Widget visibility settings default false for clean new users, notify subscribers, and LWW-sync across devices', () => {
   const store = new AppStore();
-  assert.strictEqual(store.state.showLayerSolutionsWidget, true);
-  assert.strictEqual(store.state.showCrossSolutionsWidget, true);
-  assert.strictEqual(store.state.showStatsPanel, true);
+  assert.strictEqual(store.state.showLayerSolutionsWidget, false);
+  assert.strictEqual(store.state.showCrossSolutionsWidget, false);
+  assert.strictEqual(store.state.showStatsPanel, false);
+  assert.strictEqual(store.state.statsPanelVisibility, 'hidden');
 
   const events = [];
   const unsub = store.subscribe((evt, detail) => {
     if (evt === 'widgetVisibility') events.push({ evt, detail });
   });
   try {
-    store.setWidgetVisibility('showLayerSolutionsWidget', false);
-    store.setWidgetVisibility('showCrossSolutionsWidget', false);
-    store.setWidgetVisibility('showStatsPanel', false);
+    store.setWidgetVisibility('showLayerSolutionsWidget', true);
+    store.setWidgetVisibility('showCrossSolutionsWidget', true);
+    store.setWidgetVisibility('showStatsPanel', true);
   } finally {
     unsub();
   }
 
   assert.strictEqual(events.length, 3);
   const payload = store.getSettingsPayload();
-  assert.strictEqual(payload.showLayerSolutionsWidget, false);
-  assert.strictEqual(payload.showCrossSolutionsWidget, false);
-  assert.strictEqual(payload.showStatsPanel, false);
+  assert.strictEqual(payload.showLayerSolutionsWidget, true);
+  assert.strictEqual(payload.showCrossSolutionsWidget, true);
+  assert.strictEqual(payload.showStatsPanel, true);
 
   const local = {
     schemaVersion: 1,
@@ -233,4 +239,164 @@ test('resolveTimerDrillPreset maps legacy presets and exposes 4-move drills', ()
   assert.strictEqual(resolveTimerDrillPreset('sledge').id, 'sledge');
   assert.strictEqual(TIMER_DRILL_PRESETS.righty.scramble, "U R U' R'");
   assert.strictEqual(TIMER_DRILL_PRESETS.righty.solution, "R U R' U'");
+});
+
+test('AppStore manages inspectionAudioMode defaults, notifications, validation, and LWW sync', () => {
+  const store = new AppStore();
+  assert.strictEqual(store.state.inspectionAudioMode, 'voice');
+
+  const events = [];
+  const unsub = store.subscribe((evt, detail) => {
+    if (evt === 'inspectionAudioMode') events.push(detail);
+  });
+  try {
+    store.setInspectionAudioMode('beep');
+    store.setInspectionAudioMode('off');
+    store.setInspectionAudioMode('invalid-mode');
+  } finally {
+    unsub();
+  }
+
+  assert.strictEqual(store.state.inspectionAudioMode, 'voice');
+  assert.deepStrictEqual(events, [
+    { inspectionAudioMode: 'beep' },
+    { inspectionAudioMode: 'off' },
+    { inspectionAudioMode: 'voice' }
+  ]);
+  store.setInspectionAudioMode('beep');
+  assert.strictEqual(store.getSettingsPayload().inspectionAudioMode, 'beep');
+
+  const merged = mergeSyncPayloads(
+    {
+      schemaVersion: 1,
+      hasLocalSettings: true,
+      settings: { inspectionAudioMode: 'voice', activeSessionId: 'default' },
+      timestamps: { settings: { inspectionAudioMode: 1000 } },
+      sessions: [{ id: 'default', name: '3x3 Main', puzzle: '333', solves: [{ ms: 10000, at: 1000 }], updatedAt: 1000 }]
+    },
+    {
+      schemaVersion: 1,
+      hasLocalSettings: true,
+      settings: { inspectionAudioMode: 'off', activeSessionId: 'default' },
+      timestamps: { settings: { inspectionAudioMode: 2500 } },
+      sessions: [{ id: 'default', name: '3x3 Main', puzzle: '333', solves: [{ ms: 10000, at: 1000 }], updatedAt: 1000 }]
+    }
+  );
+  assert.strictEqual(merged.merged.settings.inspectionAudioMode, 'off');
+});
+
+test('AppStore preserves legacy saved showStatsPanel=true as statsPanelVisibility=always', () => {
+  const backing = { cllTrainerSettings: JSON.stringify({ currentPuzzle: '222', showStatsPanel: true }) };
+  const prevStorage = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: k => (k in backing ? backing[k] : null),
+    setItem: (k, v) => { backing[k] = String(v); },
+    removeItem: k => { delete backing[k]; }
+  };
+  try {
+    const legacyApp = new AppStore();
+    assert.strictEqual(legacyApp.state.currentPuzzle, '222');
+    assert.strictEqual(legacyApp.state.statsPanelVisibility, 'always');
+    assert.strictEqual(legacyApp.state.showStatsPanel, true);
+  } finally {
+    globalThis.localStorage = prevStorage;
+  }
+});
+
+test('playInspectionCallout handles voice, beep, off, speech fallback, and cancelInspectionCallout', () => {
+  const prevWindow = globalThis.window;
+  const spoken = [];
+  const freqCalls = [];
+  let cancelCount = 0;
+
+  function FakeUtterance(text) {
+    this.text = text;
+    this.lang = '';
+    this.rate = 1;
+    this.pitch = 1;
+  }
+
+  class FakeAudioContext {
+    constructor() {
+      this.currentTime = 10;
+      this.state = 'running';
+      this.destination = {};
+    }
+    resume() { return Promise.resolve(); }
+    createOscillator() {
+      const osc = {
+        type: 'sine',
+        frequency: {
+          setValueAtTime: (freq, at) => { freqCalls.push({ freq, at }); },
+          exponentialRampToValueAtTime: () => {}
+        },
+        connect: () => {},
+        start: () => {},
+        stop: () => {}
+      };
+      return osc;
+    }
+    createGain() {
+      return {
+        gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} },
+        connect: () => {}
+      };
+    }
+  }
+
+  globalThis.window = {
+    AudioContext: FakeAudioContext,
+    SpeechSynthesisUtterance: FakeUtterance,
+    speechSynthesis: {
+      cancel: () => { cancelCount += 1; },
+      speak: (u) => { spoken.push({ text: u.text, lang: u.lang, rate: u.rate }); }
+    }
+  };
+
+  try {
+    playInspectionCallout(8, 'voice');
+    playInspectionCallout(12, 'voice');
+    assert.strictEqual(cancelCount, 2);
+    assert.deepStrictEqual(spoken, [
+      { text: '8 seconds', lang: 'en-US', rate: 1.15 },
+      { text: '12 seconds', lang: 'en-US', rate: 1.15 }
+    ]);
+    assert.strictEqual(freqCalls.length, 0);
+
+    cancelInspectionCallout();
+    assert.strictEqual(cancelCount, 3);
+
+    playInspectionCallout(8, 'off');
+    playInspectionCallout(12, 'off');
+    assert.strictEqual(spoken.length, 2);
+    assert.strictEqual(freqCalls.length, 0);
+
+    playInspectionCallout(8, 'beep');
+    playInspectionCallout(12, 'beep');
+    assert.deepStrictEqual(freqCalls, [
+      { freq: 520, at: 10 },
+      { freq: 880, at: 10 },
+      { freq: 880, at: 10.14 }
+    ]);
+
+    // Voice mode falls back to beep when speechSynthesis throws
+    globalThis.window.speechSynthesis.speak = () => { throw new Error('Speech blocked'); };
+    playInspectionCallout(8, 'voice');
+    assert.deepStrictEqual(freqCalls[freqCalls.length - 1], { freq: 520, at: 10 });
+  } finally {
+    if (prevWindow === undefined) delete globalThis.window;
+    else globalThis.window = prevWindow;
+  }
+});
+
+test('CSS overflow guards protect onboarding cards, 2-sided cards, and 3BLD trainer cards', () => {
+  const onboardingCss = fs.readFileSync(new URL('../src/styles/features/onboarding.css', import.meta.url), 'utf8');
+  const studyCss = fs.readFileSync(new URL('../src/styles/features/study.css', import.meta.url), 'utf8');
+  const practiceCss = fs.readFileSync(new URL('../src/styles/features/practice.css', import.meta.url), 'utf8');
+
+  assert.match(onboardingCss, /\.onboarding-option-head\s*\{[^}]*flex-wrap:\s*wrap/s);
+  assert.match(onboardingCss, /\.onboarding-option-card\s*\{[^}]*overflow:\s*hidden/s);
+  assert.match(studyCss, /\.twosided-rule-header\s*\{[^}]*flex-wrap:\s*wrap/s);
+  assert.match(studyCss, /\.twosided-rule-card\s*\{[^}]*overflow:\s*hidden/s);
+  assert.match(practiceCss, /\.bld-trainer-card\s*\{[^}]*min-width:\s*0/s);
 });

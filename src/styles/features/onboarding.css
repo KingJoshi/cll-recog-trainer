@@ -61,6 +61,8 @@
     align-items: flex-start;
     gap: 4px;
     width: 100%;
+    min-width: 0;
+    overflow: hidden;
     padding: 12px 13px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -88,9 +90,11 @@
 
   .onboarding-option-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 4px 8px;
+    min-width: 0;
     width: 100%;
   }
 
@@ -98,6 +102,7 @@
     font-size: 0.94rem;
     font-weight: 700;
     color: var(--text);
+    min-width: 0;
   }
 
   .onboarding-option-card.active .onboarding-option-title {
@@ -113,12 +118,17 @@
     border: 1px solid var(--border);
     color: var(--muted);
     white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .onboarding-option-desc {
     font-size: 0.8rem;
     color: var(--muted);
     line-height: 1.38;
+    max-width: 100%;
+    overflow-wrap: break-word;
   }
 
   .onboarding-preview-box {

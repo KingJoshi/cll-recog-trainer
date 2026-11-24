@@ -67,6 +67,7 @@ const SETTINGS_SCALAR_FIELDS = [
   "solveTarget",
   "solveShowCube",
   "solveInspection",
+  "inspectionAudioMode",
   "sessionLogPageSize",
   "keyboardShortcuts",
   "customColors"

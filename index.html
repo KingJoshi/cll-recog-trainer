@@ -18,8 +18,8 @@
   <div class="header-brand">
     <h1 class="app-title" id="appTitle">Cubing.cc</h1>
     <div class="puzzle-seg" id="puzzleSwitcher" role="group" aria-label="Select Puzzle">
-      <button type="button" class="puzzle-btn active" data-puzzle="222" aria-pressed="true">2x2</button>
-      <button type="button" class="puzzle-btn" data-puzzle="333" aria-pressed="false">3x3</button>
+      <button type="button" class="puzzle-btn" data-puzzle="222" aria-pressed="false">2x2</button>
+      <button type="button" class="puzzle-btn active" data-puzzle="333" aria-pressed="true">3x3</button>
       <button type="button" class="puzzle-btn" data-puzzle="333oh" aria-pressed="false">3x3 OH</button>
       <button type="button" class="puzzle-btn" data-puzzle="444" aria-pressed="false">4x4</button>
       <button type="button" class="puzzle-btn" data-puzzle="555" aria-pressed="false">5x5</button>
@@ -1004,16 +1004,16 @@
                 <span class="settings-oh-label"><strong>Stats &amp; Analytics Mode:</strong></span>
                 <div class="settings-speed-group" role="group" aria-label="Stats and analytics mode">
                   <button type="button" id="settingsStatsModeNoneBtn" class="settings-speed-btn" data-settings-stats-mode="none" aria-pressed="false">None</button>
-                  <button type="button" id="settingsStatsModeBasicBtn" class="settings-speed-btn" data-settings-stats-mode="basic" aria-pressed="false">Basic</button>
-                  <button type="button" id="settingsStatsModeAdvancedBtn" class="settings-speed-btn active" data-settings-stats-mode="advanced" aria-pressed="true">Advanced</button>
+                  <button type="button" id="settingsStatsModeBasicBtn" class="settings-speed-btn active" data-settings-stats-mode="basic" aria-pressed="true">Basic</button>
+                  <button type="button" id="settingsStatsModeAdvancedBtn" class="settings-speed-btn" data-settings-stats-mode="advanced" aria-pressed="false">Advanced</button>
                 </div>
               </div>
               <div class="settings-speed-row">
                 <span class="settings-oh-label"><strong>Stats &amp; History Widget:</strong></span>
                 <div class="settings-speed-group" role="group" aria-label="Stats and History widget visibility">
-                  <button type="button" id="settingsStatsVisHiddenBtn" class="settings-speed-btn" data-settings-stats-vis="hidden" aria-pressed="false">Hidden</button>
+                  <button type="button" id="settingsStatsVisHiddenBtn" class="settings-speed-btn active" data-settings-stats-vis="hidden" aria-pressed="true">Hidden</button>
                   <button type="button" id="settingsStatsVisSolveBtn" class="settings-speed-btn" data-settings-stats-vis="solve-only" aria-pressed="false">Solve Only</button>
-                  <button type="button" id="settingsStatsVisAlwaysBtn" class="settings-speed-btn active" data-settings-stats-vis="always" aria-pressed="true">Always</button>
+                  <button type="button" id="settingsStatsVisAlwaysBtn" class="settings-speed-btn" data-settings-stats-vis="always" aria-pressed="false">Always</button>
                 </div>
               </div>
             </div>
@@ -1087,6 +1087,14 @@
                   <span>15s WCA Inspection countdown</span>
                 </label>
                 <button type="button" class="info-tip-btn" data-tooltip="Run a WCA 15-second inspection countdown before starting the solve timer (triggers +2 at 15s and DNF at 17s)" aria-label="Explain 15s Inspection">?</button>
+              </div>
+              <div class="settings-speed-row">
+                <span class="settings-oh-label"><strong>8s / 12s Inspection Callouts:</strong></span>
+                <div class="settings-speed-group" role="group" aria-label="Inspection 8s and 12s callout mode">
+                  <button type="button" id="settingsInspectionAudioVoiceBtn" class="settings-speed-btn active" data-inspection-audio="voice" aria-pressed="true">🗣️ Voice</button>
+                  <button type="button" id="settingsInspectionAudioBeepBtn" class="settings-speed-btn" data-inspection-audio="beep" aria-pressed="false">🔔 Beep</button>
+                  <button type="button" id="settingsInspectionAudioOffBtn" class="settings-speed-btn" data-inspection-audio="off" aria-pressed="false">🔇 Off</button>
+                </div>
               </div>
               <label class="solve-toggle-label">
                 <input type="checkbox" id="settingsShowFreeFaceTurns">
@@ -1193,7 +1201,7 @@
             </div>
             <div class="settings-toggles-list">
               <label class="solve-toggle-label">
-                <input type="checkbox" id="settingsShowLayerWidget" checked>
+                <input type="checkbox" id="settingsShowLayerWidget">
                 <span>Show 1st Layer / 1st Face solutions widget</span>
               </label>
             </div>
@@ -1250,7 +1258,7 @@
                 </div>
               </div>
               <label class="solve-toggle-label">
-                <input type="checkbox" id="settingsShowCrossWidget" checked>
+                <input type="checkbox" id="settingsShowCrossWidget">
                 <span>Show Cross / Cross+1 solutions widget</span>
               </label>
             </div>

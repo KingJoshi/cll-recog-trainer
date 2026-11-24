@@ -4,7 +4,7 @@ import { ganTimer, computeSolvePhaseSplits } from '../../ganTimer.js';
 import { smartCube } from '../../smartCube.js';
 import { ensureSolveCfop } from '../../cfopAnalyzer.js';
 import { MAX_SOLVES, isTimerViewMode } from '../../state/appStore.js';
-import { playInspectionBeep, startMetronome, stopMetronome, playPauseAlert } from '../../services/audioService.js';
+import { playInspectionBeep, playInspectionCallout, cancelInspectionCallout, startMetronome, stopMetronome, playPauseAlert } from '../../services/audioService.js';
 import { formatSolveTime, formatSolveDisplay } from '../../services/htmlUtils.js';
 import { getSolveFingerprint } from '../../services/syncMerge.js';
 import { recordTombstone } from '../../services/syncStorage.js';
@@ -141,12 +141,12 @@ export function createTimerController({
         }
         if (remaining <= 7 && remaining > 3 && !solveWarning8Played) {
           solveWarning8Played = true;
-          playInspectionBeep(440, 0.08);
+          playInspectionCallout(8, appStore?.state?.inspectionAudioMode);
           solveOverlay?.classList.add("warning-8");
         }
         if (remaining <= 3 && !solveWarning12Played) {
           solveWarning12Played = true;
-          playInspectionBeep(880, 0.1);
+          playInspectionCallout(12, appStore?.state?.inspectionAudioMode);
           solveOverlay?.classList.remove("warning-8");
           solveOverlay?.classList.add("warning-12");
         }
@@ -199,6 +199,7 @@ export function createTimerController({
     if (autoStart && solveState !== "inspecting" && solveState !== "idle" && solveState !== "armed") return;
 
     solveState = "running";
+    cancelInspectionCallout();
     clearInterval(solveInspectionInterval);
     clearTimeout(solveArmTimeout);
 
@@ -387,6 +388,7 @@ export function createTimerController({
     scUi?.setSmartCubeStage?.("scrambling");
     scUi?.clearScrambleCorrectionDelay?.();
     if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(solveRaf);
+    cancelInspectionCallout();
     clearInterval(solveInspectionInterval);
     clearTimeout(solveArmTimeout);
     solveInspectionStart = 0;

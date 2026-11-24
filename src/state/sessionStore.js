@@ -43,15 +43,20 @@ function getValidLegacySolves(key) {
 }
 
 function createInitialMainSessions() {
+  const legacySolves = getValidLegacySolves(LEGACY_SOLVES_KEY);
+  const legacyLayerSolves = getValidLegacySolves(LEGACY_LAYER_SOLVES_KEY);
+  if (!legacySolves.length && !legacyLayerSolves.length) {
+    return [
+      { id: "default", puzzle: "333", name: "3x3 Main", target: "full", inspection: true, showCube: true, solves: [] }
+    ];
+  }
   const initial = [
     { id: "default", name: "Session 1 (Full Solve)", target: "full", inspection: true, showCube: true, solves: [] },
     { id: "layer", name: "1st Layer Practice", target: "layer", inspection: true, showCube: true, solves: [] }
   ];
-  const legacySolves = getValidLegacySolves(LEGACY_SOLVES_KEY);
   if (legacySolves.length) {
     initial[0].solves = [...legacySolves];
   }
-  const legacyLayerSolves = getValidLegacySolves(LEGACY_LAYER_SOLVES_KEY);
   if (legacyLayerSolves.length) {
     initial[1].solves = [...legacyLayerSolves];
   }

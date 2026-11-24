@@ -87,6 +87,7 @@ export function createSettingsModalController({
   const settingsShowCrossWidget = typeof document !== "undefined" ? document.getElementById("settingsShowCrossWidget") : null;
   const settingsSolveShowCube = typeof document !== "undefined" ? document.getElementById("settingsSolveShowCube") : null;
   const settingsSolveInspection = typeof document !== "undefined" ? document.getElementById("settingsSolveInspection") : null;
+  const settingsInspectionAudioBtns = typeof document !== "undefined" ? document.querySelectorAll("[data-inspection-audio]") : [];
   const settingsShowFreeFaceTurns = typeof document !== "undefined" ? document.getElementById("settingsShowFreeFaceTurns") : null;
   const settingsDarkTheme = typeof document !== "undefined" ? document.getElementById("settingsDarkTheme") : null;
   const settingsAlwaysWhiteBottom = typeof document !== "undefined" ? document.getElementById("settingsAlwaysWhiteBottom") : null;
@@ -196,6 +197,12 @@ export function createSettingsModalController({
     if (settingsShowCrossWidget) settingsShowCrossWidget.checked = s.showCrossSolutionsWidget !== false;
     if (settingsSolveShowCube) settingsSolveShowCube.checked = Boolean(s.solveShowCube);
     if (settingsSolveInspection) settingsSolveInspection.checked = Boolean(s.solveInspection);
+    const inspectionAudioMode = s.inspectionAudioMode || "voice";
+    settingsInspectionAudioBtns.forEach(btn => {
+      const isMatch = btn.dataset.inspectionAudio === inspectionAudioMode;
+      btn.classList.toggle("active", isMatch);
+      btn.setAttribute("aria-pressed", String(isMatch));
+    });
     if (settingsShowFreeFaceTurns) settingsShowFreeFaceTurns.checked = Boolean(s.showFreeFaceTurns);
     if (settingsDarkTheme) settingsDarkTheme.checked = s.darkMode;
     if (settingsAlwaysWhiteBottom) settingsAlwaysWhiteBottom.checked = s.alwaysWhiteBottom;
@@ -574,6 +581,14 @@ export function createSettingsModalController({
   settingsSolveInspection?.addEventListener("change", (e) => {
     appStore.setSolveInspection?.(Boolean(e.target.checked));
   });
+  settingsInspectionAudioBtns.forEach(btn => {
+    btn?.addEventListener("click", () => {
+      const mode = btn.dataset.inspectionAudio;
+      if (!mode) return;
+      appStore.setInspectionAudioMode?.(mode);
+      renderToggles();
+    });
+  });
   settingsShowFreeFaceTurns?.addEventListener("change", (e) => {
     appStore.setWidgetVisibility?.("showFreeFaceTurns", Boolean(e.target.checked));
   });
@@ -725,7 +740,8 @@ export function createSettingsModalController({
       evt === "desktopMultiPane" ||
       evt === "focusMode" ||
       evt === "widgetVisibility" ||
-      evt === "solveOptions"
+      evt === "solveOptions" ||
+      evt === "inspectionAudioMode"
     ) {
       renderToggles();
     } else if (evt === "visibleEvents") {
