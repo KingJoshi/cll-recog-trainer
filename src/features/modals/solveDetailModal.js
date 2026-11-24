@@ -1,7 +1,7 @@
 // Solve Details Modal (scramble, GAN phases, CFOP breakdown, move tape, and 3D replay trigger)
 
-import { ensureSolveCfop } from '../../cfopAnalyzer.js';
-import { ensureSolveTwoByTwo } from '../../twoByTwoAnalyzer.js';
+import { initCfopAnalyzer, ensureSolveCfop } from '../../cfopAnalyzer.js';
+import { initTwoByTwoAnalyzer, ensureSolveTwoByTwo } from '../../twoByTwoAnalyzer.js';
 import { escapeHtml, formatSolveDate, formatSolveDisplay, formatCfopSplitMs } from '../../services/htmlUtils.js';
 import { getSolveFingerprint } from '../../services/syncMerge.js';
 import { recordTombstone } from '../../services/syncStorage.js';
@@ -28,6 +28,7 @@ export function createSolveDetailModal({
   const phasesLabel = typeof document !== "undefined" ? document.getElementById("solveModalPhasesLabel") : null;
   const phasesContent = typeof document !== "undefined" ? document.getElementById("solveModalPhasesContent") : null;
   const cfopField = typeof document !== "undefined" ? document.getElementById("solveModalCfopField") : null;
+  const cfopLabel = typeof document !== "undefined" ? document.getElementById("solveModalCfopLabel") : null;
   const cfopContent = typeof document !== "undefined" ? document.getElementById("solveModalCfopContent") : null;
   const movesField = typeof document !== "undefined" ? document.getElementById("solveModalMovesField") : null;
   const movesCountEl = typeof document !== "undefined" ? document.getElementById("solveModalMovesCount") : null;
@@ -36,6 +37,7 @@ export function createSolveDetailModal({
   const movesTapeEl = typeof document !== "undefined" ? document.getElementById("solveModalMovesTape") : null;
   const deleteBtn = typeof document !== "undefined" ? document.getElementById("solveModalDeleteBtn") : null;
   const replayBtn = typeof document !== "undefined" ? document.getElementById("solveModalReplayBtn") : null;
+  const reanalyzeBtn = typeof document !== "undefined" ? document.getElementById("solveModalReanalyzeBtn") : null;
   const closeBtn = typeof document !== "undefined" ? document.getElementById("solveModalCloseBtn") : null;
   const dismissBtn = typeof document !== "undefined" ? document.getElementById("solveModalDismissBtn") : null;
   const copyScrambleBtn = typeof document !== "undefined" ? document.getElementById("solveModalCopyScrambleBtn") : null;
@@ -107,6 +109,11 @@ export function createSolveDetailModal({
 
     const is222 = solve?.puzzle === "222";
     const twoMethod = appStore?.state?.twoByTwoMethod || "cll";
+    if (cfopLabel) {
+      cfopLabel.textContent = is222
+        ? "2x2 Phase Splits, Cases & Pauses"
+        : "CFOP Phase Splits, Cases & Pauses";
+    }
     if (cfopField && cfopContent) {
       if (is222) {
         const analysis = ensureSolveTwoByTwo(solve, {
@@ -182,6 +189,42 @@ export function createSolveDetailModal({
       } else {
         replayBtn.hidden = true;
       }
+    }
+
+    if (reanalyzeBtn) {
+      const hasMoves = Array.isArray(solve.moves) && solve.moves.length > 0;
+      const canAnalyze = hasMoves && (is222 || solve.puzzle === "333" || solve.puzzle === "333oh");
+      reanalyzeBtn.hidden = !canAnalyze;
+      reanalyzeBtn.disabled = false;
+      reanalyzeBtn.textContent = "↻ Re-analyze";
+      reanalyzeBtn.onclick = canAnalyze
+        ? async () => {
+            reanalyzeBtn.disabled = true;
+            reanalyzeBtn.textContent = "Re-analyzing…";
+            try {
+              if (is222) {
+                await initTwoByTwoAnalyzer();
+                ensureSolveTwoByTwo(solve, {
+                  twoByTwoMethod: appStore?.state?.twoByTwoMethod || "cll",
+                  layerTargetFaces: appStore?.state?.layerTargetFaces,
+                  force: true
+                });
+              } else {
+                await initCfopAnalyzer();
+                ensureSolveCfop(solve, { force: true });
+              }
+              solve.updatedAt = Date.now();
+              appStore.saveSessions?.();
+              open(solve, solveNum);
+              getSolvePanel()?.renderSolvePanel?.();
+              getStatsCtrl()?.updateStatsTable?.();
+              showToast(`Re-analyzed solve #${solveNum}.`, "success", 2000);
+            } finally {
+              reanalyzeBtn.disabled = false;
+              reanalyzeBtn.textContent = "↻ Re-analyze";
+            }
+          }
+        : null;
     }
 
     modalManager.open(modal, {

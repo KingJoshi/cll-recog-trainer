@@ -1135,3 +1135,53 @@
 }
 
 }
+
+.reanalyze-selection-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 10px;
+    padding: 8px 12px;
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+
+.reanalyze-selection-info {
+    font-size: 0.82rem;
+    color: var(--ink);
+}
+
+.reanalyze-selection-actions {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.reanalyze-cb-col {
+    width: 34px;
+    text-align: center !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+}
+
+.reanalyze-cb-col input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    accent-color: var(--primary);
+    vertical-align: middle;
+}
+
+.layer-log-row.is-reanalyze-selected td {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.stats-subfilter-action-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}

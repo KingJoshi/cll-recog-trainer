@@ -6,12 +6,14 @@ import { getSolvedOrientations } from '../src/cube/cubeUtils.js';
 import { DEFAULT_PAUSE_THRESHOLD_MS } from '../src/cfopAnalyzer.js';
 import {
   TWO_BY_TWO_COLOR_NAMES,
+  TWO_BY_TWO_ANALYSIS_VERSION,
   initTwoByTwoAnalyzer,
   isTwoByTwoAnalyzerReady,
   computeCllCanonicalKey,
   identifyCllFromPattern,
   analyzeTwoByTwoSolve,
   ensureSolveTwoByTwo,
+  reanalyzeTwoByTwoSolves,
   computeTwoByTwoAverages,
   computeCllCaseStats,
 } from '../src/twoByTwoAnalyzer.js';
@@ -432,4 +434,135 @@ test('analyzeTwoByTwoSolve prefers real White CLL over trivial Yellow CLL Skip a
   assert.strictEqual(res.layerColor, "White");
   assert.strictEqual(res.cllCase?.id, "T1");
   assert.strictEqual(res.cllCase?.isSkip, false);
+});
+
+test('stale v1 2x2 analysis auto-upgrades to v2, force/reanalyzeTwoByTwoSolves re-runs cached v2, and sessionLogView re-analyzes chosen solves', async () => {
+  await initTwoByTwoAnalyzer();
+  assert.strictEqual(TWO_BY_TWO_ANALYSIS_VERSION, 2);
+
+  // 1. Stale version: 1 cached twoByTwo auto-invalidates on ensureSolveTwoByTwo
+  const staleSolve = makeRealisticTwoByTwoSolve({ color: "White", cllId: "H1", stepMs: 140, pauseBeforeCllMs: 460 });
+  staleSolve.twoByTwo = {
+    version: 1,
+    method: "cll",
+    methodPref: "cll",
+    layerColor: "Yellow",
+    splits: { layer: 100, cll: 100, auf: 0 },
+    steps: [{ phase: "layer", label: "1st Layer", caseId: "Yellow", moveCount: 1, ms: 100 }],
+    cllCase: { id: "cll-skip", shortName: "Skip", isSkip: true, ms: 100 }
+  };
+  const upgraded = ensureSolveTwoByTwo(staleSolve);
+  assert.strictEqual(upgraded.version, 2);
+  assert.strictEqual(upgraded.layerColor, "White");
+  assert.strictEqual(upgraded.cllCase?.id, "H1");
+
+  // 2. force: true and reanalyzeTwoByTwoSolves re-analyze even when version === 2
+  const forcedSolve = makeRealisticTwoByTwoSolve({ color: "Green", cllId: "U4", stepMs: 140, pauseBeforeCllMs: 460 });
+  forcedSolve.twoByTwo = {
+    version: 2,
+    method: "cll",
+    methodPref: "cll",
+    layerColor: "Yellow",
+    splits: { layer: 100, cll: 100, auf: 0 },
+    steps: [{ phase: "layer", label: "1st Layer", caseId: "Yellow", moveCount: 1, ms: 100 }],
+    cllCase: { id: "cll-skip", shortName: "Skip", isSkip: true, ms: 100 }
+  };
+  const beforeForced = ensureSolveTwoByTwo(forcedSolve);
+  assert.strictEqual(beforeForced.layerColor, "Yellow"); // cached v2 respected without force
+
+  const resForce = ensureSolveTwoByTwo(forcedSolve, { force: true });
+  assert.strictEqual(resForce.layerColor, "Green");
+  assert.strictEqual(resForce.cllCase?.id, "U4");
+
+  forcedSolve.twoByTwo.layerColor = "Red";
+  const batchRes = await reanalyzeTwoByTwoSolves([forcedSolve, { puzzle: "222", target: "full", ms: 900 }]);
+  assert.strictEqual(batchRes.updated, 1);
+  assert.strictEqual(forcedSolve.twoByTwo.layerColor, "Green");
+
+  // 3. sessionLogView selectable batch re-analysis mode
+  const solveA = makeRealisticTwoByTwoSolve({ color: "White", cllId: "T1", stepMs: 140, pauseBeforeCllMs: 460 });
+  const solveB = makeRealisticTwoByTwoSolve({ color: "Orange", cllId: "S5", stepMs: 140, pauseBeforeCllMs: 460 });
+  // Seed both with synthetic v2 caches so we can verify ONLY the chosen solve gets re-analyzed
+  solveA.twoByTwo = {
+    version: 2,
+    method: "cll",
+    methodPref: "cll",
+    layerColor: "Yellow",
+    splits: { layer: 100, cll: 100, auf: 0 },
+    steps: [{ phase: "layer", label: "1st Layer", caseId: "Yellow", moveCount: 1, ms: 100 }],
+    cllCase: { id: "cll-skip", shortName: "Skip", isSkip: true, ms: 100 }
+  };
+  solveB.twoByTwo = {
+    version: 2,
+    method: "cll",
+    methodPref: "cll",
+    layerColor: "Yellow",
+    splits: { layer: 100, cll: 100, auf: 0 },
+    steps: [{ phase: "layer", label: "1st Layer", caseId: "Yellow", moveCount: 1, ms: 100 }],
+    cllCase: { id: "cll-skip", shortName: "Skip", isSkip: true, ms: 100 }
+  };
+
+  const store = new AppStore();
+  store.state.currentPuzzle = "222";
+  store.state.advancedMode = true;
+  store.state.twoByTwoMethod = "cll";
+  const sess = store.getActiveSession();
+  sess.name = "2x2 Reanalyze Test";
+  sess.puzzle = "222";
+  sess.solves = [solveA, solveB];
+
+  const byIdHandlers = new Map();
+  const rowHandlers = new Map();
+  const container = {
+    innerHTML: "",
+    querySelector(sel) {
+      if (sel.startsWith("#")) {
+        const id = sel.slice(1);
+        if (this.innerHTML.includes(`id="${id}"`)) {
+          return {
+            addEventListener(ev, fn) {
+              byIdHandlers.set(`${id}:${ev}`, fn);
+            }
+          };
+        }
+      }
+      return null;
+    },
+    querySelectorAll(sel) {
+      if (sel === ".layer-log-row") {
+        return [...this.innerHTML.matchAll(/class="layer-log-row[^"]*" data-index="(\d+)" data-num="(\d+)"/g)].map(m => ({
+          dataset: { index: m[1], num: m[2] },
+          addEventListener(ev, fn) {
+            rowHandlers.set(`${m[1]}:${ev}`, fn);
+          }
+        }));
+      }
+      return [];
+    }
+  };
+
+  const view = createSessionLogView({ appStore: store });
+  view.render(container);
+  assert.ok(container.innerHTML.includes('id="toggleReanalyzeSelectBtn"'));
+  assert.ok(!container.innerHTML.includes('reanalyze-selection-bar'));
+
+  // Enter selection mode
+  byIdHandlers.get("toggleReanalyzeSelectBtn:click")?.();
+  assert.ok(container.innerHTML.includes('reanalyze-selection-bar'));
+  assert.ok(container.innerHTML.includes('<strong>0</strong> of 2 analyzable solves selected'));
+  assert.ok(container.innerHTML.includes('class="reanalyze-row-cb" data-orig-idx="0"'));
+  assert.ok(container.innerHTML.includes('class="reanalyze-row-cb" data-orig-idx="1"'));
+
+  // Choose ONLY solve index 0 (solveA) by clicking its row
+  rowHandlers.get("0:click")?.({ target: { closest: () => null } });
+  assert.ok(container.innerHTML.includes('<strong>1</strong> of 2 analyzable solves selected'));
+  assert.ok(container.innerHTML.includes('Re-analyze Selected (1)'));
+
+  // Run batch re-analysis on selected solves
+  await byIdHandlers.get("reanalyzeRunSelectedBtn:click")?.();
+  assert.ok(!container.innerHTML.includes('reanalyze-selection-bar'));
+  assert.strictEqual(solveA.twoByTwo.layerColor, "White");
+  assert.strictEqual(solveA.twoByTwo.cllCase?.id, "T1");
+  assert.strictEqual(solveB.twoByTwo.layerColor, "Yellow"); // unselected solve left untouched
+  assert.strictEqual(solveB.twoByTwo.cllCase?.id, "cll-skip");
 });

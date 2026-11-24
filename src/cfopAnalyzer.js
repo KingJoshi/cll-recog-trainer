@@ -862,6 +862,7 @@ export async function analyzeCfopSolve(solve, options = {}) {
 export function ensureSolveCfop(solve, options = {}) {
   if (!solve) return null;
   const hasUpgradedSteps =
+    !options.force &&
     solve.cfop &&
     solve.cfop.splits &&
     (!solve.cfop.steps?.length || solve.cfop.steps[0].accumMs !== undefined) &&
@@ -873,8 +874,28 @@ export function ensureSolveCfop(solve, options = {}) {
       solve.cfop = analyzed;
       return analyzed;
     }
+    if (options.force) {
+      delete solve.cfop;
+      return null;
+    }
   }
   return solve.cfop || null;
+}
+
+export async function reanalyzeCfopSolves(solves = [], options = {}) {
+  await initCfopAnalyzer();
+  const list = Array.isArray(solves) ? solves : [];
+  let updated = 0;
+  for (const sv of list) {
+    if (!sv) continue;
+    const puz = sv.puzzle;
+    if (puz && puz !== "333" && puz !== "333oh") continue;
+    if (!(Array.isArray(sv.moves) && sv.moves.length > 0)) continue;
+    ensureSolveCfop(sv, { ...options, force: true });
+    sv.updatedAt = Date.now();
+    updated++;
+  }
+  return { total: list.length, updated };
 }
 
 // Compute aggregate CFOP averages across a slice of solves (e.g. current pagination page / last X solves or entire session)

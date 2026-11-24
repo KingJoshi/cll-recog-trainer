@@ -13,6 +13,7 @@ import {
 } from './cfopAnalyzer.js';
 
 export const TWO_BY_TWO_COLOR_NAMES = ["White", "Yellow", "Green", "Blue", "Red", "Orange"];
+export const TWO_BY_TWO_ANALYSIS_VERSION = 2;
 
 const OPPOSITE_COLOR_NAME = {
   White: "Yellow",
@@ -417,7 +418,7 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
       const foundCll = cllCases.find(c => c.id === solve.id);
       if (foundCll) {
         return {
-          version: 1,
+          version: TWO_BY_TWO_ANALYSIS_VERSION,
           method: "cll",
           methodPref,
           layerColor: "White",
@@ -652,7 +653,7 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
     steps.push(pblStep);
 
     return {
-      version: 1,
+      version: TWO_BY_TWO_ANALYSIS_VERSION,
       method: "ortega",
       methodPref,
       layerColor: faceColor,
@@ -760,7 +761,7 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
     : null;
 
   return {
-    version: 1,
+    version: TWO_BY_TWO_ANALYSIS_VERSION,
     method: "cll",
     methodPref,
     layerColor,
@@ -790,8 +791,9 @@ export function ensureSolveTwoByTwo(solve, options = {}) {
     : "cll";
 
   const hasValidCache =
+    !options.force &&
     solve.twoByTwo &&
-    solve.twoByTwo.version === 1 &&
+    solve.twoByTwo.version === TWO_BY_TWO_ANALYSIS_VERSION &&
     solve.twoByTwo.splits &&
     solve.twoByTwo.methodPref === methodPref &&
     (!solve.moves?.length || solve.twoByTwo.steps?.length > 0);
@@ -804,8 +806,29 @@ export function ensureSolveTwoByTwo(solve, options = {}) {
       solve.twoByTwo = analyzed;
       return analyzed;
     }
+    if (options.force) {
+      delete solve.twoByTwo;
+      return null;
+    }
   }
   return solve.twoByTwo || null;
+}
+
+export async function reanalyzeTwoByTwoSolves(solves = [], options = {}) {
+  await initTwoByTwoAnalyzer();
+  const list = Array.isArray(solves) ? solves : [];
+  let updated = 0;
+  for (const sv of list) {
+    if (!sv) continue;
+    if (sv.puzzle && sv.puzzle !== "222") continue;
+    const hasMoves = Array.isArray(sv.moves) && sv.moves.length > 0;
+    const hasManualCll = (sv.target === "cll" || sv.track === "cll") && Boolean(sv.id);
+    if (!hasMoves && !hasManualCll) continue;
+    ensureSolveTwoByTwo(sv, { ...options, force: true });
+    sv.updatedAt = Date.now();
+    updated++;
+  }
+  return { total: list.length, updated };
 }
 
 export function computeTwoByTwoAverages(solves = [], options = {}) {

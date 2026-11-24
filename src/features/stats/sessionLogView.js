@@ -7,6 +7,7 @@ import { pllCases } from '../../data/pllData.js';
 import {
   initCfopAnalyzer,
   ensureSolveCfop,
+  reanalyzeCfopSolves,
   computeCfopAverages,
   isCfopAnalyzerReady
 } from '../../cfopAnalyzer.js';
@@ -14,6 +15,7 @@ import {
   initTwoByTwoAnalyzer,
   isTwoByTwoAnalyzerReady,
   ensureSolveTwoByTwo,
+  reanalyzeTwoByTwoSolves,
   computeTwoByTwoAverages
 } from '../../twoByTwoAnalyzer.js';
 import {
@@ -108,6 +110,9 @@ export function createSessionLogView({
   let sessionLogFilter = "all"; // "all" | "target:<targetId>"
   let showAllHistory = false;
   let cfopAvgMetric = "median"; // "median" | "trim" | "mean" | "all"
+  let reanalyzeSelectMode = false;
+  const selectedReanalyzeIndices = new Set();
+  let lastReanalyzeContextKey = "";
   const sessionLogSort = { col: "num", dir: "desc" };
   const ollPllBreakdownSort = {
     oll: { col: "medianMs", dir: "desc" },
@@ -147,6 +152,12 @@ export function createSessionLogView({
 
     const sess = appStore.getActiveSession();
     const allSessSolves = sess.solves || [];
+    const reanalyzeContextKey = `${sess?.id || ""}:${s.currentPuzzle || ""}`;
+    if (lastReanalyzeContextKey && lastReanalyzeContextKey !== reanalyzeContextKey) {
+      reanalyzeSelectMode = false;
+      selectedReanalyzeIndices.clear();
+    }
+    lastReanalyzeContextKey = reanalyzeContextKey;
 
     if (allSessSolves.length === 0) {
       const emptyExtra = is3x3Puzzle
@@ -297,11 +308,31 @@ export function createSessionLogView({
 
     const activeFilterLabel = filterTarget ? getSolveTargetLabel(sessPuzzle, filterTarget) : "All Solves";
     const hasMultipleTargets = targetBuckets.length >= 2;
+    const isAnalyzableSolve = (sv) => Boolean((is2x2Puzzle || is3x3Puzzle) && sv && Array.isArray(sv.moves) && sv.moves.length > 0);
+    const analyzableEntries = filteredEntries.filter(e => isAnalyzableSolve(e.sv));
+    const analyzableOrigIdxSet = new Set(analyzableEntries.map(e => e.origIdx));
+    for (const idx of [...selectedReanalyzeIndices]) {
+      if (!analyzableOrigIdxSet.has(idx)) selectedReanalyzeIndices.delete(idx);
+    }
+    if (analyzableEntries.length === 0) {
+      reanalyzeSelectMode = false;
+      selectedReanalyzeIndices.clear();
+    }
+    const showCbCol = reanalyzeSelectMode && (is2x2Puzzle || is3x3Puzzle) && analyzableEntries.length > 0;
+    const selectedCount = selectedReanalyzeIndices.size;
+    const analyzableCount = analyzableEntries.length;
+    const pageAnalyzableOrigIndices = pageRows.filter(r => isAnalyzableSolve(r.s)).map(r => r.origIdx);
+    const isPageAllSelected = pageAnalyzableOrigIndices.length > 0
+      && pageAnalyzableOrigIndices.every(idx => selectedReanalyzeIndices.has(idx));
+
     const capControlHtml = allSessSolves.length > MAX_DISPLAY_SOLVES
       ? `<button type="button" id="toggleHistoryCapBtn" class="stats-subfilter-action-btn" title="Show up to ${MAX_DISPLAY_SOLVES.toLocaleString()} most recent solves for speed, or expand all ${allSessSolves.length.toLocaleString()} stored solves">${isCapped ? `Latest ${MAX_DISPLAY_SOLVES.toLocaleString()} of ${allSessSolves.length.toLocaleString()} &middot; Show All` : `Showing all ${allSessSolves.length.toLocaleString()} &middot; Cap at ${MAX_DISPLAY_SOLVES.toLocaleString()}`}</button>`
       : "";
     const splitBtnHtml = hasMultipleTargets
       ? `<button type="button" id="splitSessionByTargetBtn" class="stats-subfilter-action-btn stats-split-session-btn" title="Move solves with different targets out of this mixed session into their own dedicated sessions">✂️ Split by Target</button>`
+      : "";
+    const reanalyzeToggleBtnHtml = analyzableCount > 0
+      ? `<button type="button" id="toggleReanalyzeSelectBtn" class="stats-subfilter-action-btn ${showCbCol ? "active" : ""}" aria-pressed="${showCbCol ? "true" : "false"}" title="Select solves to re-run phase &amp; case analysis">&#x21BB; Re-analyze</button>`
       : "";
 
     let html = `
@@ -312,7 +343,7 @@ export function createSessionLogView({
           const filterKey = `target:${b.targetId}`;
           return `<button type="button" class="stats-subfilter-btn ${sessionLogFilter === filterKey ? "active" : ""}" data-log-filter="${escapeHtml(filterKey)}">${escapeHtml(b.label)} (${b.count.toLocaleString()})</button>`;
         }).join("")}
-        ${(capControlHtml || splitBtnHtml) ? `<span class="stats-subfilter-actions">${capControlHtml}${splitBtnHtml}</span>` : ""}
+        ${(capControlHtml || splitBtnHtml || reanalyzeToggleBtnHtml) ? `<span class="stats-subfilter-actions">${reanalyzeToggleBtnHtml}${capControlHtml}${splitBtnHtml}</span>` : ""}
       </div>
     `;
 
@@ -590,7 +621,31 @@ export function createSessionLogView({
           </div>
         </div>
         <div class="stats-subwidget-body">
+          ${showCbCol ? `
+            <div class="reanalyze-selection-bar">
+              <span class="reanalyze-selection-info">
+                <strong>${selectedCount}</strong> of ${analyzableCount} analyzable solve${analyzableCount === 1 ? "" : "s"} selected
+              </span>
+              <div class="reanalyze-selection-actions">
+                <button type="button" id="reanalyzeSelectAllBtn" class="btn btn-xs">Select All (${analyzableCount})</button>
+                <button type="button" id="reanalyzeClearBtn" class="btn btn-xs" ${selectedCount === 0 ? "disabled" : ""}>Clear</button>
+                <button type="button" id="reanalyzeRunSelectedBtn" class="btn btn-xs btn-primary" ${selectedCount === 0 ? "disabled" : ""}>&#x21BB; Re-analyze Selected (${selectedCount})</button>
+                <button type="button" id="reanalyzeCancelBtn" class="btn btn-xs">Done</button>
+              </div>
+            </div>
+          ` : ""}
     `;
+
+    const cbThHtml = showCbCol
+      ? `<th scope="col" class="reanalyze-cb-col" title="Select/deselect all analyzable solves on this page"><input type="checkbox" id="reanalyzeSelectPageCb" ${isPageAllSelected ? "checked" : ""} aria-label="Select all solves on page"></th>`
+      : "";
+    const cbRowTdHtml = (sv, num, origIdx) => {
+      if (!showCbCol) return "";
+      const canSelect = isAnalyzableSolve(sv);
+      const checked = canSelect && selectedReanalyzeIndices.has(origIdx);
+      return `<td class="reanalyze-cb-col"><input type="checkbox" class="reanalyze-row-cb" data-orig-idx="${origIdx}" ${checked ? "checked" : ""} ${canSelect ? "" : "disabled"} aria-label="Select solve ${num} for re-analysis"></td>`;
+    };
+    const rowSelClass = (sv, origIdx) => (showCbCol && isAnalyzableSolve(sv) && selectedReanalyzeIndices.has(origIdx) ? " is-reanalyze-selected" : "");
 
     if (is3x3Puzzle && !isAdvanced) {
       html += `
@@ -598,6 +653,7 @@ export function createSessionLogView({
           <table class="layer-log-table cfop-solve-log-table is-basic-log">
             <thead>
               <tr>
+                ${cbThHtml}
                 <th scope="col" class="sortable" data-log-sort="num" style="width: 42px;">#<span class="sort-icon">${logSortArrow("num")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="ms">Time<span class="sort-icon">${logSortArrow("ms")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="cross">Cross<span class="sort-icon">${logSortArrow("cross")}</span></th>
@@ -611,7 +667,7 @@ export function createSessionLogView({
       `;
 
       if (pageRows.length === 0) {
-        html += `<tr><td colspan="7" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+        html += `<tr><td colspan="${showCbCol ? 8 : 7}" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
       } else {
         pageRows.forEach(({ s: sv, num, origIdx }) => {
           const cfop = ensureSolveCfop(sv);
@@ -624,7 +680,8 @@ export function createSessionLogView({
             : (sv.target === "pll" && sv.id ? escapeHtml(sv.id) : "-");
           const hasReplay = Array.isArray(sv.moves) && sv.moves.length > 0;
           html += `
-            <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click for solve breakdown">
+            <tr class="layer-log-row${rowSelClass(sv, origIdx)}" data-index="${origIdx}" data-num="${num}" title="${showCbCol ? "Click to toggle selection" : "Click for solve breakdown"}">
+              ${cbRowTdHtml(sv, num, origIdx)}
               <td>${num}</td>
               <td class="layer-time-cell"><strong>${formatSolveDisplay(sv)}</strong></td>
               <td>${formatCfopSplitMs(sp.cross)}</td>
@@ -647,6 +704,7 @@ export function createSessionLogView({
             </tbody>
             <tfoot>
               <tr class="cfop-tfoot-page-avg cfop-trim-highlight-row">
+                ${showCbCol ? "<td></td>" : ""}
                 <th scope="row">Med</th>
                 <td><strong>${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : "-"}</strong></td>
                 <td>${formatCfopSplitMs(pageAvg.median?.cross)}</td>
@@ -657,7 +715,7 @@ export function createSessionLogView({
               </tr>
               <tr class="cfop-tfoot-session-avg">
                 <th scope="row">All</th>
-                <td colspan="6">
+                <td colspan="${showCbCol ? 7 : 6}">
                   <strong>Median:</strong> ${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : "-"} &bull;
                   <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : "-"}
                   <small class="cfop-sub-meta">(${count.toLocaleString()} solves in session)</small>
@@ -675,6 +733,7 @@ export function createSessionLogView({
           <table class="layer-log-table cfop-solve-log-table">
             <thead>
               <tr>
+                ${cbThHtml}
                 <th scope="col" class="sortable" data-log-sort="num" style="width: 42px;">#<span class="sort-icon">${logSortArrow("num")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="ms">Time<span class="sort-icon">${logSortArrow("ms")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="cubeMs" title="Pure smart cube solving time (first turn → solved)">Cube<span class="sort-icon">${logSortArrow("cubeMs")}</span></th>
@@ -698,7 +757,7 @@ export function createSessionLogView({
       `;
 
       if (pageRows.length === 0) {
-        html += `<tr><td colspan="17" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+        html += `<tr><td colspan="${showCbCol ? 18 : 17}" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
       } else {
         pageRows.forEach(({ s: sv, num, origIdx }) => {
           const cfop = ensureSolveCfop(sv);
@@ -718,7 +777,8 @@ export function createSessionLogView({
           const hasReplay = Array.isArray(sv.moves) && sv.moves.length > 0;
           const cubeMsVal = getSolveCubeMs(sv);
           html += `
-            <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click for full CFOP breakdown">
+            <tr class="layer-log-row${rowSelClass(sv, origIdx)}" data-index="${origIdx}" data-num="${num}" title="${showCbCol ? "Click to toggle selection" : "Click for full CFOP breakdown"}">
+              ${cbRowTdHtml(sv, num, origIdx)}
               <td>${num}</td>
               <td class="layer-time-cell"><div class="cfop-cell-stack"><strong>${formatSolveDisplay(sv)}</strong>${sv.tps ? `<small class="cfop-sub-meta">${sv.tps} TPS</small>` : ""}</div></td>
               <td><strong>${formatCfopSplitMs(cubeMsVal)}</strong></td>
@@ -751,6 +811,7 @@ export function createSessionLogView({
             </tbody>
             <tfoot>
               <tr class="cfop-tfoot-page-avg cfop-trim-highlight-row">
+                ${showCbCol ? "<td></td>" : ""}
                 <th scope="row">Med</th>
                 <td><div class="cfop-cell-stack"><strong>${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : "-"}</strong><small class="cfop-sub-meta">Page (${pageSolves.length})</small></div></td>
                 <td><strong>${formatCfopSplitMs(pageAvg.median?.cubeMs)}</strong></td>
@@ -769,6 +830,7 @@ export function createSessionLogView({
                 <td colspan="2"><small class="cfop-sub-meta">Page Median</small></td>
               </tr>
               <tr class="cfop-tfoot-page-avg">
+                ${showCbCol ? "<td></td>" : ""}
                 <th scope="row">Trim</th>
                 <td><div class="cfop-cell-stack"><strong>${pageAvg.trimMean?.totalMs != null ? formatSolveTime(pageAvg.trimMean.totalMs) : "-"}</strong><small class="cfop-sub-meta">Trim10%</small></div></td>
                 <td><strong>${formatCfopSplitMs(pageAvg.trimMean?.cubeMs)}</strong></td>
@@ -787,6 +849,7 @@ export function createSessionLogView({
                 <td colspan="2"><small class="cfop-sub-meta">Page TrimMean 10%</small></td>
               </tr>
               <tr class="cfop-tfoot-page-avg">
+                ${showCbCol ? "<td></td>" : ""}
                 <th scope="row">Mean</th>
                 <td><div class="cfop-cell-stack"><strong>${pageAvg.totalMs != null ? formatSolveTime(pageAvg.totalMs) : "-"}</strong><small class="cfop-sub-meta">Page (${pageSolves.length})</small></div></td>
                 <td><strong>${formatCfopSplitMs(pageAvg.cubeMs)}</strong></td>
@@ -806,7 +869,7 @@ export function createSessionLogView({
               </tr>
               <tr class="cfop-tfoot-session-avg">
                 <th scope="row">All</th>
-                <td colspan="16">
+                <td colspan="${showCbCol ? 17 : 16}">
                   <strong>Median:</strong> ${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : "-"} &bull;
                   <strong>TrimMean (10%):</strong> ${sessionAvg.trimMean?.totalMs != null ? formatSolveTime(sessionAvg.trimMean.totalMs) : "-"} &bull;
                   <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : "-"}
@@ -838,6 +901,7 @@ export function createSessionLogView({
           <table class="layer-log-table cfop-solve-log-table is-basic-log">
             <thead>
               <tr>
+                ${cbThHtml}
                 <th scope="col" class="sortable" data-log-sort="num" style="width: 42px;">#<span class="sort-icon">${logSortArrow("num")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="ms">Time<span class="sort-icon">${logSortArrow("ms")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="layer">${layerHdr}<span class="sort-icon">${logSortArrow("layer")}</span></th>
@@ -849,13 +913,14 @@ export function createSessionLogView({
       `;
 
       if (pageRows.length === 0) {
-        html += `<tr><td colspan="5" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+        html += `<tr><td colspan="${showCbCol ? 6 : 5}" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
       } else {
         pageRows.forEach(({ s: sv, num, origIdx }) => {
           const two = ensureSolveTwoByTwo(sv, twoByTwoOpts);
           const hasReplay = Array.isArray(sv.moves) && sv.moves.length > 0;
           html += `
-            <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click for solve breakdown">
+            <tr class="layer-log-row${rowSelClass(sv, origIdx)}" data-index="${origIdx}" data-num="${num}" title="${showCbCol ? "Click to toggle selection" : "Click for solve breakdown"}">
+              ${cbRowTdHtml(sv, num, origIdx)}
               <td>${num}</td>
               <td class="layer-time-cell"><strong>${formatSolveDisplay(sv)}</strong></td>
               <td>${renderTwoByTwoLayerCellHtml(two, sv, { compact: true })}</td>
@@ -883,6 +948,7 @@ export function createSessionLogView({
             </tbody>
             <tfoot>
               <tr class="cfop-tfoot-page-avg cfop-trim-highlight-row">
+                ${showCbCol ? "<td></td>" : ""}
                 <th scope="row">Med</th>
                 <td><strong>${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : "-"}</strong></td>
                 <td>${formatCfopSplitMs(pageLayerMed)}</td>
@@ -891,7 +957,7 @@ export function createSessionLogView({
               </tr>
               <tr class="cfop-tfoot-session-avg">
                 <th scope="row">All</th>
-                <td colspan="4">
+                <td colspan="${showCbCol ? 5 : 4}">
                   <strong>Median:</strong> ${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : "-"} &bull;
                   <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : "-"}
                   <small class="cfop-sub-meta">(${count.toLocaleString()} solves in session)</small>
@@ -911,6 +977,7 @@ export function createSessionLogView({
           <table class="layer-log-table cfop-solve-log-table">
             <thead>
               <tr>
+                ${cbThHtml}
                 <th scope="col" class="sortable" data-log-sort="num" style="width: 42px;">#<span class="sort-icon">${logSortArrow("num")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="ms">Time<span class="sort-icon">${logSortArrow("ms")}</span></th>
                 <th scope="col" class="sortable" data-log-sort="cubeMs" title="Pure smart cube solving time (first turn → solved)">Cube<span class="sort-icon">${logSortArrow("cubeMs")}</span></th>
@@ -928,7 +995,7 @@ export function createSessionLogView({
       `;
 
       if (pageRows.length === 0) {
-        html += `<tr><td colspan="11" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
+        html += `<tr><td colspan="${showCbCol ? 12 : 11}" class="empty-stats" style="text-align: center; padding: 20px;">No solves match filter "${escapeHtml(sessionLogFilter)}".</td></tr>`;
       } else {
         pageRows.forEach(({ s: sv, num, origIdx }) => {
           const two = ensureSolveTwoByTwo(sv, twoByTwoOpts);
@@ -939,7 +1006,8 @@ export function createSessionLogView({
           const hasReplay = Array.isArray(sv.moves) && sv.moves.length > 0;
           const cubeMsVal = getSolveCubeMs(sv);
           html += `
-            <tr class="layer-log-row" data-index="${origIdx}" data-num="${num}" title="Click for full 1st Layer & CLL breakdown">
+            <tr class="layer-log-row${rowSelClass(sv, origIdx)}" data-index="${origIdx}" data-num="${num}" title="${showCbCol ? "Click to toggle selection" : "Click for full 1st Layer & CLL breakdown"}">
+              ${cbRowTdHtml(sv, num, origIdx)}
               <td>${num}</td>
               <td class="layer-time-cell"><div class="cfop-cell-stack"><strong>${formatSolveDisplay(sv)}</strong>${sv.tps ? `<small class="cfop-sub-meta">${sv.tps} TPS</small>` : ""}</div></td>
               <td><strong>${formatCfopSplitMs(cubeMsVal)}</strong></td>
@@ -969,6 +1037,7 @@ export function createSessionLogView({
             </tbody>
             <tfoot>
               <tr class="cfop-tfoot-page-avg cfop-trim-highlight-row">
+                ${showCbCol ? "<td></td>" : ""}
                 <th scope="row">Med</th>
                 <td><div class="cfop-cell-stack"><strong>${pageAvg.median?.totalMs != null ? formatSolveTime(pageAvg.median.totalMs) : "-"}</strong><small class="cfop-sub-meta">Page (${pageSolves.length})</small></div></td>
                 <td><strong>${formatCfopSplitMs(pageAvg.median?.cubeMs)}</strong></td>
@@ -981,6 +1050,7 @@ export function createSessionLogView({
                 <td colspan="2"><small class="cfop-sub-meta">Page Median</small></td>
               </tr>
               <tr class="cfop-tfoot-page-avg">
+                ${showCbCol ? "<td></td>" : ""}
                 <th scope="row">Trim</th>
                 <td><div class="cfop-cell-stack"><strong>${pageAvg.trimMean?.totalMs != null ? formatSolveTime(pageAvg.trimMean.totalMs) : "-"}</strong><small class="cfop-sub-meta">Trim10%</small></div></td>
                 <td><strong>${formatCfopSplitMs(pageAvg.trimMean?.cubeMs)}</strong></td>
@@ -993,6 +1063,7 @@ export function createSessionLogView({
                 <td colspan="2"><small class="cfop-sub-meta">Page TrimMean 10%</small></td>
               </tr>
               <tr class="cfop-tfoot-page-avg">
+                ${showCbCol ? "<td></td>" : ""}
                 <th scope="row">Mean</th>
                 <td><div class="cfop-cell-stack"><strong>${pageAvg.totalMs != null ? formatSolveTime(pageAvg.totalMs) : "-"}</strong><small class="cfop-sub-meta">Page (${pageSolves.length})</small></div></td>
                 <td><strong>${formatCfopSplitMs(pageAvg.cubeMs)}</strong></td>
@@ -1006,7 +1077,7 @@ export function createSessionLogView({
               </tr>
               <tr class="cfop-tfoot-session-avg">
                 <th scope="row">All</th>
-                <td colspan="10">
+                <td colspan="${showCbCol ? 11 : 10}">
                   <strong>Median:</strong> ${sessionAvg.median?.totalMs != null ? formatSolveTime(sessionAvg.median.totalMs) : "-"} &bull;
                   <strong>TrimMean (10%):</strong> ${sessionAvg.trimMean?.totalMs != null ? formatSolveTime(sessionAvg.trimMean.totalMs) : "-"} &bull;
                   <strong>Mean:</strong> ${sessionAvg.totalMs != null ? formatSolveTime(sessionAvg.totalMs) : "-"}
@@ -1303,6 +1374,69 @@ export function createSessionLogView({
       render(container);
     });
 
+    container.querySelector("#toggleReanalyzeSelectBtn")?.addEventListener("click", () => {
+      reanalyzeSelectMode = !reanalyzeSelectMode;
+      if (!reanalyzeSelectMode) selectedReanalyzeIndices.clear();
+      render(container);
+    });
+
+    container.querySelector("#reanalyzeCancelBtn")?.addEventListener("click", () => {
+      reanalyzeSelectMode = false;
+      selectedReanalyzeIndices.clear();
+      render(container);
+    });
+
+    container.querySelector("#reanalyzeSelectAllBtn")?.addEventListener("click", () => {
+      for (const entry of analyzableEntries) {
+        selectedReanalyzeIndices.add(entry.origIdx);
+      }
+      render(container);
+    });
+
+    container.querySelector("#reanalyzeClearBtn")?.addEventListener("click", () => {
+      selectedReanalyzeIndices.clear();
+      render(container);
+    });
+
+    container.querySelector("#reanalyzeSelectPageCb")?.addEventListener("change", (e) => {
+      const wantSelect = typeof e?.target?.checked === "boolean" ? e.target.checked : !isPageAllSelected;
+      for (const idx of pageAnalyzableOrigIndices) {
+        if (wantSelect) selectedReanalyzeIndices.add(idx);
+        else selectedReanalyzeIndices.delete(idx);
+      }
+      render(container);
+    });
+
+    container.querySelectorAll(".reanalyze-row-cb").forEach(cb => {
+      cb.addEventListener("click", (e) => e.stopPropagation());
+      cb.addEventListener("change", (e) => {
+        e.stopPropagation();
+        const origIdx = Number(cb.dataset.origIdx);
+        if (!analyzableOrigIdxSet.has(origIdx)) return;
+        const checked = typeof cb.checked === "boolean" ? cb.checked : !selectedReanalyzeIndices.has(origIdx);
+        if (checked) selectedReanalyzeIndices.add(origIdx);
+        else selectedReanalyzeIndices.delete(origIdx);
+        render(container);
+      });
+    });
+
+    container.querySelector("#reanalyzeRunSelectedBtn")?.addEventListener("click", async () => {
+      const selectedSolves = [...selectedReanalyzeIndices]
+        .filter(idx => analyzableOrigIdxSet.has(idx))
+        .map(idx => allSessSolves[idx])
+        .filter(Boolean);
+      if (selectedSolves.length === 0) return;
+      const res = is2x2Puzzle
+        ? await reanalyzeTwoByTwoSolves(selectedSolves, twoByTwoOpts)
+        : await reanalyzeCfopSolves(selectedSolves);
+      reanalyzeSelectMode = false;
+      selectedReanalyzeIndices.clear();
+      appStore.saveSessions?.();
+      getSolvePanel()?.renderSolvePanel?.();
+      render(container);
+      showToast(`Re-analyzed ${res.updated} solve${res.updated === 1 ? "" : "s"}.`, "success", 2400);
+    });
+
     container.querySelector("#splitSessionByTargetBtn")?.addEventListener("click", async () => {
       const puzzle = sess.puzzle || s.currentPuzzle || "222";
       const puzzleShortName = PUZZLES[puzzle]?.shortName || puzzle;
@@ -1349,8 +1483,17 @@ export function createSessionLogView({
 
     container.querySelectorAll(".layer-log-row").forEach(row => {
       row.addEventListener("click", (e) => {
-        if (e.target.closest(".btn-del-solve, .btn-reattempt-solve, .btn-replay-solve, .solve-date-clock-wrap")) return;
-        const solve = allSessSolves[Number(row.dataset.index)];
+        if (e.target.closest(".btn-del-solve, .btn-reattempt-solve, .btn-replay-solve, .solve-date-clock-wrap, .reanalyze-row-cb")) return;
+        const origIdx = Number(row.dataset.index);
+        if (showCbCol) {
+          if (analyzableOrigIdxSet.has(origIdx)) {
+            if (selectedReanalyzeIndices.has(origIdx)) selectedReanalyzeIndices.delete(origIdx);
+            else selectedReanalyzeIndices.add(origIdx);
+            render(container);
+          }
+          return;
+        }
+        const solve = allSessSolves[origIdx];
         if (solve) getSolveDetailModal()?.open?.(solve, row.dataset.num);
       });
     });

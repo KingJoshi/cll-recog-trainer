@@ -562,7 +562,7 @@
         <div id="solveModalPhasesContent" class="solve-modal-phases"></div>
       </div>
       <div class="solve-modal-field" id="solveModalCfopField" hidden>
-        <span class="solve-modal-label">CFOP Phase Splits, Cases &amp; Pauses</span>
+        <span id="solveModalCfopLabel" class="solve-modal-label">CFOP Phase Splits, Cases &amp; Pauses</span>
         <div id="solveModalCfopContent" class="solve-modal-cfop-content"></div>
       </div>
       <div class="solve-modal-field" id="solveModalMovesField" hidden>
@@ -580,6 +580,7 @@
       <button type="button" id="solveModalReplayBtn" class="btn btn-primary btn-small" hidden>
         <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="4.5,2.8 13.2,8 4.5,13.2"/></svg></span><span>Replay Solve (3D)</span>
       </button>
+      <button type="button" id="solveModalReanalyzeBtn" class="btn btn-small" hidden title="Re-run phase and case analysis on this solve">&#x21BB; Re-analyze</button>
       <button type="button" id="solveModalReattemptBtn" class="btn btn-small">
         <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.8 7.5A4.9 4.9 0 1 0 11.4 11.4"/><polyline points="13.5,4.2 12.9,7.7 9.5,6.8"/></svg></span><span>Reattempt solve</span>
       </button>
