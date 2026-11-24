@@ -436,29 +436,13 @@ test('analyzeTwoByTwoSolve prefers real White CLL over trivial Yellow CLL Skip a
   assert.strictEqual(res.cllCase?.isSkip, false);
 });
 
-test('stale v1 2x2 analysis auto-upgrades to v2, force/reanalyzeTwoByTwoSolves re-runs cached v2, and sessionLogView re-analyzes chosen solves', async () => {
+test('stale v1/v2 2x2 analysis auto-upgrades to v3, force/reanalyzeTwoByTwoSolves re-runs cached v3, and sessionLogView re-analyzes chosen solves', async () => {
   await initTwoByTwoAnalyzer();
-  assert.strictEqual(TWO_BY_TWO_ANALYSIS_VERSION, 2);
+  assert.strictEqual(TWO_BY_TWO_ANALYSIS_VERSION, 3);
 
-  // 1. Stale version: 1 cached twoByTwo auto-invalidates on ensureSolveTwoByTwo
+  // 1. Stale version: 1 or 2 cached twoByTwo auto-invalidates on ensureSolveTwoByTwo
   const staleSolve = makeRealisticTwoByTwoSolve({ color: "White", cllId: "H1", stepMs: 140, pauseBeforeCllMs: 460 });
   staleSolve.twoByTwo = {
-    version: 1,
-    method: "cll",
-    methodPref: "cll",
-    layerColor: "Yellow",
-    splits: { layer: 100, cll: 100, auf: 0 },
-    steps: [{ phase: "layer", label: "1st Layer", caseId: "Yellow", moveCount: 1, ms: 100 }],
-    cllCase: { id: "cll-skip", shortName: "Skip", isSkip: true, ms: 100 }
-  };
-  const upgraded = ensureSolveTwoByTwo(staleSolve);
-  assert.strictEqual(upgraded.version, 2);
-  assert.strictEqual(upgraded.layerColor, "White");
-  assert.strictEqual(upgraded.cllCase?.id, "H1");
-
-  // 2. force: true and reanalyzeTwoByTwoSolves re-analyze even when version === 2
-  const forcedSolve = makeRealisticTwoByTwoSolve({ color: "Green", cllId: "U4", stepMs: 140, pauseBeforeCllMs: 460 });
-  forcedSolve.twoByTwo = {
     version: 2,
     method: "cll",
     methodPref: "cll",
@@ -467,8 +451,24 @@ test('stale v1 2x2 analysis auto-upgrades to v2, force/reanalyzeTwoByTwoSolves r
     steps: [{ phase: "layer", label: "1st Layer", caseId: "Yellow", moveCount: 1, ms: 100 }],
     cllCase: { id: "cll-skip", shortName: "Skip", isSkip: true, ms: 100 }
   };
+  const upgraded = ensureSolveTwoByTwo(staleSolve);
+  assert.strictEqual(upgraded.version, 3);
+  assert.strictEqual(upgraded.layerColor, "White");
+  assert.strictEqual(upgraded.cllCase?.id, "H1");
+
+  // 2. force: true and reanalyzeTwoByTwoSolves re-analyze even when version === 3
+  const forcedSolve = makeRealisticTwoByTwoSolve({ color: "Green", cllId: "U4", stepMs: 140, pauseBeforeCllMs: 460 });
+  forcedSolve.twoByTwo = {
+    version: 3,
+    method: "cll",
+    methodPref: "cll",
+    layerColor: "Yellow",
+    splits: { layer: 100, cll: 100, auf: 0 },
+    steps: [{ phase: "layer", label: "1st Layer", caseId: "Yellow", moveCount: 1, ms: 100 }],
+    cllCase: { id: "cll-skip", shortName: "Skip", isSkip: true, ms: 100 }
+  };
   const beforeForced = ensureSolveTwoByTwo(forcedSolve);
-  assert.strictEqual(beforeForced.layerColor, "Yellow"); // cached v2 respected without force
+  assert.strictEqual(beforeForced.layerColor, "Yellow"); // cached v3 respected without force
 
   const resForce = ensureSolveTwoByTwo(forcedSolve, { force: true });
   assert.strictEqual(resForce.layerColor, "Green");
@@ -482,9 +482,9 @@ test('stale v1 2x2 analysis auto-upgrades to v2, force/reanalyzeTwoByTwoSolves r
   // 3. sessionLogView selectable batch re-analysis mode
   const solveA = makeRealisticTwoByTwoSolve({ color: "White", cllId: "T1", stepMs: 140, pauseBeforeCllMs: 460 });
   const solveB = makeRealisticTwoByTwoSolve({ color: "Orange", cllId: "S5", stepMs: 140, pauseBeforeCllMs: 460 });
-  // Seed both with synthetic v2 caches so we can verify ONLY the chosen solve gets re-analyzed
+  // Seed both with synthetic v3 caches so we can verify ONLY the chosen solve gets re-analyzed
   solveA.twoByTwo = {
-    version: 2,
+    version: 3,
     method: "cll",
     methodPref: "cll",
     layerColor: "Yellow",
@@ -493,7 +493,7 @@ test('stale v1 2x2 analysis auto-upgrades to v2, force/reanalyzeTwoByTwoSolves r
     cllCase: { id: "cll-skip", shortName: "Skip", isSkip: true, ms: 100 }
   };
   solveB.twoByTwo = {
-    version: 2,
+    version: 3,
     method: "cll",
     methodPref: "cll",
     layerColor: "Yellow",
@@ -565,4 +565,47 @@ test('stale v1 2x2 analysis auto-upgrades to v2, force/reanalyzeTwoByTwoSolves r
   assert.strictEqual(solveA.twoByTwo.cllCase?.id, "T1");
   assert.strictEqual(solveB.twoByTwo.layerColor, "Yellow"); // unselected solve left untouched
   assert.strictEqual(solveB.twoByTwo.cllCase?.id, "cll-skip");
+});
+
+test('MoYu WCU_MY22 real solves with interleaved gyro rotations detect pll-adj and White 1st layer over accidental early layer', async () => {
+  await initTwoByTwoAnalyzer();
+
+  const parseTimings = (str) => str.split(/\s+/).filter(Boolean).map((tok, i, arr) => {
+    const [mv, tStr] = tok.split("@");
+    const t = Number(tStr);
+    const prevT = i > 0 ? Number(arr[i - 1].split("@")[1]) : 0;
+    return { move: mv, t, split: Math.max(0, t - prevT) };
+  });
+
+  // Real MoYu V5 AI solve #30: 9-move White 1st Layer -> White PLL-Adj (formerly misclassified as Yellow 26m + Skip)
+  const solve30 = {
+    puzzle: "222",
+    target: "full",
+    ms: 4456,
+    rawMs: 4456,
+    cubeMs: 3930,
+    scramble: "F' R U' F R U R2 F' R2 U R'",
+    moves: parseTimings("F'@0 R@4 F@119 R@300 F@451 z'@481 U'@930 y@990 R@1117 x'@1146 F'@1202 R'@1289 x@1439 U@1800 U@1890 R@2161 U@2252 F'@2280 U'@2400 R'@2582 F@2789 U@2919 U@2971 z@2999 R'@3060 U'@3152 F'@3271 R@3420 F@3517 y@3517 U'@3541 F'@3802 U@3930"),
+  };
+  const res30 = await analyzeTwoByTwoSolve(solve30);
+  assert.ok(res30);
+  assert.strictEqual(res30.layerColor, "White");
+  assert.strictEqual(res30.steps.find(s => s.phase === "layer")?.moveCount, 9);
+  assert.strictEqual(res30.cllCase?.id, "pll-adj");
+  assert.strictEqual(res30.cllCase?.shortName, "Adj");
+
+  // Real MoYu V5 AI solve #28: accidental 2-move Red vs true 11-move White 1st Layer + S6 -> Adj -> solved
+  const solve28 = {
+    puzzle: "222",
+    target: "full",
+    ms: 7376,
+    rawMs: 7376,
+    cubeMs: 6870,
+    scramble: "F' R U2 F' U R2 U R' U' R2 U'",
+    moves: parseTimings("F@0 U'@212 F'@992 F@1140 F@1231 R'@1411 F@1470 R@1591 U'@1679 F@1831 R'@2040 x@2218 U'@2640 y@2668 F'@2849 R@2878 R@2910 F@3060 U@3150 y'@3240 R'@3298 U@3392 F@3479 y'@3599 U@3899 y'@3900 U@3960 F@4229 U@4289 R'@4350 F'@4469 U'@4592 F@4679 R@4738 R@4800 y2@4801 U'@4890 y@4950 F'@5042 U'@5399 y@5399 R@5639 R'@5827 R@6239 U@6420 F'@6509 R'@6660 U@6869"),
+  };
+  const res28 = await analyzeTwoByTwoSolve(solve28);
+  assert.ok(res28);
+  assert.strictEqual(res28.layerColor, "White");
+  assert.strictEqual(res28.cllCase?.id, "S6");
 });

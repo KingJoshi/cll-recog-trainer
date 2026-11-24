@@ -13,7 +13,7 @@ import {
 } from './cfopAnalyzer.js';
 
 export const TWO_BY_TWO_COLOR_NAMES = ["White", "Yellow", "Green", "Blue", "Red", "Orange"];
-export const TWO_BY_TWO_ANALYSIS_VERSION = 2;
+export const TWO_BY_TWO_ANALYSIS_VERSION = 3;
 
 const OPPOSITE_COLOR_NAME = {
   White: "Yellow",
@@ -132,6 +132,22 @@ function buildLookupTables(kp, defPat) {
       console.warn("Failed to index CLL case:", c.id, e);
     }
   }
+
+  cllKeyMap.set("00103020", {
+    id: "pll-adj",
+    name: "Adjacent Swap (PLL)",
+    shortName: "Adj",
+    group: "PLL",
+    isSkip: false
+  });
+
+  cllKeyMap.set("00302010", {
+    id: "pll-diag",
+    name: "Diagonal Swap (PLL)",
+    shortName: "Diag",
+    group: "PLL",
+    isSkip: false
+  });
 
   cllKeyMap.set("00102030", {
     id: "cll-skip",
@@ -510,14 +526,22 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
       // Count whether next moves after layerEndIdx start with cand-relative moves preserving this layer
       const nextMovePreservesLayer = layerEndIdx < N
         && Boolean(states[layerEndIdx + 1]?.layerOk && states[layerEndIdx + 1]?.layerColor === layerColor);
+      let revisitedLater = false;
+      for (let i = layerEndIdx + 4; i < N; i++) {
+        if (states[i]?.layerOk && states[i]?.layerColor === layerColor) {
+          revisitedLater = true;
+          break;
+        }
+      }
       const isTrivialEndLayer = layerEndIdx >= N;
       const isRealCllCase = !isTrivialEndLayer && !cllCaseAtStart.isSkip;
 
       const score =
         (isRealCllCase ? 500000 : 0) +
         (!isTrivialEndLayer ? 100000 : 0) +
+        (isRealCllCase && endsSolvedSameColor ? 10000 : (endsSolvedSameColor ? 500 : 0)) +
+        (isRealCllCase && revisitedLater ? 5000 : 0) +
         (N - layerEndIdx) * 100 +
-        (endsSolvedSameColor ? 500 : 0) +
         (nextMovePreservesLayer ? 25 : 0) +
         colorPreferenceRank(layerColor) -
         cIdx;

@@ -200,6 +200,16 @@ export async function prewarmCllSvgs(cllList = []) {
         const svg = await renderCaseSvg("222", "cll", c);
         svgCache.set(`222-cll-${c.id}`, svg);
       }
+      const pllAdjSvg = await renderCaseSvg("222", "cll", {
+        id: "pll-adj",
+        setup: "R U R' U' R' F R2 U' R' U' R U R' F'"
+      });
+      svgCache.set("222-cll-pll-adj", pllAdjSvg);
+      const pllDiagSvg = await renderCaseSvg("222", "cll", {
+        id: "pll-diag",
+        setup: "F R U' R' U' R U R' F' R U R' U' R' F R F'"
+      });
+      svgCache.set("222-cll-pll-diag", pllDiagSvg);
     } catch (e) {
       console.warn("Could not prewarm CLL SVGs:", e);
     } finally {

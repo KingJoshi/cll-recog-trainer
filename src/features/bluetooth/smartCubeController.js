@@ -455,8 +455,9 @@ export function createSmartCubeController({
     pendingSolveCubeUpdateRaf = requestAnimationFrame(() => {
       pendingSolveCubeUpdateRaf = null;
       try {
-        const moveTokens = getTimerCtrl()?.getTrackedMoveTokens?.() || [];
-        const fullSeq = [cubeStage.getBaseDisplayScramble(), ...moveTokens].filter(Boolean).join(" ");
+        const rawTokens = getTimerCtrl()?.getTrackedMoveTokens?.() || [];
+        const faceTokens = rawTokens.filter(t => t && !/^[xyz][2']?$/i.test(String(t).trim()));
+        const fullSeq = [cubeStage.getBaseDisplayScramble(), ...faceTokens].filter(Boolean).join(" ");
         el.scramble = fullSeq;
         el.player?.controller?.jumpToEnd?.({ flash: false }) || el.player?.jumpToEnd?.();
       } catch {}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { SolveReplayViewer } from '../src/replayView.js';
+import { SolveReplayViewer, buildReplayDisplaySequence } from '../src/replayView.js';
 import { createModalManager } from '../src/ui/modalManager.js';
 
 test('SolveReplayViewer instantiation and initialization', () => {
@@ -84,4 +84,17 @@ test('SolveReplayViewer formats +2 / DNF headers with getSolveTime and integrate
   viewer.open({ puzzle: '333', rawMs: 4100, penalty: 'DNF', scramble: "R U", moves: [] });
   assert.strictEqual(timeEl.textContent, 'DNF');
   viewer.close();
+});
+
+test('buildReplayDisplaySequence strips x/y/z gyro rotations while preserving move-tape scrubbing alignment', () => {
+  const seq = buildReplayDisplaySequence("F R", [
+    { move: "R'", t: 100 },
+    { move: "x'", t: 150 },
+    { move: "y2", t: 200 },
+    { move: "F'", t: 350 }
+  ]);
+  assert.deepStrictEqual(seq.scrMoves, ["F", "R"]);
+  assert.deepStrictEqual(seq.faceMoveTokens, ["R'", "F'"]);
+  assert.strictEqual(seq.fullSequence, "F R R' F'");
+  assert.deepStrictEqual(seq.moveIndexToDisplayIndex, [2, 3, 3, 3, 4]);
 });

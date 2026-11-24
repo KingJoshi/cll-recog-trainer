@@ -7,6 +7,29 @@ import { getSolveTime } from './services/solveStats.js';
 import { ICON_PLAY, ICON_PAUSE, ICON_REPLAY } from './ui/transportIcons.js';
 
 let ScrambleDisplayClass = null;
+const ROTATION_TOKEN_RE = /^[xyz][2']?$/i;
+
+export function buildReplayDisplaySequence(scramble = "", moves = []) {
+  const parsedScr = parseScrambleInput(scramble);
+  const scrMoves = parsedScr.ok ? parsedScr.moves : [];
+  const faceMoveTokens = [];
+  const moveIndexToDisplayIndex = [scrMoves.length];
+  const moveList = Array.isArray(moves) ? moves : [];
+  for (const m of moveList) {
+    const tok = String(m?.move || "").trim();
+    if (tok && !ROTATION_TOKEN_RE.test(tok)) {
+      faceMoveTokens.push(tok);
+    }
+    moveIndexToDisplayIndex.push(scrMoves.length + faceMoveTokens.length);
+  }
+  return {
+    scrMoves,
+    faceMoveTokens,
+    moveIndexToDisplayIndex,
+    fullSequence: [...scrMoves, ...faceMoveTokens].join(" ")
+  };
+}
+
 async function getScrambleDisplay() {
   if (!ScrambleDisplayClass && typeof window !== "undefined") {
     const mod = await import('scramble-display');
@@ -270,6 +293,7 @@ export class SolveReplayViewer {
     }
     this.display = null;
     this.activeSolve = null;
+    this._moveIndexToDisplayIndex = null;
   }
 
   close() {
@@ -295,14 +319,11 @@ export class SolveReplayViewer {
         disp.player.hintFacelets = showRefl ? "floating" : "none";
       }
 
-      // Combine scramble and solve moves into sequence
-      const parsedScr = parseScrambleInput(this.scramble);
-      const scrMoves = parsedScr.ok ? parsedScr.moves : [];
-      this.scrambleMoveCount = scrMoves.length;
-
-      const solveMoveTokens = this.moves.map(m => m.move);
-      const fullSequence = [...scrMoves, ...solveMoveTokens].join(" ");
-      disp.scramble = fullSequence;
+      // Strip gyro rotation tokens (hardware face turns are already in smart-cube WCA frame)
+      const seqInfo = buildReplayDisplaySequence(this.scramble, this.moves);
+      this.scrambleMoveCount = seqInfo.scrMoves.length;
+      this._moveIndexToDisplayIndex = seqInfo.moveIndexToDisplayIndex;
+      disp.scramble = seqInfo.fullSequence;
 
       if (gen !== this._mountGen || !this.cubeContainer) return;
       this.display = disp;
@@ -403,7 +424,9 @@ export class SolveReplayViewer {
     if (this.display && this.display.player) {
       try {
         this.display.player.pause();
-        const totalIndex = this.scrambleMoveCount + targetIndex;
+        const totalIndex = Array.isArray(this._moveIndexToDisplayIndex)
+          ? (this._moveIndexToDisplayIndex[targetIndex] ?? this.scrambleMoveCount)
+          : (this.scrambleMoveCount + targetIndex);
         const targetScrambleIdx = totalIndex - 1;
 
         if (targetScrambleIdx < 0) {
