@@ -1721,4 +1721,190 @@
   .study-custom-alg-feedback.pending {
     color: var(--muted);
   }
+
+/* --------------------------------------------------------------------------
+   3BLD Speffz & Old Pochmann Guide
+   -------------------------------------------------------------------------- */
+.bld-net-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 8px 0 12px;
+}
+
+.bld-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.bld-legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 2px solid currentColor;
+}
+
+.bld-legend-swatch.is-buffer {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.2);
+}
+
+.bld-legend-swatch.is-target {
+  border-color: #059669;
+  background: rgba(5, 150, 105, 0.2);
+}
+
+.bld-nets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 14px;
+}
+
+.bld-net-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bld-net-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.bld-net-sub {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.bld-net-svg {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  display: block;
+  margin: 4px auto 0;
+}
+
+.bld-tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.bld-table-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.bld-table-title {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.bld-table-scroll {
+  overflow-x: auto;
+}
+
+.bld-letter-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.bld-letter-table th,
+.bld-letter-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.bld-letter-table th {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.bld-letter-table tr.is-buffer-row {
+  background: rgba(124, 58, 237, 0.06);
+}
+
+.bld-letter-table tr.is-target-row {
+  background: rgba(5, 150, 105, 0.06);
+}
+
+.bld-row-note {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.bld-face-list,
+.bld-setup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bld-face-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.bld-letter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-weight: 800;
+  font-size: 0.76rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.bld-letter-pill.bld-letter-buffer {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.14);
+  color: #6d28d9;
+}
+
+.bld-letter-pill.bld-letter-target {
+  border-color: #059669;
+  background: rgba(5, 150, 105, 0.14);
+  color: #047857;
+}
+
+[data-theme="dark"] .bld-letter-pill.bld-letter-buffer {
+  color: #c4b5fd;
+}
+
+[data-theme="dark"] .bld-letter-pill.bld-letter-target {
+  color: #6ee7b7;
+}
+
+.bld-setup-item {
+  white-space: nowrap;
+}
 }

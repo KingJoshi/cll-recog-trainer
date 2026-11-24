@@ -318,9 +318,20 @@ export const PUZZLES = {
     name: "3x3 Blindfolded",
     shortName: "3x3 BLD",
     wcaEvent: "333bf",
-    solveOnly: true,
-    defaultTrack: "full",
-    tracks: []
+    learnAndSolveOnly: true,
+    defaultTrack: "bld-guide",
+    tracks: [
+      {
+        id: "bld-guide",
+        name: "3BLD Guide (Speffz & Old Pochmann)",
+        shortName: "3BLD Guide",
+        studyOnly: true,
+        description: "Speffz letter scheme, Buffer & Target slots, Old Pochmann Edges & Corners, Parity, and Memo",
+        cases: [],
+        caseById: new Map(),
+        groups: ["Speffz Scheme", "Edges (OP)", "Corners (OP)", "Parity & Memo"]
+      }
+    ]
   },
   "666": {
     id: "666",
@@ -848,7 +859,7 @@ export function getSolveTargetsForPuzzle(puzzleId) {
     return SOLVE_TARGETS_BY_PUZZLE[puzzleId];
   }
   const pDef = PUZZLES[puzzleId];
-  if (pDef?.solveOnly) {
+  if (pDef?.solveOnly || pDef?.learnAndSolveOnly) {
     return [
       {
         id: "full",

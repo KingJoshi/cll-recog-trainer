@@ -158,8 +158,13 @@ export class AppStore {
     if (PUZZLES[currentPuzzle]?.solveOnly) {
       currentTrackId = "full";
       mode = "solve";
-    } else if (!getTrack(currentPuzzle, currentTrackId)) {
-      currentTrackId = getDefaultTrack(currentPuzzle)?.id || "cll";
+    } else {
+      if (PUZZLES[currentPuzzle]?.learnAndSolveOnly && mode !== "study" && mode !== "solve") {
+        mode = "solve";
+      }
+      if (!getTrack(currentPuzzle, currentTrackId)) {
+        currentTrackId = getDefaultTrack(currentPuzzle)?.id || "cll";
+      }
     }
 
     // Per-track case selections (with lossless migration from legacy flat `selected`)
@@ -1016,11 +1021,14 @@ export class AppStore {
       } else if (!getTrack(currentPuzzle, currentTrackId)) {
         currentTrackId = getDefaultTrack(currentPuzzle)?.id || "cll";
       }
-      const mode = PUZZLES[currentPuzzle]?.solveOnly
+      let mode = PUZZLES[currentPuzzle]?.solveOnly
         ? "solve"
         : (MODES.includes(savedSettings.mode)
             ? savedSettings.mode
             : (savedSettings.mode === "timed" ? "practice" : this.state.mode));
+      if (PUZZLES[currentPuzzle]?.learnAndSolveOnly && mode !== "study" && mode !== "solve") {
+        mode = "solve";
+      }
 
       const selectedByTrack = {};
       if (savedSettings.selectedByTrack && typeof savedSettings.selectedByTrack === "object") {

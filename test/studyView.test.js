@@ -4,6 +4,7 @@ import { StudyView } from '../src/studyView.js';
 import { getTrack, setPreferredAlg, getPreferredAlg } from '../src/data/algRegistry.js';
 import { render444ParitySvg } from '../src/cube/caseSvgRenderer.js';
 import { OLL_TWO_SIDED_GUIDE, PLL_TWO_SIDED_GUIDE } from '../src/data/twoSidedRecogData.js';
+import { SPEFFZ_CORNERS, SPEFFZ_EDGES, renderSpeffzNetSvg } from '../src/features/study/bldGuideRenderer.js';
 
 function createMockContainer() {
   return {
@@ -544,4 +545,32 @@ test('StudyView renders 3D cube containers for Full/2-Look 3x3 OLL & PLL and 2x2
   sv.deactivate();
   assert.strictEqual(sv._twoSided3d.gen, genBefore + 1);
   assert.strictEqual(sv._twoSided3d.cards.size, 0);
+});
+
+test('333bf 3BLD guide covers all 24 Speffz letters for Corners & Edges, dual nets, OP swaps, and Parity', () => {
+  assert.strictEqual(SPEFFZ_CORNERS.length, 8);
+  assert.strictEqual(SPEFFZ_EDGES.length, 12);
+
+  const expectedLetters = 'ABCDEFGHIJKLMNOPQRSTUVWX';
+  const cornerLetters = SPEFFZ_CORNERS.flatMap(c => c.faces.map(f => f.letter)).sort().join('');
+  const edgeLetters = SPEFFZ_EDGES.flatMap(e => e.faces.map(f => f.letter)).sort().join('');
+  assert.strictEqual(cornerLetters, expectedLetters);
+  assert.strictEqual(edgeLetters, expectedLetters);
+
+  assert.ok(renderSpeffzNetSvg('edges').includes('bld-net-svg'));
+  assert.ok(renderSpeffzNetSvg('corners').includes('bld-net-svg'));
+
+  const container = createMockContainer();
+  const sv = new StudyView({ container });
+  sv.setTrack('333bf', 'bld-guide');
+
+  const html = container.innerHTML;
+  assert.ok(html.includes('Speffz Letter Scheme'));
+  assert.ok(html.includes('Solving Edges'));
+  assert.ok(html.includes('Solving Corners'));
+  assert.ok(html.includes('Parity'));
+  assert.ok(html.includes("R U R' U' R' F R2 U' R' U' R U R' F'"));
+  assert.ok(html.includes("R U' R' U' R U R' F' R U R' U' R' F R"));
+  assert.ok(html.includes("R U' R' U' R U R D R' U' R D' R' U2 R' U'"));
+  assert.ok(html.includes('OP Buffer sticker'));
 });

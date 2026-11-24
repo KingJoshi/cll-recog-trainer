@@ -39,6 +39,7 @@ import {
   syncFirstLayerExplorerSpeed,
   teardownFirstLayerExplorer3d
 } from './features/study/firstLayerExplorer.js';
+import { render3BldGuideHtml } from './features/study/bldGuideRenderer.js';
 
 let ScrambleDisplayClass = null;
 async function getScrambleDisplay() {
@@ -746,6 +747,10 @@ export class StudyView {
   }
 
   renderGuideView(track) {
+    if (this.currentPuzzle === "333bf") {
+      return render3BldGuideHtml();
+    }
+
     if ((this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && this.currentTrackId === "cross") {
       return `
         <div class="guide-card-stack">

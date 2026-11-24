@@ -19,7 +19,12 @@ test('recommendTrainingPlan returns valid track, solve target, mode, ohHand, and
           assert.strictEqual(plan.goal, goal);
 
           const isSolveOnly = Boolean(PUZZLES[puzzle]?.solveOnly);
-          const expectedMode = isSolveOnly ? 'solve' : (goal === 'learn' ? 'study' : goal === 'practice' ? 'practice' : 'solve');
+          const isLearnAndSolveOnly = Boolean(PUZZLES[puzzle]?.learnAndSolveOnly);
+          const expectedMode = isSolveOnly
+            ? 'solve'
+            : isLearnAndSolveOnly
+              ? (goal === 'learn' ? 'study' : 'solve')
+              : (goal === 'learn' ? 'study' : goal === 'practice' ? 'practice' : 'solve');
           assert.strictEqual(plan.mode, expectedMode);
 
           if (!isSolveOnly) {

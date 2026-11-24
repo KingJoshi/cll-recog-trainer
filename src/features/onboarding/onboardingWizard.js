@@ -70,6 +70,30 @@ export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal
   const safeOhTableAbuse = ohTableAbuse !== false;
   const mode = safeGoal === "learn" ? "study" : safeGoal === "practice" ? "practice" : "solve";
 
+  if (PUZZLES[safePuzzle]?.learnAndSolveOnly) {
+    const pickStudy = safeGoal === "learn";
+    return {
+      puzzle: safePuzzle,
+      level: safeLevel,
+      goal: safeGoal,
+      ohHand: safeOhHand,
+      ohTableAbuse: safeOhTableAbuse,
+      mode: pickStudy ? "study" : "solve",
+      trackId: "bld-guide",
+      solveTarget: "full",
+      starterCaseIds: null,
+      studyView: "guide",
+      twoSidedMode: false,
+      title: `${PUZZLES[safePuzzle].name} (${pickStudy ? "Speffz & OP Guide" : "Timed Solves"})`,
+      summary: pickStudy
+        ? "Learn the Speffz letter scheme, Buffer/Target slots, and Old Pochmann Edges & Corners."
+        : `Full WCA ${PUZZLES[safePuzzle].name} scrambles and timer.`,
+      nextStepTip: pickStudy
+        ? "Study Speffz letter labels on U/L/F/R/B/D and practice solving Edges & Corners."
+        : "Press Space to start timing full 3BLD solves."
+    };
+  }
+
   if (PUZZLES[safePuzzle]?.solveOnly) {
     return {
       puzzle: safePuzzle,

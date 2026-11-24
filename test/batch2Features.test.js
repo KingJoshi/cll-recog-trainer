@@ -142,9 +142,9 @@ test('computeCfopGoalAnalysis & renderCfopGoalCoachHtml detect bottlenecks and s
   assert.ok(html.includes('Gb'));
 });
 
-test('Extra WCA solve-only puzzles expose registry metadata and generate valid scrambles', async () => {
-  const extraIds = ['pyram', 'skewb', 'minx', 'sq1', 'clock', '333bf'];
-  for (const id of extraIds) {
+test('Extra WCA solve-only and learn+solve puzzles expose registry metadata and generate valid scrambles', async () => {
+  const solveOnlyIds = ['pyram', 'skewb', 'minx', 'sq1', 'clock'];
+  for (const id of solveOnlyIds) {
     assert.ok(VALID_PUZZLES.includes(id), `${id} should be in VALID_PUZZLES`);
     assert.ok(PUZZLES[id], `${id} should exist in PUZZLES`);
     assert.strictEqual(PUZZLES[id].solveOnly, true);
@@ -155,6 +155,14 @@ test('Extra WCA solve-only puzzles expose registry metadata and generate valid s
     const scr = await generateWcaScrambleForPuzzle(id);
     assert.ok(typeof scr === 'string' && scr.trim().length > 3, `Expected scramble for ${id}`);
   }
+
+  assert.ok(VALID_PUZZLES.includes('333bf'));
+  assert.strictEqual(PUZZLES['333bf'].learnAndSolveOnly, true);
+  assert.strictEqual(PUZZLES['333bf'].defaultTrack, 'bld-guide');
+  assert.strictEqual(PUZZLES['333bf'].tracks.length, 1);
+  assert.strictEqual(getSolveTargetsForPuzzle('333bf')[0].id, 'full');
+  const bfScr = await generateWcaScrambleForPuzzle('333bf');
+  assert.ok(typeof bfScr === 'string' && bfScr.trim().length > 3);
 });
 
 test('AppStore, audioService metronome, and syncMerge handle Batch 2 settings cleanly', () => {

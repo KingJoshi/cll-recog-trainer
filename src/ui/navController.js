@@ -260,7 +260,11 @@ export function createNavController({
   function renderStage() {
     const s = appStore.state;
     const isSolveOnly = Boolean(PUZZLES[s.currentPuzzle]?.solveOnly);
+    const isLearnSolveOnly = Boolean(PUZZLES[s.currentPuzzle]?.learnAndSolveOnly);
     if (isSolveOnly && s.mode !== "solve") {
+      s.mode = "solve";
+      s.solveTarget = "full";
+    } else if (isLearnSolveOnly && s.mode !== "study" && s.mode !== "solve") {
       s.mode = "solve";
       s.solveTarget = "full";
     }
@@ -268,7 +272,10 @@ export function createNavController({
 
     modeButtons.forEach(btn => {
       const m = btn.dataset.mode;
-      btn.hidden = Boolean(isSolveOnly && m !== "solve");
+      btn.hidden = Boolean(
+        (isSolveOnly && m !== "solve") ||
+        (isLearnSolveOnly && m !== "study" && m !== "solve")
+      );
       btn.setAttribute("aria-pressed", String(m === s.mode));
     });
 
@@ -378,7 +385,7 @@ export function createNavController({
 
   function setTrainSubMode(subMode) {
     const s = appStore.state;
-    if (PUZZLES[s.currentPuzzle]?.solveOnly) return false;
+    if (PUZZLES[s.currentPuzzle]?.solveOnly || PUZZLES[s.currentPuzzle]?.learnAndSolveOnly) return false;
     const next = subMode === "timed-drill" ? "timed-drill" : "recog";
     if (s.mode === "practice" && s.trainSubMode === next) return false;
     ++scrambleGenToken;
@@ -428,7 +435,7 @@ export function createNavController({
     const s = appStore.state;
     const pData = PUZZLES[s.currentPuzzle];
     if (!tgt || !getSolveTargetInfo(s.currentPuzzle, tgt)) return false;
-    if (pData?.solveOnly && tgt !== "full") return false;
+    if ((pData?.solveOnly || pData?.learnAndSolveOnly) && tgt !== "full") return false;
 
     const timerCtrl = getTimerCtrl();
     if (timerCtrl?.getSolveState?.() !== "idle") {
@@ -510,6 +517,9 @@ export function createNavController({
     const s = appStore.state;
     if (PUZZLES[s.currentPuzzle]?.solveOnly && next !== "solve") {
       next = "solve";
+    }
+    if (PUZZLES[s.currentPuzzle]?.learnAndSolveOnly && next !== "study" && next !== "solve") {
+      return;
     }
     if (next === "timed") {
       next = "practice";
@@ -612,6 +622,8 @@ export function createNavController({
     const pDef = PUZZLES[s.currentPuzzle];
     s.currentTrackId = pDef?.defaultTrack || getDefaultTrack(s.currentPuzzle)?.id || "cll";
     if (pDef?.solveOnly) {
+      s.mode = "solve";
+    } else if (pDef?.learnAndSolveOnly && s.mode !== "study" && s.mode !== "solve") {
       s.mode = "solve";
     }
 
@@ -813,7 +825,7 @@ export function createNavController({
     }
 
     const activePDef = PUZZLES[expectedPuzzle];
-    if (activePDef?.solveOnly) {
+    if (activePDef?.solveOnly || activePDef?.learnAndSolveOnly) {
       if (activePDef.isCustomEvent && (!activePDef.wcaEvent || activePDef.wcaEvent === "none")) {
         s.scramble = "";
         s.scrambleMoves = "";
