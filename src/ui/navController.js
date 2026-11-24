@@ -179,8 +179,9 @@ export function createNavController({
   function renderTrackBar() {
     const s = appStore.state;
     const isSolveOnly = Boolean(PUZZLES[s.currentPuzzle]?.solveOnly);
+    const isHideSimulate = Boolean(PUZZLES[s.currentPuzzle]?.hideSimulate);
     if (trainSubmodeBar) {
-      trainSubmodeBar.hidden = Boolean(isSolveOnly || s.mode !== "practice");
+      trainSubmodeBar.hidden = Boolean(isSolveOnly || isHideSimulate || s.mode !== "practice");
       trainSubmodeBar.querySelectorAll("[data-train-submode]").forEach(btn => {
         const active = btn.dataset.trainSubmode === s.trainSubMode;
         btn.classList.toggle("active", active);
@@ -234,9 +235,12 @@ export function createNavController({
 
     const visibleTracks = s.mode === "practice"
       ? pData.tracks.filter(t => !t.studyOnly)
-      : pData.tracks;
-    if (s.mode === "practice" && !visibleTracks.some(t => t.id === s.currentTrackId) && visibleTracks.length > 0) {
-      s.currentTrackId = PUZZLES[s.currentPuzzle]?.defaultTrack || visibleTracks[0].id;
+      : s.mode === "study"
+        ? pData.tracks.filter(t => !t.practiceOnly)
+        : pData.tracks;
+    if (!visibleTracks.some(t => t.id === s.currentTrackId) && visibleTracks.length > 0) {
+      const preferred = visibleTracks.find(t => t.id === PUZZLES[s.currentPuzzle]?.defaultTrack) || visibleTracks[0];
+      s.currentTrackId = preferred.id;
       appStore.loadTrackSelection(s.currentPuzzle, s.currentTrackId);
     }
 
@@ -260,11 +264,11 @@ export function createNavController({
   function renderStage() {
     const s = appStore.state;
     const isSolveOnly = Boolean(PUZZLES[s.currentPuzzle]?.solveOnly);
-    const isLearnSolveOnly = Boolean(PUZZLES[s.currentPuzzle]?.learnAndSolveOnly);
+    const isHideSimulate = Boolean(PUZZLES[s.currentPuzzle]?.hideSimulate);
     if (isSolveOnly && s.mode !== "solve") {
       s.mode = "solve";
       s.solveTarget = "full";
-    } else if (isLearnSolveOnly && s.mode !== "study" && s.mode !== "solve") {
+    } else if (isHideSimulate && s.mode === "simulate") {
       s.mode = "solve";
       s.solveTarget = "full";
     }
@@ -274,7 +278,7 @@ export function createNavController({
       const m = btn.dataset.mode;
       btn.hidden = Boolean(
         (isSolveOnly && m !== "solve") ||
-        (isLearnSolveOnly && m !== "study" && m !== "solve")
+        (isHideSimulate && m === "simulate")
       );
       btn.setAttribute("aria-pressed", String(m === s.mode));
     });
@@ -385,7 +389,7 @@ export function createNavController({
 
   function setTrainSubMode(subMode) {
     const s = appStore.state;
-    if (PUZZLES[s.currentPuzzle]?.solveOnly || PUZZLES[s.currentPuzzle]?.learnAndSolveOnly) return false;
+    if (PUZZLES[s.currentPuzzle]?.solveOnly || PUZZLES[s.currentPuzzle]?.hideSimulate) return false;
     const next = subMode === "timed-drill" ? "timed-drill" : "recog";
     if (s.mode === "practice" && s.trainSubMode === next) return false;
     ++scrambleGenToken;
@@ -435,7 +439,7 @@ export function createNavController({
     const s = appStore.state;
     const pData = PUZZLES[s.currentPuzzle];
     if (!tgt || !getSolveTargetInfo(s.currentPuzzle, tgt)) return false;
-    if ((pData?.solveOnly || pData?.learnAndSolveOnly) && tgt !== "full") return false;
+    if ((pData?.solveOnly || pData?.hideSimulate) && tgt !== "full") return false;
 
     const timerCtrl = getTimerCtrl();
     if (timerCtrl?.getSolveState?.() !== "idle") {
@@ -518,7 +522,7 @@ export function createNavController({
     if (PUZZLES[s.currentPuzzle]?.solveOnly && next !== "solve") {
       next = "solve";
     }
-    if (PUZZLES[s.currentPuzzle]?.learnAndSolveOnly && next !== "study" && next !== "solve") {
+    if (PUZZLES[s.currentPuzzle]?.hideSimulate && next === "simulate") {
       return;
     }
     if (next === "timed") {
@@ -557,6 +561,9 @@ export function createNavController({
       }
       getSessionModal()?.populateSessionSelect?.();
     } else if (s.mode === "practice") {
+      if (PUZZLES[s.currentPuzzle]?.hideSimulate) {
+        s.trainSubMode = "recog";
+      }
       if (s.trainSubMode === "timed-drill") {
         s.statsType = "log";
         ensureTimedDrillTargetAndSession();
@@ -564,9 +571,19 @@ export function createNavController({
         s.statsType = "recog";
         const curTrack = getTrack(s.currentPuzzle, s.currentTrackId);
         if (!curTrack || curTrack.studyOnly) {
-          s.currentTrackId = PUZZLES[s.currentPuzzle]?.defaultTrack || getDefaultTrack(s.currentPuzzle)?.id || s.currentTrackId;
+          const practiceTracks = (PUZZLES[s.currentPuzzle]?.tracks || []).filter(t => !t.studyOnly);
+          const defTrack = practiceTracks.find(t => t.id === PUZZLES[s.currentPuzzle]?.defaultTrack);
+          s.currentTrackId = defTrack?.id || practiceTracks[0]?.id || getDefaultTrack(s.currentPuzzle)?.id || s.currentTrackId;
           appStore.loadTrackSelection(s.currentPuzzle, s.currentTrackId);
         }
+      }
+    } else if (s.mode === "study") {
+      const curTrack = getTrack(s.currentPuzzle, s.currentTrackId);
+      if (!curTrack || curTrack.practiceOnly) {
+        const studyTracks = (PUZZLES[s.currentPuzzle]?.tracks || []).filter(t => !t.practiceOnly);
+        const defTrack = studyTracks.find(t => t.id === PUZZLES[s.currentPuzzle]?.defaultTrack);
+        s.currentTrackId = defTrack?.id || studyTracks[0]?.id || getDefaultTrack(s.currentPuzzle)?.id || s.currentTrackId;
+        appStore.loadTrackSelection(s.currentPuzzle, s.currentTrackId);
       }
     }
 
@@ -623,8 +640,13 @@ export function createNavController({
     s.currentTrackId = pDef?.defaultTrack || getDefaultTrack(s.currentPuzzle)?.id || "cll";
     if (pDef?.solveOnly) {
       s.mode = "solve";
-    } else if (pDef?.learnAndSolveOnly && s.mode !== "study" && s.mode !== "solve") {
-      s.mode = "solve";
+    } else if (pDef?.hideSimulate) {
+      if (s.mode === "simulate") s.mode = "solve";
+      if (s.mode === "practice") {
+        s.trainSubMode = "recog";
+        const practiceTrack = pDef.tracks?.find(t => !t.studyOnly);
+        if (practiceTrack) s.currentTrackId = practiceTrack.id;
+      }
     }
 
     let matchingSessions = s.sessions.filter(sess => (sess.puzzle || "222") === s.currentPuzzle);
@@ -825,7 +847,7 @@ export function createNavController({
     }
 
     const activePDef = PUZZLES[expectedPuzzle];
-    if (activePDef?.solveOnly || activePDef?.learnAndSolveOnly) {
+    if (activePDef?.solveOnly || activePDef?.hideSimulate) {
       if (activePDef.isCustomEvent && (!activePDef.wcaEvent || activePDef.wcaEvent === "none")) {
         s.scramble = "";
         s.scrambleMoves = "";

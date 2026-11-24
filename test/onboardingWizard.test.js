@@ -19,17 +19,18 @@ test('recommendTrainingPlan returns valid track, solve target, mode, ohHand, and
           assert.strictEqual(plan.goal, goal);
 
           const isSolveOnly = Boolean(PUZZLES[puzzle]?.solveOnly);
-          const isLearnAndSolveOnly = Boolean(PUZZLES[puzzle]?.learnAndSolveOnly);
+          const isHideSimulate = Boolean(PUZZLES[puzzle]?.hideSimulate);
           const expectedMode = isSolveOnly
             ? 'solve'
-            : isLearnAndSolveOnly
-              ? (goal === 'learn' ? 'study' : 'solve')
-              : (goal === 'learn' ? 'study' : goal === 'practice' ? 'practice' : 'solve');
+            : (goal === 'learn' ? 'study' : goal === 'practice' ? 'practice' : 'solve');
           assert.strictEqual(plan.mode, expectedMode);
 
           if (!isSolveOnly) {
             const track = getTrack(plan.puzzle, plan.trackId);
             assert.ok(track, `Track ${plan.trackId} must exist for ${puzzle}`);
+            if (isHideSimulate && goal === 'practice') {
+              assert.strictEqual(plan.trackId, 'bld-memo');
+            }
 
             if (plan.starterCaseIds) {
               assert.ok(Array.isArray(plan.starterCaseIds) && plan.starterCaseIds.length > 0);

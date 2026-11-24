@@ -318,7 +318,7 @@ export const PUZZLES = {
     name: "3x3 Blindfolded",
     shortName: "3x3 BLD",
     wcaEvent: "333bf",
-    learnAndSolveOnly: true,
+    hideSimulate: true,
     defaultTrack: "bld-guide",
     tracks: [
       {
@@ -330,6 +330,16 @@ export const PUZZLES = {
         cases: [],
         caseById: new Map(),
         groups: ["Speffz Scheme", "Edges (OP)", "Corners (OP)", "Parity & Memo"]
+      },
+      {
+        id: "bld-memo",
+        name: "3BLD Letter Pairs (Memo Trainer)",
+        shortName: "Letter Pairs",
+        practiceOnly: true,
+        description: "Train Speffz letter-pair memo for Edges only, Corners only, or Full 3BLD with instant cube verification",
+        cases: [],
+        caseById: new Map(),
+        groups: []
       }
     ]
   },
@@ -859,7 +869,7 @@ export function getSolveTargetsForPuzzle(puzzleId) {
     return SOLVE_TARGETS_BY_PUZZLE[puzzleId];
   }
   const pDef = PUZZLES[puzzleId];
-  if (pDef?.solveOnly || pDef?.learnAndSolveOnly) {
+  if (pDef?.solveOnly || pDef?.hideSimulate) {
     return [
       {
         id: "full",

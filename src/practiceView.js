@@ -7,6 +7,7 @@ import { computeExpectedPostAuf, isAufQuizTrackSupported } from './cube/customAl
 import { findLayerSolutions, findFaceSolutions } from './layerSolver.js';
 import { findCrossSolutions } from './crossSolver.js';
 import { ICON_POPUP_SIM } from './ui/transportIcons.js';
+import { BldMemoTrainer } from './features/practice/bldMemoTrainer.js';
 
 function escapeHtmlAttr(val) {
   return String(val ?? '')
@@ -72,6 +73,13 @@ export class PracticeView {
     this.sprintSession = null;
     this.sprintSummary = null;
     this.sprintTimerId = null;
+
+    // 3BLD memo trainer delegate
+    this.bldMemoTrainer = null;
+  }
+
+  isBldMemoTrack() {
+    return this.currentPuzzle === "333bf" && this.currentTrackId === "bld-memo";
   }
 
   /**
@@ -86,6 +94,7 @@ export class PracticeView {
       this.sprintTimerId = null;
     }
     this.sprintRunning = false;
+    this.bldMemoTrainer?.deactivate?.();
     this.onTwoSidedModeChange?.(false);
   }
 
@@ -180,6 +189,20 @@ export class PracticeView {
     if (this.sprintRunning) {
       this.finishSprint();
     }
+    this.bldMemoTrainer?.deactivate?.();
+    this.onTwoSidedModeChange?.(this.isTwoSidedActive());
+
+    if (this.isBldMemoTrack()) {
+      if (!this.bldMemoTrainer) {
+        this.bldMemoTrainer = new BldMemoTrainer({
+          container: this.container,
+          onApplyScrambleToDisplay: this.onApplyScrambleToDisplay,
+          onFlashCube: this.onFlashCube
+        });
+      }
+      await this.bldMemoTrainer.init();
+      return;
+    }
     this.solutionRevealed = false;
     this.answered = false;
     this.guessGroup = null;
@@ -240,6 +263,17 @@ export class PracticeView {
 
   render() {
     if (!this.container) return;
+    if (this.isBldMemoTrack()) {
+      if (!this.bldMemoTrainer) {
+        this.bldMemoTrainer = new BldMemoTrainer({
+          container: this.container,
+          onApplyScrambleToDisplay: this.onApplyScrambleToDisplay,
+          onFlashCube: this.onFlashCube
+        });
+      }
+      this.bldMemoTrainer.render();
+      return;
+    }
     const isInspectionDrill = this.isInspectionTrack();
     const isOh = this.currentPuzzle === "333oh";
     const ohHand = this.getOhHand();

@@ -70,27 +70,34 @@ export function recommendTrainingPlan({ puzzle = "222", level = "beginner", goal
   const safeOhTableAbuse = ohTableAbuse !== false;
   const mode = safeGoal === "learn" ? "study" : safeGoal === "practice" ? "practice" : "solve";
 
-  if (PUZZLES[safePuzzle]?.learnAndSolveOnly) {
+  if (PUZZLES[safePuzzle]?.hideSimulate) {
     const pickStudy = safeGoal === "learn";
+    const pickPractice = safeGoal === "practice";
+    const selectedMode = pickStudy ? "study" : pickPractice ? "practice" : "solve";
+    const selectedTrack = pickPractice ? "bld-memo" : "bld-guide";
     return {
       puzzle: safePuzzle,
       level: safeLevel,
       goal: safeGoal,
       ohHand: safeOhHand,
       ohTableAbuse: safeOhTableAbuse,
-      mode: pickStudy ? "study" : "solve",
-      trackId: "bld-guide",
+      mode: selectedMode,
+      trackId: selectedTrack,
       solveTarget: "full",
       starterCaseIds: null,
       studyView: "guide",
       twoSidedMode: false,
-      title: `${PUZZLES[safePuzzle].name} (${pickStudy ? "Speffz & OP Guide" : "Timed Solves"})`,
+      title: `${PUZZLES[safePuzzle].name} (${pickStudy ? "Speffz & OP Guide" : pickPractice ? "Letter Pair Memo Trainer" : "Timed Solves"})`,
       summary: pickStudy
         ? "Learn the Speffz letter scheme, Buffer/Target slots, and Old Pochmann Edges & Corners."
-        : `Full WCA ${PUZZLES[safePuzzle].name} scrambles and timer.`,
+        : pickPractice
+          ? "Train Edges only, Corners only, or Full 3BLD Speffz letter-pair memo with live verification."
+          : `Full WCA ${PUZZLES[safePuzzle].name} scrambles and timer.`,
       nextStepTip: pickStudy
         ? "Study Speffz letter labels on U/L/F/R/B/D and practice solving Edges & Corners."
-        : "Press Space to start timing full 3BLD solves."
+        : pickPractice
+          ? "Pick Edges, Corners, or Both and enter your Speffz letter pairs to verify your memo."
+          : "Press Space to start timing full 3BLD solves."
     };
   }
 

@@ -157,9 +157,11 @@ test('Extra WCA solve-only and learn+solve puzzles expose registry metadata and 
   }
 
   assert.ok(VALID_PUZZLES.includes('333bf'));
-  assert.strictEqual(PUZZLES['333bf'].learnAndSolveOnly, true);
+  assert.strictEqual(PUZZLES['333bf'].hideSimulate, true);
   assert.strictEqual(PUZZLES['333bf'].defaultTrack, 'bld-guide');
-  assert.strictEqual(PUZZLES['333bf'].tracks.length, 1);
+  assert.strictEqual(PUZZLES['333bf'].tracks.length, 2);
+  assert.strictEqual(PUZZLES['333bf'].tracks[1].id, 'bld-memo');
+  assert.strictEqual(PUZZLES['333bf'].tracks[1].practiceOnly, true);
   assert.strictEqual(getSolveTargetsForPuzzle('333bf')[0].id, 'full');
   const bfScr = await generateWcaScrambleForPuzzle('333bf');
   assert.ok(typeof bfScr === 'string' && bfScr.trim().length > 3);

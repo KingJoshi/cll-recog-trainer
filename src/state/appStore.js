@@ -159,7 +159,7 @@ export class AppStore {
       currentTrackId = "full";
       mode = "solve";
     } else {
-      if (PUZZLES[currentPuzzle]?.learnAndSolveOnly && mode !== "study" && mode !== "solve") {
+      if (PUZZLES[currentPuzzle]?.hideSimulate && mode === "simulate") {
         mode = "solve";
       }
       if (!getTrack(currentPuzzle, currentTrackId)) {
@@ -202,6 +202,9 @@ export class AppStore {
     if (!hasSavedTrainSubMode && savedSettings.mode === "solve" && solveTarget && solveTarget !== "full" && !PUZZLES[currentPuzzle]?.solveOnly) {
       mode = "practice";
       trainSubMode = "timed-drill";
+    }
+    if (PUZZLES[currentPuzzle]?.hideSimulate) {
+      trainSubMode = "recog";
     }
 
     const ohHand = savedSettings.ohHand === "right" ? "right" : (cookiePrefs.ohHand === "right" ? "right" : "left");
@@ -1026,7 +1029,7 @@ export class AppStore {
         : (MODES.includes(savedSettings.mode)
             ? savedSettings.mode
             : (savedSettings.mode === "timed" ? "practice" : this.state.mode));
-      if (PUZZLES[currentPuzzle]?.learnAndSolveOnly && mode !== "study" && mode !== "solve") {
+      if (PUZZLES[currentPuzzle]?.hideSimulate && mode === "simulate") {
         mode = "solve";
       }
 
