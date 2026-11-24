@@ -377,6 +377,11 @@ studyView = new StudyView({
 practiceView = new PracticeView({
   container: document.getElementById("practiceViewContainer"),
   onGenerateScramble: (trackId) => navCtrl.generatePracticeScramble(trackId),
+  onApplyScrambleToDisplay: (scramble) => {
+    appStore.state.scrambleMoves = scramble || "";
+    appStore.state.scramble = scramble || "";
+    cubeStage.applyScrambleToDisplay(scramble || "");
+  },
   onRecordRecognition: (caseId, isCorrect) => {
     const s = appStore.state;
     appStore.recordCaseStat(s.currentPuzzle, s.currentTrackId, caseId, isCorrect);

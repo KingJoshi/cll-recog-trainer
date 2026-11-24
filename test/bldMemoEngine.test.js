@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getKpuzzle } from '../src/cube/cubeUtils.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, '..');
 import {
   OP_T_PERM,
   OP_PARITY_RA_PERM,
@@ -60,28 +66,23 @@ test('All 22 OP edge algs, 21 OP corner algs, and Ra-Perm are valid involutions 
   );
 });
 
-test('generateBldScramble produces valid edges-only, corners-only, and full 3BLD scrambles verifiable by verifyBldMemoAnswer', async () => {
+test('generateBldScramble produces concise standard WCA 3x3 scrambles verifiable across edges, corners, and both modes', async () => {
   for (const mode of ['edges', 'corners', 'both']) {
     for (let i = 0; i < 3; i++) {
       const scr = await generateBldScramble(mode);
       assert.ok(typeof scr === 'string' && scr.trim().length > 0);
-      const canon = await computeCanonicalBldMemo(scr);
-
-      if (mode === 'edges') {
-        assert.ok(canon.edgeLetters.length >= 2);
-        assert.strictEqual(canon.cornerLetters.length, 0);
-        assert.strictEqual(canon.edgeLetters.length % 2, 0);
-      } else if (mode === 'corners') {
-        assert.strictEqual(canon.edgeLetters.length, 0);
-        assert.ok(canon.cornerLetters.length >= 2);
-        assert.strictEqual(canon.cornerLetters.length % 2, 0);
+      const tokens = scr.trim().split(/\s+/);
+      assert.ok(tokens.length >= 10 && tokens.length <= 25, `Expected concise WCA scramble (<= 25 moves), got ${tokens.length}: ${scr}`);
+      for (const tok of tokens) {
+        assert.match(tok, /^[UDLRFB](2|')?$/, `Unexpected token ${tok} in WCA 3BLD scramble`);
       }
 
+      const canon = await computeCanonicalBldMemo(scr);
       const okRes = await verifyBldMemoAnswer({
         scramble: scr,
         mode,
-        edgeInput: canon.edgePairs,
-        cornerInput: canon.cornerPairs
+        edgeInput: mode === 'corners' ? '' : canon.edgePairs,
+        cornerInput: mode === 'edges' ? '' : canon.cornerPairs
       });
       assert.strictEqual(okRes.isCorrect, true, `Expected canonical memo to solve ${mode} scramble: ${scr}`);
       assert.strictEqual(okRes.errors.length, 0);
@@ -125,6 +126,21 @@ test('verifyBldMemoAnswer accepts alternate sticker cycle breaks, handles parity
   });
   assert.strictEqual(parityCheck.isCorrect, true);
   assert.strictEqual(parityCheck.appliedParity, true);
+
+  // Odd-parity WCA scrambles also verify cleanly in standalone edges-only and corners-only modes
+  const parityEdgesOnly = await verifyBldMemoAnswer({
+    scramble: OP_T_PERM,
+    mode: 'edges',
+    edgeInput: parityMemo.edgePairs
+  });
+  assert.strictEqual(parityEdgesOnly.isCorrect, true);
+
+  const parityCornersOnly = await verifyBldMemoAnswer({
+    scramble: OP_T_PERM,
+    mode: 'corners',
+    cornerInput: parityMemo.cornerPairs
+  });
+  assert.strictEqual(parityCornersOnly.isCorrect, true);
 
   // Wrong answer fails with piece breakdown
   const wrong = await verifyBldMemoAnswer({
@@ -237,4 +253,12 @@ test('BldMemoTrainer switches edges/corners/both modes and verifies answers via 
     if (prevDoc === undefined) delete globalThis.document;
     else globalThis.document = prevDoc;
   }
+});
+
+test('main.js wires onApplyScrambleToDisplay into PracticeView so 3BLD scrambles update the 3D cube', () => {
+  const mainJs = fs.readFileSync(path.join(ROOT, 'src/main.js'), 'utf8');
+  const practiceBlockMatch = mainJs.match(/new PracticeView\(\{[\s\S]*?\n\}\)/);
+  assert.ok(practiceBlockMatch, 'main.js must construct PracticeView');
+  assert.match(practiceBlockMatch[0], /onApplyScrambleToDisplay\s*:/);
+  assert.match(practiceBlockMatch[0], /cubeStage\.applyScrambleToDisplay/);
 });

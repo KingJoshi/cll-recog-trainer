@@ -20,25 +20,6 @@ export const CORNER_BUFFER_LETTERS = new Set(["A", "E", "R"]);
 
 const VALID_SPEFFZ_REGEX = /^[A-X]$/;
 
-const PURE_EDGE_CYCLES = [
-  "R2 U' R' U' R U R U R U' R", // Ua perm
-  "R' U R' U' R' U' R' U R U R2" // Ub perm
-];
-
-const PURE_CORNER_CYCLES = [
-  "R' F R' B2 R F' R' B2 R2", // Aa perm (face-only, no cube rotation)
-  "R2 B2 R F R' B2 R F' R"   // Ab perm (face-only, no cube rotation)
-];
-
-const SCRAMBLE_SETUP_MOVES = [
-  "U", "U'", "U2",
-  "D", "D'", "D2",
-  "L", "L'", "L2",
-  "R", "R'", "R2",
-  "F", "F'", "F2",
-  "B", "B'", "B2"
-];
-
 function conjugateSetup(setup, coreAlg) {
   const cleanSetup = String(setup || "").trim();
   if (!cleanSetup) return coreAlg;
@@ -208,69 +189,10 @@ export function formatLetterPairs(letters = []) {
   return pairs.join(" ");
 }
 
-function pickRandom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function buildRandomSetup(minLen = 1, maxLen = 2) {
-  const len = minLen + Math.floor(Math.random() * (maxLen - minLen + 1));
-  const moves = [];
-  let prevAxis = "";
-  for (let i = 0; i < len; i++) {
-    const candidates = SCRAMBLE_SETUP_MOVES.filter(m => m[0] !== prevAxis);
-    const chosen = pickRandom(candidates);
-    moves.push(chosen);
-    prevAxis = chosen[0];
-  }
-  return moves.join(" ");
-}
-
-function countUnsolvedInOrbit(orbitData, bufIdx) {
-  let total = 0;
-  let nonBuffer = 0;
-  for (let i = 0; i < orbitData.pieces.length; i++) {
-    if (orbitData.pieces[i] !== i || orbitData.orientation[i] !== 0) {
-      total++;
-      if (i !== bufIdx) nonBuffer++;
-    }
-  }
-  return { total, nonBuffer };
-}
-
-async function generatePureOrbitScramble(cycles, countRange, orbitName) {
-  const tables = await getCalibratedBldTables();
-  const [minCycles, maxCycles] = countRange;
-
-  for (let attempt = 0; attempt < 25; attempt++) {
-    const cycleCount = minCycles + Math.floor(Math.random() * (maxCycles - minCycles + 1));
-    const parts = [];
-    for (let i = 0; i < cycleCount; i++) {
-      const core = pickRandom(cycles);
-      const setup = buildRandomSetup(1, 2);
-      parts.push(conjugateSetup(setup, core));
-    }
-    const simplified = Alg.fromString(parts.join(" ")).experimentalSimplify({ cancel: true }).toString().trim();
-    if (!simplified) continue;
-
-    const pat = tables.solved.applyAlg(simplified).patternData;
-    const unsolved = countUnsolvedInOrbit(pat[orbitName], orbitName === "EDGES" ? tables.edgeBufferIndex : tables.cornerBufferIndex);
-    if (unsolved.total >= 3 && unsolved.nonBuffer >= 2) {
-      return simplified;
-    }
-  }
-  return cycles[0];
-}
-
 /**
- * Generate a 3BLD training scramble for "edges", "corners", or "both".
+ * Generate a standard WCA 3x3 scramble (White U, Green F) for 3BLD training.
  */
-export async function generateBldScramble(mode = "both") {
-  if (mode === "edges") {
-    return generatePureOrbitScramble(PURE_EDGE_CYCLES, [4, 6], "EDGES");
-  }
-  if (mode === "corners") {
-    return generatePureOrbitScramble(PURE_CORNER_CYCLES, [3, 5], "CORNERS");
-  }
+export async function generateBldScramble(_mode = "both") {
   return generateWca3x3Scramble();
 }
 

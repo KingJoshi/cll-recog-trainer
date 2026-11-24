@@ -13,9 +13,9 @@ import {
 } from '../../cube/bldMemoEngine.js';
 
 const MODE_OPTIONS = [
-  { id: 'edges', label: 'Edges Only', desc: 'Corners stay solved — memorize edge pairs from UR (B).' },
-  { id: 'corners', label: 'Corners Only', desc: 'Edges stay solved — memorize corner pairs from UBL (E).' },
-  { id: 'both', label: 'Both (Full 3BLD)', desc: 'Full 3x3 scramble — Edges (UR / B), Ra-Perm parity if odd, Corners (UBL / E).' }
+  { id: 'edges', label: 'Edges Only', desc: 'Standard WCA 3x3 scramble — memorize and verify edge letter pairs from UR (B).' },
+  { id: 'corners', label: 'Corners Only', desc: 'Standard WCA 3x3 scramble — memorize and verify corner letter pairs from UBL (E).' },
+  { id: 'both', label: 'Both (Full 3BLD)', desc: 'Standard WCA 3x3 scramble — Edges (UR / B), Ra-Perm parity if odd, Corners (UBL / E).' }
 ];
 
 function renderPairChipsHtml(rawValue, { kind, mode }) {
