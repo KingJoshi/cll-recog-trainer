@@ -500,6 +500,10 @@
 </main>
 
 <footer class="app-legal-footer" aria-label="Legal">
+  <div id="pwaInstallBanner" class="pwa-install-pill" hidden>
+    <button type="button" id="pwaInstallPillBtn" class="pwa-install-pill-btn">📲 Install Offline App</button>
+    <button type="button" id="pwaInstallDismissBtn" class="pwa-install-dismiss-btn" aria-label="Dismiss install suggestion" title="Dismiss">&times;</button>
+  </div>
   <a href="/privacy">Privacy Policy</a>
   <span aria-hidden="true">&middot;</span>
   <a href="/terms">Terms of Service</a>
@@ -1348,6 +1352,17 @@
             <div class="settings-sync-row">
               <span id="settingsCloudSyncStatus" class="settings-sync-status">Not signed in</span>
               <button type="button" id="settingsOpenCloudSyncBtn" class="btn btn-small btn-outline">☁️ Manage Google Drive Sync…</button>
+            </div>
+          </div>
+
+          <div class="settings-section" id="settingsPwaInstallSection">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">📲 Offline App (PWA)</h4>
+              <span class="settings-section-desc">Install Cubing.cc as a standalone app for offline timer, scramblers, algorithms, and Smart Cube use</span>
+            </div>
+            <div class="settings-sync-row">
+              <span id="settingsPwaStatus" class="settings-sync-status">Offline caching is active</span>
+              <button type="button" id="settingsPwaInstallBtn" class="btn btn-small btn-primary" hidden>📲 Install Cubing.cc</button>
             </div>
           </div>
         </div>

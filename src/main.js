@@ -13,6 +13,7 @@ import { showToast } from './ui/toastService.js';
 import { initSyncTracking } from './services/syncStorage.js';
 import { GoogleDriveSyncService } from './services/googleDriveSync.js';
 import { createCloudSyncController, formatMergeSummary } from './features/sync/cloudSyncController.js';
+import { createPwaInstallController } from './features/pwa/pwaInstallController.js';
 import { createKeyboardRouter } from './ui/keyboardRouter.js';
 import {
   eventToKeyCombo,
@@ -806,6 +807,11 @@ smartCube.addEventListener("savedcubeschange", (e) => {
 if (onboardingWizard.shouldAutoOpen()) {
   onboardingWizard.open();
 }
+
+const pwaInstallCtrl = createPwaInstallController({
+  onToast: (msg, type, ms) => showToast(msg, type, ms)
+});
+pwaInstallCtrl.init();
 
 if (googleDriveSync.isSignedIn() && googleDriveSync.getEffectiveClientId() && googleDriveSync.meta.autoSync !== false) {
   void googleDriveSync.syncNow({ reason: "startup", interactive: false });

@@ -540,9 +540,10 @@
 
   .app-legal-footer {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 8px 10px;
     padding: 4px 16px 14px;
     font-size: var(--font-xs);
     color: var(--muted);
@@ -556,5 +557,50 @@
   .app-legal-footer a:hover {
     color: var(--primary);
     text-decoration: underline;
+  }
+
+  .pwa-install-pill {
+    display: inline-flex;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  .pwa-install-pill[hidden] {
+    display: none;
+  }
+
+  .pwa-install-pill-btn {
+    border: none;
+    background: transparent;
+    color: var(--primary);
+    font: inherit;
+    font-weight: 600;
+    padding: 3px 9px;
+    cursor: pointer;
+    line-height: 1.3;
+  }
+
+  .pwa-install-pill-btn:hover {
+    background: var(--primary-soft);
+  }
+
+  .pwa-install-dismiss-btn {
+    border: none;
+    border-left: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 3px 7px;
+    cursor: pointer;
+  }
+
+  .pwa-install-dismiss-btn:hover {
+    color: var(--text);
+    background: var(--surface-2);
   }
 }
