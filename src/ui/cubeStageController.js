@@ -2,6 +2,7 @@
 
 import { ScrambleDisplay } from 'scramble-display';
 import { applyColorsTo3DCube, ensure3x3FoundationOpaque } from '../caseVisualizer.js';
+import { applyThemeColorsToCss } from '../services/themeColors.js';
 import { smartCube } from '../smartCube.js';
 import { PUZZLES } from '../data/algRegistry.js';
 
@@ -78,8 +79,10 @@ export function createCubeStageController({
       document.documentElement.removeAttribute("data-theme");
     }
 
+    applyThemeColorsToCss(appStore?.state?.themeColors, Boolean(dark));
+
     const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) {
+    if (metaTheme && !appStore?.state?.themeColors) {
       metaTheme.setAttribute("content", dark ? "#0f172a" : "#007bff");
     }
 

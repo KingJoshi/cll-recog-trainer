@@ -53,6 +53,12 @@
     --cube-orange: #ff8000;
     --cube-slate: #374151;
 
+    /* 3BLD highlight tokens */
+    --bld-buffer: #7c3aed;
+    --bld-target: #059669;
+    --bld-pair: #2563eb;
+    --bld-parity: #d97706;
+
     /* Fluid typography & semantic CFOP step tokens */
     --font-2xs: 0.68rem;
     --font-xs: 0.74rem;

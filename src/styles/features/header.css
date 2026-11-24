@@ -1,9 +1,9 @@
 @layer features {
 [data-theme="dark"] .app-header,
 [data-theme="dark"] .overview-header {
-    background: #1e293b;
+    background: var(--surface);
     border-bottom: 1px solid var(--border);
-    color: #f1f5f9;
+    color: var(--text);
 }
 
 [data-theme="dark"] .header-btn {

@@ -10,6 +10,13 @@ import {
 } from '../../caseVisualizer.js';
 import { PUZZLES, CUSTOM_EVENT_SCRAMBLE_LABELS } from '../../data/algRegistry.js';
 import { sanitizeHexColor, isTimerViewMode, DEFAULT_VISIBLE_EVENTS, ALL_BUILTIN_EVENT_IDS } from '../../state/appStore.js';
+import {
+  DEFAULT_THEME_COLORS,
+  THEME_COLOR_FIELDS,
+  THEME_COLOR_PRESETS,
+  sanitizeThemeHex,
+  sanitizeThemeColors
+} from '../../services/themeColors.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
 import { ALL_SOLVER_FACES } from '../solve/solverWidgetsView.js';
 import { showToast } from '../../ui/toastService.js';
@@ -65,7 +72,15 @@ export function createSettingsModalController({
   const closeBtn = typeof document !== "undefined" ? document.getElementById("settingsModalCloseBtn") : null;
   const doneBtn = typeof document !== "undefined" ? document.getElementById("settingsDoneBtn") : null;
   const colorPickerGrid = typeof document !== "undefined" ? document.getElementById("colorPickerGrid") : null;
+  const lightThemeColorGrid = typeof document !== "undefined" ? document.getElementById("lightThemeColorGrid") : null;
+  const darkThemeColorGrid = typeof document !== "undefined" ? document.getElementById("darkThemeColorGrid") : null;
+  const bldColorGrid = typeof document !== "undefined" ? document.getElementById("bldColorGrid") : null;
   const resetColorsBtn = typeof document !== "undefined" ? document.getElementById("resetColorsBtn") : null;
+  const resetLightThemeBtn = typeof document !== "undefined" ? document.getElementById("resetLightThemeBtn") : null;
+  const resetDarkThemeBtn = typeof document !== "undefined" ? document.getElementById("resetDarkThemeBtn") : null;
+  const resetBldColorsBtn = typeof document !== "undefined" ? document.getElementById("resetBldColorsBtn") : null;
+  const previewLightThemeBtn = typeof document !== "undefined" ? document.getElementById("previewLightThemeBtn") : null;
+  const previewDarkThemeBtn = typeof document !== "undefined" ? document.getElementById("previewDarkThemeBtn") : null;
   const resetBtBtn = typeof document !== "undefined" ? document.getElementById("settingsResetBtBtn") : null;
   const openWizardBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenWizardBtn") : null;
   const openShortcutsBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenShortcutsBtn") : null;
@@ -240,9 +255,41 @@ export function createSettingsModalController({
       btn.classList.toggle("active", match);
       btn.setAttribute("aria-pressed", String(match));
     });
+    syncThemePreviewButtons();
+  }
+
+  let saveDebounceTimer = null;
+  let saveDirty = false;
+  let refreshRafId = null;
+
+  function scheduleSaveSettings() {
+    saveDirty = true;
+    if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(() => {
+      saveDebounceTimer = null;
+      if (saveDirty) {
+        saveDirty = false;
+        appStore.saveSettings();
+      }
+    }, 180);
+  }
+
+  function flushSaveSettings({ force = false } = {}) {
+    if (saveDebounceTimer) {
+      clearTimeout(saveDebounceTimer);
+      saveDebounceTimer = null;
+    }
+    if (saveDirty || force) {
+      saveDirty = false;
+      appStore.saveSettings();
+    }
   }
 
   function refreshActiveViews() {
+    if (refreshRafId != null && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(refreshRafId);
+      refreshRafId = null;
+    }
     clearSvgCache();
     applyColorsTo3DCube(cubeStage?.getDisplay?.());
     const sv = getStudyView();
@@ -253,36 +300,94 @@ export function createSettingsModalController({
     else if (appStore.state.mode === "practice" && !isTimerViewMode(appStore.state)) getPracticeView()?.render?.();
   }
 
-  function renderColorPickers() {
-    if (!colorPickerGrid) return;
-    colorPickerGrid.innerHTML = COLOR_CONFIG.map(item => {
-      const val = sanitizeHexColor(CUBE_COLORS[item.key]) || "#ffffff";
+  function scheduleRefreshActiveViews() {
+    if (typeof requestAnimationFrame !== "function") {
+      refreshActiveViews();
+      return;
+    }
+    if (refreshRafId != null) return;
+    refreshRafId = requestAnimationFrame(() => {
+      refreshRafId = null;
+      refreshActiveViews();
+    });
+  }
+
+  function syncThemePreviewButtons() {
+    const isDark = Boolean(appStore?.state?.darkMode);
+    if (previewLightThemeBtn) {
+      previewLightThemeBtn.classList.toggle("is-active", !isDark);
+      previewLightThemeBtn.setAttribute("aria-pressed", String(!isDark));
+      previewLightThemeBtn.textContent = !isDark ? "Active Theme" : "Switch to Light";
+    }
+    if (previewDarkThemeBtn) {
+      previewDarkThemeBtn.classList.toggle("is-active", isDark);
+      previewDarkThemeBtn.setAttribute("aria-pressed", String(isDark));
+      previewDarkThemeBtn.textContent = isDark ? "Active Theme" : "Switch to Dark";
+    }
+  }
+
+  function paletteMatches(currentMap, targetMap) {
+    if (!currentMap || !targetMap) return false;
+    return Object.entries(targetMap).every(([k, v]) => sanitizeThemeHex(currentMap[k]) === sanitizeThemeHex(v));
+  }
+
+  function syncColorPresetStates() {
+    if (typeof document === "undefined") return;
+    document.querySelectorAll("[data-preset]").forEach(btn => {
+      const preset = COLOR_PRESETS[btn.dataset.preset];
+      const match = paletteMatches(CUBE_COLORS, preset);
+      btn.classList.toggle("active", match);
+      btn.setAttribute("aria-pressed", String(match));
+    });
+    const currentTheme = sanitizeThemeColors(appStore?.state?.themeColors);
+    document.querySelectorAll("[data-theme-preset]").forEach(btn => {
+      const [section, presetKey] = String(btn.dataset.themePreset || "").split(":");
+      const preset = THEME_COLOR_PRESETS[section]?.[presetKey];
+      const match = paletteMatches(currentTheme[section], preset);
+      btn.classList.toggle("active", match);
+      btn.setAttribute("aria-pressed", String(match));
+    });
+  }
+
+  function renderColorWidgetGrid(gridEl, fields, getHex, onLiveChange, { refreshViews = false } = {}) {
+    if (!gridEl) return;
+    gridEl.innerHTML = fields.map(item => {
+      const val = sanitizeThemeHex(getHex(item.key)) || "#ffffff";
       return `
         <div class="color-picker-row" data-color-key="${item.key}">
           <span class="color-picker-swatch" style="background: ${val};" data-swatch="${item.key}"></span>
-          <span class="color-picker-label">${item.label}</span>
-          <input type="color" class="color-picker-input-native" value="${val}" data-native-key="${item.key}" aria-label="Pick ${item.label}">
-          <input type="text" class="color-picker-input-hex" value="${val.toUpperCase()}" maxlength="7" data-hex-key="${item.key}" aria-label="Hex for ${item.label}">
+          <span class="color-picker-label">${escapeHtml(item.label)}</span>
+          <input type="color" class="color-picker-input-native" value="${val}" data-native-key="${item.key}" aria-label="Pick ${escapeHtml(item.label)}">
+          <input type="text" class="color-picker-input-hex" value="${val.toUpperCase()}" maxlength="7" data-hex-key="${item.key}" aria-label="Hex for ${escapeHtml(item.label)}">
         </div>
       `;
     }).join("");
 
-    colorPickerGrid.querySelectorAll(".color-picker-row").forEach(row => {
+    gridEl.querySelectorAll(".color-picker-row").forEach(row => {
       const key = row.dataset.colorKey;
       const nativeInput = row.querySelector(".color-picker-input-native");
       const hexInput = row.querySelector(".color-picker-input-hex");
       const swatch = row.querySelector(".color-picker-swatch");
 
-      const updateColor = (hex) => {
-        const clean = sanitizeHexColor(hex);
-        if (!clean) return;
-        setCustomCubeColors({ [key]: clean });
-        applyCubeColorsToCss(CUBE_COLORS);
+      const applyColor = (rawHex, { commit = false } = {}) => {
+        const clean = sanitizeThemeHex(rawHex);
+        if (!clean) return false;
+        onLiveChange(key, clean);
         if (swatch) swatch.style.background = clean;
         if (nativeInput) nativeInput.value = clean;
-        if (hexInput) hexInput.value = clean.toUpperCase();
-        appStore.saveSettings();
-        refreshActiveViews();
+        if (hexInput && document.activeElement !== hexInput) {
+          hexInput.value = clean.toUpperCase();
+        }
+        syncColorPresetStates();
+        if (commit) {
+          if (hexInput) hexInput.value = clean.toUpperCase();
+          flushSaveSettings({ force: true });
+          if (refreshViews) refreshActiveViews();
+        } else {
+          scheduleSaveSettings();
+          if (refreshViews) scheduleRefreshActiveViews();
+        }
+        return true;
       };
 
       swatch?.addEventListener("click", () => {
@@ -303,8 +408,8 @@ export function createSettingsModalController({
       if (nativeInput) {
         nativeInput.addEventListener("focus", () => setPickingColor(true));
         nativeInput.addEventListener("click", () => setPickingColor(true));
-        nativeInput.addEventListener("input", (e) => { setPickingColor(true); updateColor(e.target.value); });
-        nativeInput.addEventListener("change", (e) => { updateColor(e.target.value); setPickingColor(false); });
+        nativeInput.addEventListener("input", (e) => { setPickingColor(true); applyColor(e.target.value, { commit: false }); });
+        nativeInput.addEventListener("change", (e) => { applyColor(e.target.value, { commit: true }); setPickingColor(false); });
         nativeInput.addEventListener("cancel", () => setPickingColor(false));
         nativeInput.addEventListener("close", () => setPickingColor(false));
         nativeInput.addEventListener("blur", scheduleBlurClose);
@@ -314,14 +419,16 @@ export function createSettingsModalController({
         hexInput.addEventListener("focus", () => { setPickingColor(true); hexInput.select(); });
         hexInput.addEventListener("input", (e) => {
           let val = e.target.value.trim();
-          if (!val.startsWith("#") && /^[0-9A-Fa-f]{6}$/.test(val)) val = "#" + val;
-          if (sanitizeHexColor(val)) updateColor(val);
+          if (!val.startsWith("#") && /^[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/.test(val)) val = "#" + val;
+          if (sanitizeThemeHex(val)) applyColor(val, { commit: false });
         });
         hexInput.addEventListener("change", (e) => {
           let val = e.target.value.trim();
           if (!val.startsWith("#")) val = "#" + val;
-          if (sanitizeHexColor(val)) updateColor(val);
-          else hexInput.value = (CUBE_COLORS[key] || "#ffffff").toUpperCase();
+          if (!applyColor(val, { commit: true })) {
+            const fallback = sanitizeThemeHex(getHex(key)) || "#ffffff";
+            hexInput.value = fallback.toUpperCase();
+          }
           setPickingColor(false);
         });
         hexInput.addEventListener("keydown", (e) => {
@@ -330,6 +437,40 @@ export function createSettingsModalController({
         hexInput.addEventListener("blur", scheduleBlurClose);
       }
     });
+  }
+
+  function renderThemeSectionWidget(section, gridEl) {
+    const fields = THEME_COLOR_FIELDS[section];
+    if (!gridEl || !fields) return;
+    renderColorWidgetGrid(
+      gridEl,
+      fields,
+      (key) => appStore?.state?.themeColors?.[section]?.[key] || DEFAULT_THEME_COLORS[section][key],
+      (key, clean) => appStore?.setThemeColors?.(section, { [key]: clean }, { save: false }),
+      { refreshViews: false }
+    );
+  }
+
+  function renderCubeColorsWidget() {
+    renderColorWidgetGrid(
+      colorPickerGrid,
+      COLOR_CONFIG,
+      (key) => sanitizeHexColor(CUBE_COLORS[key]) || DEFAULT_CUBE_COLORS[key] || "#ffffff",
+      (key, clean) => {
+        setCustomCubeColors({ [key]: clean });
+        applyCubeColorsToCss(CUBE_COLORS);
+      },
+      { refreshViews: true }
+    );
+  }
+
+  function renderColorPickers() {
+    renderThemeSectionWidget("light", lightThemeColorGrid);
+    renderThemeSectionWidget("dark", darkThemeColorGrid);
+    renderCubeColorsWidget();
+    renderThemeSectionWidget("bld", bldColorGrid);
+    syncThemePreviewButtons();
+    syncColorPresetStates();
   }
 
   function renderEventsGrid() {
@@ -403,7 +544,7 @@ export function createSettingsModalController({
       initialFocus: closeBtn,
       onClose: () => {
         setPickingColor(false);
-        appStore.saveSettings();
+        flushSaveSettings({ force: true });
       }
     });
   }
@@ -433,18 +574,46 @@ export function createSettingsModalController({
     document.getElementById("settingsLayerPresetOppositeBtn")?.addEventListener("click", () => solverWidgets?.setTargetFaces?.(["white", "yellow"]));
     document.getElementById("settingsLayerPresetAllBtn")?.addEventListener("click", () => solverWidgets?.setTargetFaces?.(ALL_SOLVER_FACES));
 
-    document.querySelectorAll(".settings-presets-row .preset-btn").forEach(btn => {
+    const sectionGrids = {
+      light: lightThemeColorGrid,
+      dark: darkThemeColorGrid,
+      bld: bldColorGrid
+    };
+
+    document.querySelectorAll(".settings-presets-row [data-preset]").forEach(btn => {
       btn.addEventListener("click", () => {
         setPickingColor(false);
         const preset = COLOR_PRESETS[btn.dataset.preset];
         if (preset) {
           setCustomCubeColors(preset);
           applyCubeColorsToCss(CUBE_COLORS);
-          renderColorPickers();
-          appStore.saveSettings();
+          renderCubeColorsWidget();
+          syncColorPresetStates();
+          flushSaveSettings({ force: true });
           refreshActiveViews();
         }
       });
+    });
+
+    document.querySelectorAll(".settings-presets-row [data-theme-preset]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        setPickingColor(false);
+        const [section, presetKey] = String(btn.dataset.themePreset || "").split(":");
+        const preset = THEME_COLOR_PRESETS[section]?.[presetKey];
+        if (!preset) return;
+        appStore?.setThemeColors?.(section, preset, { save: true });
+        renderThemeSectionWidget(section, sectionGrids[section]);
+        syncColorPresetStates();
+      });
+    });
+
+    previewLightThemeBtn?.addEventListener("click", () => {
+      cubeStage?.setDarkMode?.(false);
+      renderToggles();
+    });
+    previewDarkThemeBtn?.addEventListener("click", () => {
+      cubeStage?.setDarkMode?.(true);
+      renderToggles();
     });
 
     document.querySelectorAll(".switch").forEach(btn => {
@@ -474,10 +643,23 @@ export function createSettingsModalController({
     setPickingColor(false);
     setCustomCubeColors(DEFAULT_CUBE_COLORS);
     applyCubeColorsToCss(DEFAULT_CUBE_COLORS);
-    renderColorPickers();
-    appStore.saveSettings();
+    renderCubeColorsWidget();
+    syncColorPresetStates();
+    flushSaveSettings({ force: true });
     refreshActiveViews();
   });
+
+  const bindSectionReset = (btn, section, gridEl) => {
+    btn?.addEventListener("click", () => {
+      setPickingColor(false);
+      appStore?.resetThemeColors?.(section);
+      renderThemeSectionWidget(section, gridEl);
+      syncColorPresetStates();
+    });
+  };
+  bindSectionReset(resetLightThemeBtn, "light", lightThemeColorGrid);
+  bindSectionReset(resetDarkThemeBtn, "dark", darkThemeColorGrid);
+  bindSectionReset(resetBldColorsBtn, "bld", bldColorGrid);
 
   resetBtBtn?.addEventListener("click", () => {
     getSmartCubeCtrl()?.handleBluetoothReset?.();
@@ -744,6 +926,8 @@ export function createSettingsModalController({
       evt === "inspectionAudioMode"
     ) {
       renderToggles();
+    } else if (evt === "themeColors") {
+      syncColorPresetStates();
     } else if (evt === "visibleEvents") {
       renderToggles();
       renderEventsGrid();

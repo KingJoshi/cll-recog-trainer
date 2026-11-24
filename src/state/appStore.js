@@ -12,6 +12,7 @@ import {
 } from '../data/algRegistry.js';
 import { cllCases } from '../data/cllData.js';
 import { DEFAULT_CUBE_COLORS, CUBE_COLORS, setCustomCubeColors, applyCubeColorsToCss } from '../caseVisualizer.js';
+import { DEFAULT_THEME_COLORS, sanitizeThemeColors, applyThemeColorsToCss } from '../services/themeColors.js';
 import {
   sanitizeShortcutOverrides,
   getEffectiveShortcutsMap,
@@ -248,6 +249,10 @@ export class AppStore {
       ? visibleEvents.some(id => !DEFAULT_VISIBLE_EVENTS.includes(id))
       : Boolean(rawShowExtra);
 
+    const darkMode = Boolean(savedSettings.darkMode ?? false);
+    const themeColors = sanitizeThemeColors(savedSettings.themeColors);
+    applyThemeColorsToCss(themeColors, darkMode);
+
     this.state = {
       currentPuzzle,
       currentTrackId,
@@ -260,7 +265,8 @@ export class AppStore {
       alwaysWhiteBottom: savedSettings.alwaysWhiteBottom ?? true,
       allowAUF: savedSettings.allowAUF ?? true,
       showReflection: savedSettings.showReflection ?? true,
-      darkMode: savedSettings.darkMode ?? false,
+      darkMode,
+      themeColors,
       advancedMode,
       statsDisplayMode,
       statsPanelVisibility,
@@ -645,6 +651,34 @@ export class AppStore {
     this.notify("inspectionAudioMode", { inspectionAudioMode: next });
   }
 
+  setThemeColors(section, partial, { save = true } = {}) {
+    if (!["light", "dark", "bld"].includes(section) || !partial || typeof partial !== "object") return;
+    const current = sanitizeThemeColors(this.state.themeColors);
+    const mergedSection = { ...current[section], ...partial };
+    const next = sanitizeThemeColors({ ...current, [section]: mergedSection });
+    this.state.themeColors = next;
+    applyThemeColorsToCss(next, Boolean(this.state.darkMode));
+    if (save) this.saveSettings();
+    this.notify("themeColors", { section, themeColors: next });
+  }
+
+  resetThemeColors(section) {
+    if (section && ["light", "dark", "bld"].includes(section)) {
+      const current = sanitizeThemeColors(this.state.themeColors);
+      const next = sanitizeThemeColors({ ...current, [section]: { ...DEFAULT_THEME_COLORS[section] } });
+      this.state.themeColors = next;
+      applyThemeColorsToCss(next, Boolean(this.state.darkMode));
+      this.saveSettings();
+      this.notify("themeColors", { section, themeColors: next });
+      return;
+    }
+    const next = sanitizeThemeColors(DEFAULT_THEME_COLORS);
+    this.state.themeColors = next;
+    applyThemeColorsToCss(next, Boolean(this.state.darkMode));
+    this.saveSettings();
+    this.notify("themeColors", { section: "all", themeColors: next });
+  }
+
   setSimSpeed(speed) {
     const next = Number(speed);
     if (!SIM_SPEED_OPTIONS.includes(next) || this.state.simSpeed === next) return;
@@ -946,7 +980,8 @@ export class AppStore {
       solveInspection: s.solveInspection,
       sessionLogPageSize: s.sessionLogPageSize,
       keyboardShortcuts: sanitizeShortcutOverrides(s.keyboardShortcuts),
-      customColors: { ...CUBE_COLORS }
+      customColors: { ...CUBE_COLORS },
+      themeColors: sanitizeThemeColors(s.themeColors)
     };
   }
 
@@ -1086,6 +1121,8 @@ export class AppStore {
       s.allowAUF = savedSettings.allowAUF ?? true;
       s.showReflection = savedSettings.showReflection ?? true;
       s.darkMode = savedSettings.darkMode ?? false;
+      s.themeColors = sanitizeThemeColors(savedSettings.themeColors ?? s.themeColors);
+      applyThemeColorsToCss(s.themeColors, Boolean(s.darkMode));
       s.advancedMode = savedSettings.advancedMode ?? s.advancedMode ?? false;
       s.showTooltips = savedSettings.showTooltips ?? true;
       s.onboardingCompleted = savedSettings.onboardingCompleted ?? s.onboardingCompleted;

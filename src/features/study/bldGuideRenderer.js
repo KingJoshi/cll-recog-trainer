@@ -282,15 +282,15 @@ export function renderSpeffzNetSvg(kind = 'corners') {
 
         let ringHtml = '';
         if (isBuffer) {
-          stroke = '#7c3aed';
+          stroke = 'var(--bld-buffer, #7c3aed)';
           strokeW = 2.4;
-          ringHtml = `<rect x="${x + 1.5}" y="${y + 1.5}" width="${st - 3}" height="${st - 3}" rx="2" fill="none" stroke="#7c3aed" stroke-width="1.6"/>`;
+          ringHtml = `<rect x="${x + 1.5}" y="${y + 1.5}" width="${st - 3}" height="${st - 3}" rx="2" fill="none" stroke="var(--bld-buffer, #7c3aed)" stroke-width="1.6"/>`;
         } else if (isTarget) {
-          stroke = '#059669';
+          stroke = 'var(--bld-target, #059669)';
           strokeW = 2.4;
-          ringHtml = `<rect x="${x + 1.5}" y="${y + 1.5}" width="${st - 3}" height="${st - 3}" rx="2" fill="none" stroke="#059669" stroke-width="1.6"/>`;
+          ringHtml = `<rect x="${x + 1.5}" y="${y + 1.5}" width="${st - 3}" height="${st - 3}" rx="2" fill="none" stroke="var(--bld-target, #059669)" stroke-width="1.6"/>`;
         } else if (isBufferCo) {
-          ringHtml = `<rect x="${x + 1.5}" y="${y + 1.5}" width="${st - 3}" height="${st - 3}" rx="2" fill="none" stroke="#7c3aed" stroke-width="1.1" stroke-dasharray="2.5 1.5"/>`;
+          ringHtml = `<rect x="${x + 1.5}" y="${y + 1.5}" width="${st - 3}" height="${st - 3}" rx="2" fill="none" stroke="var(--bld-buffer, #7c3aed)" stroke-width="1.1" stroke-dasharray="2.5 1.5"/>`;
         }
 
         body += `<rect x="${x}" y="${y}" width="${st}" height="${st}" rx="2.5" fill="${face.bg}" fill-opacity="${fillOpacity}" stroke="${stroke}" stroke-width="${strokeW}"/>${ringHtml}`;

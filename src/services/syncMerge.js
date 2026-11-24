@@ -70,7 +70,8 @@ const SETTINGS_SCALAR_FIELDS = [
   "inspectionAudioMode",
   "sessionLogPageSize",
   "keyboardShortcuts",
-  "customColors"
+  "customColors",
+  "themeColors"
 ];
 
 export function getSolveFingerprint(solve) {

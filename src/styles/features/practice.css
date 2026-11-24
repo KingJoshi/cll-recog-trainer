@@ -947,12 +947,12 @@
     align-items: center;
     padding: 2px 7px;
     border-radius: 6px;
-    background: var(--primary-soft);
-    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bld-pair) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--bld-pair) 35%, var(--border));
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.78rem;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--bld-pair);
 }
 
 .bld-count-badge {
@@ -964,9 +964,9 @@
 .bld-parity-chip {
     padding: 2px 7px;
     border-radius: 999px;
-    background: rgba(245, 158, 11, 0.16);
-    border: 1px solid rgba(245, 158, 11, 0.45);
-    color: #b45309;
+    background: color-mix(in srgb, var(--bld-parity) 16%, transparent);
+    border: 1px solid color-mix(in srgb, var(--bld-parity) 45%, transparent);
+    color: var(--bld-parity);
     font-size: 0.73rem;
     font-weight: 700;
 }
@@ -1080,7 +1080,7 @@
 }
 
 [data-theme="dark"] .bld-parity-chip {
-    color: #fcd34d;
+    color: color-mix(in srgb, var(--bld-parity) 75%, #ffffff);
 }
 
 [data-theme="dark"] .bld-part-status.is-ok {

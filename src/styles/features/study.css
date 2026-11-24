@@ -1770,13 +1770,13 @@
 }
 
 .bld-legend-swatch.is-buffer {
-  border-color: #7c3aed;
-  background: rgba(124, 58, 237, 0.2);
+  border-color: var(--bld-buffer);
+  background: color-mix(in srgb, var(--bld-buffer) 20%, transparent);
 }
 
 .bld-legend-swatch.is-target {
-  border-color: #059669;
-  background: rgba(5, 150, 105, 0.2);
+  border-color: var(--bld-target);
+  background: color-mix(in srgb, var(--bld-target) 20%, transparent);
 }
 
 .bld-nets-grid {
@@ -1864,11 +1864,11 @@
 }
 
 .bld-letter-table tr.is-buffer-row {
-  background: rgba(124, 58, 237, 0.06);
+  background: color-mix(in srgb, var(--bld-buffer) 7%, transparent);
 }
 
 .bld-letter-table tr.is-target-row {
-  background: rgba(5, 150, 105, 0.06);
+  background: color-mix(in srgb, var(--bld-target) 7%, transparent);
 }
 
 .bld-row-note {
@@ -1905,23 +1905,23 @@
 }
 
 .bld-letter-pill.bld-letter-buffer {
-  border-color: #7c3aed;
-  background: rgba(124, 58, 237, 0.14);
-  color: #6d28d9;
+  border-color: var(--bld-buffer);
+  background: color-mix(in srgb, var(--bld-buffer) 14%, transparent);
+  color: var(--bld-buffer);
 }
 
 .bld-letter-pill.bld-letter-target {
-  border-color: #059669;
-  background: rgba(5, 150, 105, 0.14);
-  color: #047857;
+  border-color: var(--bld-target);
+  background: color-mix(in srgb, var(--bld-target) 14%, transparent);
+  color: var(--bld-target);
 }
 
 [data-theme="dark"] .bld-letter-pill.bld-letter-buffer {
-  color: #c4b5fd;
+  color: color-mix(in srgb, var(--bld-buffer) 72%, #ffffff);
 }
 
 [data-theme="dark"] .bld-letter-pill.bld-letter-target {
-  color: #6ee7b7;
+  color: color-mix(in srgb, var(--bld-target) 72%, #ffffff);
 }
 
 .bld-setup-item {

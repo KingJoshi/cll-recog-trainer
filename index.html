@@ -987,7 +987,7 @@
         <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="solve" aria-selected="false">⏱️ Solve &amp; Timer</button>
         <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="events" aria-selected="false">🏆 Events</button>
         <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="event-specific" aria-selected="false">🧩 Event Settings</button>
-        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="colors" aria-selected="false">🎨 Cube Colors</button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="colors" aria-selected="false">🎨 Theme &amp; Colors</button>
         <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="hardware" aria-selected="false">🔌 Hardware &amp; Sync</button>
       </nav>
 
@@ -1318,23 +1318,84 @@
           </div>
         </div>
 
-        <!-- Tab 5: Cube Colors -->
+        <!-- Tab 5: Theme & Colors -->
         <div class="settings-tab-panel" data-settings-panel="colors" role="tabpanel" hidden>
-          <div class="settings-section">
-            <div class="settings-section-head">
-              <h4 class="settings-section-title">🎨 Cube Colors (2D Diagrams &amp; 3D Cube)</h4>
-              <span class="settings-section-desc">Adjust HEX values to match your cube or visual preference across all puzzles</span>
+          <!-- Widget 1: Light Theme -->
+          <div class="settings-section settings-color-widget" data-color-widget="light">
+            <div class="settings-color-widget-head">
+              <div class="settings-section-head">
+                <h4 class="settings-section-title">☀️ Light Theme</h4>
+                <span class="settings-section-desc">Customize surfaces, text contrast, borders, and accents for Light Mode</span>
+              </div>
+              <div class="settings-color-widget-actions">
+                <button type="button" id="previewLightThemeBtn" class="btn btn-xs settings-theme-preview-btn" data-preview-theme="light">Switch to Light</button>
+                <button type="button" id="resetLightThemeBtn" class="btn btn-xs">Reset Light</button>
+              </div>
             </div>
+            <div class="settings-presets-row">
+              <button type="button" class="preset-btn" data-theme-preset="light:classic">Classic Blue (Default)</button>
+              <button type="button" class="preset-btn" data-theme-preset="light:paper">Warm Paper</button>
+              <button type="button" class="preset-btn" data-theme-preset="light:mint">Cool Mint</button>
+            </div>
+            <div class="color-picker-grid" id="lightThemeColorGrid"></div>
+          </div>
 
+          <!-- Widget 2: Dark Theme -->
+          <div class="settings-section settings-color-widget" data-color-widget="dark">
+            <div class="settings-color-widget-head">
+              <div class="settings-section-head">
+                <h4 class="settings-section-title">🌙 Dark Theme</h4>
+                <span class="settings-section-desc">Customize slate backgrounds, cards, text, and accents for Dark Mode</span>
+              </div>
+              <div class="settings-color-widget-actions">
+                <button type="button" id="previewDarkThemeBtn" class="btn btn-xs settings-theme-preview-btn" data-preview-theme="dark">Switch to Dark</button>
+                <button type="button" id="resetDarkThemeBtn" class="btn btn-xs">Reset Dark</button>
+              </div>
+            </div>
+            <div class="settings-presets-row">
+              <button type="button" class="preset-btn" data-theme-preset="dark:slate">Slate Night (Default)</button>
+              <button type="button" class="preset-btn" data-theme-preset="dark:oled">Midnight OLED</button>
+              <button type="button" class="preset-btn" data-theme-preset="dark:nord">Nordic Violet</button>
+            </div>
+            <div class="color-picker-grid" id="darkThemeColorGrid"></div>
+          </div>
+
+          <!-- Widget 3: Cube Colors -->
+          <div class="settings-section settings-color-widget" data-color-widget="cube">
+            <div class="settings-color-widget-head">
+              <div class="settings-section-head">
+                <h4 class="settings-section-title">🧊 Cube Colors (2D &amp; 3D)</h4>
+                <span class="settings-section-desc">Adjust HEX sticker shades to match your physical cube across all puzzles</span>
+              </div>
+              <div class="settings-color-widget-actions">
+                <button type="button" id="resetColorsBtn" class="btn btn-xs">Reset Cube</button>
+              </div>
+            </div>
             <div class="settings-presets-row">
               <button type="button" class="preset-btn" data-preset="bright">3D Cube Bright (Default)</button>
               <button type="button" class="preset-btn" data-preset="fluro">High Contrast Neon</button>
               <button type="button" class="preset-btn" data-preset="matte">Competition Matte</button>
             </div>
-
             <div class="color-picker-grid" id="colorPickerGrid"></div>
+          </div>
 
-            <button type="button" id="resetColorsBtn" class="btn btn-small" style="margin-top: 10px;">Reset Colors to Default</button>
+          <!-- Widget 4: 3BLD Colors -->
+          <div class="settings-section settings-color-widget" data-color-widget="bld">
+            <div class="settings-color-widget-head">
+              <div class="settings-section-head">
+                <h4 class="settings-section-title">🕶️ 3BLD Colors</h4>
+                <span class="settings-section-desc">Customize Buffer, Target, Letter Pair chip, and Parity highlights for Blindfolded</span>
+              </div>
+              <div class="settings-color-widget-actions">
+                <button type="button" id="resetBldColorsBtn" class="btn btn-xs">Reset 3BLD</button>
+              </div>
+            </div>
+            <div class="settings-presets-row">
+              <button type="button" class="preset-btn" data-theme-preset="bld:classic">Violet &amp; Emerald (Default)</button>
+              <button type="button" class="preset-btn" data-theme-preset="bld:high-contrast">High Contrast</button>
+              <button type="button" class="preset-btn" data-theme-preset="bld:oceanic">Oceanic</button>
+            </div>
+            <div class="color-picker-grid" id="bldColorGrid"></div>
           </div>
         </div>
 
