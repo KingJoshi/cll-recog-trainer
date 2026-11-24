@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import { StudyView } from '../src/studyView.js';
 import { getTrack, setPreferredAlg, getPreferredAlg } from '../src/data/algRegistry.js';
 import { render444ParitySvg } from '../src/cube/caseSvgRenderer.js';
+import { OLL_TWO_SIDED_GUIDE, PLL_TWO_SIDED_GUIDE } from '../src/data/twoSidedRecogData.js';
 
 function createMockContainer() {
   return {
@@ -467,4 +468,57 @@ test('render444ParitySvg distinguishes 4-Piece vs Pure OLL Parity, and StudyView
   assert.ok(container.innerHTML.includes('BOY Color Scheme'));
   assert.ok(container.innerHTML.includes('Edge Pairing'));
   assert.ok(container.innerHTML.includes('3-2-3 Edge Pairing'));
+});
+
+test('StudyView renders 3D cube containers, reset buttons, and actions for every 2-Sided PLL and OLL rule card', () => {
+  const pllTrack = getTrack('333', 'pll');
+  const ollTrack = getTrack('333', 'oll');
+
+  // Every OLL_TWO_SIDED_GUIDE rule maps to a valid OLL case
+  let ollRuleCount = 0;
+  for (const cat of OLL_TWO_SIDED_GUIDE) {
+    for (const r of cat.rules) {
+      assert.ok(r.caseId && ollTrack.caseById.has(r.caseId), `Missing valid caseId for ${r.caseName}`);
+      ollRuleCount++;
+    }
+  }
+  assert.strictEqual(ollRuleCount, 7);
+
+  const container = createMockContainer();
+  const sv = new StudyView({
+    container,
+    getAlwaysWhiteBottom: () => true
+  });
+
+  // 3x3 PLL 2-sided view: 21 cards with 3D containers, z2 setup, Reset 3D, Algs, Sim
+  sv.setTrack('333', 'pll');
+  sv.setView('twosided');
+  const pllHtml = container.innerHTML;
+  const pllCardMatches = pllHtml.match(/class="twosided-card-3d-wrap"/g) || [];
+  assert.strictEqual(pllCardMatches.length, PLL_TWO_SIDED_GUIDE.reduce((n, c) => n + c.rules.length, 0));
+  assert.ok(pllHtml.includes('data-twosided-case-id="T"'));
+  assert.ok(pllHtml.includes('data-twosided-setup="z2 '));
+  assert.ok(pllHtml.includes('btn-twosided-reset-3d'));
+  assert.ok(pllHtml.includes('btn-study-view'));
+  assert.ok(pllHtml.includes('btn-study-sim'));
+
+  // 3x3 OLL 2-sided view: 7 cards with 3D containers, OLL badges, z2 setup, Reset 3D, Algs, Sim
+  sv.setTrack('333', 'oll');
+  sv.setView('twosided');
+  const ollHtml = container.innerHTML;
+  const ollCardMatches = ollHtml.match(/class="twosided-card-3d-wrap"/g) || [];
+  assert.strictEqual(ollCardMatches.length, 7);
+  assert.ok(ollHtml.includes('data-twosided-case-id="oll-27"'));
+  assert.ok(ollHtml.includes('OLL-27'));
+  assert.ok(ollHtml.includes('data-twosided-setup="z2 '));
+  assert.ok(ollHtml.includes('btn-twosided-reset-3d'));
+  assert.ok(ollHtml.includes('btn-study-view'));
+  assert.ok(ollHtml.includes('btn-study-sim'));
+
+  // Deactivate tears down 2-sided state cleanly
+  const genBefore = sv._twoSided3d.gen;
+  sv._twoSided3d.cards.set('oll-27', { displayEl: { remove() {}, player: { pause() {} } } });
+  sv.deactivate();
+  assert.strictEqual(sv._twoSided3d.gen, genBefore + 1);
+  assert.strictEqual(sv._twoSided3d.cards.size, 0);
 });

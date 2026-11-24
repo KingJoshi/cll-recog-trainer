@@ -191,36 +191,43 @@ export const OLL_TWO_SIDED_GUIDE = [
     cases: ["Sune", "Anti-Sune", "H", "Pi", "Headlights (U)", "Chameleon (T)", "Bowtie (L)"],
     rules: [
       {
+        caseId: "oll-27",
         caseName: "Sune (OLL 27)",
         cue: "1 yellow corner oriented on top (at Back-Right or Front-Left). Front face has a yellow sticker on the left corner facing front.",
         recognition: "Top: 1 corner yellow. Front: Left corner is Yellow."
       },
       {
+        caseId: "oll-26",
         caseName: "Anti-Sune (OLL 26)",
         cue: "1 yellow corner oriented on top. Right face has a yellow sticker on the back corner facing right.",
         recognition: "Top: 1 corner yellow. Right: Back corner is Yellow."
       },
       {
+        caseId: "oll-21",
         caseName: "H (OLL 21)",
         cue: "0 corners oriented on top. Front and Back faces have 2 yellow stickers each (double headlights).",
         recognition: "Top: Cross only. Front: 2 yellow headlights. Right: No yellow."
       },
       {
+        caseId: "oll-22",
         caseName: "Pi (OLL 22)",
         cue: "0 corners oriented on top. Front has 2 yellow headlights; Right face has 1 yellow corner on front facing right.",
         recognition: "Top: Cross only. Front: 2 yellow headlights. Right: 1 yellow facing right."
       },
       {
+        caseId: "oll-23",
         caseName: "Headlights (OLL 23 / U)",
         cue: "2 adjacent corners oriented on top with yellow headlights facing Front (or Back).",
         recognition: "Top: 2 adjacent corners yellow. Front: 2 yellow headlights."
       },
       {
+        caseId: "oll-24",
         caseName: "Chameleon (OLL 24 / T)",
         cue: "2 adjacent corners oriented on top. Front face has 1 yellow sticker on left, Back face has 1 yellow sticker on left (sideways T).",
         recognition: "Top: 2 adjacent corners yellow. Front: Left corner yellow facing front."
       },
       {
+        caseId: "oll-25",
         caseName: "Bowtie (OLL 25 / L)",
         cue: "2 diagonal corners oriented on top. Front face has 1 yellow sticker facing front.",
         recognition: "Top: Diagonal corners yellow. Front: 1 corner yellow."

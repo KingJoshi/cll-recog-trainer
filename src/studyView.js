@@ -58,6 +58,8 @@ export const TWO_LOOK_PLL_STUDY_IDS = new Set([
   "T", "Y", "Ua", "Ub", "H", "Z"
 ]);
 
+const MAX_TWOSIDED_3D = 12;
+
 export class StudyView {
   constructor(options) {
     this.container = options.container;
@@ -101,6 +103,12 @@ export class StudyView {
     this._miniLoadGen = 0;
     this._miniListenersEl = null;
     this._miniMountedPuzzle = null;
+    this._twoSided3d = {
+      observer: null,
+      cards: new Map(),
+      lru: [],
+      gen: 0
+    };
   }
 
   getCaseAlgs(track, c) {
@@ -214,8 +222,30 @@ export class StudyView {
     }
   }
 
+  _teardownTwoSided3d() {
+    if (!this._twoSided3d) return;
+    this._twoSided3d.gen++;
+    if (this._twoSided3d.observer) {
+      try { this._twoSided3d.observer.disconnect(); } catch {}
+      this._twoSided3d.observer = null;
+    }
+    for (const entry of this._twoSided3d.cards.values()) {
+      if (entry?.displayEl) {
+        try {
+          entry.displayEl.player?.pause?.();
+          entry.displayEl.remove?.();
+        } catch {}
+        entry.displayEl = null;
+      }
+      if (entry) entry.mountPromise = null;
+    }
+    this._twoSided3d.cards.clear();
+    this._twoSided3d.lru = [];
+  }
+
   _teardownMiniPlayer() {
     teardownFirstLayerExplorer3d();
+    this._teardownTwoSided3d();
     this._miniLoadGen++;
     this._miniPendingSeek = false;
     this._miniIndexer = null;
@@ -1024,7 +1054,64 @@ export class StudyView {
   }
 
   renderTwoSidedView(track) {
-    if (this.currentTrackId === "pll") {
+    const isOll = this.currentTrackId !== "pll";
+    const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
+    const guideData = isOll ? OLL_TWO_SIDED_GUIDE : PLL_TWO_SIDED_GUIDE;
+
+    const getCardSetup = (caseId) => {
+      const c = caseId ? track?.caseById?.get(caseId) : null;
+      const rawSetup = c?.setup || c?.scramble || "";
+      if (!rawSetup) return "";
+      return (whiteBottom && !/^z2\b/i.test(rawSetup) ? `z2 ${rawSetup}` : rawSetup).trim();
+    };
+
+    const renderRuleCard = (r) => {
+      const caseId = r.caseId || "";
+      const displayBadge = isOll ? formatCaseDisplayId(caseId) : caseId;
+      const titleText = r.name || r.caseName || displayBadge;
+      const setupStr = getCardSetup(caseId);
+
+      return `
+        <div class="twosided-rule-card">
+          <div class="twosided-rule-header">
+            ${displayBadge ? `<span class="twosided-case-badge">${escapeHtml(displayBadge)}</span>` : ''}
+            <h5 class="twosided-case-name">${escapeHtml(titleText)}</h5>
+          </div>
+          ${caseId ? `
+            <div class="twosided-card-3d-wrap" data-twosided-case-id="${escapeHtml(caseId)}" data-twosided-setup="${escapeHtml(setupStr)}">
+              <span class="study-visual-loading">Loading 3D...</span>
+            </div>
+          ` : ''}
+          <p class="twosided-cue-text">${escapeHtml(r.cue || "")}</p>
+          <div class="twosided-sight-boxes">
+            ${isOll ? `
+              <div class="sight-box">
+                <span class="sight-label">Recognition:</span>
+                <span class="sight-val">${escapeHtml(r.recognition || "")}</span>
+              </div>
+            ` : `
+              <div class="sight-box">
+                <span class="sight-label">Front Sight:</span>
+                <span class="sight-val">${escapeHtml(r.frontSight || "")}</span>
+              </div>
+              <div class="sight-box">
+                <span class="sight-label">Right Sight:</span>
+                <span class="sight-val">${escapeHtml(r.rightSight || "")}</span>
+              </div>
+            `}
+          </div>
+          ${caseId ? `
+            <div class="twosided-card-actions">
+              <button type="button" class="btn btn-xs btn-icon-only btn-twosided-reset-3d" data-twosided-case-id="${escapeHtml(caseId)}" data-tooltip="Reset 3D angle (Front + Right)" aria-label="Reset 3D angle for ${escapeHtml(displayBadge || caseId)}">${ICON_RESET_ANGLE}</button>
+              <button type="button" class="btn btn-xs btn-study-view" data-case-id="${escapeHtml(caseId)}" data-tooltip="Open Grid + 3D to inspect algorithms &amp; 3D flashcard" aria-label="View algorithms for ${escapeHtml(caseId)}">${ICON_DIAGRAM}<span>Algs</span></button>
+              <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${escapeHtml(caseId)}" data-tooltip="Simulate in an interactive 3D popup" aria-label="Simulate ${escapeHtml(caseId)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    };
+
+    if (!isOll) {
       return `
         <div class="study-twosided-wrap">
           <div class="study-twosided-hero">
@@ -1041,36 +1128,14 @@ export class StudyView {
           </div>
 
           <div class="study-twosided-categories">
-            ${PLL_TWO_SIDED_GUIDE.map(cat => `
+            ${guideData.map(cat => `
               <div class="twosided-cat-card">
                 <div class="twosided-cat-head">
-                  <h4 class="twosided-cat-title">${cat.category}</h4>
-                  <span class="twosided-cat-summary">${cat.summary}</span>
+                  <h4 class="twosided-cat-title">${escapeHtml(cat.category)}</h4>
+                  ${cat.summary ? `<span class="twosided-cat-summary">${escapeHtml(cat.summary)}</span>` : ''}
                 </div>
                 <div class="twosided-rules-grid">
-                  ${cat.rules.map(r => `
-                    <div class="twosided-rule-card">
-                      <div class="twosided-rule-header">
-                        <span class="twosided-case-badge">${r.caseId}</span>
-                        <h5 class="twosided-case-name">${r.name}</h5>
-                      </div>
-                      <p class="twosided-cue-text">${r.cue}</p>
-                      <div class="twosided-sight-boxes">
-                        <div class="sight-box">
-                          <span class="sight-label">Front Sight:</span>
-                          <span class="sight-val">${r.frontSight}</span>
-                        </div>
-                        <div class="sight-box">
-                          <span class="sight-label">Right Sight:</span>
-                          <span class="sight-val">${r.rightSight}</span>
-                        </div>
-                      </div>
-                      <div class="twosided-card-actions">
-                        <button type="button" class="btn btn-xs btn-study-view" data-case-id="${r.caseId}" data-tooltip="Open Grid + 3D to inspect algorithms &amp; 3D flashcard" aria-label="View algorithms for ${escapeHtml(r.caseId)}">${ICON_DIAGRAM}<span>Algs</span></button>
-                        <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${r.caseId}" data-tooltip="Simulate in an interactive 3D popup" aria-label="Simulate ${escapeHtml(r.caseId)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
-                      </div>
-                    </div>
-                  `).join('')}
+                  ${cat.rules.map(renderRuleCard).join('')}
                 </div>
               </div>
             `).join('')}
@@ -1079,7 +1144,6 @@ export class StudyView {
       `;
     }
 
-    // OLL 2-sided guide
     return `
       <div class="study-twosided-wrap">
         <div class="study-twosided-hero">
@@ -1090,26 +1154,13 @@ export class StudyView {
         </div>
 
         <div class="study-twosided-categories">
-          ${OLL_TWO_SIDED_GUIDE.map(cat => `
+          ${guideData.map(cat => `
             <div class="twosided-cat-card">
               <div class="twosided-cat-head">
-                <h4 class="twosided-cat-title">${cat.category}</h4>
+                <h4 class="twosided-cat-title">${escapeHtml(cat.category)}</h4>
               </div>
               <div class="twosided-rules-grid">
-                ${cat.rules.map(r => `
-                  <div class="twosided-rule-card">
-                    <div class="twosided-rule-header">
-                      <h5 class="twosided-case-name">${r.caseName}</h5>
-                    </div>
-                    <p class="twosided-cue-text">${r.cue}</p>
-                    <div class="twosided-sight-boxes">
-                      <div class="sight-box">
-                        <span class="sight-label">Recognition:</span>
-                        <span class="sight-val">${r.recognition}</span>
-                      </div>
-                    </div>
-                  </div>
-                `).join('')}
+                ${cat.rules.map(renderRuleCard).join('')}
               </div>
             </div>
           `).join('')}
@@ -1470,6 +1521,176 @@ export class StudyView {
       if (c) {
         this.populateDetailVisuals(track, c, token);
       }
+    } else if (this.currentView === 'twosided') {
+      this.populateTwoSided3d(track, token);
+    }
+  }
+
+  async populateTwoSided3d(track, token = this._renderToken) {
+    if (!this.container || typeof window === 'undefined') return;
+    const wraps = this.container.querySelectorAll('.twosided-card-3d-wrap');
+    if (!wraps.length) return;
+
+    const puzzle = this.currentPuzzle;
+    const trackId = this.currentTrackId;
+    const state = this._twoSided3d;
+    const gen = state.gen;
+
+    const touchLru = (caseId) => {
+      const idx = state.lru.indexOf(caseId);
+      if (idx >= 0) state.lru.splice(idx, 1);
+      state.lru.push(caseId);
+      while (state.lru.length > MAX_TWOSIDED_3D) {
+        const victimIdx = state.lru.findIndex(cand => !state.cards.get(cand)?.intersecting);
+        if (victimIdx < 0) break;
+        const [victimId] = state.lru.splice(victimIdx, 1);
+        const victim = state.cards.get(victimId);
+        if (victim?.displayEl) {
+          try {
+            victim.displayEl.player?.pause?.();
+            victim.displayEl.remove?.();
+          } catch {}
+          victim.displayEl = null;
+          victim.mountPromise = null;
+          if (victim.wrapEl?.isConnected) {
+            victim.wrapEl.innerHTML = victim.fallbackSvg || '<span class="study-visual-loading">3D Ready</span>';
+          }
+        }
+      }
+    };
+
+    const resetCardAngle = async (entry) => {
+      const el = entry?.displayEl;
+      if (!el?.player) return;
+      try {
+        const p = await el.player.experimentalCurrentThreeJSPuzzleObject?.();
+        if (p) {
+          p.quaternion.set(0, 0, 0, 1);
+          p.rotation.set(0, 0, 0);
+          p.scheduleRenderCallback?.();
+        }
+      } catch {}
+      try {
+        el.player.cameraLatitude = 32;
+        el.player.cameraLongitude = 30;
+        el.player.experimentalModel?.twistySceneModel?.orbitCoordinatesRequest?.set?.('auto');
+      } catch {}
+    };
+
+    const ensureMounted = async (entry) => {
+      if (!entry || gen !== state.gen || token !== this._renderToken || !entry.wrapEl?.isConnected) return null;
+      if (entry.displayEl && entry.wrapEl.contains(entry.displayEl)) {
+        touchLru(entry.caseId);
+        return entry.displayEl;
+      }
+      if (entry.mountPromise) return entry.mountPromise;
+
+      entry.mountPromise = (async () => {
+        try {
+          const SD = await getScrambleDisplay();
+          if (!SD || gen !== state.gen || token !== this._renderToken || !entry.wrapEl?.isConnected) return null;
+          const el = new SD();
+          el.event = '333';
+          el.visualization = '3D';
+          el.scramble = entry.setup;
+          el.hintFacelets = 'none';
+          el.cameraLatitude = 32;
+          el.cameraLongitude = 30;
+          entry.wrapEl.innerHTML = '';
+          entry.wrapEl.appendChild(el);
+          if (el.player) {
+            el.player.hintFacelets = 'none';
+            el.player.cameraLatitude = 32;
+            el.player.cameraLongitude = 30;
+          }
+          entry.displayEl = el;
+          touchLru(entry.caseId);
+          void applyColorsTo3DCube(el);
+          return el;
+        } catch {
+          return null;
+        } finally {
+          entry.mountPromise = null;
+        }
+      })();
+
+      return entry.mountPromise;
+    };
+
+    wraps.forEach((wrapEl) => {
+      const caseId = wrapEl.getAttribute('data-twosided-case-id') || wrapEl.dataset?.twosidedCaseId;
+      const setup = wrapEl.getAttribute('data-twosided-setup') || wrapEl.dataset?.twosidedSetup || '';
+      const caseObj = caseId ? track?.caseById?.get(caseId) : null;
+      if (!caseId) return;
+      state.cards.set(caseId, {
+        caseId,
+        caseObj,
+        setup,
+        wrapEl,
+        displayEl: null,
+        mountPromise: null,
+        fallbackSvg: '',
+        intersecting: false
+      });
+    });
+
+    this.container.querySelectorAll('.btn-twosided-reset-3d').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const cid = btn.getAttribute('data-twosided-case-id') || btn.dataset?.twosidedCaseId;
+        const entry = cid ? state.cards.get(cid) : null;
+        if (!entry) return;
+        if (!entry.displayEl) await ensureMounted(entry);
+        await resetCardAngle(entry);
+      });
+    });
+
+    if (typeof IntersectionObserver !== 'undefined') {
+      const obs = new IntersectionObserver((entries) => {
+        if (gen !== state.gen || token !== this._renderToken) return;
+        for (const io of entries) {
+          const cid = io.target?.getAttribute?.('data-twosided-case-id') || io.target?.dataset?.twosidedCaseId;
+          const entry = cid ? state.cards.get(cid) : null;
+          if (!entry) continue;
+          entry.intersecting = Boolean(io.isIntersecting);
+          if (io.isIntersecting) {
+            void ensureMounted(entry);
+          }
+        }
+      }, { rootMargin: '140px 0px', threshold: 0.01 });
+      state.observer = obs;
+      wraps.forEach(w => obs.observe(w));
+
+      const vh = window.innerHeight || 900;
+      for (const entry of state.cards.values()) {
+        const rect = entry.wrapEl.getBoundingClientRect?.();
+        if (rect && rect.width > 0 && rect.height > 0 && rect.bottom >= -140 && rect.top <= vh + 140) {
+          entry.intersecting = true;
+          void ensureMounted(entry);
+        }
+      }
+    } else {
+      let mounted = 0;
+      for (const entry of state.cards.values()) {
+        if (mounted >= MAX_TWOSIDED_3D) break;
+        entry.intersecting = true;
+        mounted++;
+        void ensureMounted(entry);
+      }
+    }
+
+    // Pre-populate SVG fallbacks in background for off-screen / evicted cards
+    for (const entry of state.cards.values()) {
+      if (gen !== state.gen || token !== this._renderToken) return;
+      if (!entry.caseObj) continue;
+      try {
+        const svg = await renderCaseSvg(puzzle, trackId, entry.caseObj);
+        if (gen !== state.gen || token !== this._renderToken) return;
+        entry.fallbackSvg = svg;
+        if (!entry.displayEl && !entry.mountPromise && entry.wrapEl?.isConnected) {
+          entry.wrapEl.innerHTML = svg;
+        }
+      } catch {}
     }
   }
 
