@@ -555,11 +555,15 @@ function handleCustomShortcutKeyDown(e) {
       e.preventDefault();
       cubeStage.setDarkMode(!s.darkMode);
       return true;
-    case "action:toggleAdvancedMode":
+    case "action:toggleAdvancedMode": {
       e.preventDefault();
-      appStore.setAdvancedMode(!s.advancedMode);
-      showToast(`Stats mode: ${appStore.state.advancedMode ? "Advanced" : "Basic"}`, "info", 1800);
+      const curMode = s.statsDisplayMode || (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic"));
+      const nextMode = curMode === "none" ? "basic" : curMode === "basic" ? "advanced" : "none";
+      appStore.setStatsDisplayMode(nextMode);
+      const label = nextMode === "none" ? "None" : nextMode === "basic" ? "Basic" : "Advanced";
+      showToast(`Stats mode: ${label}`, "info", 1800);
       return true;
+    }
     case "action:toggleFocusMode": {
       e.preventDefault();
       if (!s.focusMode && !timerActive) {

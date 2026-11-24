@@ -6,6 +6,7 @@ import { caseById, isTimerViewMode } from '../../state/appStore.js';
 import { escapeHtml, capitalize } from '../../services/htmlUtils.js';
 import { copyTextWithButtonFeedback } from '../../services/clipboard.js';
 import { ICON_POPUP_SIM } from '../../ui/transportIcons.js';
+import { showToast } from '../../ui/toastService.js';
 
 export const ALL_SOLVER_FACES = ["white", "yellow", "green", "blue", "red", "orange"];
 
@@ -26,8 +27,10 @@ export function createSolverWidgetsView({
   const layerPresetAllBtn = typeof document !== "undefined" ? document.getElementById("layerPresetAllBtn") : null;
   const layerModeLayerBtn = typeof document !== "undefined" ? document.getElementById("layerModeLayerBtn") : null;
   const layerModeFaceBtn = typeof document !== "undefined" ? document.getElementById("layerModeFaceBtn") : null;
+  const hideLayerSolutionsBtn = typeof document !== "undefined" ? document.getElementById("hideLayerSolutionsBtn") : null;
 
   const crossWidget = typeof document !== "undefined" ? document.getElementById("crossSolutionsWidget") : null;
+  const hideCrossSolutionsBtn = typeof document !== "undefined" ? document.getElementById("hideCrossSolutionsBtn") : null;
   const crossTitle = typeof document !== "undefined" ? document.getElementById("crossSolutionsTitle") : null;
   const crossBadge = typeof document !== "undefined" ? document.getElementById("crossSolutionsBadge") : null;
   const crossEoSummary = typeof document !== "undefined" ? document.getElementById("crossEoSummary") : null;
@@ -485,6 +488,18 @@ export function createSolverWidgetsView({
       appStore.saveSettings();
     });
   }
+  hideLayerSolutionsBtn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    appStore.setWidgetVisibility?.("showLayerSolutionsWidget", false);
+    showToast("1st Layer solutions widget hidden — re-enable anytime in ⚙️ Settings", "info", 2600);
+  });
+  hideCrossSolutionsBtn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    appStore.setWidgetVisibility?.("showCrossSolutionsWidget", false);
+    showToast("Cross solutions widget hidden — re-enable anytime in ⚙️ Settings", "info", 2600);
+  });
 
   return {
     getCurrentLayerScramble: () => currentLayerScramble,

@@ -357,9 +357,10 @@ export function createSolvePanelView({
       }
       const phaseMeta = renderSolvePhaseInline(lastSolve);
       if (phaseMeta) metaLine += ` · ${phaseMeta}`;
+      const statsMode = s.statsDisplayMode || (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic"));
       if (solveCaseEl) {
         solveCaseEl.innerHTML = `<div class="solve-case-meta">${metaLine}</div>` +
-          (s.advancedMode && lastSolve.moves && lastSolve.moves.length > 0 ? renderLastSolveCfopInline(lastSolve, { basic: false, refMedians }) : "");
+          (statsMode === "advanced" && lastSolve.moves && lastSolve.moves.length > 0 ? renderLastSolveCfopInline(lastSolve, { basic: false, refMedians }) : "");
       }
       if (solvePostSummary && solvePostReplayBtn) {
         const hasMoves = Boolean(lastSolve.moves && lastSolve.moves.length > 0);
@@ -398,9 +399,10 @@ export function createSolvePanelView({
       }
     }
 
+    const statsMode = s.statsDisplayMode || (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic"));
     const activeSess = appStore.getActiveSession?.();
     const openDetail = (sv, num) => getSolveDetailModal()?.open?.(sv, num);
-    if (s.advancedMode) {
+    if (statsMode === "advanced") {
       if (solveInlineRecentStats) {
         solveInlineRecentStats.hidden = true;
         solveInlineRecentStats.innerHTML = "";
@@ -415,7 +417,7 @@ export function createSolvePanelView({
       if (solveTimesEl) {
         solveTimesEl.hidden = !isTimerViewMode(s) || solves.length === 0;
       }
-    } else {
+    } else if (statsMode === "basic") {
       if (solveTimesEl) solveTimesEl.hidden = true;
       if (solveInlineRecentStats) {
         const showInline = isTimerViewMode(s) && solves.length > 0;
@@ -437,6 +439,12 @@ export function createSolvePanelView({
         } else {
           solveInlineRecentStats.innerHTML = "";
         }
+      }
+    } else {
+      if (solveTimesEl) solveTimesEl.hidden = true;
+      if (solveInlineRecentStats) {
+        solveInlineRecentStats.hidden = true;
+        solveInlineRecentStats.innerHTML = "";
       }
     }
     if (typeof document !== "undefined") {

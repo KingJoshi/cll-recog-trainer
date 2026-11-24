@@ -70,6 +70,7 @@ export function createSettingsModalController({
   const openShortcutsBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenShortcutsBtn") : null;
 
   const settingsShowTooltips = typeof document !== "undefined" ? document.getElementById("settingsShowTooltips") : null;
+  const settingsStatsModeNoneBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsModeNoneBtn") : null;
   const settingsStatsModeBasicBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsModeBasicBtn") : null;
   const settingsStatsModeAdvancedBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsModeAdvancedBtn") : null;
   const settingsLlModeFullBtn = typeof document !== "undefined" ? document.getElementById("settingsLlModeFullBtn") : null;
@@ -78,7 +79,6 @@ export function createSettingsModalController({
   const settingsDesktopMultiPane = typeof document !== "undefined" ? document.getElementById("settingsDesktopMultiPane") : null;
   const settingsShowLayerWidget = typeof document !== "undefined" ? document.getElementById("settingsShowLayerWidget") : null;
   const settingsShowCrossWidget = typeof document !== "undefined" ? document.getElementById("settingsShowCrossWidget") : null;
-  const settingsShowStatsWidget = typeof document !== "undefined" ? document.getElementById("settingsShowStatsWidget") : null;
   const settingsSolveShowCube = typeof document !== "undefined" ? document.getElementById("settingsSolveShowCube") : null;
   const settingsSolveInspection = typeof document !== "undefined" ? document.getElementById("settingsSolveInspection") : null;
   const settingsShowFreeFaceTurns = typeof document !== "undefined" ? document.getElementById("settingsShowFreeFaceTurns") : null;
@@ -115,14 +115,21 @@ export function createSettingsModalController({
       document.getElementById("toggleShowReflection")?.setAttribute("aria-pressed", String(s.showReflection));
     }
     if (settingsShowTooltips) settingsShowTooltips.checked = Boolean(s.showTooltips);
-    const adv = Boolean(s.advancedMode);
+    const statsMode = s.statsDisplayMode || (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic"));
+    if (settingsStatsModeNoneBtn) {
+      const isNone = statsMode === "none";
+      settingsStatsModeNoneBtn.classList.toggle("active", isNone);
+      settingsStatsModeNoneBtn.setAttribute("aria-pressed", String(isNone));
+    }
     if (settingsStatsModeBasicBtn) {
-      settingsStatsModeBasicBtn.classList.toggle("active", !adv);
-      settingsStatsModeBasicBtn.setAttribute("aria-pressed", String(!adv));
+      const isBasic = statsMode === "basic";
+      settingsStatsModeBasicBtn.classList.toggle("active", isBasic);
+      settingsStatsModeBasicBtn.setAttribute("aria-pressed", String(isBasic));
     }
     if (settingsStatsModeAdvancedBtn) {
-      settingsStatsModeAdvancedBtn.classList.toggle("active", adv);
-      settingsStatsModeAdvancedBtn.setAttribute("aria-pressed", String(adv));
+      const isAdv = statsMode === "advanced";
+      settingsStatsModeAdvancedBtn.classList.toggle("active", isAdv);
+      settingsStatsModeAdvancedBtn.setAttribute("aria-pressed", String(isAdv));
     }
     const is2LookLl = s.llAnalyticsMode === "2look";
     if (settingsLlModeFullBtn) {
@@ -137,7 +144,6 @@ export function createSettingsModalController({
     if (settingsDesktopMultiPane) settingsDesktopMultiPane.checked = s.desktopMultiPane !== false;
     if (settingsShowLayerWidget) settingsShowLayerWidget.checked = s.showLayerSolutionsWidget !== false;
     if (settingsShowCrossWidget) settingsShowCrossWidget.checked = s.showCrossSolutionsWidget !== false;
-    if (settingsShowStatsWidget) settingsShowStatsWidget.checked = s.showStatsPanel !== false;
     if (settingsSolveShowCube) settingsSolveShowCube.checked = Boolean(s.solveShowCube);
     if (settingsSolveInspection) settingsSolveInspection.checked = Boolean(s.solveInspection);
     if (settingsShowFreeFaceTurns) settingsShowFreeFaceTurns.checked = Boolean(s.showFreeFaceTurns);
@@ -404,12 +410,16 @@ export function createSettingsModalController({
     onTooltipsChange?.(appStore.state.showTooltips);
   });
 
+  settingsStatsModeNoneBtn?.addEventListener("click", () => {
+    appStore.setStatsDisplayMode?.("none");
+    renderToggles();
+  });
   settingsStatsModeBasicBtn?.addEventListener("click", () => {
-    appStore.setAdvancedMode?.(false);
+    appStore.setStatsDisplayMode?.("basic");
     renderToggles();
   });
   settingsStatsModeAdvancedBtn?.addEventListener("click", () => {
-    appStore.setAdvancedMode?.(true);
+    appStore.setStatsDisplayMode?.("advanced");
     renderToggles();
   });
   settingsLlModeFullBtn?.addEventListener("click", () => {
@@ -447,9 +457,6 @@ export function createSettingsModalController({
       const scr = appStore.state.currentSolveScramble || appStore.state.scrambleMoves || appStore.state.scramble;
       if (scr) solverWidgets?.updateCrossSolutions?.(scr);
     }
-  });
-  settingsShowStatsWidget?.addEventListener("change", (e) => {
-    appStore.setWidgetVisibility?.("showStatsPanel", Boolean(e.target.checked));
   });
   settingsSolveShowCube?.addEventListener("change", (e) => {
     appStore.setSolveShowCube?.(Boolean(e.target.checked));

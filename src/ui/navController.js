@@ -300,10 +300,11 @@ export function createNavController({
       resetOrientationBtn.hidden = cubeCard.hidden;
     }
 
+    const statsMode = s.statsDisplayMode || (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic"));
     if (solveScramble) solveScramble.hidden = !solving;
     if (solveSurface) solveSurface.hidden = !solving;
     if (solveTimes) {
-      solveTimes.hidden = !solving || !s.advancedMode || (appStore.getSolves?.().length || 0) === 0;
+      solveTimes.hidden = !solving || statsMode !== "advanced" || (appStore.getSolves?.().length || 0) === 0;
     }
     if (layerSolutionsWidget) {
       layerSolutionsWidget.hidden = (s.showLayerSolutionsWidget === false) || !(solving || simulating) || s.currentPuzzle !== "222" || (solving && s.solveTarget === "timer-drill");
@@ -312,7 +313,7 @@ export function createNavController({
       crossSolutionsWidget.hidden = (s.showCrossSolutionsWidget === false) || !(solving || simulating) || (s.currentPuzzle !== "333" && s.currentPuzzle !== "333oh") || (solving && s.solveTarget === "timer-drill");
     }
     if (statsPanel) {
-      statsPanel.hidden = s.showStatsPanel === false;
+      statsPanel.hidden = statsMode === "none" || s.showStatsPanel === false;
     }
     if (freeMovesWrap) {
       freeMovesWrap.hidden = s.showFreeFaceTurns !== true;

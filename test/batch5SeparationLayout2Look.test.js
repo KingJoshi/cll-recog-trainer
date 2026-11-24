@@ -187,6 +187,21 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
     assert.ok(events.some(([evt]) => evt === 'llAnalyticsMode'));
     assert.ok(events.some(([evt]) => evt === 'trainSubMode'));
     assert.ok(events.some(([evt]) => evt === 'desktopMultiPane'));
+
+    store.setStatsDisplayMode('none');
+    assert.equal(store.state.statsDisplayMode, 'none');
+    assert.equal(store.state.showStatsPanel, false);
+    assert.equal(store.state.advancedMode, false);
+
+    store.setStatsDisplayMode('basic');
+    assert.equal(store.state.statsDisplayMode, 'basic');
+    assert.equal(store.state.showStatsPanel, true);
+    assert.equal(store.state.advancedMode, false);
+
+    store.setStatsDisplayMode('advanced');
+    assert.equal(store.state.statsDisplayMode, 'advanced');
+    assert.equal(store.state.showStatsPanel, true);
+    assert.equal(store.state.advancedMode, true);
   });
 
   // Pre-Batch-5 legacy drill upgrade: mode === "solve" + solveTarget !== "full" + no saved trainSubMode
@@ -211,20 +226,21 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
   // syncMerge propagates Batch 5 scalar settings by LWW timestamp
   const localSnap = {
     schemaVersion: 2,
-    settings: { llAnalyticsMode: 'full', trainSubMode: 'recog', desktopMultiPane: true },
-    timestamps: { settings: { llAnalyticsMode: 1000, trainSubMode: 3000, desktopMultiPane: 1000 } },
+    settings: { llAnalyticsMode: 'full', trainSubMode: 'recog', desktopMultiPane: true, statsDisplayMode: 'basic' },
+    timestamps: { settings: { llAnalyticsMode: 1000, trainSubMode: 3000, desktopMultiPane: 1000, statsDisplayMode: 1000 } },
     sessions: []
   };
   const remoteSnap = {
     schemaVersion: 2,
-    settings: { llAnalyticsMode: '2look', trainSubMode: 'timed-drill', desktopMultiPane: false },
-    timestamps: { settings: { llAnalyticsMode: 2000, trainSubMode: 2000, desktopMultiPane: 2000 } },
+    settings: { llAnalyticsMode: '2look', trainSubMode: 'timed-drill', desktopMultiPane: false, statsDisplayMode: 'none' },
+    timestamps: { settings: { llAnalyticsMode: 2000, trainSubMode: 2000, desktopMultiPane: 2000, statsDisplayMode: 2500 } },
     sessions: []
   };
   const merged = mergeSyncPayloads(localSnap, remoteSnap).merged;
   assert.equal(merged.settings.llAnalyticsMode, '2look');
   assert.equal(merged.settings.trainSubMode, 'recog');
   assert.equal(merged.settings.desktopMultiPane, false);
+  assert.equal(merged.settings.statsDisplayMode, 'none');
 });
 
 test('UI markup & CSS wire Learn/Train/Solve tabs, Train submodes, desktop multi-pane, and high-contrast CFOP chart colors', () => {
@@ -237,6 +253,10 @@ test('UI markup & CSS wire Learn/Train/Solve tabs, Train submodes, desktop multi
   assert.ok(html.includes('id="solveRightPane"'));
   assert.ok(html.includes('id="settingsLlMode2LookBtn"'));
   assert.ok(html.includes('id="settingsDesktopMultiPane"'));
+  assert.ok(html.includes('id="settingsStatsModeNoneBtn"'));
+  assert.ok(html.includes('id="hideLayerSolutionsBtn"'));
+  assert.ok(html.includes('id="hideCrossSolutionsBtn"'));
+  assert.ok(html.includes('id="settingsShowLayerWidget"'));
 
   const statsCss = fs.readFileSync(new URL('../src/styles/features/stats.css', import.meta.url), 'utf8');
   assert.ok(statsCss.includes('.cfop-seg-cross { background: #2563eb;'));

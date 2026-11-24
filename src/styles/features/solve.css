@@ -328,6 +328,21 @@ button.solve-chip:active,
     color: var(--text);
 }
 
+.layer-widget-hide-btn {
+    flex-shrink: 0;
+    margin-left: auto;
+    color: var(--muted);
+    background: transparent;
+    border-color: transparent;
+    font-weight: 600;
+}
+
+.layer-widget-hide-btn:hover {
+    color: var(--text);
+    background: var(--surface);
+    border-color: var(--border);
+}
+
 .layer-solutions-widget summary .chevron {
     flex: none;
     width: 9px;

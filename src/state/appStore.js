@@ -195,6 +195,19 @@ export class AppStore {
     const rawSimSpeed = Number(savedSettings.simSpeed ?? cookiePrefs.simSpeed);
     const simSpeed = SIM_SPEED_OPTIONS.includes(rawSimSpeed) ? rawSimSpeed : 1;
 
+    const hasSavedStatsDisplayMode = ["none", "basic", "advanced"].includes(savedSettings.statsDisplayMode)
+      || ["none", "basic", "advanced"].includes(cookiePrefs.statsDisplayMode);
+    const rawStatsDisplayMode = ["none", "basic", "advanced"].includes(savedSettings.statsDisplayMode)
+      ? savedSettings.statsDisplayMode
+      : cookiePrefs.statsDisplayMode;
+    const rawAdvMode = savedSettings.advancedMode ?? cookiePrefs.advancedMode ?? (hasExistingSettings || hasRecordedSolves);
+    const rawShowStatsPanel = savedSettings.showStatsPanel ?? cookiePrefs.showStatsPanel ?? true;
+    const statsDisplayMode = hasSavedStatsDisplayMode
+      ? rawStatsDisplayMode
+      : (rawShowStatsPanel === false ? "none" : (rawAdvMode ? "advanced" : "basic"));
+    const advancedMode = statsDisplayMode === "advanced";
+    const showStatsPanel = statsDisplayMode !== "none";
+
     this.state = {
       currentPuzzle,
       currentTrackId,
@@ -208,7 +221,8 @@ export class AppStore {
       allowAUF: savedSettings.allowAUF ?? true,
       showReflection: savedSettings.showReflection ?? true,
       darkMode: savedSettings.darkMode ?? false,
-      advancedMode: savedSettings.advancedMode ?? cookiePrefs.advancedMode ?? (hasExistingSettings || hasRecordedSolves),
+      advancedMode,
+      statsDisplayMode,
       focusMode: false,
       showTooltips: savedSettings.showTooltips ?? cookiePrefs.showTooltips ?? true,
       onboardingCompleted: savedSettings.onboardingCompleted ?? cookiePrefs.onboardingCompleted ?? (hasExistingSettings || hasRecordedSolves),
@@ -231,7 +245,7 @@ export class AppStore {
       showExtraWcaEvents: savedSettings.showExtraWcaEvents ?? cookiePrefs.showExtraWcaEvents ?? false,
       showLayerSolutionsWidget: savedSettings.showLayerSolutionsWidget ?? cookiePrefs.showLayerSolutionsWidget ?? true,
       showCrossSolutionsWidget: savedSettings.showCrossSolutionsWidget ?? cookiePrefs.showCrossSolutionsWidget ?? true,
-      showStatsPanel: savedSettings.showStatsPanel ?? cookiePrefs.showStatsPanel ?? true,
+      showStatsPanel,
       showFreeFaceTurns: savedSettings.showFreeFaceTurns ?? cookiePrefs.showFreeFaceTurns ?? false,
       llAnalyticsMode: (savedSettings.llAnalyticsMode === "2look" || cookiePrefs.llAnalyticsMode === "2look") ? "2look" : "full",
       trainSubMode,
@@ -575,12 +589,36 @@ export class AppStore {
     this.notify("simSpeed", { simSpeed: next });
   }
 
+  setStatsDisplayMode(mode) {
+    const next = mode === "none" ? "none" : mode === "basic" ? "basic" : "advanced";
+    const nextAdv = next === "advanced";
+    const nextShow = next !== "none";
+    if (
+      this.state.statsDisplayMode === next &&
+      Boolean(this.state.advancedMode) === nextAdv &&
+      (this.state.showStatsPanel !== false) === nextShow
+    ) return;
+    this.state.statsDisplayMode = next;
+    this.state.advancedMode = nextAdv;
+    this.state.showStatsPanel = nextShow;
+    this.saveSettings();
+    this.notify("advancedMode", { advancedMode: nextAdv, statsDisplayMode: next });
+    this.notify("widgetVisibility", { key: "showStatsPanel", enabled: nextShow });
+  }
+
   setAdvancedMode(enabled) {
     const next = Boolean(enabled);
-    if (Boolean(this.state.advancedMode) === next) return;
+    const nextDisplay = next ? "advanced" : "basic";
+    if (
+      Boolean(this.state.advancedMode) === next &&
+      this.state.statsDisplayMode === nextDisplay &&
+      this.state.showStatsPanel !== false
+    ) return;
     this.state.advancedMode = next;
+    this.state.showStatsPanel = true;
+    this.state.statsDisplayMode = nextDisplay;
     this.saveSettings();
-    this.notify("advancedMode", { advancedMode: next });
+    this.notify("advancedMode", { advancedMode: next, statsDisplayMode: nextDisplay });
   }
 
   setFocusMode(enabled) {
@@ -595,6 +633,9 @@ export class AppStore {
     const next = Boolean(enabled);
     if (Boolean(this.state[key]) === next) return;
     this.state[key] = next;
+    if (key === "showStatsPanel") {
+      this.state.statsDisplayMode = next ? (this.state.advancedMode ? "advanced" : "basic") : "none";
+    }
     this.saveSettings();
     this.notify("widgetVisibility", { key, enabled: next });
   }
@@ -718,6 +759,7 @@ export class AppStore {
       showReflection: s.showReflection,
       darkMode: s.darkMode,
       advancedMode: Boolean(s.advancedMode),
+      statsDisplayMode: ["none", "basic", "advanced"].includes(s.statsDisplayMode) ? s.statsDisplayMode : (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic")),
       showTooltips: s.showTooltips,
       onboardingCompleted: s.onboardingCompleted,
       onboardingProfile: s.onboardingProfile,
@@ -774,6 +816,7 @@ export class AppStore {
       mode: s.mode,
       darkMode: s.darkMode,
       advancedMode: Boolean(s.advancedMode),
+      statsDisplayMode: ["none", "basic", "advanced"].includes(s.statsDisplayMode) ? s.statsDisplayMode : (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic")),
       showTooltips: s.showTooltips,
       onboardingCompleted: s.onboardingCompleted,
       alwaysWhiteBottom: s.alwaysWhiteBottom,
@@ -911,6 +954,13 @@ export class AppStore {
       s.showLayerSolutionsWidget = savedSettings.showLayerSolutionsWidget ?? s.showLayerSolutionsWidget ?? true;
       s.showCrossSolutionsWidget = savedSettings.showCrossSolutionsWidget ?? s.showCrossSolutionsWidget ?? true;
       s.showStatsPanel = savedSettings.showStatsPanel ?? s.showStatsPanel ?? true;
+      if (["none", "basic", "advanced"].includes(savedSettings.statsDisplayMode)) {
+        s.statsDisplayMode = savedSettings.statsDisplayMode;
+        s.advancedMode = savedSettings.statsDisplayMode === "advanced";
+        s.showStatsPanel = savedSettings.statsDisplayMode !== "none";
+      } else {
+        s.statsDisplayMode = s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic");
+      }
       s.showFreeFaceTurns = savedSettings.showFreeFaceTurns ?? s.showFreeFaceTurns ?? false;
       s.llAnalyticsMode = savedSettings.llAnalyticsMode === "2look" ? "2look" : "full";
       s.trainSubMode = savedSettings.trainSubMode === "timed-drill" ? "timed-drill" : "recog";

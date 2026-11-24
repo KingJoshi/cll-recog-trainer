@@ -410,6 +410,7 @@
           <span class="panel-title" id="layerSolutionsTitle">1st layer solutions</span>
           <span id="layerSolutionsBadge" class="badge"></span>
         </div>
+        <button type="button" id="hideLayerSolutionsBtn" class="btn btn-xs layer-widget-hide-btn" title="Hide 1st layer solutions widget (re-enable anytime in Settings)" aria-label="Hide 1st layer solutions widget">&times; Hide</button>
       </summary>
       <div class="layer-solutions-body">
         <div class="layer-mode-switch" role="group" aria-label="2x2 solution goal">
@@ -461,6 +462,7 @@
           <span class="panel-title" id="crossSolutionsTitle">Cross &amp; Cross+1 / EO solutions (White)</span>
           <span id="crossSolutionsBadge" class="badge"></span>
         </div>
+        <button type="button" id="hideCrossSolutionsBtn" class="btn btn-xs layer-widget-hide-btn" title="Hide Cross solutions widget (re-enable anytime in Settings)" aria-label="Hide Cross solutions widget">&times; Hide</button>
       </summary>
       <div class="layer-solutions-body">
         <div id="crossEoSummary" class="cross-eo-summary"></div>
@@ -987,12 +989,13 @@
       <div class="settings-section">
         <div class="settings-section-head">
           <h4 class="settings-section-title">🖥️ Display, Stats Mode &amp; Zen Mode</h4>
-          <span class="settings-section-desc">Switch Basic vs Advanced stats detail, Zen distraction-free mode, and panel visibility</span>
+          <span class="settings-section-desc">Switch None, Basic, or Advanced stats, Zen distraction-free mode, and panel visibility</span>
         </div>
         <div class="settings-toggles-list">
           <div class="settings-speed-row">
             <span class="settings-oh-label"><strong>Stats &amp; Analytics Mode:</strong></span>
             <div class="settings-speed-group" role="group" aria-label="Stats and analytics mode">
+              <button type="button" id="settingsStatsModeNoneBtn" class="settings-speed-btn" data-settings-stats-mode="none" aria-pressed="false">None</button>
               <button type="button" id="settingsStatsModeBasicBtn" class="settings-speed-btn" data-settings-stats-mode="basic" aria-pressed="false">Basic</button>
               <button type="button" id="settingsStatsModeAdvancedBtn" class="settings-speed-btn active" data-settings-stats-mode="advanced" aria-pressed="true">Advanced</button>
             </div>
@@ -1017,15 +1020,11 @@
           </label>
           <label class="solve-toggle-label">
             <input type="checkbox" id="settingsShowLayerWidget" checked>
-            <span>Show 2x2 1st Face / 1st Layer solutions widget</span>
+            <span>Show 1st Layer / 1st Face solutions widget (2x2)</span>
           </label>
           <label class="solve-toggle-label">
             <input type="checkbox" id="settingsShowCrossWidget" checked>
-            <span>Show 3x3 Cross / Cross+1 solutions widget</span>
-          </label>
-          <label class="solve-toggle-label">
-            <input type="checkbox" id="settingsShowStatsWidget" checked>
-            <span>Show Stats &amp; History widget</span>
+            <span>Show Cross / Cross+1 solutions widget (3x3)</span>
           </label>
           <label class="solve-toggle-label">
             <input type="checkbox" id="settingsSolveShowCube" checked>
