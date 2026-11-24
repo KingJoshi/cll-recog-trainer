@@ -7,7 +7,7 @@ import { PracticeView } from './practiceView.js';
 import { solveReplayViewer } from './replayView.js';
 import { clearSvgCache, applyColorsTo3DCube } from './caseVisualizer.js';
 import { smartCube } from './smartCube.js';
-import { appStore, isTimerViewMode } from './state/appStore.js';
+import { appStore, isTimerViewMode, ALL_BUILTIN_EVENT_IDS } from './state/appStore.js';
 import { modalManager } from './ui/modalManager.js';
 import { showToast } from './ui/toastService.js';
 import { initSyncTracking } from './services/syncStorage.js';
@@ -423,6 +423,15 @@ appStore.subscribe((evt) => {
     navCtrl?.renderPuzzleButtons?.();
     navCtrl?.renderStage?.();
     settingsModal?.renderCustomEvents?.();
+  } else if (evt === "visibleEvents") {
+    const s = appStore.state;
+    const isBuiltIn = ALL_BUILTIN_EVENT_IDS.includes(s.currentPuzzle);
+    if (isBuiltIn && Array.isArray(s.visibleEvents) && s.visibleEvents.length && !s.visibleEvents.includes(s.currentPuzzle)) {
+      navCtrl?.setPuzzle?.(s.visibleEvents[0]);
+    } else {
+      navCtrl?.renderPuzzleButtons?.();
+    }
+    settingsModal?.renderToggles?.();
   }
 });
 

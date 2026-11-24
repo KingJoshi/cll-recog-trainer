@@ -1,7 +1,7 @@
 // Top-level navigation controller: Puzzle switcher, Mode tabs, Track/Focus bar, Stage visibility, and Scramble coordination
 
 import { PUZZLES, getTrack, getDefaultTrack, getSolveTargetsForPuzzle, getSolveTargetInfo, getSolveTargetLabel } from '../data/algRegistry.js';
-import { MODES, VALID_PUZZLES, caseById, isTimerViewMode } from '../state/appStore.js';
+import { MODES, VALID_PUZZLES, caseById, isTimerViewMode, DEFAULT_VISIBLE_EVENTS } from '../state/appStore.js';
 import { escapeHtml } from '../services/htmlUtils.js';
 import { showToast } from './toastService.js';
 import {
@@ -112,7 +112,10 @@ export function createNavController({
 
   function renderPuzzleButtons() {
     const s = appStore.state;
-    const showExtra = Boolean(s.showExtraWcaEvents);
+    const rawVisible = Array.isArray(s.visibleEvents) && s.visibleEvents.length
+      ? s.visibleEvents
+      : (s.showExtraWcaEvents ? VALID_PUZZLES : DEFAULT_VISIBLE_EVENTS);
+    const visibleSet = new Set(rawVisible);
     if (puzzleSwitcher && typeof document !== "undefined") {
       puzzleSwitcher.querySelectorAll(".puzzle-btn-custom").forEach(btn => btn.remove());
       for (const ev of (s.customEvents || [])) {
@@ -127,8 +130,8 @@ export function createNavController({
     }
     getAllPuzzleButtons().forEach(btn => {
       const pid = btn.dataset.puzzle;
-      if (btn.classList.contains("puzzle-btn-extra")) {
-        btn.hidden = !showExtra && pid !== s.currentPuzzle;
+      if (!btn.classList.contains("puzzle-btn-custom")) {
+        btn.hidden = !visibleSet.has(pid) && pid !== s.currentPuzzle;
       }
       const active = pid === s.currentPuzzle;
       btn.classList.toggle("active", active);
@@ -312,8 +315,13 @@ export function createNavController({
     if (crossSolutionsWidget) {
       crossSolutionsWidget.hidden = (s.showCrossSolutionsWidget === false) || !(solving || simulating) || (s.currentPuzzle !== "333" && s.currentPuzzle !== "333oh") || (solving && s.solveTarget === "timer-drill");
     }
+    const panelVis = s.statsPanelVisibility || (s.showStatsPanel === false ? "hidden" : "always");
     if (statsPanel) {
-      statsPanel.hidden = statsMode === "none" || s.showStatsPanel === false;
+      statsPanel.hidden =
+        statsMode === "none" ||
+        s.showStatsPanel === false ||
+        panelVis === "hidden" ||
+        (panelVis === "solve-only" && !solving);
     }
     if (freeMovesWrap) {
       freeMovesWrap.hidden = s.showFreeFaceTurns !== true;

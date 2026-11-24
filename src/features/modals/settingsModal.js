@@ -9,9 +9,10 @@ import {
   applyColorsTo3DCube
 } from '../../caseVisualizer.js';
 import { PUZZLES, CUSTOM_EVENT_SCRAMBLE_LABELS } from '../../data/algRegistry.js';
-import { sanitizeHexColor, isTimerViewMode } from '../../state/appStore.js';
+import { sanitizeHexColor, isTimerViewMode, DEFAULT_VISIBLE_EVENTS, ALL_BUILTIN_EVENT_IDS } from '../../state/appStore.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
 import { ALL_SOLVER_FACES } from '../solve/solverWidgetsView.js';
+import { showToast } from '../../ui/toastService.js';
 
 const COLOR_CONFIG = [
   { key: "yellow", label: "Yellow (Top)" },
@@ -73,6 +74,9 @@ export function createSettingsModalController({
   const settingsStatsModeNoneBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsModeNoneBtn") : null;
   const settingsStatsModeBasicBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsModeBasicBtn") : null;
   const settingsStatsModeAdvancedBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsModeAdvancedBtn") : null;
+  const settingsStatsVisAlwaysBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsVisAlwaysBtn") : null;
+  const settingsStatsVisSolveBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsVisSolveBtn") : null;
+  const settingsStatsVisHiddenBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsVisHiddenBtn") : null;
   const settingsLlModeFullBtn = typeof document !== "undefined" ? document.getElementById("settingsLlModeFullBtn") : null;
   const settingsLlMode2LookBtn = typeof document !== "undefined" ? document.getElementById("settingsLlMode2LookBtn") : null;
   const settingsFocusMode = typeof document !== "undefined" ? document.getElementById("settingsFocusMode") : null;
@@ -90,11 +94,28 @@ export function createSettingsModalController({
   const settingsMetronomeEnabled = typeof document !== "undefined" ? document.getElementById("settingsMetronomeEnabled") : null;
   const settingsMetronomeBpm = typeof document !== "undefined" ? document.getElementById("settingsMetronomeBpm") : null;
   const settingsMetronomeBpmLabel = typeof document !== "undefined" ? document.getElementById("settingsMetronomeBpmLabel") : null;
-  const settingsShowExtraEvents = typeof document !== "undefined" ? document.getElementById("settingsShowExtraEvents") : null;
+  const settingsEventsGrid = typeof document !== "undefined" ? document.getElementById("settingsEventsGrid") : null;
+  const settingsEventsCoreBtn = typeof document !== "undefined" ? document.getElementById("settingsEventsCoreBtn") : null;
+  const settingsEventsAllBtn = typeof document !== "undefined" ? document.getElementById("settingsEventsAllBtn") : null;
   const settingsCustomEventName = typeof document !== "undefined" ? document.getElementById("settingsCustomEventName") : null;
   const settingsCustomEventScramble = typeof document !== "undefined" ? document.getElementById("settingsCustomEventScramble") : null;
   const settingsAddCustomEventBtn = typeof document !== "undefined" ? document.getElementById("settingsAddCustomEventBtn") : null;
   const settingsCustomEventsList = typeof document !== "undefined" ? document.getElementById("settingsCustomEventsList") : null;
+  const settingsNavBtns = typeof document !== "undefined" ? Array.from(document.querySelectorAll("[data-settings-tab]")) : [];
+  const settingsTabPanels = typeof document !== "undefined" ? Array.from(document.querySelectorAll("[data-settings-panel]")) : [];
+  let activeTab = "general";
+
+  function setActiveTab(tabId = "general") {
+    activeTab = tabId || "general";
+    settingsNavBtns.forEach(btn => {
+      const active = btn.dataset.settingsTab === activeTab;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-selected", String(active));
+    });
+    settingsTabPanels.forEach(panel => {
+      panel.hidden = panel.dataset.settingsPanel !== activeTab;
+    });
+  }
   const settingsOhHandLeftBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandLeftBtn") : null;
   const settingsOhHandRightBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandRightBtn") : null;
   const settingsOhTableOnBtn = typeof document !== "undefined" ? document.getElementById("settingsOhTableOnBtn") : null;
@@ -131,6 +152,22 @@ export function createSettingsModalController({
       settingsStatsModeAdvancedBtn.classList.toggle("active", isAdv);
       settingsStatsModeAdvancedBtn.setAttribute("aria-pressed", String(isAdv));
     }
+    const panelVis = s.statsPanelVisibility || (s.showStatsPanel === false ? "hidden" : "always");
+    if (settingsStatsVisAlwaysBtn) {
+      const active = panelVis === "always";
+      settingsStatsVisAlwaysBtn.classList.toggle("active", active);
+      settingsStatsVisAlwaysBtn.setAttribute("aria-pressed", String(active));
+    }
+    if (settingsStatsVisSolveBtn) {
+      const active = panelVis === "solve-only";
+      settingsStatsVisSolveBtn.classList.toggle("active", active);
+      settingsStatsVisSolveBtn.setAttribute("aria-pressed", String(active));
+    }
+    if (settingsStatsVisHiddenBtn) {
+      const active = panelVis === "hidden";
+      settingsStatsVisHiddenBtn.classList.toggle("active", active);
+      settingsStatsVisHiddenBtn.setAttribute("aria-pressed", String(active));
+    }
     const is2LookLl = s.llAnalyticsMode === "2look";
     if (settingsLlModeFullBtn) {
       settingsLlModeFullBtn.classList.toggle("active", !is2LookLl);
@@ -158,7 +195,7 @@ export function createSettingsModalController({
     if (settingsMetronomeBpmLabel) {
       settingsMetronomeBpmLabel.textContent = `${bpm} BPM (${(bpm / 60).toFixed(1)} TPS)`;
     }
-    if (settingsShowExtraEvents) settingsShowExtraEvents.checked = Boolean(s.showExtraWcaEvents);
+    renderEventsGrid();
     const isRight = s.ohHand === "right";
     if (settingsOhHandLeftBtn) {
       settingsOhHandLeftBtn.classList.toggle("active", !isRight);
@@ -275,6 +312,38 @@ export function createSettingsModalController({
     });
   }
 
+  function renderEventsGrid() {
+    if (!settingsEventsGrid) return;
+    const s = appStore.state;
+    const visibleList = Array.isArray(s.visibleEvents) && s.visibleEvents.length
+      ? s.visibleEvents
+      : (s.showExtraWcaEvents ? ALL_BUILTIN_EVENT_IDS : DEFAULT_VISIBLE_EVENTS);
+    const visibleSet = new Set(visibleList);
+    const groups = [
+      { label: "Core Cubes (Learn, Train, Solve)", ids: ["222", "333", "333oh", "444", "555"] },
+      { label: "Big Cubes & Non-WCA", ids: ["666", "777", "fto"] },
+      { label: "WCA Side Events & BLD", ids: ["pyram", "skewb", "minx", "sq1", "clock", "333bf"] }
+    ];
+    settingsEventsGrid.innerHTML = groups.map(grp => `
+      <div>
+        <div class="settings-events-group-label">${escapeHtml(grp.label)}</div>
+        <div class="settings-events-grid">
+          ${grp.ids.filter(id => Boolean(PUZZLES[id])).map(id => {
+            const p = PUZZLES[id];
+            const checked = visibleSet.has(id);
+            const title = p.shortName || p.name || id;
+            return `
+              <label class="settings-event-chip ${checked ? "is-checked" : ""}">
+                <input type="checkbox" data-visible-event="${escapeHtml(id)}" ${checked ? "checked" : ""}>
+                <span>${escapeHtml(title)}</span>
+              </label>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `).join("");
+  }
+
   function renderCustomEvents() {
     if (!settingsCustomEventsList) return;
     const list = appStore.state.customEvents || [];
@@ -303,6 +372,7 @@ export function createSettingsModalController({
   function open() {
     if (!modal) return;
     setPickingColor(false);
+    setActiveTab(activeTab);
     renderColorPickers();
     renderToggles();
     renderCustomEvents();
@@ -410,6 +480,13 @@ export function createSettingsModalController({
     onTooltipsChange?.(appStore.state.showTooltips);
   });
 
+  settingsNavBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.settingsTab;
+      if (tab) setActiveTab(tab);
+    });
+  });
+
   settingsStatsModeNoneBtn?.addEventListener("click", () => {
     appStore.setStatsDisplayMode?.("none");
     renderToggles();
@@ -420,6 +497,18 @@ export function createSettingsModalController({
   });
   settingsStatsModeAdvancedBtn?.addEventListener("click", () => {
     appStore.setStatsDisplayMode?.("advanced");
+    renderToggles();
+  });
+  settingsStatsVisAlwaysBtn?.addEventListener("click", () => {
+    appStore.setStatsPanelVisibility?.("always");
+    renderToggles();
+  });
+  settingsStatsVisSolveBtn?.addEventListener("click", () => {
+    appStore.setStatsPanelVisibility?.("solve-only");
+    renderToggles();
+  });
+  settingsStatsVisHiddenBtn?.addEventListener("click", () => {
+    appStore.setStatsPanelVisibility?.("hidden");
     renderToggles();
   });
   settingsLlModeFullBtn?.addEventListener("click", () => {
@@ -508,16 +597,25 @@ export function createSettingsModalController({
     }
     appStore.saveSettings();
   });
-  settingsShowExtraEvents?.addEventListener("change", (e) => {
-    const enabled = Boolean(e.target.checked);
-    appStore.state.showExtraWcaEvents = enabled;
-    appStore.saveSettings();
-    const navCtrl = getNavCtrl();
-    if (!enabled && PUZZLES[appStore.state.currentPuzzle]?.solveOnly) {
-      navCtrl?.setPuzzle?.("333");
+  settingsEventsGrid?.addEventListener("change", (e) => {
+    const cb = e.target.closest("input[data-visible-event]");
+    if (!cb) return;
+    const evId = cb.dataset.visibleEvent;
+    const ok = appStore.toggleVisibleEvent?.(evId, Boolean(cb.checked));
+    if (!ok) {
+      cb.checked = true;
+      showToast("At least one event must stay visible in the header", "warning", 2200);
+      return;
     }
-    navCtrl?.renderPuzzleButtons?.();
-    renderToggles();
+    renderEventsGrid();
+  });
+  settingsEventsCoreBtn?.addEventListener("click", () => {
+    appStore.setVisibleEvents?.(DEFAULT_VISIBLE_EVENTS);
+    renderEventsGrid();
+  });
+  settingsEventsAllBtn?.addEventListener("click", () => {
+    appStore.setVisibleEvents?.(ALL_BUILTIN_EVENT_IDS);
+    renderEventsGrid();
   });
 
   const handleAddCustomEvent = () => {
@@ -606,7 +704,8 @@ export function createSettingsModalController({
       evt === "desktopMultiPane" ||
       evt === "focusMode" ||
       evt === "widgetVisibility" ||
-      evt === "solveOptions"
+      evt === "solveOptions" ||
+      evt === "visibleEvents"
     ) renderToggles();
     else if (evt === "customEvents") renderCustomEvents();
     else if (evt === "hydrate") {

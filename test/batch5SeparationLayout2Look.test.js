@@ -11,7 +11,13 @@ import {
 } from '../src/cfopAnalyzer.js';
 import { prewarmOllPllSvgs } from '../src/caseVisualizer.js';
 import { renderOllPllCasesBreakdownHtml } from '../src/features/solve/cfopBreakdownRenderer.js';
-import { AppStore, STORAGE_KEYS, isTimerViewMode } from '../src/state/appStore.js';
+import {
+  AppStore,
+  STORAGE_KEYS,
+  isTimerViewMode,
+  DEFAULT_VISIBLE_EVENTS,
+  ALL_BUILTIN_EVENT_IDS
+} from '../src/state/appStore.js';
 import { mergeSyncPayloads } from '../src/services/syncMerge.js';
 
 function createMockCfopSolve({ id = 1, ms = 12000, ollCase = null, pllCase = null } = {}) {
@@ -202,6 +208,35 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
     assert.equal(store.state.statsDisplayMode, 'advanced');
     assert.equal(store.state.showStatsPanel, true);
     assert.equal(store.state.advancedMode, true);
+
+    store.setStatsPanelVisibility('solve-only');
+    assert.equal(store.state.statsPanelVisibility, 'solve-only');
+    assert.equal(store.state.showStatsPanel, true);
+    store.setStatsPanelVisibility('hidden');
+    assert.equal(store.state.statsPanelVisibility, 'hidden');
+    assert.equal(store.state.showStatsPanel, false);
+    store.setStatsPanelVisibility('always');
+    assert.equal(store.state.statsPanelVisibility, 'always');
+    assert.equal(store.state.showStatsPanel, true);
+
+    assert.deepEqual(store.state.visibleEvents, DEFAULT_VISIBLE_EVENTS);
+    assert.equal(store.toggleVisibleEvent('fto', true), true);
+    assert.ok(store.state.visibleEvents.includes('fto'));
+    assert.equal(store.state.showExtraWcaEvents, true);
+    assert.equal(store.setVisibleEvents(['333']), true);
+    assert.equal(store.toggleVisibleEvent('333', false), false); // cannot hide last remaining event
+    assert.deepEqual(store.state.visibleEvents, ['333']);
+  });
+
+  // Legacy showExtraWcaEvents: true with no saved visibleEvents expands to all built-in events
+  withMockStorage({
+    [STORAGE_KEYS.SETTINGS]: {
+      currentPuzzle: 'fto',
+      showExtraWcaEvents: true
+    }
+  }, () => {
+    const legacy = new AppStore();
+    assert.deepEqual(legacy.state.visibleEvents, ALL_BUILTIN_EVENT_IDS);
   });
 
   // Pre-Batch-5 legacy drill upgrade: mode === "solve" + solveTarget !== "full" + no saved trainSubMode
@@ -226,14 +261,46 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
   // syncMerge propagates Batch 5 scalar settings by LWW timestamp
   const localSnap = {
     schemaVersion: 2,
-    settings: { llAnalyticsMode: 'full', trainSubMode: 'recog', desktopMultiPane: true, statsDisplayMode: 'basic' },
-    timestamps: { settings: { llAnalyticsMode: 1000, trainSubMode: 3000, desktopMultiPane: 1000, statsDisplayMode: 1000 } },
+    settings: {
+      llAnalyticsMode: 'full',
+      trainSubMode: 'recog',
+      desktopMultiPane: true,
+      statsDisplayMode: 'basic',
+      statsPanelVisibility: 'always',
+      visibleEvents: ['222', '333']
+    },
+    timestamps: {
+      settings: {
+        llAnalyticsMode: 1000,
+        trainSubMode: 3000,
+        desktopMultiPane: 1000,
+        statsDisplayMode: 1000,
+        statsPanelVisibility: 1000,
+        visibleEvents: 1000
+      }
+    },
     sessions: []
   };
   const remoteSnap = {
     schemaVersion: 2,
-    settings: { llAnalyticsMode: '2look', trainSubMode: 'timed-drill', desktopMultiPane: false, statsDisplayMode: 'none' },
-    timestamps: { settings: { llAnalyticsMode: 2000, trainSubMode: 2000, desktopMultiPane: 2000, statsDisplayMode: 2500 } },
+    settings: {
+      llAnalyticsMode: '2look',
+      trainSubMode: 'timed-drill',
+      desktopMultiPane: false,
+      statsDisplayMode: 'none',
+      statsPanelVisibility: 'solve-only',
+      visibleEvents: ['333', 'fto']
+    },
+    timestamps: {
+      settings: {
+        llAnalyticsMode: 2000,
+        trainSubMode: 2000,
+        desktopMultiPane: 2000,
+        statsDisplayMode: 2500,
+        statsPanelVisibility: 2500,
+        visibleEvents: 2500
+      }
+    },
     sessions: []
   };
   const merged = mergeSyncPayloads(localSnap, remoteSnap).merged;
@@ -241,6 +308,8 @@ test('AppStore manages llAnalyticsMode, trainSubMode, desktopMultiPane, legacy d
   assert.equal(merged.settings.trainSubMode, 'recog');
   assert.equal(merged.settings.desktopMultiPane, false);
   assert.equal(merged.settings.statsDisplayMode, 'none');
+  assert.equal(merged.settings.statsPanelVisibility, 'solve-only');
+  assert.deepEqual(merged.settings.visibleEvents, ['333', 'fto']);
 });
 
 test('UI markup & CSS wire Learn/Train/Solve tabs, Train submodes, desktop multi-pane, and high-contrast CFOP chart colors', () => {
@@ -254,6 +323,10 @@ test('UI markup & CSS wire Learn/Train/Solve tabs, Train submodes, desktop multi
   assert.ok(html.includes('id="settingsLlMode2LookBtn"'));
   assert.ok(html.includes('id="settingsDesktopMultiPane"'));
   assert.ok(html.includes('id="settingsStatsModeNoneBtn"'));
+  assert.ok(html.includes('id="settingsStatsVisHiddenBtn"'));
+  assert.ok(html.includes('id="settingsEventsGrid"'));
+  assert.ok(html.includes('data-settings-tab="events"'));
+  assert.ok(html.includes('data-settings-tab="event-specific"'));
   assert.ok(html.includes('id="hideLayerSolutionsBtn"'));
   assert.ok(html.includes('id="hideCrossSolutionsBtn"'));
   assert.ok(html.includes('id="settingsShowLayerWidget"'));

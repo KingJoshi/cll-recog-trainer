@@ -966,141 +966,185 @@
       <h3 id="settingsModalTitle" class="solve-modal-title">⚙️ Trainer Settings</h3>
       <button type="button" id="settingsModalCloseBtn" class="solve-modal-close" aria-label="Close dialog">&times;</button>
     </div>
-    <div class="solve-modal-body settings-modal-body">
-      <!-- Getting Started & Help -->
-      <div class="settings-section">
-        <div class="settings-section-head">
-          <h4 class="settings-section-title">🧭 Getting Started &amp; Help</h4>
-          <span class="settings-section-desc">Configure your recommended study/practice workflow, toggle tooltips, or customize hotkeys</span>
-        </div>
-        <div class="settings-toggles-list">
-          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
-            <button type="button" id="settingsOpenWizardBtn" class="btn btn-small btn-outline">🧭 Launch Setup Wizard</button>
-            <button type="button" id="settingsOpenShortcutsBtn" class="btn btn-small btn-outline">⌨️ Keyboard Shortcuts…</button>
-          </div>
-          <label class="solve-toggle-label">
-            <input type="checkbox" id="settingsShowTooltips" checked>
-            <span>Show helpful UI tooltips on hover &amp; focus</span>
-          </label>
-        </div>
-      </div>
+    <div class="solve-modal-body settings-modal-body settings-shell">
+      <nav class="settings-nav" role="tablist" aria-label="Settings Categories">
+        <button type="button" class="settings-nav-btn active" role="tab" data-settings-tab="general" aria-selected="true">🖥️ General &amp; Display</button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="solve" aria-selected="false">⏱️ Solve &amp; Timer</button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="events" aria-selected="false">🏆 Events</button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="event-specific" aria-selected="false">🧩 Event Settings</button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="colors" aria-selected="false">🎨 Cube Colors</button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="hardware" aria-selected="false">🔌 Hardware &amp; Sync</button>
+      </nav>
 
-      <!-- Display, Stats Mode & Zen Mode -->
-      <div class="settings-section">
-        <div class="settings-section-head">
-          <h4 class="settings-section-title">🖥️ Display, Stats Mode &amp; Zen Mode</h4>
-          <span class="settings-section-desc">Switch None, Basic, or Advanced stats, Zen distraction-free mode, and panel visibility</span>
-        </div>
-        <div class="settings-toggles-list">
-          <div class="settings-speed-row">
-            <span class="settings-oh-label"><strong>Stats &amp; Analytics Mode:</strong></span>
-            <div class="settings-speed-group" role="group" aria-label="Stats and analytics mode">
-              <button type="button" id="settingsStatsModeNoneBtn" class="settings-speed-btn" data-settings-stats-mode="none" aria-pressed="false">None</button>
-              <button type="button" id="settingsStatsModeBasicBtn" class="settings-speed-btn" data-settings-stats-mode="basic" aria-pressed="false">Basic</button>
-              <button type="button" id="settingsStatsModeAdvancedBtn" class="settings-speed-btn active" data-settings-stats-mode="advanced" aria-pressed="true">Advanced</button>
+      <div class="settings-content">
+        <!-- Tab 1: General & Display -->
+        <div class="settings-tab-panel" data-settings-panel="general" role="tabpanel">
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">📊 Stats &amp; Panels</h4>
+              <span class="settings-section-desc">Control how much stats detail appears during solves and when Stats &amp; History is shown</span>
+            </div>
+            <div class="settings-toggles-list">
+              <div class="settings-speed-row">
+                <span class="settings-oh-label"><strong>Stats &amp; Analytics Mode:</strong></span>
+                <div class="settings-speed-group" role="group" aria-label="Stats and analytics mode">
+                  <button type="button" id="settingsStatsModeNoneBtn" class="settings-speed-btn" data-settings-stats-mode="none" aria-pressed="false">None</button>
+                  <button type="button" id="settingsStatsModeBasicBtn" class="settings-speed-btn" data-settings-stats-mode="basic" aria-pressed="false">Basic</button>
+                  <button type="button" id="settingsStatsModeAdvancedBtn" class="settings-speed-btn active" data-settings-stats-mode="advanced" aria-pressed="true">Advanced</button>
+                </div>
+              </div>
+              <div class="settings-speed-row">
+                <span class="settings-oh-label"><strong>Stats &amp; History Widget:</strong></span>
+                <div class="settings-speed-group" role="group" aria-label="Stats and History widget visibility">
+                  <button type="button" id="settingsStatsVisAlwaysBtn" class="settings-speed-btn active" data-settings-stats-vis="always" aria-pressed="true">Always</button>
+                  <button type="button" id="settingsStatsVisSolveBtn" class="settings-speed-btn" data-settings-stats-vis="solve-only" aria-pressed="false">Solve Only</button>
+                  <button type="button" id="settingsStatsVisHiddenBtn" class="settings-speed-btn" data-settings-stats-vis="hidden" aria-pressed="false">Hidden</button>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="settings-speed-row">
-            <span class="settings-oh-label"><strong>3x3 OLL / PLL Grouping:</strong></span>
-            <div class="settings-speed-group" role="group" aria-label="3x3 OLL and PLL analytics grouping">
-              <button type="button" id="settingsLlModeFullBtn" class="settings-speed-btn active" data-settings-ll-mode="full" aria-pressed="true">Full (57 / 21)</button>
-              <button type="button" id="settingsLlMode2LookBtn" class="settings-speed-btn" data-settings-ll-mode="2look" aria-pressed="false">2-Look</button>
-            </div>
-          </div>
-          <div class="toggle-with-tip">
-            <label class="solve-toggle-label">
-              <input type="checkbox" id="settingsFocusMode">
-              <span>Zen Mode (distraction-free solving &mdash; Shift+Z to switch)</span>
-            </label>
-            <button type="button" class="info-tip-btn" data-tooltip="Hides header bars, stats panel, and solver helpers in Solve mode so only your scramble and timer stay visible. Press Shift+Z anytime to toggle." aria-label="Explain Zen Mode">?</button>
-          </div>
-          <label class="solve-toggle-label">
-            <input type="checkbox" id="settingsDesktopMultiPane" checked>
-            <span>Desktop multi-pane Solve layout (3D cube &amp; recent solves sidebar on wide screens)</span>
-          </label>
-          <label class="solve-toggle-label">
-            <input type="checkbox" id="settingsShowLayerWidget" checked>
-            <span>Show 1st Layer / 1st Face solutions widget (2x2)</span>
-          </label>
-          <label class="solve-toggle-label">
-            <input type="checkbox" id="settingsShowCrossWidget" checked>
-            <span>Show Cross / Cross+1 solutions widget (3x3)</span>
-          </label>
-          <label class="solve-toggle-label">
-            <input type="checkbox" id="settingsSolveShowCube" checked>
-            <span>Show 3D Cube in Solve mode</span>
-          </label>
-          <div class="toggle-with-tip">
-            <label class="solve-toggle-label">
-              <input type="checkbox" id="settingsSolveInspection" checked>
-              <span>15s WCA Inspection in Solve mode</span>
-            </label>
-            <button type="button" class="info-tip-btn" data-tooltip="Run a WCA 15-second inspection countdown before starting the solve timer (triggers +2 at 15s and DNF at 17s)" aria-label="Explain 15s Inspection">?</button>
-          </div>
-          <label class="solve-toggle-label">
-            <input type="checkbox" id="settingsShowFreeFaceTurns">
-            <span>Show Free Face Turns keypad under 3D cube</span>
-          </label>
-        </div>
-      </div>
 
-      <!-- Trainer Preferences -->
-      <div class="settings-section">
-        <div class="settings-section-head">
-          <h4 class="settings-section-title">🔧 Trainer &amp; Solve Preferences</h4>
-          <span class="settings-section-desc">Saved automatically to your browser settings &amp; cookies</span>
-        </div>
-        <div class="settings-toggles-list">
-          <label class="solve-toggle-label">
-            <input type="checkbox" id="settingsDarkTheme">
-            <span>Dark theme</span>
-          </label>
-          <div class="toggle-with-tip">
-            <label class="solve-toggle-label">
-              <input type="checkbox" id="settingsAlwaysWhiteBottom">
-              <span>Always white bottom (z2 CFOP / CLL orientation)</span>
-            </label>
-            <button type="button" class="info-tip-btn" data-tooltip="Prepends z2 on case setups so your first layer / cross sits on the bottom (D) and the last layer stays on top (U), matching speedsolving grips" aria-label="Explain Always white bottom">?</button>
-          </div>
-          <div class="toggle-with-tip">
-            <label class="solve-toggle-label">
-              <input type="checkbox" id="settingsAllowAUF">
-              <span>Allow AUF (Adjust Upper Face in case scrambles)</span>
-            </label>
-            <button type="button" class="info-tip-btn" data-tooltip="Adds a random U, U', or U2 pre-turn to last-layer drills so you learn to recognize cases from any top-layer angle" aria-label="Explain Allow AUF">?</button>
-          </div>
-          <label class="solve-toggle-label">
-            <input type="checkbox" id="settingsShowReflection">
-            <span>Show reflection facelets (backs &amp; bottom on 3D cube)</span>
-          </label>
-          <div class="toggle-with-tip">
-            <label class="solve-toggle-label">
-              <input type="checkbox" id="settingsPauseAlertEnabled">
-              <span>Smart Cube pause alert (beep at &ge;0.40s hesitation)</span>
-            </label>
-            <button type="button" class="info-tip-btn" data-tooltip="Plays a subtle audio cue whenever a pause of 0.40s or longer occurs during a smart cube solve" aria-label="Explain Smart Cube pause alert">?</button>
-          </div>
-          <div class="settings-metronome-row">
-            <label class="solve-toggle-label">
-              <input type="checkbox" id="settingsMetronomeEnabled">
-              <span>Lookahead Metronome during solves</span>
-            </label>
-            <div class="settings-metronome-controls">
-              <input type="range" id="settingsMetronomeBpm" min="60" max="360" step="10" value="180" aria-label="Metronome BPM">
-              <span id="settingsMetronomeBpmLabel" class="settings-metronome-val">180 BPM (3.0 TPS)</span>
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">🖥️ Appearance &amp; Layout</h4>
+              <span class="settings-section-desc">Global UI theme, Zen distraction-free focus, wide-screen multi-pane, and playback speed</span>
+            </div>
+            <div class="settings-toggles-list">
+              <label class="solve-toggle-label">
+                <input type="checkbox" id="settingsDarkTheme">
+                <span>Dark theme</span>
+              </label>
+              <div class="toggle-with-tip">
+                <label class="solve-toggle-label">
+                  <input type="checkbox" id="settingsFocusMode">
+                  <span>Zen Mode (distraction-free solving &mdash; Shift+Z to switch)</span>
+                </label>
+                <button type="button" class="info-tip-btn" data-tooltip="Hides header bars, stats panel, and solver helpers in Solve mode so only your scramble and timer stay visible. Press Shift+Z anytime to toggle." aria-label="Explain Zen Mode">?</button>
+              </div>
+              <label class="solve-toggle-label">
+                <input type="checkbox" id="settingsDesktopMultiPane" checked>
+                <span>Desktop multi-pane Solve layout (3D cube &amp; recent solves sidebar on wide screens)</span>
+              </label>
+              <label class="solve-toggle-label">
+                <input type="checkbox" id="settingsShowTooltips" checked>
+                <span>Show helpful UI tooltips on hover &amp; focus</span>
+              </label>
+              <div class="settings-speed-row">
+                <span class="settings-oh-label"><strong>3D Playback Pace:</strong></span>
+                <div class="settings-speed-group" role="group" aria-label="Default 3D playback pace">
+                  <button type="button" class="settings-speed-btn" data-settings-speed="0.25" aria-pressed="false">0.25x</button>
+                  <button type="button" class="settings-speed-btn" data-settings-speed="0.5" aria-pressed="false">0.5x</button>
+                  <button type="button" class="settings-speed-btn active" data-settings-speed="1" aria-pressed="true">1x</button>
+                  <button type="button" class="settings-speed-btn" data-settings-speed="1.5" aria-pressed="false">1.5x</button>
+                  <button type="button" class="settings-speed-btn" data-settings-speed="2" aria-pressed="false">2x</button>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="toggle-with-tip">
-            <label class="solve-toggle-label">
-              <input type="checkbox" id="settingsShowExtraEvents">
-              <span>Show extra events (6x6, 7x7, FTO, Pyraminx, Skewb, Megaminx, Sq-1, Clock, 3BLD)</span>
-            </label>
-            <button type="button" class="info-tip-btn" data-tooltip="Adds scramble and timer support for additional WCA &amp; FTO puzzles in the header switcher (Solve mode only)" aria-label="Explain extra events">?</button>
+
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">🧭 Quick Setup &amp; Hotkeys</h4>
+              <span class="settings-section-desc">Run the training plan wizard or customize keyboard shortcuts for navigation and turns</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <button type="button" id="settingsOpenWizardBtn" class="btn btn-small btn-outline">🧭 Launch Setup Wizard</button>
+              <button type="button" id="settingsOpenShortcutsBtn" class="btn btn-small btn-outline">⌨️ Keyboard Shortcuts…</button>
+            </div>
           </div>
-          <div class="settings-custom-events-box">
-            <div class="settings-custom-events-head">
-              <span class="settings-oh-label"><strong>Custom Events:</strong></span>
-              <span class="settings-section-desc">Create custom timer-only or scrambled events (e.g. Relay 2-4, FTO BLD)</span>
+        </div>
+
+        <!-- Tab 2: Solve, Timer & Orientation -->
+        <div class="settings-tab-panel" data-settings-panel="solve" role="tabpanel" hidden>
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">⏱️ Timer, 3D Cube &amp; Scramble Options</h4>
+              <span class="settings-section-desc">Applies across timed solves, drills, and case practice</span>
+            </div>
+            <div class="settings-toggles-list">
+              <label class="solve-toggle-label">
+                <input type="checkbox" id="settingsSolveShowCube" checked>
+                <span>Show 3D Cube in Solve / Timed Drills view</span>
+              </label>
+              <div class="toggle-with-tip">
+                <label class="solve-toggle-label">
+                  <input type="checkbox" id="settingsSolveInspection" checked>
+                  <span>15s WCA Inspection countdown</span>
+                </label>
+                <button type="button" class="info-tip-btn" data-tooltip="Run a WCA 15-second inspection countdown before starting the solve timer (triggers +2 at 15s and DNF at 17s)" aria-label="Explain 15s Inspection">?</button>
+              </div>
+              <label class="solve-toggle-label">
+                <input type="checkbox" id="settingsShowFreeFaceTurns">
+                <span>Show Free Face Turns keypad under 3D cube</span>
+              </label>
+              <label class="solve-toggle-label">
+                <input type="checkbox" id="settingsShowReflection">
+                <span>Show reflection facelets (backs &amp; bottom on 3D cube)</span>
+              </label>
+              <div class="toggle-with-tip">
+                <label class="solve-toggle-label">
+                  <input type="checkbox" id="settingsAlwaysWhiteBottom">
+                  <span>Always white bottom (z2 CFOP / CLL orientation)</span>
+                </label>
+                <button type="button" class="info-tip-btn" data-tooltip="Prepends z2 on case setups so your first layer / cross sits on the bottom (D) and the last layer stays on top (U), matching speedsolving grips" aria-label="Explain Always white bottom">?</button>
+              </div>
+              <div class="toggle-with-tip">
+                <label class="solve-toggle-label">
+                  <input type="checkbox" id="settingsAllowAUF">
+                  <span>Allow AUF (Adjust Upper Face in case scrambles)</span>
+                </label>
+                <button type="button" class="info-tip-btn" data-tooltip="Adds a random U, U', or U2 pre-turn to last-layer drills so you learn to recognize cases from any top-layer angle" aria-label="Explain Allow AUF">?</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">🥁 Lookahead Metronome &amp; Pause Alerts</h4>
+              <span class="settings-section-desc">Audio pacing feedback during Smart Cube and manual solves</span>
+            </div>
+            <div class="settings-toggles-list">
+              <div class="toggle-with-tip">
+                <label class="solve-toggle-label">
+                  <input type="checkbox" id="settingsPauseAlertEnabled">
+                  <span>Smart Cube pause alert (beep at &ge;0.40s hesitation)</span>
+                </label>
+                <button type="button" class="info-tip-btn" data-tooltip="Plays a subtle audio cue whenever a pause of 0.40s or longer occurs during a smart cube solve" aria-label="Explain Smart Cube pause alert">?</button>
+              </div>
+              <div class="settings-metronome-row">
+                <label class="solve-toggle-label">
+                  <input type="checkbox" id="settingsMetronomeEnabled">
+                  <span>Lookahead Metronome during solves</span>
+                </label>
+                <div class="settings-metronome-controls">
+                  <input type="range" id="settingsMetronomeBpm" min="60" max="360" step="10" value="180" aria-label="Metronome BPM">
+                  <span id="settingsMetronomeBpmLabel" class="settings-metronome-val">180 BPM (3.0 TPS)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Events Management -->
+        <div class="settings-tab-panel" data-settings-panel="events" role="tabpanel" hidden>
+          <div class="settings-section">
+            <div class="settings-section-head settings-events-head">
+              <div>
+                <h4 class="settings-section-title">🏆 Visible Header Events</h4>
+                <span class="settings-section-desc">Choose individually which puzzles appear in the top switcher bar</span>
+              </div>
+              <div class="settings-events-actions">
+                <button type="button" id="settingsEventsCoreBtn" class="btn btn-xs">Core 5 Only</button>
+                <button type="button" id="settingsEventsAllBtn" class="btn btn-xs">Show All 14</button>
+              </div>
+            </div>
+            <div id="settingsEventsGrid" class="settings-events-groups"></div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">✨ Custom Events</h4>
+              <span class="settings-section-desc">Create custom timer-only or scrambled events (e.g. 2-4 Relay, FTO BLD)</span>
             </div>
             <div class="settings-custom-event-form">
               <input type="text" id="settingsCustomEventName" class="settings-custom-event-input" maxlength="32" placeholder="Event name (e.g. 2-4 Relay)" aria-label="Custom event name">
@@ -1121,144 +1165,173 @@
               </select>
               <button type="button" id="settingsAddCustomEventBtn" class="btn btn-small btn-primary">+ Add</button>
             </div>
-            <div id="settingsCustomEventsList" class="settings-custom-events-list"></div>
+            <div id="settingsCustomEventsList" class="settings-custom-events-list" style="margin-top: 10px;"></div>
           </div>
-          <div class="settings-oh-hand-row">
-            <span class="settings-oh-label"><strong>3x3 One-Handed (OH) Hand:</strong></span>
-            <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Solving Hand">
-              <button type="button" id="settingsOhHandLeftBtn" class="oh-hand-btn active" data-settings-oh-hand="left" aria-pressed="true">&#x1F91A; Left Hand (&lt;R, U&gt;)</button>
-              <button type="button" id="settingsOhHandRightBtn" class="oh-hand-btn" data-settings-oh-hand="right" aria-pressed="false">&#x270B; Right Hand (Mirror &lt;L, U&gt; / z')</button>
+        </div>
+
+        <!-- Tab 4: Event-Specific Settings -->
+        <div class="settings-tab-panel" data-settings-panel="event-specific" role="tabpanel" hidden>
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">2x2x2 Settings</h4>
+              <span class="settings-section-desc">Configure 1st Layer / 1st Face solver hints and target face colors</span>
+            </div>
+            <div class="settings-toggles-list">
+              <label class="solve-toggle-label">
+                <input type="checkbox" id="settingsShowLayerWidget" checked>
+                <span>Show 1st Layer / 1st Face solutions widget</span>
+              </label>
+            </div>
+            <div class="settings-subsection" style="margin-top: 10px; padding-top: 10px;">
+              <div class="layer-faces-header" style="margin-bottom: 6px;">
+                <span class="layer-faces-label"><strong>2x2 1st Layer / Face Colors:</strong></span>
+                <div class="layer-faces-presets">
+                  <button type="button" id="settingsLayerPresetWhiteBtn" class="btn btn-xs">White Only</button>
+                  <button type="button" id="settingsLayerPresetOppositeBtn" class="btn btn-xs">W / Y (Dual CN)</button>
+                  <button type="button" id="settingsLayerPresetAllBtn" class="btn btn-xs">All 6 (Full CN)</button>
+                </div>
+              </div>
+              <div class="layer-faces-chips" id="settingsLayerFacesChips">
+                <button type="button" class="face-chip face-chip-white active" data-layer-face="white" aria-pressed="true">
+                  <span class="face-chip-dot face-dot-white"></span> White
+                </button>
+                <button type="button" class="face-chip face-chip-yellow" data-layer-face="yellow" aria-pressed="false">
+                  <span class="face-chip-dot face-dot-yellow"></span> Yellow
+                </button>
+                <button type="button" class="face-chip face-chip-green" data-layer-face="green" aria-pressed="false">
+                  <span class="face-chip-dot face-dot-green"></span> Green
+                </button>
+                <button type="button" class="face-chip face-chip-blue" data-layer-face="blue" aria-pressed="false">
+                  <span class="face-chip-dot face-dot-blue"></span> Blue
+                </button>
+                <button type="button" class="face-chip face-chip-red" data-layer-face="red" aria-pressed="false">
+                  <span class="face-chip-dot face-dot-red"></span> Red
+                </button>
+                <button type="button" class="face-chip face-chip-orange" data-layer-face="orange" aria-pressed="false">
+                  <span class="face-chip-dot face-dot-orange"></span> Orange
+                </button>
+              </div>
             </div>
           </div>
-          <div class="settings-oh-hand-row">
-            <span class="settings-oh-label"><strong>3x3 OH Table Abuse:</strong></span>
-            <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Table Abuse Style">
-              <button type="button" id="settingsOhTableOnBtn" class="oh-table-btn active" data-settings-oh-table="table" aria-pressed="true">Table Abuse (M-Slice)</button>
-              <button type="button" id="settingsOhTableOffBtn" class="oh-table-btn" data-settings-oh-table="no-table" aria-pressed="false">No Table Abuse (LRU / x' U)</button>
+
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">3x3x3 Settings</h4>
+              <span class="settings-section-desc">Cross solver visibility, Cross target colors, and OLL / PLL stats grouping</span>
+            </div>
+            <div class="settings-toggles-list">
+              <div class="settings-speed-row" style="border-top: none; padding-top: 0;">
+                <span class="settings-oh-label"><strong>3x3 OLL / PLL Grouping:</strong></span>
+                <div class="settings-speed-group" role="group" aria-label="3x3 OLL and PLL analytics grouping">
+                  <button type="button" id="settingsLlModeFullBtn" class="settings-speed-btn active" data-settings-ll-mode="full" aria-pressed="true">Full (57 / 21)</button>
+                  <button type="button" id="settingsLlMode2LookBtn" class="settings-speed-btn" data-settings-ll-mode="2look" aria-pressed="false">2-Look</button>
+                </div>
+              </div>
+              <label class="solve-toggle-label">
+                <input type="checkbox" id="settingsShowCrossWidget" checked>
+                <span>Show Cross / Cross+1 solutions widget</span>
+              </label>
+            </div>
+            <div class="settings-subsection" style="margin-top: 10px; padding-top: 10px;">
+              <div class="layer-faces-header" style="margin-bottom: 6px;">
+                <span class="layer-faces-label"><strong>3x3 Cross Colors:</strong></span>
+                <div class="layer-faces-presets">
+                  <button type="button" id="crossPresetWhiteBtn" class="btn btn-xs">White Only</button>
+                  <button type="button" id="crossPresetOppositeBtn" class="btn btn-xs">W / Y (Dual CN)</button>
+                  <button type="button" id="crossPresetAllBtn" class="btn btn-xs">All 6 (Full CN)</button>
+                </div>
+              </div>
+              <div class="layer-faces-chips" id="settingsCrossFacesChips">
+                <button type="button" class="face-chip face-chip-white active" data-cross-face="white" aria-pressed="true">
+                  <span class="face-chip-dot face-dot-white"></span> White
+                </button>
+                <button type="button" class="face-chip face-chip-yellow" data-cross-face="yellow" aria-pressed="false">
+                  <span class="face-chip-dot face-dot-yellow"></span> Yellow
+                </button>
+                <button type="button" class="face-chip face-chip-green" data-cross-face="green" aria-pressed="false">
+                  <span class="face-chip-dot face-dot-green"></span> Green
+                </button>
+                <button type="button" class="face-chip face-chip-blue" data-cross-face="blue" aria-pressed="false">
+                  <span class="face-chip-dot face-dot-blue"></span> Blue
+                </button>
+                <button type="button" class="face-chip face-chip-red" data-cross-face="red" aria-pressed="false">
+                  <span class="face-chip-dot face-dot-red"></span> Red
+                </button>
+                <button type="button" class="face-chip face-chip-orange" data-cross-face="orange" aria-pressed="false">
+                  <span class="face-chip-dot face-dot-orange"></span> Orange
+                </button>
+              </div>
             </div>
           </div>
-          <div class="settings-speed-row">
-            <span class="settings-oh-label"><strong>3D Playback Pace:</strong></span>
-            <div class="settings-speed-group" role="group" aria-label="Default 3D playback pace">
-              <button type="button" class="settings-speed-btn" data-settings-speed="0.25" aria-pressed="false">0.25x</button>
-              <button type="button" class="settings-speed-btn" data-settings-speed="0.5" aria-pressed="false">0.5x</button>
-              <button type="button" class="settings-speed-btn active" data-settings-speed="1" aria-pressed="true">1x</button>
-              <button type="button" class="settings-speed-btn" data-settings-speed="1.5" aria-pressed="false">1.5x</button>
-              <button type="button" class="settings-speed-btn" data-settings-speed="2" aria-pressed="false">2x</button>
+
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">3x3x3 One-Handed (OH) Settings</h4>
+              <span class="settings-section-desc">Choose preferred turning hand and table-abuse / M-slice algorithm sets</span>
+            </div>
+            <div class="settings-toggles-list">
+              <div class="settings-oh-hand-row" style="border-top: none; padding-top: 0;">
+                <span class="settings-oh-label"><strong>3x3 OH Solving Hand:</strong></span>
+                <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Solving Hand">
+                  <button type="button" id="settingsOhHandLeftBtn" class="oh-hand-btn active" data-settings-oh-hand="left" aria-pressed="true">&#x1F91A; Left Hand (&lt;R, U&gt;)</button>
+                  <button type="button" id="settingsOhHandRightBtn" class="oh-hand-btn" data-settings-oh-hand="right" aria-pressed="false">&#x270B; Right Hand (Mirror &lt;L, U&gt; / z')</button>
+                </div>
+              </div>
+              <div class="settings-oh-hand-row">
+                <span class="settings-oh-label"><strong>3x3 OH Table Abuse:</strong></span>
+                <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Table Abuse Style">
+                  <button type="button" id="settingsOhTableOnBtn" class="oh-table-btn active" data-settings-oh-table="table" aria-pressed="true">Table Abuse (M-Slice)</button>
+                  <button type="button" id="settingsOhTableOffBtn" class="oh-table-btn" data-settings-oh-table="no-table" aria-pressed="false">No Table Abuse (LRU / x' U)</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- 2x2 Layer & 3x3 Cross Solver Target Colors -->
-      <div class="settings-section">
-        <div class="settings-section-head">
-          <h4 class="settings-section-title">🧩 2x2 Layer &amp; 3x3 Cross Solver Colors</h4>
-          <span class="settings-section-desc">Choose target starting colors for 2x2 1st Layer / Face hints and 3x3 Cross / Cross+1 solutions</span>
+        <!-- Tab 5: Cube Colors -->
+        <div class="settings-tab-panel" data-settings-panel="colors" role="tabpanel" hidden>
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">🎨 Cube Colors (2D Diagrams &amp; 3D Cube)</h4>
+              <span class="settings-section-desc">Adjust HEX values to match your cube or visual preference across all puzzles</span>
+            </div>
+
+            <div class="settings-presets-row">
+              <button type="button" class="preset-btn" data-preset="bright">3D Cube Bright (Default)</button>
+              <button type="button" class="preset-btn" data-preset="fluro">High Contrast Neon</button>
+              <button type="button" class="preset-btn" data-preset="matte">Competition Matte</button>
+            </div>
+
+            <div class="color-picker-grid" id="colorPickerGrid"></div>
+
+            <button type="button" id="resetColorsBtn" class="btn btn-small" style="margin-top: 10px;">Reset Colors to Default</button>
+          </div>
         </div>
-        <div class="settings-subsection">
-          <div class="layer-faces-header" style="margin-bottom: 6px;">
-            <span class="layer-faces-label"><strong>2x2 1st Layer / Face Colors:</strong></span>
-            <div class="layer-faces-presets">
-              <button type="button" id="settingsLayerPresetWhiteBtn" class="btn btn-xs">White Only</button>
-              <button type="button" id="settingsLayerPresetOppositeBtn" class="btn btn-xs">W / Y (Dual CN)</button>
-              <button type="button" id="settingsLayerPresetAllBtn" class="btn btn-xs">All 6 (Full CN)</button>
+
+        <!-- Tab 6: Hardware & Sync -->
+        <div class="settings-tab-panel" data-settings-panel="hardware" role="tabpanel" hidden>
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">ᛒ Smart Cube &amp; Bluetooth</h4>
+              <span class="settings-section-desc">Manage connection cache and hardware state</span>
+            </div>
+            <div style="margin-top: 8px;">
+              <button type="button" id="settingsResetBtBtn" class="btn btn-small btn-outline btn-danger" title="Disconnect and wipe Bluetooth MAC address cache">
+                🔄 Hard Reset Bluetooth &amp; Clear MAC Cache
+              </button>
             </div>
           </div>
-          <div class="layer-faces-chips" id="settingsLayerFacesChips">
-            <button type="button" class="face-chip face-chip-white active" data-layer-face="white" aria-pressed="true">
-              <span class="face-chip-dot face-dot-white"></span> White
-            </button>
-            <button type="button" class="face-chip face-chip-yellow" data-layer-face="yellow" aria-pressed="false">
-              <span class="face-chip-dot face-dot-yellow"></span> Yellow
-            </button>
-            <button type="button" class="face-chip face-chip-green" data-layer-face="green" aria-pressed="false">
-              <span class="face-chip-dot face-dot-green"></span> Green
-            </button>
-            <button type="button" class="face-chip face-chip-blue" data-layer-face="blue" aria-pressed="false">
-              <span class="face-chip-dot face-dot-blue"></span> Blue
-            </button>
-            <button type="button" class="face-chip face-chip-red" data-layer-face="red" aria-pressed="false">
-              <span class="face-chip-dot face-dot-red"></span> Red
-            </button>
-            <button type="button" class="face-chip face-chip-orange" data-layer-face="orange" aria-pressed="false">
-              <span class="face-chip-dot face-dot-orange"></span> Orange
-            </button>
-          </div>
-        </div>
 
-        <div class="settings-subsection">
-          <div class="layer-faces-header" style="margin-bottom: 6px;">
-            <span class="layer-faces-label"><strong>3x3 Cross Colors:</strong></span>
-            <div class="layer-faces-presets">
-              <button type="button" id="crossPresetWhiteBtn" class="btn btn-xs">White Only</button>
-              <button type="button" id="crossPresetOppositeBtn" class="btn btn-xs">W / Y (Dual CN)</button>
-              <button type="button" id="crossPresetAllBtn" class="btn btn-xs">All 6 (Full CN)</button>
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">☁️ Cloud Sync (Google Drive)</h4>
+              <span class="settings-section-desc">Save, reload, and automatically merge settings, sessions, and logs across devices</span>
+            </div>
+            <div class="settings-sync-row">
+              <span id="settingsCloudSyncStatus" class="settings-sync-status">Not signed in</span>
+              <button type="button" id="settingsOpenCloudSyncBtn" class="btn btn-small btn-outline">☁️ Manage Google Drive Sync…</button>
             </div>
           </div>
-          <div class="layer-faces-chips" id="settingsCrossFacesChips">
-            <button type="button" class="face-chip face-chip-white active" data-cross-face="white" aria-pressed="true">
-              <span class="face-chip-dot face-dot-white"></span> White
-            </button>
-            <button type="button" class="face-chip face-chip-yellow" data-cross-face="yellow" aria-pressed="false">
-              <span class="face-chip-dot face-dot-yellow"></span> Yellow
-            </button>
-            <button type="button" class="face-chip face-chip-green" data-cross-face="green" aria-pressed="false">
-              <span class="face-chip-dot face-dot-green"></span> Green
-            </button>
-            <button type="button" class="face-chip face-chip-blue" data-cross-face="blue" aria-pressed="false">
-              <span class="face-chip-dot face-dot-blue"></span> Blue
-            </button>
-            <button type="button" class="face-chip face-chip-red" data-cross-face="red" aria-pressed="false">
-              <span class="face-chip-dot face-dot-red"></span> Red
-            </button>
-            <button type="button" class="face-chip face-chip-orange" data-cross-face="orange" aria-pressed="false">
-              <span class="face-chip-dot face-dot-orange"></span> Orange
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Cube Colors Customizer -->
-      <div class="settings-section">
-        <div class="settings-section-head">
-          <h4 class="settings-section-title">🎨 Cube Colors (2D Diagrams &amp; Badges)</h4>
-          <span class="settings-section-desc">Adjust HEX values to match your cube or visual preference</span>
-        </div>
-
-        <div class="settings-presets-row">
-          <button type="button" class="preset-btn" data-preset="bright">3D Cube Bright (Default)</button>
-          <button type="button" class="preset-btn" data-preset="fluro">High Contrast Neon</button>
-          <button type="button" class="preset-btn" data-preset="matte">Competition Matte</button>
-        </div>
-
-        <div class="color-picker-grid" id="colorPickerGrid"></div>
-
-        <button type="button" id="resetColorsBtn" class="btn btn-small" style="margin-top: 10px;">Reset Colors to Default</button>
-      </div>
-
-      <!-- Smart Cube Diagnostics & Reset -->
-      <div class="settings-section">
-        <div class="settings-section-head">
-          <h4 class="settings-section-title">ᛒ Smart Cube &amp; Bluetooth</h4>
-          <span class="settings-section-desc">Manage connection cache and hardware state</span>
-        </div>
-        <div style="margin-top: 8px;">
-          <button type="button" id="settingsResetBtBtn" class="btn btn-small btn-outline btn-danger" title="Disconnect and wipe Bluetooth MAC address cache">
-            🔄 Hard Reset Bluetooth &amp; Clear MAC Cache
-          </button>
-        </div>
-      </div>
-
-      <!-- Google Drive Cloud Sync -->
-      <div class="settings-section">
-        <div class="settings-section-head">
-          <h4 class="settings-section-title">☁️ Cloud Sync (Google Drive)</h4>
-          <span class="settings-section-desc">Save, reload, and automatically merge settings, sessions, and logs across devices</span>
-        </div>
-        <div class="settings-sync-row">
-          <span id="settingsCloudSyncStatus" class="settings-sync-status">Not signed in</span>
-          <button type="button" id="settingsOpenCloudSyncBtn" class="btn btn-small btn-outline">☁️ Manage Google Drive Sync…</button>
         </div>
       </div>
     </div>

@@ -48,6 +48,17 @@ export const STORAGE_KEYS = {
 };
 
 export const VALID_PUZZLES = ["222", "333", "333oh", "444", "555", "666", "777", "fto", "pyram", "skewb", "minx", "sq1", "clock", "333bf"];
+export const DEFAULT_VISIBLE_EVENTS = ["222", "333", "333oh", "444", "555"];
+export const ALL_BUILTIN_EVENT_IDS = [...VALID_PUZZLES];
+
+export function sanitizeVisibleEvents(rawList, fallbackShowExtra = false) {
+  if (Array.isArray(rawList)) {
+    const allowed = new Set(rawList.filter(id => ALL_BUILTIN_EVENT_IDS.includes(id)));
+    const ordered = ALL_BUILTIN_EVENT_IDS.filter(id => allowed.has(id));
+    return ordered.length > 0 ? ordered : [...DEFAULT_VISIBLE_EVENTS];
+  }
+  return fallbackShowExtra ? [...ALL_BUILTIN_EVENT_IDS] : [...DEFAULT_VISIBLE_EVENTS];
+}
 export const MODES = ["study", "practice", "solve", "simulate"];
 export const LOG_PAGE_SIZE_OPTIONS = [5, 12, 25, 50, 100];
 export const SIM_SPEED_OPTIONS = [0.25, 0.5, 1, 1.5, 2];
@@ -205,8 +216,22 @@ export class AppStore {
     const statsDisplayMode = hasSavedStatsDisplayMode
       ? rawStatsDisplayMode
       : (rawShowStatsPanel === false ? "none" : (rawAdvMode ? "advanced" : "basic"));
+    const rawPanelVis = ["always", "solve-only", "hidden"].includes(savedSettings.statsPanelVisibility)
+      ? savedSettings.statsPanelVisibility
+      : (["always", "solve-only", "hidden"].includes(cookiePrefs.statsPanelVisibility) ? cookiePrefs.statsPanelVisibility : null);
+    let statsPanelVisibility = rawPanelVis || (rawShowStatsPanel === false ? "hidden" : "always");
+    if (statsDisplayMode === "none") statsPanelVisibility = "hidden";
     const advancedMode = statsDisplayMode === "advanced";
-    const showStatsPanel = statsDisplayMode !== "none";
+    const showStatsPanel = statsDisplayMode !== "none" && statsPanelVisibility !== "hidden";
+
+    const rawShowExtra = savedSettings.showExtraWcaEvents ?? cookiePrefs.showExtraWcaEvents ?? false;
+    const rawVisibleList = Array.isArray(savedSettings.visibleEvents)
+      ? savedSettings.visibleEvents
+      : (Array.isArray(cookiePrefs.visibleEvents) ? cookiePrefs.visibleEvents : null);
+    const visibleEvents = sanitizeVisibleEvents(rawVisibleList, rawShowExtra);
+    const showExtraWcaEvents = rawVisibleList
+      ? visibleEvents.some(id => !DEFAULT_VISIBLE_EVENTS.includes(id))
+      : Boolean(rawShowExtra);
 
     this.state = {
       currentPuzzle,
@@ -223,6 +248,7 @@ export class AppStore {
       darkMode: savedSettings.darkMode ?? false,
       advancedMode,
       statsDisplayMode,
+      statsPanelVisibility,
       focusMode: false,
       showTooltips: savedSettings.showTooltips ?? cookiePrefs.showTooltips ?? true,
       onboardingCompleted: savedSettings.onboardingCompleted ?? cookiePrefs.onboardingCompleted ?? (hasExistingSettings || hasRecordedSolves),
@@ -242,7 +268,8 @@ export class AppStore {
       metronomeEnabled: savedSettings.metronomeEnabled ?? cookiePrefs.metronomeEnabled ?? false,
       metronomeBpm: Number(savedSettings.metronomeBpm || cookiePrefs.metronomeBpm) || 180,
       pauseAlertEnabled: savedSettings.pauseAlertEnabled ?? cookiePrefs.pauseAlertEnabled ?? false,
-      showExtraWcaEvents: savedSettings.showExtraWcaEvents ?? cookiePrefs.showExtraWcaEvents ?? false,
+      showExtraWcaEvents,
+      visibleEvents,
       showLayerSolutionsWidget: savedSettings.showLayerSolutionsWidget ?? cookiePrefs.showLayerSolutionsWidget ?? true,
       showCrossSolutionsWidget: savedSettings.showCrossSolutionsWidget ?? cookiePrefs.showCrossSolutionsWidget ?? true,
       showStatsPanel,
@@ -593,30 +620,73 @@ export class AppStore {
     const next = mode === "none" ? "none" : mode === "basic" ? "basic" : "advanced";
     const nextAdv = next === "advanced";
     const nextShow = next !== "none";
+    const nextPanelVis = next === "none"
+      ? "hidden"
+      : (this.state.statsPanelVisibility === "hidden" ? "always" : (this.state.statsPanelVisibility || "always"));
     if (
       this.state.statsDisplayMode === next &&
       Boolean(this.state.advancedMode) === nextAdv &&
-      (this.state.showStatsPanel !== false) === nextShow
+      (this.state.showStatsPanel !== false) === nextShow &&
+      this.state.statsPanelVisibility === nextPanelVis
     ) return;
     this.state.statsDisplayMode = next;
     this.state.advancedMode = nextAdv;
     this.state.showStatsPanel = nextShow;
+    this.state.statsPanelVisibility = nextPanelVis;
     this.saveSettings();
     this.notify("advancedMode", { advancedMode: nextAdv, statsDisplayMode: next });
-    this.notify("widgetVisibility", { key: "showStatsPanel", enabled: nextShow });
+    this.notify("widgetVisibility", { key: "showStatsPanel", enabled: nextShow, statsPanelVisibility: nextPanelVis });
+  }
+
+  setStatsPanelVisibility(vis) {
+    const next = vis === "hidden" ? "hidden" : vis === "solve-only" ? "solve-only" : "always";
+    const nextShow = next !== "hidden";
+    if (this.state.statsPanelVisibility === next && (this.state.showStatsPanel !== false) === nextShow) return;
+    this.state.statsPanelVisibility = next;
+    this.state.showStatsPanel = nextShow;
+    if (nextShow && this.state.statsDisplayMode === "none") {
+      this.state.statsDisplayMode = this.state.advancedMode ? "advanced" : "basic";
+    }
+    this.saveSettings();
+    this.notify("widgetVisibility", { key: "showStatsPanel", enabled: nextShow, statsPanelVisibility: next });
+  }
+
+  setVisibleEvents(eventIds) {
+    const next = sanitizeVisibleEvents(eventIds, false);
+    if (!next.length) return false;
+    this.state.visibleEvents = next;
+    this.state.showExtraWcaEvents = next.some(id => !DEFAULT_VISIBLE_EVENTS.includes(id));
+    this.saveSettings();
+    this.notify("visibleEvents", { visibleEvents: [...next] });
+    return true;
+  }
+
+  toggleVisibleEvent(id, enabled) {
+    if (!ALL_BUILTIN_EVENT_IDS.includes(id)) return false;
+    const current = Array.isArray(this.state.visibleEvents) && this.state.visibleEvents.length
+      ? this.state.visibleEvents
+      : [...DEFAULT_VISIBLE_EVENTS];
+    const nextSet = new Set(current);
+    if (enabled) nextSet.add(id);
+    else nextSet.delete(id);
+    if (nextSet.size === 0) return false;
+    return this.setVisibleEvents([...nextSet]);
   }
 
   setAdvancedMode(enabled) {
     const next = Boolean(enabled);
     const nextDisplay = next ? "advanced" : "basic";
+    const nextPanelVis = this.state.statsPanelVisibility === "hidden" ? "always" : (this.state.statsPanelVisibility || "always");
     if (
       Boolean(this.state.advancedMode) === next &&
       this.state.statsDisplayMode === nextDisplay &&
-      this.state.showStatsPanel !== false
+      this.state.showStatsPanel !== false &&
+      this.state.statsPanelVisibility === nextPanelVis
     ) return;
     this.state.advancedMode = next;
     this.state.showStatsPanel = true;
     this.state.statsDisplayMode = nextDisplay;
+    this.state.statsPanelVisibility = nextPanelVis;
     this.saveSettings();
     this.notify("advancedMode", { advancedMode: next, statsDisplayMode: nextDisplay });
   }
@@ -635,6 +705,9 @@ export class AppStore {
     this.state[key] = next;
     if (key === "showStatsPanel") {
       this.state.statsDisplayMode = next ? (this.state.advancedMode ? "advanced" : "basic") : "none";
+      this.state.statsPanelVisibility = next
+        ? (this.state.statsPanelVisibility === "hidden" ? "always" : (this.state.statsPanelVisibility || "always"))
+        : "hidden";
     }
     this.saveSettings();
     this.notify("widgetVisibility", { key, enabled: next });
@@ -781,9 +854,11 @@ export class AppStore {
       metronomeBpm: Number(s.metronomeBpm) || 180,
       pauseAlertEnabled: Boolean(s.pauseAlertEnabled),
       showExtraWcaEvents: Boolean(s.showExtraWcaEvents),
+      visibleEvents: sanitizeVisibleEvents(s.visibleEvents, s.showExtraWcaEvents),
       showLayerSolutionsWidget: s.showLayerSolutionsWidget !== false,
       showCrossSolutionsWidget: s.showCrossSolutionsWidget !== false,
       showStatsPanel: s.showStatsPanel !== false,
+      statsPanelVisibility: ["always", "solve-only", "hidden"].includes(s.statsPanelVisibility) ? s.statsPanelVisibility : (s.showStatsPanel === false ? "hidden" : "always"),
       showFreeFaceTurns: Boolean(s.showFreeFaceTurns),
       llAnalyticsMode: s.llAnalyticsMode === "2look" ? "2look" : "full",
       trainSubMode: s.trainSubMode === "timed-drill" ? "timed-drill" : "recog",
@@ -838,9 +913,11 @@ export class AppStore {
       metronomeBpm: Number(s.metronomeBpm) || 180,
       pauseAlertEnabled: Boolean(s.pauseAlertEnabled),
       showExtraWcaEvents: Boolean(s.showExtraWcaEvents),
+      visibleEvents: sanitizeVisibleEvents(s.visibleEvents, s.showExtraWcaEvents),
       showLayerSolutionsWidget: s.showLayerSolutionsWidget !== false,
       showCrossSolutionsWidget: s.showCrossSolutionsWidget !== false,
       showStatsPanel: s.showStatsPanel !== false,
+      statsPanelVisibility: ["always", "solve-only", "hidden"].includes(s.statsPanelVisibility) ? s.statsPanelVisibility : (s.showStatsPanel === false ? "hidden" : "always"),
       showFreeFaceTurns: Boolean(s.showFreeFaceTurns),
       llAnalyticsMode: s.llAnalyticsMode === "2look" ? "2look" : "full",
       trainSubMode: s.trainSubMode === "timed-drill" ? "timed-drill" : "recog",
@@ -951,6 +1028,12 @@ export class AppStore {
       s.metronomeBpm = Number(savedSettings.metronomeBpm) || 180;
       s.pauseAlertEnabled = Boolean(savedSettings.pauseAlertEnabled ?? false);
       s.showExtraWcaEvents = Boolean(savedSettings.showExtraWcaEvents ?? false);
+      s.visibleEvents = Array.isArray(savedSettings.visibleEvents)
+        ? sanitizeVisibleEvents(savedSettings.visibleEvents, s.showExtraWcaEvents)
+        : sanitizeVisibleEvents(null, s.showExtraWcaEvents);
+      if (Array.isArray(savedSettings.visibleEvents)) {
+        s.showExtraWcaEvents = s.visibleEvents.some(id => !DEFAULT_VISIBLE_EVENTS.includes(id));
+      }
       s.showLayerSolutionsWidget = savedSettings.showLayerSolutionsWidget ?? s.showLayerSolutionsWidget ?? true;
       s.showCrossSolutionsWidget = savedSettings.showCrossSolutionsWidget ?? s.showCrossSolutionsWidget ?? true;
       s.showStatsPanel = savedSettings.showStatsPanel ?? s.showStatsPanel ?? true;
@@ -961,6 +1044,11 @@ export class AppStore {
       } else {
         s.statsDisplayMode = s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic");
       }
+      s.statsPanelVisibility = ["always", "solve-only", "hidden"].includes(savedSettings.statsPanelVisibility)
+        ? savedSettings.statsPanelVisibility
+        : (s.showStatsPanel === false || s.statsDisplayMode === "none" ? "hidden" : "always");
+      if (s.statsDisplayMode === "none") s.statsPanelVisibility = "hidden";
+      if (s.statsPanelVisibility === "hidden") s.showStatsPanel = false;
       s.showFreeFaceTurns = savedSettings.showFreeFaceTurns ?? s.showFreeFaceTurns ?? false;
       s.llAnalyticsMode = savedSettings.llAnalyticsMode === "2look" ? "2look" : "full";
       s.trainSubMode = savedSettings.trainSubMode === "timed-drill" ? "timed-drill" : "recog";
