@@ -9,24 +9,59 @@ import { ICON_PLAY, ICON_PAUSE, ICON_REPLAY } from './ui/transportIcons.js';
 let ScrambleDisplayClass = null;
 const ROTATION_TOKEN_RE = /^[xyz][2']?$/i;
 
-export function buildReplayDisplaySequence(scramble = "", moves = []) {
+export function normalizeReplayMoves(rawMoves = []) {
+  if (!Array.isArray(rawMoves)) return [];
+  const out = [];
+  for (let origIdx = 0; origIdx < rawMoves.length; origIdx++) {
+    const m = rawMoves[origIdx];
+    const tok = String(m?.move || "").trim();
+    if (!tok || ROTATION_TOKEN_RE.test(tok)) continue;
+    const tVal = typeof m?.t === "number" && Number.isFinite(m.t) ? m.t : null;
+    let splitVal = typeof m?.split === "number" && Number.isFinite(m.split) ? m.split : 0;
+    if (tVal != null) {
+      if (out.length === 0) {
+        splitVal = typeof m?.split === "number" && Number.isFinite(m.split) ? m.split : tVal;
+      } else {
+        const prevT = out[out.length - 1].t;
+        if (typeof prevT === "number" && Number.isFinite(prevT)) {
+          splitVal = Math.max(0, tVal - prevT);
+        }
+      }
+    }
+    out.push({
+      ...m,
+      move: tok,
+      t: tVal != null ? tVal : 0,
+      split: splitVal,
+      origIdx
+    });
+  }
+  return out;
+}
+
+export function buildReplayDisplaySequence(scramble = "", moves = [], viewRotations = []) {
+  const rotTokens = Array.isArray(viewRotations)
+    ? viewRotations.map(t => String(t || "").trim()).filter(Boolean)
+    : [];
   const parsedScr = parseScrambleInput(scramble);
   const scrMoves = parsedScr.ok ? parsedScr.moves : [];
+  const prefixCount = rotTokens.length + scrMoves.length;
   const faceMoveTokens = [];
-  const moveIndexToDisplayIndex = [scrMoves.length];
+  const moveIndexToDisplayIndex = [prefixCount];
   const moveList = Array.isArray(moves) ? moves : [];
   for (const m of moveList) {
     const tok = String(m?.move || "").trim();
     if (tok && !ROTATION_TOKEN_RE.test(tok)) {
       faceMoveTokens.push(tok);
     }
-    moveIndexToDisplayIndex.push(scrMoves.length + faceMoveTokens.length);
+    moveIndexToDisplayIndex.push(prefixCount + faceMoveTokens.length);
   }
   return {
+    viewRotTokens: rotTokens,
     scrMoves,
     faceMoveTokens,
     moveIndexToDisplayIndex,
-    fullSequence: [...scrMoves, ...faceMoveTokens].join(" ")
+    fullSequence: [...rotTokens, ...scrMoves, ...faceMoveTokens].join(" ")
   };
 }
 
@@ -45,7 +80,11 @@ export class SolveReplayViewer {
     this.display = null;
     this.activeSolve = null;
     this.scramble = "";
-    this.moves = []; // [{ move, t, split }]
+    this.rawMoves = [];
+    this.moves = []; // [{ move, t, split, origIdx }] (face turns only)
+    this.viewRotations = [];
+    this.stepBoundaries = [];
+    this.pauseIndices = [];
     this.currentMoveIndex = 0;
     this.isPlaying = false;
     this.playbackSpeed = 1.0;
@@ -83,6 +122,10 @@ export class SolveReplayViewer {
     this.btnNext = elements.btnNext || doc?.getElementById("replayBtnNext") || null;
     this.btnStart = elements.btnStart || doc?.getElementById("replayBtnStart") || null;
     this.btnEnd = elements.btnEnd || doc?.getElementById("replayBtnEnd") || null;
+    this.btnNextStep = elements.btnNextStep || doc?.getElementById("replayBtnNextStep") || null;
+    this.btnNextPause = elements.btnNextPause || doc?.getElementById("replayBtnNextPause") || null;
+    this.btnOrientReset = elements.btnOrientReset || doc?.getElementById("replayOrientResetBtn") || null;
+    this.orientButtons = elements.orientButtons || (doc ? Array.from(doc.querySelectorAll(".replay-orient-btn[data-replay-orient]")) : []);
     this.btnCopy = elements.btnCopy || doc?.getElementById("replayCopyBtn") || null;
     this.btnReattempt = elements.btnReattempt || doc?.getElementById("replayModalReattemptBtn") || null;
     this.btnClose = elements.btnClose || doc?.getElementById("replayModalCloseBtn") || null;
@@ -145,6 +188,29 @@ export class SolveReplayViewer {
         this.jumpToMove(this.moves.length);
       });
     }
+    if (this.btnNextStep) {
+      this.btnNextStep.addEventListener("click", () => {
+        this.pause();
+        this.jumpToNextStep();
+      });
+    }
+    if (this.btnNextPause) {
+      this.btnNextPause.addEventListener("click", () => {
+        this.pause();
+        this.jumpToNextPause();
+      });
+    }
+    this.orientButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const rot = btn.dataset.replayOrient;
+        if (rot) this.rotateView(rot);
+      });
+    });
+    if (this.btnOrientReset) {
+      this.btnOrientReset.addEventListener("click", () => {
+        this.resetViewOrientation();
+      });
+    }
 
     if (this.scrubber) {
       this.scrubber.addEventListener("input", (e) => {
@@ -199,7 +265,9 @@ export class SolveReplayViewer {
     const gen = ++this._mountGen;
     this.activeSolve = solve;
     this.scramble = solve.scramble || "";
-    this.moves = Array.isArray(solve.moves) ? [...solve.moves] : [];
+    this.rawMoves = Array.isArray(solve.moves) ? [...solve.moves] : [];
+    this.moves = normalizeReplayMoves(this.rawMoves);
+    this.viewRotations = [];
     this.currentMoveIndex = 0;
     this.isPlaying = false;
     this.syncPlaybackSpeed(this.getSimSpeed ? this.getSimSpeed() : this.playbackSpeed);
@@ -224,11 +292,14 @@ export class SolveReplayViewer {
       this.metaEl.textContent = `${moveCount} moves (ETM) · ${tps} TPS${smartTag}`;
     }
 
+    // Compute phase boundaries and pause markers for quick-jump & grouped tape
+    this._computeNavigationMarkers();
+
     // Mount 3D cube
     const mountPromise = this._mountCube(solve.puzzle || "333", gen);
     this._mountPromise = mountPromise;
 
-    // Build timeline tape
+    // Build phase-grouped wrapping move grid
     this._renderMoveTape();
 
     // Reset scrubber
@@ -265,6 +336,119 @@ export class SolveReplayViewer {
         this.jumpToMove(this.currentMoveIndex);
       }
     }).catch(() => {});
+  }
+
+  _computeNavigationMarkers() {
+    this.pauseIndices = [];
+    for (let i = 0; i < this.moves.length; i++) {
+      if ((this.moves[i]?.split || 0) >= DEFAULT_PAUSE_THRESHOLD_MS) {
+        this.pauseIndices.push(i + 1);
+      }
+    }
+
+    this.phaseSegments = [];
+    this.stepBoundaries = [];
+
+    const analysis = this.activeSolve
+      ? (this.activeSolve.puzzle === "222"
+          ? ensureSolveTwoByTwo(this.activeSolve)
+          : ensureSolveCfop(this.activeSolve))
+      : null;
+
+    if (analysis && Array.isArray(analysis.steps) && analysis.steps.length > 0 && this.moves.length > 0) {
+      const covered = new Set();
+      for (const st of analysis.steps) {
+        let firstFace = -1;
+        let lastFace = -1;
+        for (let fIdx = 0; fIdx < this.moves.length; fIdx++) {
+          const origIdx = this.moves[fIdx]?.origIdx ?? fIdx;
+          if (origIdx >= st.startMoveIdx && origIdx < st.endMoveIdx) {
+            if (firstFace === -1) firstFace = fIdx;
+            lastFace = fIdx;
+            covered.add(fIdx);
+          }
+        }
+        if (firstFace !== -1) {
+          this.phaseSegments.push({ step: st, faceStart: firstFace, faceEnd: lastFace + 1 });
+          this.stepBoundaries.push(firstFace + 1);
+        }
+      }
+
+      // Include any trailing/uncovered face moves so nothing is omitted
+      let curStart = -1;
+      for (let fIdx = 0; fIdx <= this.moves.length; fIdx++) {
+        const isUncovered = fIdx < this.moves.length && !covered.has(fIdx);
+        if (isUncovered && curStart === -1) {
+          curStart = fIdx;
+        } else if (!isUncovered && curStart !== -1) {
+          this.phaseSegments.push({
+            step: { phase: "other", label: "Moves", caseId: "", ms: null },
+            faceStart: curStart,
+            faceEnd: fIdx
+          });
+          this.stepBoundaries.push(curStart + 1);
+          curStart = -1;
+        }
+      }
+    }
+
+    this.stepBoundaries.sort((a, b) => a - b);
+
+    if (this.btnNextStep) {
+      this.btnNextStep.disabled = this.stepBoundaries.length === 0;
+    }
+    if (this.btnNextPause) {
+      this.btnNextPause.disabled = this.pauseIndices.length === 0;
+      this.btnNextPause.textContent = this.pauseIndices.length > 0
+        ? `⏸ Pause (${this.pauseIndices.length})`
+        : "⏸ Pause";
+    }
+  }
+
+  rotateView(rot) {
+    const tok = String(rot || "").trim();
+    if (!tok) return;
+    this.pause();
+    this.viewRotations.push(tok);
+    const seqInfo = buildReplayDisplaySequence(this.scramble, this.moves, this.viewRotations);
+    this.scrambleMoveCount = seqInfo.viewRotTokens.length + seqInfo.scrMoves.length;
+    this._moveIndexToDisplayIndex = seqInfo.moveIndexToDisplayIndex;
+    if (this.display) {
+      this.display.scramble = seqInfo.fullSequence;
+    }
+    this.jumpToMove(this.currentMoveIndex);
+  }
+
+  resetViewOrientation() {
+    this.pause();
+    this.viewRotations = [];
+    const seqInfo = buildReplayDisplaySequence(this.scramble, this.moves, []);
+    this.scrambleMoveCount = seqInfo.scrMoves.length;
+    this._moveIndexToDisplayIndex = seqInfo.moveIndexToDisplayIndex;
+    if (this.display) {
+      this.display.scramble = seqInfo.fullSequence;
+      if (this.display.player) {
+        try {
+          this.display.player.cameraLatitude = 35;
+          this.display.player.cameraLongitude = 30;
+          this.display.player.cameraDistance = 6;
+          this.display.player.experimentalModel?.twistySceneModel?.orbitCoordinatesRequest?.set("auto");
+        } catch {}
+      }
+    }
+    this.jumpToMove(this.currentMoveIndex);
+  }
+
+  jumpToNextStep() {
+    if (!this.stepBoundaries || this.stepBoundaries.length === 0) return;
+    const next = this.stepBoundaries.find(idx => idx > this.currentMoveIndex);
+    this.jumpToMove(next != null ? next : this.stepBoundaries[0]);
+  }
+
+  jumpToNextPause() {
+    if (!this.pauseIndices || this.pauseIndices.length === 0) return;
+    const next = this.pauseIndices.find(idx => idx > this.currentMoveIndex);
+    this.jumpToMove(next != null ? next : this.pauseIndices[0]);
   }
 
   _teardown() {
@@ -320,8 +504,9 @@ export class SolveReplayViewer {
       }
 
       // Strip gyro rotation tokens (hardware face turns are already in smart-cube WCA frame)
-      const seqInfo = buildReplayDisplaySequence(this.scramble, this.moves);
-      this.scrambleMoveCount = seqInfo.scrMoves.length;
+      // and prepend user display-orientation rotations if any.
+      const seqInfo = buildReplayDisplaySequence(this.scramble, this.moves, this.viewRotations);
+      this.scrambleMoveCount = seqInfo.viewRotTokens.length + seqInfo.scrMoves.length;
       this._moveIndexToDisplayIndex = seqInfo.moveIndexToDisplayIndex;
       disp.scramble = seqInfo.fullSequence;
 
@@ -343,24 +528,11 @@ export class SolveReplayViewer {
       return;
     }
 
-    const analysis = this.activeSolve
-      ? (this.activeSolve.puzzle === "222"
-          ? ensureSolveTwoByTwo(this.activeSolve)
-          : ensureSolveCfop(this.activeSolve))
-      : null;
-    const movePhaseMap = new Map();
-    if (analysis && Array.isArray(analysis.steps)) {
-      for (const st of analysis.steps) {
-        for (let i = st.startMoveIdx; i < st.endMoveIdx; i++) {
-          movePhaseMap.set(i, st);
-        }
-      }
-    }
-
-    // Scramble chip / start chip
+    const startRow = document.createElement("div");
+    startRow.className = "replay-tape-start-row";
     const startChip = document.createElement("button");
     startChip.type = "button";
-    startChip.className = "replay-move-chip active";
+    startChip.className = "replay-move-chip replay-start-chip active";
     startChip.dataset.index = "0";
     startChip.innerHTML = `<span class="chip-num">0</span><span class="chip-move">Start</span><span class="chip-split">0.00s</span>`;
     startChip.title = "Scramble setup · 0.00s";
@@ -368,28 +540,32 @@ export class SolveReplayViewer {
       this.pause();
       this.jumpToMove(0);
     });
-    this.moveTape.appendChild(startChip);
+    startRow.appendChild(startChip);
+    this.moveTape.appendChild(startRow);
 
-    // Moves chips
-    this.moves.forEach((m, idx) => {
+    const buildChip = (m, idx, stepObj = null) => {
       const chip = document.createElement("button");
       chip.type = "button";
       const isPause = (m.split || 0) >= DEFAULT_PAUSE_THRESHOLD_MS;
-      const stepObj = movePhaseMap.get(idx);
       const phaseClass = stepObj ? ` phase-${stepObj.phase}` : "";
       chip.className = `replay-move-chip${isPause ? " is-pause-move" : ""}${phaseClass}`;
       chip.dataset.index = String(idx + 1);
-      const tSec = (m.t / 1000).toFixed(2);
-      const splitSec = (m.split / 1000).toFixed(2);
-      const phaseBadge = stepObj && idx === stepObj.startMoveIdx
-        ? `<span class="chip-phase-tag">${stepObj.label}</span>`
-        : "";
-      chip.innerHTML = `
-        ${phaseBadge}
-        <span class="chip-num">${idx + 1}</span>
-        <span class="chip-move">${m.move}</span>
-        <span class="chip-split">${isPause ? "⏸ " : ""}+${splitSec}s</span>
-      `;
+      const tSec = ((m.t || 0) / 1000).toFixed(2);
+      const splitSec = ((m.split || 0) / 1000).toFixed(2);
+      const numEl = document.createElement("span");
+      numEl.className = "chip-num";
+      numEl.textContent = String(idx + 1);
+      const mvEl = document.createElement("span");
+      mvEl.className = "chip-move";
+      mvEl.textContent = m.move;
+      chip.appendChild(numEl);
+      chip.appendChild(mvEl);
+      if (isPause) {
+        const pauseEl = document.createElement("span");
+        pauseEl.className = "chip-pause-badge";
+        pauseEl.textContent = `⏸ +${splitSec}s`;
+        chip.appendChild(pauseEl);
+      }
       const phaseNote = stepObj ? ` [${stepObj.label}]` : "";
       const pauseNote = isPause ? " (PAUSE)" : "";
       chip.title = `Move ${idx + 1}${phaseNote}: ${m.move} at ${tSec}s (+${splitSec}s)${pauseNote}`;
@@ -397,8 +573,61 @@ export class SolveReplayViewer {
         this.pause();
         this.jumpToMove(idx + 1);
       });
-      this.moveTape.appendChild(chip);
-    });
+      return chip;
+    };
+
+    if (this.phaseSegments && this.phaseSegments.length > 0) {
+      for (const seg of this.phaseSegments) {
+        const { step, faceStart, faceEnd } = seg;
+        const groupEl = document.createElement("div");
+        groupEl.className = `replay-phase-group phase-${step.phase}`;
+        groupEl.dataset.phaseStart = String(faceStart + 1);
+        groupEl.dataset.phaseEnd = String(faceEnd);
+
+        const hdrBtn = document.createElement("button");
+        hdrBtn.type = "button";
+        hdrBtn.className = "replay-phase-header";
+        hdrBtn.title = `Jump to start of ${step.label} (Move ${faceStart + 1})`;
+        const titleLeft = document.createElement("span");
+        titleLeft.className = "replay-phase-title";
+        const lblEl = document.createElement("strong");
+        lblEl.textContent = step.label || step.phase;
+        titleLeft.appendChild(lblEl);
+        if (step.caseId && step.caseId !== "-") {
+          const caseEl = document.createElement("span");
+          caseEl.className = "replay-phase-case";
+          caseEl.textContent = step.caseId;
+          titleLeft.appendChild(caseEl);
+        }
+        const metaRight = document.createElement("span");
+        metaRight.className = "replay-phase-meta";
+        const segMovesCount = faceEnd - faceStart;
+        const timePart = step.ms != null ? ` · ${(step.ms / 1000).toFixed(2)}s` : "";
+        metaRight.textContent = `${segMovesCount}m${timePart}`;
+        hdrBtn.appendChild(titleLeft);
+        hdrBtn.appendChild(metaRight);
+        hdrBtn.addEventListener("click", () => {
+          this.pause();
+          this.jumpToMove(faceStart + 1);
+        });
+        groupEl.appendChild(hdrBtn);
+
+        const gridEl = document.createElement("div");
+        gridEl.className = "replay-phase-moves";
+        for (let idx = faceStart; idx < faceEnd; idx++) {
+          gridEl.appendChild(buildChip(this.moves[idx], idx, step));
+        }
+        groupEl.appendChild(gridEl);
+        this.moveTape.appendChild(groupEl);
+      }
+    } else {
+      const gridEl = document.createElement("div");
+      gridEl.className = "replay-phase-moves";
+      this.moves.forEach((m, idx) => {
+        gridEl.appendChild(buildChip(m, idx, null));
+      });
+      this.moveTape.appendChild(gridEl);
+    }
   }
 
   async jumpToMove(targetIndex) {
@@ -459,16 +688,26 @@ export class SolveReplayViewer {
       this.liveTps.textContent = `${tps} TPS`;
     }
 
-    // Highlight active chip in move tape
+    // Highlight active chip and active phase group in move tape
     if (this.moveTape) {
       const chips = this.moveTape.querySelectorAll(".replay-move-chip");
       chips.forEach((c) => {
         const isActive = c.dataset.index === String(targetIndex);
         c.classList.toggle("active", isActive);
         if (isActive && typeof c.scrollIntoView === "function") {
-          c.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+          c.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
       });
+      const groups = this.moveTape.querySelectorAll?.(".replay-phase-group");
+      if (groups) {
+        groups.forEach((g) => {
+          const pStart = Number(g.dataset?.phaseStart);
+          const pEnd = Number(g.dataset?.phaseEnd);
+          const inGroup = Number.isFinite(pStart) && Number.isFinite(pEnd)
+            && targetIndex >= pStart && targetIndex <= pEnd;
+          g.classList.toggle("is-active-phase", inGroup);
+        });
+      }
     }
 
     // If at end, pause
@@ -574,6 +813,14 @@ export class SolveReplayViewer {
       e.preventDefault();
       this.pause();
       this.jumpToMove(this.moves.length);
+    } else if (e.key === "s" || e.key === "S") {
+      e.preventDefault();
+      this.pause();
+      this.jumpToNextStep();
+    } else if (e.key === "p" || e.key === "P") {
+      e.preventDefault();
+      this.pause();
+      this.jumpToNextPause();
     } else if (e.key === "Escape") {
       e.preventDefault();
       this.close();

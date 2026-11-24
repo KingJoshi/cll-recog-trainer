@@ -769,6 +769,16 @@
       <!-- 3D Cube Replay Stage -->
       <div class="replay-stage-wrap">
         <div id="replayCubeContainer" class="replay-cube-container"></div>
+        <div class="replay-orient-bar" role="group" aria-label="Replay display orientation">
+          <span class="replay-orient-label">View:</span>
+          <button type="button" class="replay-orient-btn" data-replay-orient="x" title="Rotate view x (tilt top away)">x</button>
+          <button type="button" class="replay-orient-btn" data-replay-orient="x'" title="Rotate view x' (tilt top toward)">x'</button>
+          <button type="button" class="replay-orient-btn" data-replay-orient="y" title="Rotate view y (turn clockwise)">y</button>
+          <button type="button" class="replay-orient-btn" data-replay-orient="y'" title="Rotate view y' (turn counter-clockwise)">y'</button>
+          <button type="button" class="replay-orient-btn" data-replay-orient="z" title="Rotate view z (roll clockwise)">z</button>
+          <button type="button" class="replay-orient-btn" data-replay-orient="z'" title="Rotate view z' (roll counter-clockwise)">z'</button>
+          <button type="button" id="replayOrientResetBtn" class="replay-orient-btn replay-orient-reset" title="Reset cube orientation">Reset</button>
+        </div>
       </div>
 
       <!-- Scrubber & Time Bar -->
@@ -802,6 +812,11 @@
           <button type="button" id="replayBtnEnd" class="btn btn-ctrl" data-tooltip="Jump to end (End)" aria-label="Jump to end">
             <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="2.2,3.4 6.7,8 2.2,12.6"/><polygon points="7.4,3.4 11.9,8 7.4,12.6"/><rect x="12.4" y="3.2" width="1.6" height="9.6" rx="0.5"/></svg></span>
           </button>
+        </div>
+
+        <div class="replay-jump-group" role="group" aria-label="Quick jumps">
+          <button type="button" id="replayBtnNextStep" class="btn btn-xs replay-jump-btn" title="Jump to next phase / step (S)">&#x23ED; Step</button>
+          <button type="button" id="replayBtnNextPause" class="btn btn-xs replay-jump-btn" title="Jump to next long pause &ge;0.40s (P)">&#x23F8; Pause</button>
         </div>
 
         <div class="replay-speed-group" role="group" aria-label="Playback speed">
