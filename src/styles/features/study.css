@@ -873,6 +873,10 @@
     gap: 10px;
 }
 
+.twosided-rules-grid.is-compact {
+    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+}
+
 .twosided-rule-card {
     padding: 10px 12px;
     background: var(--bg);

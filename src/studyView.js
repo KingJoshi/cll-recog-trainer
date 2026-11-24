@@ -288,6 +288,14 @@ export class StudyView {
     syncFirstLayerExplorerSpeed(next);
   }
 
+  supportsTwoSidedView(puzzleId = this.currentPuzzle, track = getTrack(puzzleId, this.currentTrackId)) {
+    if (!track) return false;
+    if ((puzzleId === "333" || puzzleId === "333oh") && (track.id === "pll" || track.id === "oll")) {
+      return true;
+    }
+    return puzzleId === "222" && track.id !== "face" && track.id !== "layer" && (track.cases || []).length > 0;
+  }
+
   getActiveLlStudyMode() {
     if (this.currentPuzzle !== "333" && this.currentPuzzle !== "333oh") return null;
     if (this.currentTrackId === "oll") {
@@ -350,7 +358,7 @@ export class StudyView {
     this.previewAlgId = null;
     const track = getTrack(puzzleId, trackId);
     if (track && track.cases.length > 0) {
-      if (this.currentView === "guide" || (this.currentView === "twosided" && !["pll", "oll"].includes(trackId))) {
+      if (this.currentView === "guide" || (this.currentView === "twosided" && !this.supportsTwoSidedView(puzzleId, track))) {
         this.currentView = "grid";
       }
       const nav = this.getNavigableCases(track);
@@ -432,8 +440,8 @@ export class StudyView {
               <button type="button" class="study-subnav-btn ${activeView === 'grid' ? 'active' : ''}" data-view="grid" data-tooltip="Browse all cases in a filterable visual card grid">📋 Case Grid (${baseCases.length})</button>
               <button type="button" class="study-subnav-btn ${activeView === 'hybrid' ? 'active' : ''}" data-view="hybrid" data-tooltip="Compact case sidebar alongside an interactive 3D flashcard & alternative algs">🧩 Grid + 3D</button>
             ` : ''}
-            ${(this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && (this.currentTrackId === "pll" || this.currentTrackId === "oll") ? `
-              <button type="button" class="study-subnav-btn ${activeView === 'twosided' ? 'active' : ''}" data-view="twosided" data-tooltip="Learn Front + Right sticker patterns to recognize cases without rotating">👀 2-Sided Recognition</button>
+            ${this.supportsTwoSidedView(this.currentPuzzle, track) ? `
+              <button type="button" class="study-subnav-btn ${activeView === 'twosided' ? 'active' : ''}" data-view="twosided" data-tooltip="Inspect cases from a fixed Front + Right 3D angle without rotating">👀 2-Sided Recognition</button>
             ` : ''}
             <button type="button" class="study-subnav-btn ${activeView === 'guide' ? 'active' : ''}" data-view="guide" data-tooltip="Method fundamentals, overview tables, and training tips for this track">📖 Reference Guide</button>
           </div>
@@ -1054,42 +1062,55 @@ export class StudyView {
   }
 
   renderTwoSidedView(track) {
-    const isOll = this.currentTrackId !== "pll";
+    const is222 = this.currentPuzzle === "222";
+    const isPll = (this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && this.currentTrackId === "pll";
+    const isOll = (this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && this.currentTrackId === "oll";
     const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
-    const guideData = isOll ? OLL_TWO_SIDED_GUIDE : PLL_TWO_SIDED_GUIDE;
 
-    const getCardSetup = (caseId) => {
-      const c = caseId ? track?.caseById?.get(caseId) : null;
+    const getCardSetup = (c) => {
       const rawSetup = c?.setup || c?.scramble || "";
       if (!rawSetup) return "";
       return (whiteBottom && !/^z2\b/i.test(rawSetup) ? `z2 ${rawSetup}` : rawSetup).trim();
     };
 
-    const renderRuleCard = (r) => {
-      const caseId = r.caseId || "";
-      const displayBadge = isOll ? formatCaseDisplayId(caseId) : caseId;
-      const titleText = r.name || r.caseName || displayBadge;
-      const setupStr = getCardSetup(caseId);
+    const renderCardFooterAndCube = (caseId, badgeLabel, setupStr, oppCode = "") => `
+      <div class="twosided-card-3d-wrap" data-twosided-case-id="${escapeHtml(caseId)}" data-twosided-setup="${escapeHtml(setupStr)}">
+        <span class="study-visual-loading">Loading 3D...</span>
+      </div>
+    `;
 
-      return `
-        <div class="twosided-rule-card">
-          <div class="twosided-rule-header">
-            ${displayBadge ? `<span class="twosided-case-badge">${escapeHtml(displayBadge)}</span>` : ''}
-            <h5 class="twosided-case-name">${escapeHtml(titleText)}</h5>
-          </div>
-          ${caseId ? `
-            <div class="twosided-card-3d-wrap" data-twosided-case-id="${escapeHtml(caseId)}" data-twosided-setup="${escapeHtml(setupStr)}">
-              <span class="study-visual-loading">Loading 3D...</span>
+    const renderCardActions = (caseId, label) => `
+      <div class="twosided-card-actions">
+        <button type="button" class="btn btn-xs btn-icon-only btn-twosided-reset-3d" data-twosided-case-id="${escapeHtml(caseId)}" data-tooltip="Reset 3D angle (Front + Right)" aria-label="Reset 3D angle for ${escapeHtml(label || caseId)}">${ICON_RESET_ANGLE}</button>
+        <button type="button" class="btn btn-xs btn-study-view" data-case-id="${escapeHtml(caseId)}" data-tooltip="Open Grid + 3D to inspect algorithms &amp; 3D flashcard" aria-label="View algorithms for ${escapeHtml(caseId)}">${ICON_DIAGRAM}<span>Algs</span></button>
+        <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${escapeHtml(caseId)}" data-tooltip="Simulate in an interactive 3D popup" aria-label="Simulate ${escapeHtml(caseId)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
+      </div>
+    `;
+
+    if (isPll) {
+      const pllMode = this.getPllMode?.() === "2look" ? "2look" : "full";
+      const categories = PLL_TWO_SIDED_GUIDE
+        .map(cat => ({
+          ...cat,
+          rules: pllMode === "2look"
+            ? cat.rules.filter(r => TWO_LOOK_PLL_STUDY_IDS.has(r.caseId))
+            : cat.rules
+        }))
+        .filter(cat => cat.rules.length > 0);
+
+      const renderPllRuleCard = (r) => {
+        const caseId = r.caseId || "";
+        const c = caseId ? track?.caseById?.get(caseId) : null;
+        const setupStr = getCardSetup(c);
+        return `
+          <div class="twosided-rule-card">
+            <div class="twosided-rule-header">
+              <span class="twosided-case-badge">${escapeHtml(caseId)}</span>
+              <h5 class="twosided-case-name">${escapeHtml(r.name || caseId)}</h5>
             </div>
-          ` : ''}
-          <p class="twosided-cue-text">${escapeHtml(r.cue || "")}</p>
-          <div class="twosided-sight-boxes">
-            ${isOll ? `
-              <div class="sight-box">
-                <span class="sight-label">Recognition:</span>
-                <span class="sight-val">${escapeHtml(r.recognition || "")}</span>
-              </div>
-            ` : `
+            ${caseId ? renderCardFooterAndCube(caseId, caseId, setupStr) : ''}
+            <p class="twosided-cue-text">${escapeHtml(r.cue || "")}</p>
+            <div class="twosided-sight-boxes">
               <div class="sight-box">
                 <span class="sight-label">Front Sight:</span>
                 <span class="sight-val">${escapeHtml(r.frontSight || "")}</span>
@@ -1098,26 +1119,18 @@ export class StudyView {
                 <span class="sight-label">Right Sight:</span>
                 <span class="sight-val">${escapeHtml(r.rightSight || "")}</span>
               </div>
-            `}
-          </div>
-          ${caseId ? `
-            <div class="twosided-card-actions">
-              <button type="button" class="btn btn-xs btn-icon-only btn-twosided-reset-3d" data-twosided-case-id="${escapeHtml(caseId)}" data-tooltip="Reset 3D angle (Front + Right)" aria-label="Reset 3D angle for ${escapeHtml(displayBadge || caseId)}">${ICON_RESET_ANGLE}</button>
-              <button type="button" class="btn btn-xs btn-study-view" data-case-id="${escapeHtml(caseId)}" data-tooltip="Open Grid + 3D to inspect algorithms &amp; 3D flashcard" aria-label="View algorithms for ${escapeHtml(caseId)}">${ICON_DIAGRAM}<span>Algs</span></button>
-              <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${escapeHtml(caseId)}" data-tooltip="Simulate in an interactive 3D popup" aria-label="Simulate ${escapeHtml(caseId)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
             </div>
-          ` : ''}
-        </div>
-      `;
-    };
+            ${caseId ? renderCardActions(caseId, caseId) : ''}
+          </div>
+        `;
+      };
 
-    if (!isOll) {
       return `
         <div class="study-twosided-wrap">
           <div class="study-twosided-hero">
-            <h3 class="study-twosided-title">👀 2-Sided PLL Recognition Guide</h3>
+            <h3 class="study-twosided-title">👀 2-Sided PLL Recognition Guide (${pllMode === "2look" ? "2-Look · 6 Cases" : "Full · 21 Cases"})</h3>
             <p class="study-twosided-desc">
-              Top speedcubers recognize all 21 PLL cases instantly by examining only <strong>two adjacent faces</strong> (Front &amp; Right) without rotating the cube (AUF or U/U' inspection).
+              Top speedcubers recognize ${pllMode === "2look" ? "2-Look PLL cases" : "all 21 PLL cases"} instantly by examining only <strong>two adjacent faces</strong> (Front &amp; Right) without rotating the cube (AUF or U/U' inspection).
             </p>
             <div class="study-twosided-keys">
               <span class="twosided-key-pill"><span class="pill-dot headlights-dot"></span> Headlights (Matching corners)</span>
@@ -1128,14 +1141,14 @@ export class StudyView {
           </div>
 
           <div class="study-twosided-categories">
-            ${guideData.map(cat => `
+            ${categories.map(cat => `
               <div class="twosided-cat-card">
                 <div class="twosided-cat-head">
                   <h4 class="twosided-cat-title">${escapeHtml(cat.category)}</h4>
                   ${cat.summary ? `<span class="twosided-cat-summary">${escapeHtml(cat.summary)}</span>` : ''}
                 </div>
                 <div class="twosided-rules-grid">
-                  ${cat.rules.map(renderRuleCard).join('')}
+                  ${cat.rules.map(renderPllRuleCard).join('')}
                 </div>
               </div>
             `).join('')}
@@ -1144,26 +1157,81 @@ export class StudyView {
       `;
     }
 
+    // 3x3 / 3x3 OH OLL (both Full 57 and 2-Look 10) + 2x2 tracks (no descriptions)
+    const sections = this.getGroupedSections(track);
+    const baseCases = this.getTrackBaseCases(track);
+    const ollRuleByCaseId = new Map();
+    if (isOll) {
+      for (const cat of OLL_TWO_SIDED_GUIDE) {
+        for (const rule of cat.rules || []) {
+          if (rule.caseId) ollRuleByCaseId.set(rule.caseId, rule);
+        }
+      }
+    }
+
+    const ollMode = this.getOllMode?.() === "2look" ? "2look" : "full";
+    const heroTitle = isOll
+      ? `👀 2-Sided OLL Recognition Guide (${ollMode === "2look" ? "2-Look · 10 Cases" : "Full · 57 Cases"})`
+      : `👀 2-Sided ${track.shortName || track.name} Recognition (${baseCases.length} Cases)`;
+    const heroDesc = isOll
+      ? `Recognize ${ollMode === "2look" ? "all 10 2-Look OLL cases (3 EO + 7 OCLL)" : `all ${baseCases.length} OLL cases`} from a fixed <strong>Front + Right + Top</strong> 3D view without rotating.`
+      : `Inspect <strong>${escapeHtml(track.shortName || track.name)}</strong> cases from a fixed <strong>Front + Right + Top</strong> 3D angle without rotating.`;
+
+    const renderCase3dCard = (c) => {
+      const displayId = formatCaseDisplayId(c.id);
+      const distinctName = is222 ? "" : getDistinctCaseName(c);
+      const oppBadge = c.opposite
+        ? ` <span class="study-card-opp" data-tooltip="Opposite / inverse case: ${escapeHtml(c.opposite)}">(Opp ${escapeHtml(c.opposite)})</span>`
+        : "";
+      const ollRule = isOll ? ollRuleByCaseId.get(c.id) : null;
+      const setupStr = getCardSetup(c);
+
+      return `
+        <div class="twosided-rule-card">
+          <div class="twosided-rule-header">
+            <span class="twosided-case-badge">${escapeHtml(displayId)}</span>
+            ${oppBadge}
+            ${distinctName ? `<h5 class="twosided-case-name">${escapeHtml(distinctName)}</h5>` : ''}
+          </div>
+          ${renderCardFooterAndCube(c.id, displayId, setupStr)}
+          ${!is222 && ollRule ? `
+            <p class="twosided-cue-text">${escapeHtml(ollRule.cue || "")}</p>
+            <div class="twosided-sight-boxes">
+              <div class="sight-box">
+                <span class="sight-label">Recognition:</span>
+                <span class="sight-val">${escapeHtml(ollRule.recognition || "")}</span>
+              </div>
+            </div>
+          ` : ''}
+          ${renderCardActions(c.id, displayId)}
+        </div>
+      `;
+    };
+
     return `
       <div class="study-twosided-wrap">
         <div class="study-twosided-hero">
-          <h3 class="study-twosided-title">👀 2-Sided OLL Recognition Guide</h3>
-          <p class="study-twosided-desc">
-            Identify OLL cases by matching the yellow top orientation with only the <strong>Front and Right</strong> visible side facelets.
-          </p>
+          <h3 class="study-twosided-title">${heroTitle}</h3>
+          <p class="study-twosided-desc">${heroDesc}</p>
         </div>
 
+        ${this.renderGroupFilterBar(track)}
+
         <div class="study-twosided-categories">
-          ${guideData.map(cat => `
-            <div class="twosided-cat-card">
-              <div class="twosided-cat-head">
-                <h4 class="twosided-cat-title">${escapeHtml(cat.category)}</h4>
-              </div>
-              <div class="twosided-rules-grid">
-                ${cat.rules.map(renderRuleCard).join('')}
-              </div>
-            </div>
-          `).join('')}
+          ${sections.length === 0
+            ? `<p class="empty-state" style="padding: 20px;">No cases match the active filter.</p>`
+            : sections.map(sec => `
+                <div class="twosided-cat-card">
+                  ${sections.length > 1 || isOll || is222 ? `
+                    <div class="twosided-cat-head">
+                      <h4 class="twosided-cat-title">${escapeHtml(sec.group)} <span class="study-group-section-count">(${sec.cases.length})</span></h4>
+                    </div>
+                  ` : ''}
+                  <div class="twosided-rules-grid is-compact">
+                    ${sec.cases.map(renderCase3dCard).join('')}
+                  </div>
+                </div>
+              `).join('')}
         </div>
       </div>
     `;
@@ -1590,7 +1658,7 @@ export class StudyView {
           const SD = await getScrambleDisplay();
           if (!SD || gen !== state.gen || token !== this._renderToken || !entry.wrapEl?.isConnected) return null;
           const el = new SD();
-          el.event = '333';
+          el.event = puzzle === '333oh' ? '333' : puzzle;
           el.visualization = '3D';
           el.scramble = entry.setup;
           el.hintFacelets = 'none';
