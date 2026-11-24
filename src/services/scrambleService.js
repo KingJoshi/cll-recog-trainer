@@ -4,6 +4,7 @@ import { randomScrambleForEvent } from 'cubing/scramble';
 import { setSearchDebug } from 'cubing/search';
 import { cleanAlg } from '../algParser.js';
 import { getSolveTime } from './solveStats.js';
+import { PUZZLES } from '../data/algRegistry.js';
 
 // In Vite production builds, prefer the bundled dynamic-import worker URL over
 // `import.meta.resolve('./search-worker-entry.js')`, which Vite does not rewrite.
@@ -19,6 +20,9 @@ const SCRAMBLE_FALLBACKS = {
   "555": { faces: ["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Fw", "Bw", "Uw", "Dw"], modifiers: ["", "'", "2"], len: 60, axisAware: false },
   "pyram": { faces: ["U", "L", "R", "B"], modifiers: ["", "'"], minLen: 10, randExtra: 2, axisAware: false },
   "skewb": { faces: ["U", "L", "R", "B"], modifiers: ["", "'"], minLen: 9, randExtra: 2, axisAware: false },
+  "666": { faces: ["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Fw", "Bw", "Uw", "Dw", "3Rw", "3Uw", "3Fw"], modifiers: ["", "'", "2"], len: 80, axisAware: false },
+  "777": { faces: ["R", "L", "U", "D", "F", "B", "Rw", "Lw", "Fw", "Bw", "Uw", "Dw", "3Rw", "3Lw", "3Uw", "3Dw", "3Fw", "3Bw"], modifiers: ["", "'", "2"], len: 100, axisAware: false },
+  "fto": { faces: ["U", "D", "F", "B", "L", "R", "BL", "BR"], modifiers: ["", "'"], len: 25, axisAware: false },
   "minx": { custom: "minx" },
   "sq1": { custom: "sq1" },
   "clock": { custom: "clock" }
@@ -117,9 +121,16 @@ export function generateWca5x5Scramble() {
   return generateWcaScrambleWithTimeout("555", 2500, "555");
 }
 
-const EXTRA_WCA_SCRAMBLES = new Set(["pyram", "skewb", "minx", "sq1", "clock", "333bf"]);
+const EXTRA_WCA_SCRAMBLES = new Set(["pyram", "skewb", "minx", "sq1", "clock", "333bf", "666", "777", "fto"]);
 
 export function generateWcaScrambleForPuzzle(puzzleId) {
+  const customDef = PUZZLES[puzzleId];
+  if (customDef?.isCustomEvent) {
+    if (!customDef.wcaEvent || customDef.wcaEvent === "none") {
+      return Promise.resolve("");
+    }
+    return generateWcaScrambleForPuzzle(customDef.wcaEvent);
+  }
   if (puzzleId === "222") return generateWca2x2Scramble();
   if (puzzleId === "333oh") return generateWca3x3OhScramble();
   if (puzzleId === "444") return generateWca4x4Scramble();

@@ -311,8 +311,116 @@ export const PUZZLES = {
     solveOnly: true,
     defaultTrack: "full",
     tracks: []
+  },
+  "666": {
+    id: "666",
+    name: "6x6x6 Cube",
+    shortName: "6x6",
+    wcaEvent: "666",
+    solveOnly: true,
+    defaultTrack: "full",
+    tracks: []
+  },
+  "777": {
+    id: "777",
+    name: "7x7x7 Cube",
+    shortName: "7x7",
+    wcaEvent: "777",
+    solveOnly: true,
+    defaultTrack: "full",
+    tracks: []
+  },
+  "fto": {
+    id: "fto",
+    name: "Face-Turning Octahedron",
+    shortName: "FTO",
+    wcaEvent: "fto",
+    solveOnly: true,
+    defaultTrack: "full",
+    tracks: []
   }
 };
+
+export const CUSTOM_EVENT_SCRAMBLE_TYPES = [
+  "none",
+  "333",
+  "222",
+  "444",
+  "555",
+  "666",
+  "777",
+  "pyram",
+  "skewb",
+  "minx",
+  "sq1",
+  "clock",
+  "fto"
+];
+
+export const CUSTOM_EVENT_SCRAMBLE_LABELS = {
+  none: "No scramble (Timer only)",
+  "333": "3x3 Scramble",
+  "222": "2x2 Scramble",
+  "444": "4x4 Scramble",
+  "555": "5x5 Scramble",
+  "666": "6x6 Scramble",
+  "777": "7x7 Scramble",
+  pyram: "Pyraminx Scramble",
+  skewb: "Skewb Scramble",
+  minx: "Megaminx Scramble",
+  sq1: "Square-1 Scramble",
+  clock: "Clock Scramble",
+  fto: "FTO Scramble"
+};
+
+export function sanitizeCustomEvents(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const rawName = String(item.name || item.shortName || "").trim().slice(0, 32);
+    if (!rawName) continue;
+    let id = String(item.id || "").trim();
+    if (!id || !id.startsWith("custom-") || PUZZLES[id]?.isCustomEvent === false) {
+      const slug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "event";
+      id = `custom-${slug}`;
+    }
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const rawShort = String(item.shortName || rawName).trim().slice(0, 12) || rawName.slice(0, 12);
+    const scrambleType = CUSTOM_EVENT_SCRAMBLE_TYPES.includes(item.scrambleType) ? item.scrambleType : "none";
+    out.push({
+      id,
+      name: rawName,
+      shortName: rawShort,
+      scrambleType
+    });
+  }
+  return out;
+}
+
+export function syncCustomEventsToRegistry(customEvents = []) {
+  for (const key of Object.keys(PUZZLES)) {
+    if (PUZZLES[key]?.isCustomEvent) {
+      delete PUZZLES[key];
+    }
+  }
+  for (const ev of sanitizeCustomEvents(customEvents)) {
+    if (PUZZLES[ev.id] && !PUZZLES[ev.id].isCustomEvent) continue;
+    PUZZLES[ev.id] = {
+      id: ev.id,
+      name: ev.name,
+      shortName: ev.shortName,
+      wcaEvent: ev.scrambleType === "none" ? null : ev.scrambleType,
+      scrambleType: ev.scrambleType,
+      solveOnly: true,
+      isCustomEvent: true,
+      defaultTrack: "full",
+      tracks: []
+    };
+  }
+}
 
 export const PREFERRED_ALG_STORAGE_KEY = "cll_preferred_algs_v1";
 let preferredAlgsCache = null;

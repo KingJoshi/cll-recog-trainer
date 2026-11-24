@@ -29,6 +29,9 @@
       <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="sq1" aria-pressed="false" hidden>Sq-1</button>
       <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="clock" aria-pressed="false" hidden>Clock</button>
       <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="333bf" aria-pressed="false" hidden>3BLD</button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="666" aria-pressed="false" hidden>6x6</button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="777" aria-pressed="false" hidden>7x7</button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="fto" aria-pressed="false" hidden>FTO</button>
     </div>
   </div>
   <div class="header-actions">
@@ -132,7 +135,7 @@
         <div class="solve-scramble-btns">
           <button type="button" id="solveNewScrambleBtn" class="btn btn-xs">New Scramble</button>
           <button type="button" id="solveCustomScrambleBtn" class="btn btn-xs" data-tooltip="Paste or type any scramble sequence to practice it">Custom</button>
-          <button type="button" id="solveFocusToggleBtn" class="btn btn-xs" aria-pressed="false" data-tooltip="Toggle distraction-free Focus / Zen solving mode">Focus</button>
+          <button type="button" id="solveFocusToggleBtn" class="btn btn-xs" aria-pressed="false" data-tooltip="Toggle distraction-free Zen Mode (Shift+Z)">Zen</button>
         </div>
       </div>
       <div id="solveCustomScrambleRow" class="layer-custom-row" hidden>
@@ -986,6 +989,42 @@
         </div>
       </div>
 
+      <!-- Display, Stats Mode & Zen Mode -->
+      <div class="settings-section">
+        <div class="settings-section-head">
+          <h4 class="settings-section-title">🖥️ Display, Stats Mode &amp; Zen Mode</h4>
+          <span class="settings-section-desc">Switch Basic vs Advanced stats detail, Zen distraction-free mode, and panel visibility</span>
+        </div>
+        <div class="settings-toggles-list">
+          <div class="settings-speed-row">
+            <span class="settings-oh-label"><strong>Stats &amp; Analytics Mode:</strong></span>
+            <div class="settings-speed-group" role="group" aria-label="Stats and analytics mode">
+              <button type="button" id="settingsStatsModeBasicBtn" class="settings-speed-btn" data-settings-stats-mode="basic" aria-pressed="false">Basic</button>
+              <button type="button" id="settingsStatsModeAdvancedBtn" class="settings-speed-btn active" data-settings-stats-mode="advanced" aria-pressed="true">Advanced</button>
+            </div>
+          </div>
+          <div class="toggle-with-tip">
+            <label class="solve-toggle-label">
+              <input type="checkbox" id="settingsFocusMode">
+              <span>Zen Mode (distraction-free solving &mdash; Shift+Z to switch)</span>
+            </label>
+            <button type="button" class="info-tip-btn" data-tooltip="Hides header bars, stats panel, and solver helpers in Solve mode so only your scramble and timer stay visible. Press Shift+Z anytime to toggle." aria-label="Explain Zen Mode">?</button>
+          </div>
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="settingsShowLayerWidget" checked>
+            <span>Show 2x2 1st Face / 1st Layer solutions widget</span>
+          </label>
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="settingsShowCrossWidget" checked>
+            <span>Show 3x3 Cross / Cross+1 solutions widget</span>
+          </label>
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="settingsShowStatsWidget" checked>
+            <span>Show Stats &amp; History widget</span>
+          </label>
+        </div>
+      </div>
+
       <!-- Trainer Preferences -->
       <div class="settings-section">
         <div class="settings-section-head">
@@ -997,13 +1036,6 @@
             <input type="checkbox" id="settingsDarkTheme">
             <span>Dark theme</span>
           </label>
-          <div class="toggle-with-tip">
-            <label class="solve-toggle-label">
-              <input type="checkbox" id="settingsAdvancedMode">
-              <span>Advanced stats &amp; CFOP analytics mode</span>
-            </label>
-            <button type="button" class="info-tip-btn" data-tooltip="Basic mode keeps recent stats inside the timer with simplified tables; Advanced mode shows full CFOP splits, Last 5/12/100/Session averages, and OLL/PLL breakdowns" aria-label="Explain Advanced stats mode">?</button>
-          </div>
           <div class="toggle-with-tip">
             <label class="solve-toggle-label">
               <input type="checkbox" id="settingsAlwaysWhiteBottom">
@@ -1042,9 +1074,35 @@
           <div class="toggle-with-tip">
             <label class="solve-toggle-label">
               <input type="checkbox" id="settingsShowExtraEvents">
-              <span>Show extra WCA events (Pyraminx, Skewb, Megaminx, Sq-1, Clock, 3BLD)</span>
+              <span>Show extra events (6x6, 7x7, FTO, Pyraminx, Skewb, Megaminx, Sq-1, Clock, 3BLD)</span>
             </label>
-            <button type="button" class="info-tip-btn" data-tooltip="Adds scramble and timer support for additional WCA puzzles in the header switcher (Solve mode only)" aria-label="Explain extra WCA events">?</button>
+            <button type="button" class="info-tip-btn" data-tooltip="Adds scramble and timer support for additional WCA &amp; FTO puzzles in the header switcher (Solve mode only)" aria-label="Explain extra events">?</button>
+          </div>
+          <div class="settings-custom-events-box">
+            <div class="settings-custom-events-head">
+              <span class="settings-oh-label"><strong>Custom Events:</strong></span>
+              <span class="settings-section-desc">Create custom timer-only or scrambled events (e.g. Relay 2-4, FTO BLD)</span>
+            </div>
+            <div class="settings-custom-event-form">
+              <input type="text" id="settingsCustomEventName" class="settings-custom-event-input" maxlength="32" placeholder="Event name (e.g. 2-4 Relay)" aria-label="Custom event name">
+              <select id="settingsCustomEventScramble" class="sim-select settings-custom-event-select" aria-label="Scramble generator for custom event">
+                <option value="none">No scramble (Timer only)</option>
+                <option value="333">3x3 Scramble</option>
+                <option value="222">2x2 Scramble</option>
+                <option value="444">4x4 Scramble</option>
+                <option value="555">5x5 Scramble</option>
+                <option value="666">6x6 Scramble</option>
+                <option value="777">7x7 Scramble</option>
+                <option value="pyram">Pyraminx Scramble</option>
+                <option value="skewb">Skewb Scramble</option>
+                <option value="minx">Megaminx Scramble</option>
+                <option value="sq1">Square-1 Scramble</option>
+                <option value="clock">Clock Scramble</option>
+                <option value="fto">FTO Scramble</option>
+              </select>
+              <button type="button" id="settingsAddCustomEventBtn" class="btn btn-small btn-primary">+ Add</button>
+            </div>
+            <div id="settingsCustomEventsList" class="settings-custom-events-list"></div>
           </div>
           <div class="settings-oh-hand-row">
             <span class="settings-oh-label"><strong>3x3 One-Handed (OH) Hand:</strong></span>

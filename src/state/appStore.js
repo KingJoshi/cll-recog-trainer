@@ -1,7 +1,15 @@
 // Centralized App Store & Backward-Compatible Persistence
 // Preserves all existing localStorage/sessionStorage/cookie keys without data loss.
 
-import { PUZZLES, getTrack, getDefaultTrack, getSolveTargetLabel } from '../data/algRegistry.js';
+import {
+  PUZZLES,
+  getTrack,
+  getDefaultTrack,
+  getSolveTargetLabel,
+  sanitizeCustomEvents,
+  syncCustomEventsToRegistry,
+  CUSTOM_EVENT_SCRAMBLE_TYPES
+} from '../data/algRegistry.js';
 import { cllCases } from '../data/cllData.js';
 import { DEFAULT_CUBE_COLORS, CUBE_COLORS, setCustomCubeColors, applyCubeColorsToCss } from '../caseVisualizer.js';
 import {
@@ -39,7 +47,7 @@ export const STORAGE_KEYS = {
   UI_COOKIE: "cll_ui_prefs"
 };
 
-export const VALID_PUZZLES = ["222", "333", "333oh", "444", "555", "pyram", "skewb", "minx", "sq1", "clock", "333bf"];
+export const VALID_PUZZLES = ["222", "333", "333oh", "444", "555", "666", "777", "fto", "pyram", "skewb", "minx", "sq1", "clock", "333bf"];
 export const MODES = ["study", "practice", "solve", "simulate"];
 export const LOG_PAGE_SIZE_OPTIONS = [5, 12, 25, 50, 100];
 export const SIM_SPEED_OPTIONS = [0.25, 0.5, 1, 1.5, 2];
@@ -106,8 +114,12 @@ export class AppStore {
       applyCubeColorsToCss(DEFAULT_CUBE_COLORS);
     }
 
+    const customEvents = sanitizeCustomEvents(savedSettings.customEvents);
+    syncCustomEventsToRegistry(customEvents);
+    const isKnownPuzzle = (pid) => VALID_PUZZLES.includes(pid) || Boolean(PUZZLES[pid]);
+
     // Navigation & puzzle/track
-    let currentPuzzle = VALID_PUZZLES.includes(savedSettings.currentPuzzle) ? savedSettings.currentPuzzle : "222";
+    let currentPuzzle = isKnownPuzzle(savedSettings.currentPuzzle) ? savedSettings.currentPuzzle : "222";
     let currentTrackId = savedSettings.currentTrackId || getDefaultTrack(currentPuzzle)?.id || "cll";
     let mode = MODES.includes(savedSettings.mode)
       ? savedSettings.mode
@@ -116,7 +128,7 @@ export class AppStore {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       const urlPuz = urlParams.get("puzzle");
-      if (urlPuz && VALID_PUZZLES.includes(urlPuz)) currentPuzzle = urlPuz;
+      if (urlPuz && isKnownPuzzle(urlPuz)) currentPuzzle = urlPuz;
       if (urlParams.has("track")) currentTrackId = urlParams.get("track") || currentTrackId;
       const urlMode = urlParams.get("mode");
       if (urlMode && MODES.includes(urlMode)) mode = urlMode;
@@ -199,6 +211,10 @@ export class AppStore {
       metronomeBpm: Number(savedSettings.metronomeBpm || cookiePrefs.metronomeBpm) || 180,
       pauseAlertEnabled: savedSettings.pauseAlertEnabled ?? cookiePrefs.pauseAlertEnabled ?? false,
       showExtraWcaEvents: savedSettings.showExtraWcaEvents ?? cookiePrefs.showExtraWcaEvents ?? false,
+      showLayerSolutionsWidget: savedSettings.showLayerSolutionsWidget ?? cookiePrefs.showLayerSolutionsWidget ?? true,
+      showCrossSolutionsWidget: savedSettings.showCrossSolutionsWidget ?? cookiePrefs.showCrossSolutionsWidget ?? true,
+      showStatsPanel: savedSettings.showStatsPanel ?? cookiePrefs.showStatsPanel ?? true,
+      customEvents,
       timerDrillPreset: savedSettings.timerDrillPreset || "righty-inv",
       layerTargetFaces: Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
         ? savedSettings.layerTargetFaces
@@ -552,6 +568,51 @@ export class AppStore {
     this.notify("focusMode", { focusMode: next });
   }
 
+  setWidgetVisibility(key, enabled) {
+    if (!["showLayerSolutionsWidget", "showCrossSolutionsWidget", "showStatsPanel"].includes(key)) return;
+    const next = Boolean(enabled);
+    if (Boolean(this.state[key]) === next) return;
+    this.state[key] = next;
+    this.saveSettings();
+    this.notify("widgetVisibility", { key, enabled: next });
+  }
+
+  addCustomEvent({ name, shortName = "", scrambleType = "none" } = {}) {
+    const cleanName = String(name || "").trim().slice(0, 32);
+    if (!cleanName) return null;
+    const cleanShort = String(shortName || cleanName).trim().slice(0, 12) || cleanName.slice(0, 12);
+    const cleanType = CUSTOM_EVENT_SCRAMBLE_TYPES.includes(scrambleType) ? scrambleType : "none";
+    const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "event";
+    const existingIds = new Set((this.state.customEvents || []).map(e => e.id));
+    let id = `custom-${slug}`;
+    let counter = 2;
+    while (existingIds.has(id) || (PUZZLES[id] && !PUZZLES[id].isCustomEvent)) {
+      id = `custom-${slug}-${counter++}`;
+    }
+    const entry = {
+      id,
+      name: cleanName,
+      shortName: cleanShort,
+      scrambleType: cleanType
+    };
+    this.state.customEvents = sanitizeCustomEvents([...(this.state.customEvents || []), entry]);
+    syncCustomEventsToRegistry(this.state.customEvents);
+    this.saveSettings();
+    this.notify("customEvents", { added: entry });
+    return entry;
+  }
+
+  removeCustomEvent(eventId) {
+    const list = this.state.customEvents || [];
+    const next = list.filter(ev => ev.id !== eventId);
+    if (next.length === list.length) return false;
+    this.state.customEvents = next;
+    syncCustomEventsToRegistry(next);
+    this.saveSettings();
+    this.notify("customEvents", { removedId: eventId });
+    return true;
+  }
+
   getKeyboardShortcuts() {
     return getEffectiveShortcutsMap(this.state.keyboardShortcuts);
   }
@@ -608,6 +669,10 @@ export class AppStore {
       metronomeBpm: Number(s.metronomeBpm) || 180,
       pauseAlertEnabled: Boolean(s.pauseAlertEnabled),
       showExtraWcaEvents: Boolean(s.showExtraWcaEvents),
+      showLayerSolutionsWidget: s.showLayerSolutionsWidget !== false,
+      showCrossSolutionsWidget: s.showCrossSolutionsWidget !== false,
+      showStatsPanel: s.showStatsPanel !== false,
+      customEvents: sanitizeCustomEvents(s.customEvents),
       timerDrillPreset: s.timerDrillPreset,
       statsType: s.statsType,
       layerTargetFaces: s.layerTargetFaces,
@@ -656,6 +721,9 @@ export class AppStore {
       metronomeBpm: Number(s.metronomeBpm) || 180,
       pauseAlertEnabled: Boolean(s.pauseAlertEnabled),
       showExtraWcaEvents: Boolean(s.showExtraWcaEvents),
+      showLayerSolutionsWidget: s.showLayerSolutionsWidget !== false,
+      showCrossSolutionsWidget: s.showCrossSolutionsWidget !== false,
+      showStatsPanel: s.showStatsPanel !== false,
       timerDrillPreset: s.timerDrillPreset,
       layerTargetFaces: s.layerTargetFaces,
       crossTargetFaces: s.crossTargetFaces
@@ -687,7 +755,12 @@ export class AppStore {
       setCustomCubeColors(nextColors);
       applyCubeColorsToCss(CUBE_COLORS);
 
-      let currentPuzzle = VALID_PUZZLES.includes(savedSettings.currentPuzzle)
+      const hydratedCustomEvents = Array.isArray(savedSettings.customEvents)
+        ? sanitizeCustomEvents(savedSettings.customEvents)
+        : sanitizeCustomEvents(this.state.customEvents);
+      syncCustomEventsToRegistry(hydratedCustomEvents);
+
+      let currentPuzzle = (VALID_PUZZLES.includes(savedSettings.currentPuzzle) || Boolean(PUZZLES[savedSettings.currentPuzzle]))
         ? savedSettings.currentPuzzle
         : this.state.currentPuzzle;
       let currentTrackId = savedSettings.currentTrackId || getDefaultTrack(currentPuzzle)?.id || "cll";
@@ -757,6 +830,10 @@ export class AppStore {
       s.metronomeBpm = Number(savedSettings.metronomeBpm) || 180;
       s.pauseAlertEnabled = Boolean(savedSettings.pauseAlertEnabled ?? false);
       s.showExtraWcaEvents = Boolean(savedSettings.showExtraWcaEvents ?? false);
+      s.showLayerSolutionsWidget = savedSettings.showLayerSolutionsWidget ?? s.showLayerSolutionsWidget ?? true;
+      s.showCrossSolutionsWidget = savedSettings.showCrossSolutionsWidget ?? s.showCrossSolutionsWidget ?? true;
+      s.showStatsPanel = savedSettings.showStatsPanel ?? s.showStatsPanel ?? true;
+      s.customEvents = hydratedCustomEvents;
       s.timerDrillPreset = savedSettings.timerDrillPreset || "righty-inv";
       s.layerTargetFaces = Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
         ? [...savedSettings.layerTargetFaces]

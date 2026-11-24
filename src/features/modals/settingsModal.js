@@ -8,8 +8,9 @@ import {
   clearSvgCache,
   applyColorsTo3DCube
 } from '../../caseVisualizer.js';
-import { PUZZLES } from '../../data/algRegistry.js';
+import { PUZZLES, CUSTOM_EVENT_SCRAMBLE_LABELS } from '../../data/algRegistry.js';
 import { sanitizeHexColor } from '../../state/appStore.js';
+import { escapeHtml } from '../../services/htmlUtils.js';
 import { ALL_SOLVER_FACES } from '../solve/solverWidgetsView.js';
 
 const COLOR_CONFIG = [
@@ -69,8 +70,13 @@ export function createSettingsModalController({
   const openShortcutsBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenShortcutsBtn") : null;
 
   const settingsShowTooltips = typeof document !== "undefined" ? document.getElementById("settingsShowTooltips") : null;
+  const settingsStatsModeBasicBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsModeBasicBtn") : null;
+  const settingsStatsModeAdvancedBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsModeAdvancedBtn") : null;
+  const settingsFocusMode = typeof document !== "undefined" ? document.getElementById("settingsFocusMode") : null;
+  const settingsShowLayerWidget = typeof document !== "undefined" ? document.getElementById("settingsShowLayerWidget") : null;
+  const settingsShowCrossWidget = typeof document !== "undefined" ? document.getElementById("settingsShowCrossWidget") : null;
+  const settingsShowStatsWidget = typeof document !== "undefined" ? document.getElementById("settingsShowStatsWidget") : null;
   const settingsDarkTheme = typeof document !== "undefined" ? document.getElementById("settingsDarkTheme") : null;
-  const settingsAdvancedMode = typeof document !== "undefined" ? document.getElementById("settingsAdvancedMode") : null;
   const settingsAlwaysWhiteBottom = typeof document !== "undefined" ? document.getElementById("settingsAlwaysWhiteBottom") : null;
   const settingsAllowAUF = typeof document !== "undefined" ? document.getElementById("settingsAllowAUF") : null;
   const settingsShowReflection = typeof document !== "undefined" ? document.getElementById("settingsShowReflection") : null;
@@ -79,6 +85,10 @@ export function createSettingsModalController({
   const settingsMetronomeBpm = typeof document !== "undefined" ? document.getElementById("settingsMetronomeBpm") : null;
   const settingsMetronomeBpmLabel = typeof document !== "undefined" ? document.getElementById("settingsMetronomeBpmLabel") : null;
   const settingsShowExtraEvents = typeof document !== "undefined" ? document.getElementById("settingsShowExtraEvents") : null;
+  const settingsCustomEventName = typeof document !== "undefined" ? document.getElementById("settingsCustomEventName") : null;
+  const settingsCustomEventScramble = typeof document !== "undefined" ? document.getElementById("settingsCustomEventScramble") : null;
+  const settingsAddCustomEventBtn = typeof document !== "undefined" ? document.getElementById("settingsAddCustomEventBtn") : null;
+  const settingsCustomEventsList = typeof document !== "undefined" ? document.getElementById("settingsCustomEventsList") : null;
   const settingsOhHandLeftBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandLeftBtn") : null;
   const settingsOhHandRightBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandRightBtn") : null;
   const settingsOhTableOnBtn = typeof document !== "undefined" ? document.getElementById("settingsOhTableOnBtn") : null;
@@ -99,8 +109,20 @@ export function createSettingsModalController({
       document.getElementById("toggleShowReflection")?.setAttribute("aria-pressed", String(s.showReflection));
     }
     if (settingsShowTooltips) settingsShowTooltips.checked = Boolean(s.showTooltips);
+    const adv = Boolean(s.advancedMode);
+    if (settingsStatsModeBasicBtn) {
+      settingsStatsModeBasicBtn.classList.toggle("active", !adv);
+      settingsStatsModeBasicBtn.setAttribute("aria-pressed", String(!adv));
+    }
+    if (settingsStatsModeAdvancedBtn) {
+      settingsStatsModeAdvancedBtn.classList.toggle("active", adv);
+      settingsStatsModeAdvancedBtn.setAttribute("aria-pressed", String(adv));
+    }
+    if (settingsFocusMode) settingsFocusMode.checked = Boolean(s.focusMode);
+    if (settingsShowLayerWidget) settingsShowLayerWidget.checked = s.showLayerSolutionsWidget !== false;
+    if (settingsShowCrossWidget) settingsShowCrossWidget.checked = s.showCrossSolutionsWidget !== false;
+    if (settingsShowStatsWidget) settingsShowStatsWidget.checked = s.showStatsPanel !== false;
     if (settingsDarkTheme) settingsDarkTheme.checked = s.darkMode;
-    if (settingsAdvancedMode) settingsAdvancedMode.checked = Boolean(s.advancedMode);
     if (settingsAlwaysWhiteBottom) settingsAlwaysWhiteBottom.checked = s.alwaysWhiteBottom;
     if (settingsAllowAUF) settingsAllowAUF.checked = s.allowAUF;
     if (settingsShowReflection) settingsShowReflection.checked = s.showReflection;
@@ -228,11 +250,37 @@ export function createSettingsModalController({
     });
   }
 
+  function renderCustomEvents() {
+    if (!settingsCustomEventsList) return;
+    const list = appStore.state.customEvents || [];
+    if (!list.length) {
+      settingsCustomEventsList.innerHTML = `<span class="settings-custom-events-empty">No custom events yet.</span>`;
+      return;
+    }
+    settingsCustomEventsList.innerHTML = list.map(ev => {
+      const scrLabel = CUSTOM_EVENT_SCRAMBLE_LABELS[ev.scrambleType] || ev.scrambleType || "No scramble";
+      const isActive = appStore.state.currentPuzzle === ev.id;
+      return `
+        <div class="settings-custom-event-item ${isActive ? "active" : ""}" data-custom-event-id="${escapeHtml(ev.id)}">
+          <div class="settings-custom-event-meta">
+            <strong>${escapeHtml(ev.name)}</strong>
+            <span class="settings-custom-event-badge">${escapeHtml(scrLabel)}</span>
+          </div>
+          <div class="settings-custom-event-actions">
+            <button type="button" class="btn btn-xs settings-custom-event-use-btn" data-custom-event-id="${escapeHtml(ev.id)}">${isActive ? "Active" : "Select"}</button>
+            <button type="button" class="btn btn-xs btn-danger settings-custom-event-del-btn" data-custom-event-id="${escapeHtml(ev.id)}" aria-label="Delete ${escapeHtml(ev.name)}">&times;</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
   function open() {
     if (!modal) return;
     setPickingColor(false);
     renderColorPickers();
     renderToggles();
+    renderCustomEvents();
     solverWidgets?.updateFaceChipsUI?.();
     solverWidgets?.updateCrossFacesUI?.();
     getCloudSyncCtrl()?.render?.();
@@ -337,12 +385,43 @@ export function createSettingsModalController({
     onTooltipsChange?.(appStore.state.showTooltips);
   });
 
-  settingsDarkTheme?.addEventListener("change", (e) => {
-    cubeStage?.setDarkMode?.(e.target.checked);
+  settingsStatsModeBasicBtn?.addEventListener("click", () => {
+    appStore.setAdvancedMode?.(false);
     renderToggles();
   });
-  settingsAdvancedMode?.addEventListener("change", (e) => {
-    appStore.setAdvancedMode?.(e.target.checked);
+  settingsStatsModeAdvancedBtn?.addEventListener("click", () => {
+    appStore.setAdvancedMode?.(true);
+    renderToggles();
+  });
+  settingsFocusMode?.addEventListener("change", (e) => {
+    const enabled = Boolean(e.target.checked);
+    if (enabled && appStore.state.mode !== "solve") {
+      getNavCtrl()?.setMode?.("solve");
+    }
+    appStore.setFocusMode?.(enabled);
+    renderToggles();
+  });
+  settingsShowLayerWidget?.addEventListener("change", (e) => {
+    const enabled = Boolean(e.target.checked);
+    appStore.setWidgetVisibility?.("showLayerSolutionsWidget", enabled);
+    if (enabled && appStore.state.currentPuzzle === "222") {
+      const scr = appStore.state.currentSolveScramble || appStore.state.scrambleMoves || appStore.state.scramble;
+      if (scr) solverWidgets?.updateLayerSolutions?.(scr);
+    }
+  });
+  settingsShowCrossWidget?.addEventListener("change", (e) => {
+    const enabled = Boolean(e.target.checked);
+    appStore.setWidgetVisibility?.("showCrossSolutionsWidget", enabled);
+    if (enabled && (appStore.state.currentPuzzle === "333" || appStore.state.currentPuzzle === "333oh")) {
+      const scr = appStore.state.currentSolveScramble || appStore.state.scrambleMoves || appStore.state.scramble;
+      if (scr) solverWidgets?.updateCrossSolutions?.(scr);
+    }
+  });
+  settingsShowStatsWidget?.addEventListener("change", (e) => {
+    appStore.setWidgetVisibility?.("showStatsPanel", Boolean(e.target.checked));
+  });
+  settingsDarkTheme?.addEventListener("change", (e) => {
+    cubeStage?.setDarkMode?.(e.target.checked);
     renderToggles();
   });
   settingsAlwaysWhiteBottom?.addEventListener("change", (e) => {
@@ -394,6 +473,52 @@ export function createSettingsModalController({
     renderToggles();
   });
 
+  const handleAddCustomEvent = () => {
+    const rawName = settingsCustomEventName?.value?.trim();
+    if (!rawName) return;
+    const scrType = settingsCustomEventScramble?.value || "none";
+    const created = appStore.addCustomEvent?.({
+      name: rawName,
+      shortName: rawName.slice(0, 10),
+      scrambleType: scrType
+    });
+    if (created) {
+      if (settingsCustomEventName) settingsCustomEventName.value = "";
+      renderCustomEvents();
+    }
+  };
+
+  settingsAddCustomEventBtn?.addEventListener("click", handleAddCustomEvent);
+  settingsCustomEventName?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddCustomEvent();
+    }
+  });
+
+  settingsCustomEventsList?.addEventListener("click", (e) => {
+    const useBtn = e.target.closest(".settings-custom-event-use-btn");
+    if (useBtn) {
+      const evId = useBtn.dataset.customEventId;
+      if (evId) {
+        getNavCtrl()?.setPuzzle?.(evId);
+        close();
+      }
+      return;
+    }
+    const delBtn = e.target.closest(".settings-custom-event-del-btn");
+    if (delBtn) {
+      const evId = delBtn.dataset.customEventId;
+      if (!evId) return;
+      const wasActive = appStore.state.currentPuzzle === evId;
+      appStore.removeCustomEvent?.(evId);
+      if (wasActive) {
+        getNavCtrl()?.setPuzzle?.("333");
+      }
+      renderCustomEvents();
+    }
+  });
+
   [settingsOhHandLeftBtn, settingsOhHandRightBtn].forEach(btn => {
     btn?.addEventListener("click", () => {
       const next = btn.dataset.settingsOhHand;
@@ -424,10 +549,12 @@ export function createSettingsModalController({
   });
 
   appStore?.subscribe?.((evt) => {
-    if (evt === "theme" || evt === "ohHand" || evt === "ohTableAbuse" || evt === "simSpeed" || evt === "advancedMode") renderToggles();
+    if (evt === "theme" || evt === "ohHand" || evt === "ohTableAbuse" || evt === "simSpeed" || evt === "advancedMode" || evt === "focusMode" || evt === "widgetVisibility") renderToggles();
+    else if (evt === "customEvents") renderCustomEvents();
     else if (evt === "hydrate") {
       renderColorPickers();
       renderToggles();
+      renderCustomEvents();
       solverWidgets?.updateFaceChipsUI?.();
       solverWidgets?.updateCrossFacesUI?.();
     }
@@ -437,6 +564,7 @@ export function createSettingsModalController({
     open,
     close,
     renderToggles,
+    renderCustomEvents,
     refreshActiveViews
   };
 }

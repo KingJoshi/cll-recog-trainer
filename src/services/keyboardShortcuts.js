@@ -41,6 +41,9 @@ export const SHORTCUT_ACTIONS = [
   { id: "puzzle:333oh", category: "puzzles", label: "Switch to 3x3 OH" },
   { id: "puzzle:444", category: "puzzles", label: "Switch to 4x4" },
   { id: "puzzle:555", category: "puzzles", label: "Switch to 5x5" },
+  { id: "puzzle:666", category: "puzzles", label: "Switch to 6x6" },
+  { id: "puzzle:777", category: "puzzles", label: "Switch to 7x7" },
+  { id: "puzzle:fto", category: "puzzles", label: "Switch to FTO" },
 
   // Modes
   { id: "mode:study", category: "modes", label: "Mode: Study" },
@@ -74,7 +77,7 @@ export const SHORTCUT_ACTIONS = [
   { id: "action:toggleOhHand", category: "actions", label: "Switch 3x3 OH Hand (Left/Right)" },
   { id: "action:toggleDark", category: "actions", label: "Toggle Dark Theme" },
   { id: "action:toggleAdvancedMode", category: "actions", label: "Toggle Basic / Advanced Stats Mode" },
-  { id: "action:toggleFocusMode", category: "actions", label: "Toggle Focus / Zen Mode" },
+  { id: "action:toggleFocusMode", category: "actions", label: "Toggle Zen / Focus Mode" },
   { id: "action:openSettings", category: "actions", label: "Open Trainer Settings" },
   { id: "action:openShortcuts", category: "actions", label: "Open Keyboard Shortcuts" },
   { id: "action:resetAngle", category: "actions", label: "Reset 3D Cube Angle" },
@@ -147,7 +150,8 @@ export const DEFAULT_SHORTCUTS = {
   "move:F'": "Shift+KeyF",
   "move:B": "KeyB",
   "move:B'": "Shift+KeyB",
-  "action:undoFreeMove": "Backspace"
+  "action:undoFreeMove": "Backspace",
+  "action:toggleFocusMode": "Shift+KeyZ"
 };
 
 const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock"]);

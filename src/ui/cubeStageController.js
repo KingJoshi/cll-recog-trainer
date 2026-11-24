@@ -3,6 +3,7 @@
 import { ScrambleDisplay } from 'scramble-display';
 import { applyColorsTo3DCube, ensure3x3FoundationOpaque } from '../caseVisualizer.js';
 import { smartCube } from '../smartCube.js';
+import { PUZZLES } from '../data/algRegistry.js';
 
 export function createCubeStageController({
   appStore,
@@ -121,9 +122,15 @@ export function createCubeStageController({
   function mountScrambleDisplay(puzzleId = appStore.state.currentPuzzle) {
     if (!displayContainer) return null;
     displayContainer.innerHTML = "";
+    const pDef = PUZZLES[puzzleId];
+    if (pDef?.isCustomEvent && (!pDef.wcaEvent || pDef.wcaEvent === "none")) {
+      el = null;
+      return null;
+    }
+    const rawEvent = pDef?.isCustomEvent ? pDef.wcaEvent : puzzleId;
     el = new ScrambleDisplay();
     el.player.hintFacelets = appStore.state.showReflection ? "floating" : "none";
-    el.event = puzzleId === "333oh" ? "333" : puzzleId;
+    el.event = rawEvent === "333oh" ? "333" : rawEvent;
     el.visualization = "3D";
     applyReflection();
     displayContainer.appendChild(el);

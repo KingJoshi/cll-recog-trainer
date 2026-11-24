@@ -74,15 +74,33 @@ export function createNavController({
   const solveTimes = typeof document !== "undefined" ? document.getElementById("solveTimes") : null;
   const layerSolutionsWidget = typeof document !== "undefined" ? document.getElementById("layerSolutionsWidget") : null;
   const crossSolutionsWidget = typeof document !== "undefined" ? document.getElementById("crossSolutionsWidget") : null;
+  const statsPanel = typeof document !== "undefined" ? document.getElementById("statsPanel") : null;
+  const puzzleSwitcher = typeof document !== "undefined" ? document.getElementById("puzzleSwitcher") : null;
   const modeButtons = typeof document !== "undefined" ? Array.from(document.querySelectorAll(".mode-btn")) : [];
   const puzzleButtons = typeof document !== "undefined" ? Array.from(document.querySelectorAll(".puzzle-btn")) : [];
 
   let scrambleGenToken = 0;
 
+  function getAllPuzzleButtons() {
+    return puzzleSwitcher ? Array.from(puzzleSwitcher.querySelectorAll(".puzzle-btn")) : puzzleButtons;
+  }
+
   function renderPuzzleButtons() {
     const s = appStore.state;
     const showExtra = Boolean(s.showExtraWcaEvents);
-    puzzleButtons.forEach(btn => {
+    if (puzzleSwitcher && typeof document !== "undefined") {
+      puzzleSwitcher.querySelectorAll(".puzzle-btn-custom").forEach(btn => btn.remove());
+      for (const ev of (s.customEvents || [])) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "puzzle-btn puzzle-btn-custom";
+        btn.dataset.puzzle = ev.id;
+        btn.textContent = ev.shortName || ev.name;
+        btn.setAttribute("data-tooltip", `Custom event: ${ev.name}`);
+        puzzleSwitcher.appendChild(btn);
+      }
+    }
+    getAllPuzzleButtons().forEach(btn => {
       const pid = btn.dataset.puzzle;
       if (btn.classList.contains("puzzle-btn-extra")) {
         btn.hidden = !showExtra && pid !== s.currentPuzzle;
@@ -203,7 +221,9 @@ export function createNavController({
     if (settingsPanel) {
       settingsPanel.hidden = simulating || (solving ? !solveUsesCases : !hasTrackCases);
     }
-    const hideCubeInSolve = solving && !s.solveShowCube;
+    const activePDef = PUZZLES[s.currentPuzzle];
+    const customNoScramble = Boolean(activePDef?.isCustomEvent && (!activePDef.wcaEvent || activePDef.wcaEvent === "none"));
+    const hideCubeInSolve = solving && (!s.solveShowCube || customNoScramble);
     if (cubeCard) {
       cubeCard.hidden = studying || hideCubeInSolve || (!hasCases && hasTrackCases && practicing);
     }
@@ -238,10 +258,13 @@ export function createNavController({
       solveTimes.hidden = !solving || !s.advancedMode || (appStore.getSolves?.().length || 0) === 0;
     }
     if (layerSolutionsWidget) {
-      layerSolutionsWidget.hidden = !(solving || simulating) || s.currentPuzzle !== "222" || (solving && s.solveTarget === "timer-drill");
+      layerSolutionsWidget.hidden = (s.showLayerSolutionsWidget === false) || !(solving || simulating) || s.currentPuzzle !== "222" || (solving && s.solveTarget === "timer-drill");
     }
     if (crossSolutionsWidget) {
-      crossSolutionsWidget.hidden = !(solving || simulating) || (s.currentPuzzle !== "333" && s.currentPuzzle !== "333oh") || (solving && s.solveTarget === "timer-drill");
+      crossSolutionsWidget.hidden = (s.showCrossSolutionsWidget === false) || !(solving || simulating) || (s.currentPuzzle !== "333" && s.currentPuzzle !== "333oh") || (solving && s.solveTarget === "timer-drill");
+    }
+    if (statsPanel) {
+      statsPanel.hidden = s.showStatsPanel === false;
     }
   }
 
@@ -379,7 +402,7 @@ export function createNavController({
   }
 
   function setPuzzle(puzzleId) {
-    if (!VALID_PUZZLES.includes(puzzleId)) return;
+    if (!VALID_PUZZLES.includes(puzzleId) && !PUZZLES[puzzleId]) return;
     ++scrambleGenToken;
     const s = appStore.state;
     const timerCtrl = getTimerCtrl();
@@ -396,11 +419,7 @@ export function createNavController({
     s.currentSolveScramble = "";
     cubeStage?.mountScrambleDisplay?.(s.currentPuzzle);
 
-    puzzleButtons.forEach(btn => {
-      const active = btn.dataset.puzzle === s.currentPuzzle;
-      btn.classList.toggle("active", active);
-      btn.setAttribute("aria-pressed", String(active));
-    });
+    renderPuzzleButtons();
 
     const pDef = PUZZLES[s.currentPuzzle];
     s.currentTrackId = pDef?.defaultTrack || getDefaultTrack(s.currentPuzzle)?.id || "cll";
@@ -582,6 +601,24 @@ export function createNavController({
       return;
     }
 
+    const activePDef = PUZZLES[expectedPuzzle];
+    if (activePDef?.solveOnly) {
+      if (activePDef.isCustomEvent && (!activePDef.wcaEvent || activePDef.wcaEvent === "none")) {
+        s.scramble = "";
+        s.scrambleMoves = "";
+        s.currentSolveScramble = "";
+        s.currentCaseId = null;
+        cubeStage?.applyScrambleToDisplay?.("");
+        solvePanel?.updateSolveScrambleDisplay?.("No scramble (Timer only)");
+        updateSolveOrientationLabel("");
+      } else {
+        updateSolveOrientationLabel("(WCA orientation)");
+        requestAsyncWcaScramble(token, expectedPuzzle, expectedMode);
+      }
+      getStatsCtrl()?.updateStatsTable?.();
+      return;
+    }
+
     // 2x2x2
     const is222CaseTarget = s.mode === "solve" && ["lbl", "cll", "eg1", "eg2"].includes(s.solveTarget);
     if (s.mode === "solve" && !is222CaseTarget) {
@@ -739,14 +776,24 @@ export function createNavController({
     return { scramble: wcaScr, caseObj: null };
   }
 
-  puzzleButtons.forEach(btn => {
-    btn.addEventListener("click", () => {
-      const puzzle = btn.dataset.puzzle;
+  if (puzzleSwitcher) {
+    puzzleSwitcher.addEventListener("click", (e) => {
+      const btn = e.target.closest(".puzzle-btn");
+      const puzzle = btn?.dataset.puzzle;
       if (puzzle && puzzle !== appStore.state.currentPuzzle) {
         setPuzzle(puzzle);
       }
     });
-  });
+  } else {
+    puzzleButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const puzzle = btn.dataset.puzzle;
+        if (puzzle && puzzle !== appStore.state.currentPuzzle) {
+          setPuzzle(puzzle);
+        }
+      });
+    });
+  }
 
   modeButtons.forEach(btn => {
     btn.addEventListener("click", () => setMode(btn.dataset.mode));

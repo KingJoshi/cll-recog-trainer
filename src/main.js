@@ -16,7 +16,8 @@ import { createCloudSyncController, formatMergeSummary } from './features/sync/c
 import { createKeyboardRouter } from './ui/keyboardRouter.js';
 import {
   eventToKeyCombo,
-  findActionForCombo
+  findActionForCombo,
+  formatKeyCombo
 } from './services/keyboardShortcuts.js';
 import { createTooltipController } from './ui/tooltipController.js';
 import { createCubeStageController } from './ui/cubeStageController.js';
@@ -402,8 +403,16 @@ appStore.subscribe((evt) => {
     navCtrl?.renderStage?.();
     statsCtrl?.updateStatsTable?.();
   } else if (evt === "focusMode") {
+    settingsModal?.renderToggles?.();
     solvePanelView?.renderSolvePanel?.();
     navCtrl?.renderStage?.();
+  } else if (evt === "widgetVisibility") {
+    settingsModal?.renderToggles?.();
+    navCtrl?.renderStage?.();
+  } else if (evt === "customEvents") {
+    navCtrl?.renderPuzzleButtons?.();
+    navCtrl?.renderStage?.();
+    settingsModal?.renderCustomEvents?.();
   }
 });
 
@@ -544,11 +553,23 @@ function handleCustomShortcutKeyDown(e) {
       appStore.setAdvancedMode(!s.advancedMode);
       showToast(`Stats mode: ${appStore.state.advancedMode ? "Advanced" : "Basic"}`, "info", 1800);
       return true;
-    case "action:toggleFocusMode":
+    case "action:toggleFocusMode": {
       e.preventDefault();
+      if (!s.focusMode && s.mode !== "solve") {
+        navCtrl?.setMode?.("solve");
+      }
       appStore.setFocusMode(!s.focusMode);
-      showToast(`Focus mode: ${appStore.state.focusMode ? "On" : "Off"}`, "info", 1600);
+      const zenCombo = appStore.getKeyboardShortcuts()?.["action:toggleFocusMode"] || "";
+      const zenKeyText = formatKeyCombo(zenCombo);
+      showToast(
+        appStore.state.focusMode
+          ? (zenKeyText ? `Zen mode: On (${zenKeyText} to exit)` : "Zen mode: On")
+          : "Zen mode: Off",
+        "info",
+        1800
+      );
       return true;
+    }
     case "action:openSettings":
       e.preventDefault();
       settingsModal.open();

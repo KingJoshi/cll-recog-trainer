@@ -320,7 +320,7 @@ export function createSolvePanelView({
       const focused = Boolean(s.focusMode);
       solveFocusToggleBtn.classList.toggle("active", focused);
       solveFocusToggleBtn.setAttribute("aria-pressed", String(focused));
-      solveFocusToggleBtn.textContent = focused ? "Exit Focus" : "Focus";
+      solveFocusToggleBtn.textContent = focused ? "Exit Zen" : "Zen";
     }
 
     const currentScr = s.scrambleMoves || s.currentSolveScramble || s.scramble;
