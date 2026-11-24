@@ -55,6 +55,19 @@ export const TWO_LOOK_OLL_STUDY_IDS = new Set([
   "oll-21", "oll-22", "oll-23", "oll-24", "oll-25", "oll-26", "oll-27"
 ]);
 
+const TWO_LOOK_OLL_GROUP_OVERRIDES = {
+  "oll-45": "Line (I-Shape)",
+  "oll-44": "L-Shapes",
+  "oll-02": "Dot Shapes"
+};
+
+const TWO_LOOK_OLL_GROUP_ORDER = [
+  "All Edges Oriented (Cross)",
+  "Line (I-Shape)",
+  "L-Shapes",
+  "Dot Shapes"
+];
+
 export const TWO_LOOK_PLL_STUDY_IDS = new Set([
   "T", "Y", "Ua", "Ub", "H", "Z"
 ]);
@@ -308,11 +321,21 @@ export class StudyView {
     return null;
   }
 
+  getTrackOrderedGroups(track) {
+    const llStudy = this.getActiveLlStudyMode();
+    if (llStudy?.kind === "oll" && llStudy.mode === "2look") {
+      return TWO_LOOK_OLL_GROUP_ORDER;
+    }
+    return track?.groups || [];
+  }
+
   getTrackBaseCases(track) {
     const all = track?.cases || [];
     const llStudy = this.getActiveLlStudyMode();
     if (llStudy?.kind === "oll" && llStudy.mode === "2look") {
-      return all.filter(c => TWO_LOOK_OLL_STUDY_IDS.has(c.id));
+      return all
+        .filter(c => TWO_LOOK_OLL_STUDY_IDS.has(c.id))
+        .map(c => (TWO_LOOK_OLL_GROUP_OVERRIDES[c.id] ? { ...c, group: TWO_LOOK_OLL_GROUP_OVERRIDES[c.id] } : c));
     }
     if (llStudy?.kind === "pll" && llStudy.mode === "2look") {
       return all.filter(c => TWO_LOOK_PLL_STUDY_IDS.has(c.id));
@@ -467,7 +490,7 @@ export class StudyView {
   }
 
   renderGroupFilterBar(track) {
-    const groups = track.groups || [];
+    const groups = this.getTrackOrderedGroups(track);
     const cases = this.getTrackBaseCases(track);
     const availableGroups = groups.filter(g => cases.some(c => c.group === g));
     const selectedInTrack = this.getTrackSelectedCases(track);
@@ -491,7 +514,7 @@ export class StudyView {
 
   getGroupedSections(track) {
     const filtered = this.getFilteredCases(track);
-    const orderedGroups = [...(track?.groups || [])];
+    const orderedGroups = [...this.getTrackOrderedGroups(track)];
     for (const c of filtered) {
       if (c.group && !orderedGroups.includes(c.group)) orderedGroups.push(c.group);
     }
@@ -619,9 +642,8 @@ export class StudyView {
 
   renderDetailView(track) {
     const baseCases = this.getTrackBaseCases(track);
-    const baseIds = new Set(baseCases.map(bc => bc.id));
     const navCases = this.getNavigableCases(track);
-    const c = (this.selectedCaseId && baseIds.has(this.selectedCaseId) ? track.caseById.get(this.selectedCaseId) : null)
+    const c = (this.selectedCaseId ? baseCases.find(bc => bc.id === this.selectedCaseId) : null)
       || navCases[0]
       || baseCases[0]
       || track.cases[0];
@@ -1333,7 +1355,7 @@ export class StudyView {
               this.activeGroupFilters.add(grp);
             }
             const baseCases = this.getTrackBaseCases(track);
-            const totalGroups = (track.groups || []).filter(g => baseCases.some(c => c.group === g)).length;
+            const totalGroups = this.getTrackOrderedGroups(track).filter(g => baseCases.some(c => c.group === g)).length;
             if (totalGroups > 0 && this.activeGroupFilters.size >= totalGroups) {
               this.activeGroupFilters.clear();
             }

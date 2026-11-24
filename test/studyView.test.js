@@ -526,6 +526,10 @@ test('StudyView renders 3D cube containers for Full/2-Look 3x3 OLL & PLL and 2x2
   assert.ok(oll2LookHtml.includes('2-Look · 10 Cases'));
   assert.ok(oll2LookHtml.includes('data-twosided-case-id="oll-02"'));
   assert.ok(oll2LookHtml.includes('data-twosided-case-id="oll-27"'));
+  assert.ok(oll2LookHtml.includes('Line (I-Shape)'));
+  assert.ok(oll2LookHtml.includes('L-Shapes'));
+  assert.ok(!oll2LookHtml.includes('T-Shapes'));
+  assert.ok(!oll2LookHtml.includes('P-Shapes'));
 
   // 2x2 tracks expose 2-Sided Recognition subnav & render 3D cube cards without descriptions
   for (const [trackId, expectedCount] of [['cll', 40], ['ortega', 12], ['lbl', 9], ['eg1', 40], ['eg2', 40]]) {

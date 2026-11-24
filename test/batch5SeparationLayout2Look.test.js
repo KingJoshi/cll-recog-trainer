@@ -455,6 +455,10 @@ test('StudyView supports independent Full vs 2-Look OLL (10) and PLL (6) toggles
   assert.ok(container.innerHTML.includes('data-study-oll-mode="2look"'));
   assert.ok(container.innerHTML.includes('Case Grid (10)'));
   assert.ok(container.innerHTML.includes('All (10)'));
+  assert.ok(container.innerHTML.includes('Line (I-Shape) (1)'));
+  assert.ok(container.innerHTML.includes('L-Shapes (1)'));
+  assert.ok(!container.innerHTML.includes('T-Shapes'));
+  assert.ok(!container.innerHTML.includes('P-Shapes'));
   assert.equal(sv.getTrackBaseCases(getTrack('333', 'oll')).length, 10);
 
   // Clicking Full OLL button invokes onSetOllMode('full') -> 57 cases while PLL stays untouched
@@ -462,6 +466,8 @@ test('StudyView supports independent Full vs 2-Look OLL (10) and PLL (6) toggles
   assert.equal(ollMode, 'full');
   assert.equal(pllMode, 'full');
   assert.ok(container.innerHTML.includes('Case Grid (57)'));
+  assert.ok(container.innerHTML.includes('T-Shapes'));
+  assert.ok(container.innerHTML.includes('P-Shapes'));
   assert.equal(sv.getTrackBaseCases(getTrack('333', 'oll')).length, 57);
 
   // Switch to 333oh PLL -> starts Full (21), then click 2-Look button -> 6 cases
