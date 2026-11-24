@@ -594,6 +594,15 @@ export function createNavController({
       return;
     }
 
+    function getSrsWeightOpts(trackId) {
+      const puzzleStats = s.stats?.[s.currentPuzzle]?.[trackId];
+      const recogStats = puzzleStats || (s.currentPuzzle === "222" && trackId === "cll" ? s.stats : null);
+      return {
+        caseTags: s.caseTags || null,
+        recogStats: recogStats || null
+      };
+    }
+
     if (s.mode === "solve" && is222CaseTarget) {
       const targetTrack = getTrack("222", s.solveTarget);
       if (s.currentTrackId !== s.solveTarget && targetTrack) {
@@ -605,7 +614,7 @@ export function createNavController({
       const activeCases = targetTrack?.cases?.filter(c => s.selectedCases.has(c.id)) || [];
       const pool = activeCases.length > 0 ? activeCases : (targetTrack?.cases || []);
       if (pool.length > 0) {
-        const chosenId = chooseWeightedCaseId(pool.map(c => c.id), s.caseAppearances, appStore.getSolves());
+        const chosenId = chooseWeightedCaseId(pool.map(c => c.id), s.caseAppearances, appStore.getSolves(), getSrsWeightOpts(s.solveTarget));
         appStore.saveCaseAppearances();
         const caseObj = (chosenId && targetTrack.caseById.get(chosenId)) || pool[0];
         const res = buildCaseScramble({
@@ -632,7 +641,7 @@ export function createNavController({
 
     if (hasCases) {
       const ids = [...s.selectedCases];
-      const chosenId = chooseWeightedCaseId(ids, s.caseAppearances, appStore.getSolves());
+      const chosenId = chooseWeightedCaseId(ids, s.caseAppearances, appStore.getSolves(), getSrsWeightOpts(s.currentTrackId));
       appStore.saveCaseAppearances();
       const track = getTrack(s.currentPuzzle, s.currentTrackId);
       const caseObj = chosenId ? (track?.caseById?.get(chosenId) || caseById.get(chosenId)) : null;
@@ -672,13 +681,22 @@ export function createNavController({
     const s = appStore.state;
     const track = getTrack(s.currentPuzzle, trackId);
 
+    const getSrsWeightOpts = (tid) => {
+      const puzzleStats = s.stats?.[s.currentPuzzle]?.[tid];
+      const recogStats = puzzleStats || (s.currentPuzzle === "222" && tid === "cll" ? s.stats : null);
+      return {
+        caseTags: s.caseTags || null,
+        recogStats: recogStats || null
+      };
+    };
+
     if (track && track.cases && track.cases.length > 0) {
       const active = track.cases.filter(c => s.selectedCases.has(c.id));
       const pool = active.length > 0 ? active : track.cases;
       let caseObj = null;
 
       if (s.currentPuzzle === "222" && ["lbl", "cll", "eg1", "eg2"].includes(track.id)) {
-        const chosenId = chooseWeightedCaseId(pool.map(c => c.id), s.caseAppearances, appStore.getSolves());
+        const chosenId = chooseWeightedCaseId(pool.map(c => c.id), s.caseAppearances, appStore.getSolves(), getSrsWeightOpts(track.id));
         appStore.saveCaseAppearances();
         caseObj = (chosenId && (track.caseById.get(chosenId) || caseById.get(chosenId))) || pool[0];
         const res = buildCaseScramble({
@@ -692,10 +710,12 @@ export function createNavController({
         s.scrambleMoves = res.scrambleMoves;
         s.scramble = res.scramble;
         cubeStage?.applyScrambleToDisplay?.(s.scramble);
-        return { scramble: res.scrambleMoves || res.scramble, caseObj };
+        return { scramble: res.scrambleMoves || res.scramble, fullScramble: res.scramble, caseObj };
       }
 
-      caseObj = pool[Math.floor(Math.random() * pool.length)];
+      const chosenId = chooseWeightedCaseId(pool.map(c => c.id), s.caseAppearances, appStore.getSolves(), getSrsWeightOpts(track.id));
+      appStore.saveCaseAppearances();
+      caseObj = (chosenId && (track.caseById?.get(chosenId) || caseById.get(chosenId))) || pool[Math.floor(Math.random() * pool.length)];
       const scr = (caseObj.scrambles && caseObj.scrambles.length > 0)
         ? caseObj.scrambles[Math.floor(Math.random() * caseObj.scrambles.length)]
         : (caseObj.setup || caseObj.scramble || "");
@@ -706,7 +726,7 @@ export function createNavController({
       s.scrambleMoves = scr;
       s.scramble = displayScr;
       cubeStage?.applyScrambleToDisplay?.(displayScr);
-      return { scramble: scr, caseObj };
+      return { scramble: scr, fullScramble: displayScr, caseObj };
     }
 
     const wcaScr = await generateWcaScrambleForPuzzle(s.currentPuzzle);

@@ -401,6 +401,98 @@ export function setPreferredAlg(caseId, algId, puzzleId = null, subScope = null)
   }
 }
 
+export const CUSTOM_ALGS_STORAGE_KEY = "cll_custom_algs_v1";
+
+function customAlgBucketKey(puzzleId, caseId) {
+  return `${puzzleId || "222"}:${caseId}`;
+}
+
+export function loadCustomAlgsMap() {
+  if (typeof localStorage === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(CUSTOM_ALGS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCustomAlgsMap(map) {
+  const clean = map && typeof map === "object" && !Array.isArray(map) ? map : {};
+  if (typeof localStorage !== "undefined") {
+    try {
+      localStorage.setItem(CUSTOM_ALGS_STORAGE_KEY, JSON.stringify(clean));
+    } catch (e) {
+      console.error("Failed to save custom algorithms", e);
+    }
+  }
+  return clean;
+}
+
+export function getCustomAlgsForCase(puzzleId, caseId) {
+  if (!caseId) return [];
+  const map = loadCustomAlgsMap();
+  const list = map[customAlgBucketKey(puzzleId, caseId)];
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter(item => item && typeof item.alg === "string" && item.alg.trim())
+    .map(item => ({
+      id: String(item.id),
+      alg: item.alg,
+      startAuf: item.startAuf || "",
+      trigger: item.trigger || "",
+      note: item.trigger || "Custom alg",
+      isDefault: false,
+      isCustom: true,
+      verified: item.verified !== false
+    }));
+}
+
+export function addCustomAlgForCase(puzzleId, caseId, { alg, trigger = "", startAuf = "" } = {}) {
+  const cleanAlgStr = String(alg || "").trim();
+  if (!caseId || !cleanAlgStr) return null;
+  const map = loadCustomAlgsMap();
+  const key = customAlgBucketKey(puzzleId, caseId);
+  const existing = Array.isArray(map[key]) ? map[key] : [];
+  const noteText = String(trigger || "").trim();
+  const entry = {
+    id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    alg: cleanAlgStr,
+    startAuf: startAuf || "",
+    trigger: noteText,
+    verified: true
+  };
+  map[key] = [...existing, entry];
+  saveCustomAlgsMap(map);
+  for (const cb of preferredAlgListeners) {
+    try { cb({ key, caseId, algId: entry.id, puzzleId, customAlgAdded: true }); } catch {}
+  }
+  return {
+    ...entry,
+    note: noteText || "Custom alg",
+    isDefault: false,
+    isCustom: true
+  };
+}
+
+export function removeCustomAlgForCase(puzzleId, caseId, customAlgId) {
+  if (!caseId || !customAlgId) return false;
+  const map = loadCustomAlgsMap();
+  const key = customAlgBucketKey(puzzleId, caseId);
+  const existing = Array.isArray(map[key]) ? map[key] : [];
+  const filtered = existing.filter(item => item?.id !== customAlgId);
+  if (filtered.length === existing.length) return false;
+  if (filtered.length > 0) map[key] = filtered;
+  else delete map[key];
+  saveCustomAlgsMap(map);
+  for (const cb of preferredAlgListeners) {
+    try { cb({ key, caseId, algId: customAlgId, puzzleId, customAlgRemoved: true }); } catch {}
+  }
+  return true;
+}
+
 export function getDefaultTrack(puzzleId) {
   const p = PUZZLES[puzzleId];
   if (!p) return null;

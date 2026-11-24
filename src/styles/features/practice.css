@@ -704,4 +704,106 @@
     color: #fff;
 }
 
+.recog-latency-avg {
+    font-weight: 500;
+    color: var(--muted);
+    font-size: 0.78em;
+}
+
+.recog-feedback-latency {
+    font-size: 0.85em;
+    opacity: 0.85;
+    font-variant-numeric: tabular-nums;
+}
+
+.recognition-mode-toggle-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-auf-quiz-toggle.active {
+    background: #0f766e !important;
+    border-color: #0d9488 !important;
+    color: #ffffff !important;
+}
+
+.recognition-auf-picker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+}
+
+.auf-picker-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.auf-picker-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.btn-recog-auf {
+    min-height: 36px;
+    min-width: 60px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.14s ease;
+}
+
+.btn-recog-auf:hover {
+    border-color: #0d9488;
+    background: var(--surface-2);
+}
+
+.btn-recog-auf.active {
+    background: #0f766e;
+    border-color: #0d9488;
+    color: #ffffff;
+    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.22);
+}
+
+.recog-auf-alg-hint {
+    margin-top: 5px;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.recog-auf-alg-hint code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: rgba(15, 23, 42, 0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+[data-theme="dark"] .btn-recog-auf {
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-recog-auf.active {
+    background: #0d9488;
+    border-color: #14b8a6;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .recog-auf-alg-hint code {
+    background: rgba(255, 255, 255, 0.08);
+}
+
 }

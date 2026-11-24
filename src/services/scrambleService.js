@@ -199,9 +199,21 @@ export function getPerformanceMultipliers(ids, solves = []) {
   return multipliers;
 }
 
-export function chooseWeightedCaseId(ids = [], caseAppearances = {}, solves = []) {
+const SRS_TAG_WEIGHTS = {
+  learning: 2.0,
+  review: 1.4,
+  mastered: 0.55
+};
+
+/**
+ * Selects a case id using anti-repeat appearance decay, solve-time performance,
+ * study mastery tags (SRS), and recognition accuracy weights.
+ */
+export function chooseWeightedCaseId(ids = [], caseAppearances = {}, solves = [], opts = {}) {
   if (!ids || ids.length === 0) return null;
   if (ids.length === 1) return ids[0];
+
+  const { caseTags = null, recogStats = null } = opts || {};
 
   let minCount = Infinity;
   for (const id of ids) {
@@ -224,7 +236,23 @@ export function chooseWeightedCaseId(ids = [], caseAppearances = {}, solves = []
     const delta = (caseAppearances[id] || 0) - minCount;
     const attemptWeight = Math.pow(5, -delta);
     const perfMult = perfMultipliers[id] || 1.0;
-    const w = attemptWeight * perfMult;
+
+    let tagMult = 1.0;
+    if (caseTags) {
+      const tag = caseTags[id] || "none";
+      tagMult = SRS_TAG_WEIGHTS[tag] ?? 1.15;
+    }
+
+    let recogMult = 1.0;
+    const stat = recogStats?.[id];
+    const shown = Number(stat?.shown || 0);
+    if (shown >= 2) {
+      const correct = Number(stat?.correct || 0);
+      const acc = Math.max(0, Math.min(1, correct / shown));
+      recogMult = 1 + (1 - acc) * 1.2;
+    }
+
+    const w = attemptWeight * perfMult * tagMult * recogMult;
     weights.push(w);
     totalWeight += w;
   }

@@ -1,6 +1,17 @@
 // Study View: Handles Case Grid, 3D Flashcard, and Reference Guide for any active track
 
-import { PUZZLES, getTrack, getPreferredAlg, setPreferredAlg, formatCaseDisplayId, getDistinctCaseName } from './data/algRegistry.js';
+import {
+  PUZZLES,
+  getTrack,
+  getPreferredAlg,
+  setPreferredAlg,
+  getCustomAlgsForCase,
+  addCustomAlgForCase,
+  removeCustomAlgForCase,
+  formatCaseDisplayId,
+  getDistinctCaseName
+} from './data/algRegistry.js';
+import { verifyCustomAlgForCase } from './cube/customAlgVerifier.js';
 import { renderCaseSvg, applyColorsTo3DCube } from './caseVisualizer.js';
 import { PLL_TWO_SIDED_GUIDE, OLL_TWO_SIDED_GUIDE } from './data/twoSidedRecogData.js';
 import { escapeHtml } from './services/htmlUtils.js';
@@ -80,11 +91,13 @@ export class StudyView {
   }
 
   getCaseAlgs(track, c) {
-    return getEffectiveAlgsForCase(this.currentPuzzle, this.currentTrackId, c, {
+    const baseAlgs = getEffectiveAlgsForCase(this.currentPuzzle, this.currentTrackId, c, {
       ohHand: this.getOhHand(),
       ohTableAbuse: this.getOhTableAbuse(),
       trackCases: track?.cases || []
     });
+    const customAlgs = getCustomAlgsForCase(this.currentPuzzle, c.id);
+    return customAlgs.length ? [...baseAlgs, ...customAlgs] : baseAlgs;
   }
 
   getPrefSubScope() {
@@ -593,21 +606,32 @@ export class StudyView {
                           ${isPref ? '★' : '☆'}
                         </button>
                         <div class="study-alg-info">
-                          <span class="study-alg-text">${a.alg}</span>
+                          <span class="study-alg-text">${escapeHtml(a.alg)}</span>
                           <div class="study-alg-meta-row">
                             <span class="study-auf-badge ${a.startAuf ? 'has-auf' : ''}">${aufText}</span>
+                            ${a.isCustom ? '<span class="study-custom-alg-badge" data-tooltip="Verified against KPuzzle simulation">Custom ✓</span>' : ''}
                             ${a.ohBadge ? `<span class="oh-alg-badge">${escapeHtml(a.ohBadge)}</span>` : ''}
                             ${customLabel ? `<span class="study-alg-custom-label" data-tooltip="Custom label">${escapeHtml(customLabel)}</span>` : ''}
-                            ${a.note ? `<span class="study-alg-note">${a.note}</span>` : ''}
+                            ${a.note ? `<span class="study-alg-note">${escapeHtml(a.note)}</span>` : ''}
                           </div>
                         </div>
                         <div class="study-alg-actions">
                           ${this.onEditLabel ? `<button type="button" class="btn btn-xs btn-alg-label" data-case-id="${c.id}" data-alg-id="${a.id}" data-tooltip="Customize trigger or memory label">Label</button>` : ''}
-                          <button type="button" class="btn btn-xs btn-alg-sim" data-case-id="${c.id}" data-alg-id="${a.id}" data-alg="${a.alg}" data-tooltip="Simulate this algorithm in the 3D popup" aria-label="Simulate algorithm ${escapeHtml(a.alg)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
+                          <button type="button" class="btn btn-xs btn-alg-sim" data-case-id="${c.id}" data-alg-id="${a.id}" data-alg="${escapeHtml(a.alg)}" data-tooltip="Simulate this algorithm in the 3D popup" aria-label="Simulate algorithm ${escapeHtml(a.alg)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
+                          ${a.isCustom ? `<button type="button" class="btn btn-xs study-custom-alg-del-btn" data-case-id="${c.id}" data-alg-id="${a.id}" data-tooltip="Remove this custom algorithm" aria-label="Delete custom algorithm">&times;</button>` : ''}
                         </div>
                       </div>
                     `;
                   }).join('')}
+                </div>
+
+                <div class="study-custom-alg-form" data-case-id="${c.id}">
+                  <div class="study-custom-alg-form-row">
+                    <input type="text" id="studyCustomAlgInput" class="study-custom-alg-input" placeholder="Add your own alg (e.g. R U R' U' ...)" aria-label="Custom algorithm moves" />
+                    <input type="text" id="studyCustomAlgNoteInput" class="study-custom-alg-note-input" placeholder="Trigger / note (optional)" aria-label="Algorithm trigger or note" />
+                    <button type="button" id="studyAddCustomAlgBtn" class="btn btn-xs btn-primary" data-case-id="${c.id}">Verify &amp; Add</button>
+                  </div>
+                  <div id="studyCustomAlgFeedback" class="study-custom-alg-feedback ${this.customAlgNotice?.caseId === c.id ? (this.customAlgNotice.ok ? 'ok' : 'err') : ''}" ${this.customAlgNotice?.caseId === c.id ? '' : 'hidden'}>${this.customAlgNotice?.caseId === c.id ? escapeHtml(this.customAlgNotice.msg) : ''}</div>
                 </div>
               </div>
 
@@ -1126,6 +1150,93 @@ export class StudyView {
         this.render();
       });
     });
+
+    // Delete custom algorithm button
+    this.container.querySelectorAll('.study-custom-alg-del-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const caseId = btn.dataset.caseId;
+        const algId = btn.dataset.algId;
+        const c = track.caseById.get(caseId);
+        removeCustomAlgForCase(this.currentPuzzle, caseId, algId);
+        if (this.previewAlgId === algId) {
+          this.previewAlgId = null;
+        }
+        if (c) {
+          const remaining = this.getCaseAlgs(track, c);
+          const fallback = remaining.find(a => a.isDefault) || remaining[0];
+          const currentPref = getPreferredAlg(caseId, fallback?.id, this.currentPuzzle, this.getPrefSubScope());
+          if (currentPref === algId && fallback) {
+            setPreferredAlg(caseId, fallback.id, this.currentPuzzle, this.getPrefSubScope());
+          }
+        }
+        this.customAlgNotice = { caseId, ok: true, msg: 'Removed custom algorithm.' };
+        this.render();
+      });
+    });
+
+    // Verify & Add custom algorithm form
+    const customAddBtn = this.container.querySelector('#studyAddCustomAlgBtn');
+    const customAlgInput = this.container.querySelector('#studyCustomAlgInput');
+    const customNoteInput = this.container.querySelector('#studyCustomAlgNoteInput');
+    const customFeedback = this.container.querySelector('#studyCustomAlgFeedback');
+    if (customAddBtn && customAlgInput) {
+      const submitCustomAlg = async () => {
+        const caseId = customAddBtn.dataset.caseId;
+        const c = track.caseById.get(caseId);
+        if (!c) return;
+        const rawAlg = customAlgInput.value;
+        const triggerNote = customNoteInput?.value || '';
+
+        customAddBtn.disabled = true;
+        if (customFeedback) {
+          customFeedback.hidden = false;
+          customFeedback.className = 'study-custom-alg-feedback pending';
+          customFeedback.textContent = 'Verifying moves against KPuzzle...';
+        }
+
+        const res = await verifyCustomAlgForCase(this.currentPuzzle, this.currentTrackId, c, rawAlg);
+        if (this.selectedCaseId !== caseId) return;
+
+        if (!res.valid) {
+          customAddBtn.disabled = false;
+          if (customFeedback) {
+            customFeedback.hidden = false;
+            customFeedback.className = 'study-custom-alg-feedback err';
+            customFeedback.textContent = res.reason || 'Invalid algorithm for this case.';
+          }
+          return;
+        }
+
+        const created = addCustomAlgForCase(this.currentPuzzle, caseId, {
+          alg: res.normalizedAlg,
+          trigger: triggerNote,
+          startAuf: res.startAuf
+        });
+        if (created) {
+          setPreferredAlg(caseId, created.id, this.currentPuzzle, this.getPrefSubScope());
+          this.previewAlgId = created.id;
+          this.customAlgNotice = { caseId, ok: true, msg: res.reason || 'Verified & added!' };
+        }
+        this.render();
+      };
+
+      customAddBtn.addEventListener('click', submitCustomAlg);
+      customAlgInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitCustomAlg();
+        }
+      });
+      if (customNoteInput) {
+        customNoteInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            submitCustomAlg();
+          }
+        });
+      }
+    }
 
     // Prev / Next case in detail & hybrid view (cycles only through selected cases when any are selected)
     const prevBtn = this.container.querySelector('#studyPrevCaseBtn');

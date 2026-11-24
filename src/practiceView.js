@@ -1,10 +1,20 @@
 // Practice View: Multi-Mode Recognition & Inspection Planning Drills
 // Supports both Casual Practice and Timed Sprints (consolidated)
 
-import { getTrack } from './data/algRegistry.js';
+import { getTrack, getPreferredAlg, getCustomAlgsForCase } from './data/algRegistry.js';
+import { getEffectiveAlgsForCase } from './cube/algMirror.js';
+import { computeExpectedPostAuf, isAufQuizTrackSupported } from './cube/customAlgVerifier.js';
 import { findLayerSolutions, findFaceSolutions } from './layerSolver.js';
 import { findCrossSolutions } from './crossSolver.js';
 import { ICON_POPUP_SIM } from './ui/transportIcons.js';
+
+function escapeHtmlAttr(val) {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 export class PracticeView {
   constructor(options) {
@@ -39,12 +49,22 @@ export class PracticeView {
 
     // Casual Recognition quiz state
     this.currentCase = null;
+    this.currentScramble = "";
     this.guessGroup = null;
     this.guessCase = null;
     this.score = 0;
     this.streak = 0;
     this.answered = false;
     this.lastResult = null;
+    this.selectWarning = false;
+    this.selectWarningMsg = "";
+    this.caseShownAt = null;
+    this.lastLatencyMs = null;
+    this.sessionLatencies = [];
+    this.aufQuizMode = false;
+    this.guessAuf = null;
+    this.expectedAufInfo = null;
+    this._aufComputeToken = 0;
 
     // Timed sprint state
     this.sprintMinutes = 3;
@@ -84,13 +104,75 @@ export class PracticeView {
     return "";
   }
 
+  nowMs() {
+    return (typeof performance !== "undefined" && typeof performance.now === "function")
+      ? performance.now()
+      : Date.now();
+  }
+
   isTwoSidedActive() {
     const is3x3Recog = (this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && ["pll", "oll"].includes(this.currentTrackId);
     return Boolean(!this.isInspectionTrack() && is3x3Recog && this.twoSidedMode);
   }
 
+  isAufQuizSupported() {
+    return isAufQuizTrackSupported(this.currentPuzzle, this.currentTrackId);
+  }
+
+  isAufQuizActive() {
+    return Boolean(
+      this.aufQuizMode &&
+      !this.isInspectionTrack() &&
+      this.practiceMode === "casual" &&
+      this.isAufQuizSupported()
+    );
+  }
+
+  getPreferredAlgTextForCase(c) {
+    if (!c) return "";
+    const track = getTrack(this.currentPuzzle, this.currentTrackId);
+    const effective = getEffectiveAlgsForCase(this.currentPuzzle, this.currentTrackId, c, {
+      ohHand: this.getOhHand(),
+      ohTableAbuse: this.getOhTableAbuse(),
+      trackCases: track?.cases || []
+    });
+    const custom = getCustomAlgsForCase(this.currentPuzzle, c.id);
+    const algs = [...effective, ...custom];
+    const defaultAlg = algs.find(a => a.isDefault) || algs[0];
+    const subScope = this.currentPuzzle === "333oh"
+      ? (this.getOhTableAbuse() ? this.getOhHand() : `${this.getOhHand()}:no-table`)
+      : null;
+    const prefId = getPreferredAlg(c.id, defaultAlg?.id, this.currentPuzzle, subScope);
+    const preferred = algs.find(a => a.id === prefId) || defaultAlg;
+    return preferred?.alg || "";
+  }
+
+  async refreshExpectedAuf() {
+    const tok = ++this._aufComputeToken;
+    if (!this.aufQuizMode || this.isInspectionTrack() || !this.currentCase || !this.currentScramble || !this.isAufQuizSupported()) {
+      this.expectedAufInfo = null;
+      return null;
+    }
+    const algText = this.getPreferredAlgTextForCase(this.currentCase);
+    const info = await computeExpectedPostAuf(
+      this.currentPuzzle,
+      this.currentTrackId,
+      this.currentScramble,
+      algText
+    );
+    if (tok !== this._aufComputeToken) return null;
+    this.expectedAufInfo = info;
+    return info;
+  }
+
+  formatAufLabel(auf) {
+    return auf ? auf : "No AUF";
+  }
+
   async setTrack(puzzleId, trackId) {
     const gen = ++this._gen;
+    const prevKey = `${this.currentPuzzle}:${this.currentTrackId}`;
+    const nextKey = `${puzzleId}:${trackId}`;
     this.currentPuzzle = puzzleId;
     this.currentTrackId = trackId;
     this._submittingSprint = false;
@@ -102,8 +184,17 @@ export class PracticeView {
     this.answered = false;
     this.guessGroup = null;
     this.guessCase = null;
+    this.guessAuf = null;
+    this.expectedAufInfo = null;
+    this.currentScramble = "";
+    this.caseShownAt = null;
     this.lastResult = null;
     this.selectWarning = false;
+    this.selectWarningMsg = "";
+    if (prevKey !== nextKey) {
+      this.sessionLatencies = [];
+      this.lastLatencyMs = null;
+    }
     this.onTwoSidedModeChange?.(this.isTwoSidedActive());
 
     if (this.onGenerateScramble) {
@@ -111,6 +202,12 @@ export class PracticeView {
       if (gen !== this._gen) return;
       if (typeof res === 'object' && res?.caseObj) {
         this.currentCase = res.caseObj;
+        this.currentScramble = res.fullScramble || res.scramble || "";
+        if (this.aufQuizMode && this.isAufQuizSupported()) {
+          await this.refreshExpectedAuf();
+          if (gen !== this._gen) return;
+        }
+        this.caseShownAt = this.nowMs();
       } else {
         this.currentCase = null;
         this.inspectionScramble = typeof res === 'string' ? res : (res?.scramble || '');
@@ -130,7 +227,13 @@ export class PracticeView {
     this.answered = false;
     this.guessGroup = null;
     this.guessCase = null;
+    this.guessAuf = null;
     this.lastResult = null;
+    this.selectWarning = false;
+    this.selectWarningMsg = "";
+    this.caseShownAt = (mode === "casual" && this.currentCase && !this.isInspectionTrack())
+      ? this.nowMs()
+      : null;
     this.onTwoSidedModeChange?.(this.isTwoSidedActive());
     this.render();
   }
@@ -276,6 +379,42 @@ export class PracticeView {
   renderCasualRecognitionDrill() {
     const track = getTrack(this.currentPuzzle, this.currentTrackId);
     const is3x3Recog = (this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && ["pll", "oll"].includes(this.currentTrackId);
+    const supportsAufQuiz = this.isAufQuizSupported();
+    const aufActive = this.isAufQuizActive();
+    if (this.currentCase && !this.answered && this.caseShownAt == null) {
+      this.caseShownAt = this.nowMs();
+    }
+    const avgLatencyMs = this.sessionLatencies.length
+      ? Math.round(this.sessionLatencies.reduce((a, b) => a + b, 0) / this.sessionLatencies.length)
+      : null;
+
+    let feedbackHtml = '';
+    if (this.lastResult) {
+      const latencyBadge = this.lastResult.latencyMs != null
+        ? ` <span class="recog-feedback-latency">(${this.lastResult.latencyMs} ms)</span>`
+        : '';
+      if (this.lastResult.aufUsed) {
+        const expLabel = this.formatAufLabel(this.lastResult.expectedAuf);
+        const algHint = this.lastResult.algUsed
+          ? `<div class="recog-auf-alg-hint">Ref alg: <code>${escapeHtmlAttr(this.lastResult.algUsed)}</code>${this.lastResult.preAuf ? ` (pre-AUF <b>${escapeHtmlAttr(this.lastResult.preAuf)}</b>)` : ''}</div>`
+          : '';
+        if (this.lastResult.isCorrect) {
+          feedbackHtml = `🎉 <strong>Correct!</strong> ${escapeHtmlAttr(this.lastResult.name)} · Post-AUF: <strong>${expLabel}</strong>.${latencyBadge}${algHint}`;
+        } else if (this.lastResult.caseMatch && !this.lastResult.aufMatch) {
+          const guessedLabel = this.formatAufLabel(this.lastResult.guessedAuf);
+          feedbackHtml = `❌ <strong>Case right (${escapeHtmlAttr(this.lastResult.name)}), wrong AUF.</strong> Expected <strong>${expLabel}</strong> (you picked ${guessedLabel}).${latencyBadge}${algHint}`;
+        } else {
+          feedbackHtml = `❌ <strong>Incorrect.</strong> Case was <strong>${escapeHtmlAttr(this.lastResult.name)}</strong> · Post-AUF: <strong>${expLabel}</strong>.${latencyBadge}${algHint}`;
+        }
+      } else {
+        feedbackHtml = this.lastResult.isCorrect
+          ? `🎉 <strong>Correct!</strong> That is ${escapeHtmlAttr(this.lastResult.name)}.${latencyBadge}`
+          : `❌ <strong>Incorrect.</strong> The case was <strong>${escapeHtmlAttr(this.lastResult.name)}</strong>.${latencyBadge}`;
+      }
+    } else if (this.selectWarning) {
+      feedbackHtml = `⚠️ <strong>${escapeHtmlAttr(this.selectWarningMsg || 'Please select a case above')}</strong> before clicking Verify.`;
+    }
+
     return `
       <div class="recognition-drill-card">
         <div class="recognition-status-bar">
@@ -287,11 +426,22 @@ export class PracticeView {
             <span class="score-label">Score:</span>
             <span class="score-value" id="practiceScoreVal">${this.score}</span>
           </div>
-          ${is3x3Recog ? `
+          <div class="recognition-score-item">
+            <span class="score-label">Latency:</span>
+            <span class="score-value" id="practiceLatencyVal">${this.lastLatencyMs != null ? `${this.lastLatencyMs} ms` : '—'}${avgLatencyMs != null ? ` <small class="recog-latency-avg">(avg ${avgLatencyMs} ms)</small>` : ''}</span>
+          </div>
+          ${(is3x3Recog || supportsAufQuiz) ? `
             <div class="recognition-mode-toggle-wrap" style="margin-left: auto;">
-              <button type="button" class="btn btn-xs btn-twosided-toggle ${this.twoSidedMode ? 'active' : ''}" id="toggleTwoSidedModeBtn" data-tooltip="Lock the 3D cube camera to Front + Right faces to train fast 2-sided recognition without cube rotations">
-                👀 2-Sided Recog: <strong>${this.twoSidedMode ? 'ON' : 'OFF'}</strong>
-              </button>
+              ${supportsAufQuiz ? `
+                <button type="button" class="btn btn-xs btn-auf-quiz-toggle ${this.aufQuizMode ? 'active' : ''}" id="toggleAufQuizModeBtn" data-tooltip="Also predict the final post-alg U-layer AUF (No AUF, U, U', U2) for your preferred algorithm">
+                  🎯 AUF Quiz: <strong>${this.aufQuizMode ? 'ON' : 'OFF'}</strong>
+                </button>
+              ` : ''}
+              ${is3x3Recog ? `
+                <button type="button" class="btn btn-xs btn-twosided-toggle ${this.twoSidedMode ? 'active' : ''}" id="toggleTwoSidedModeBtn" data-tooltip="Lock the 3D cube camera to Front + Right faces to train fast 2-sided recognition without cube rotations">
+                  👀 2-Sided Recog: <strong>${this.twoSidedMode ? 'ON' : 'OFF'}</strong>
+                </button>
+              ` : ''}
             </div>
           ` : ''}
         </div>
@@ -305,13 +455,25 @@ export class PracticeView {
 
         <div class="recognition-keypad-box" id="recognitionKeypad">
           ${this.renderKeypadForTrack(track)}
+          ${aufActive ? `
+            <div class="recognition-auf-picker" role="group" aria-label="Expected Post-Alg AUF">
+              <span class="auf-picker-label">Post-Alg AUF:</span>
+              <div class="auf-picker-buttons">
+                ${[
+                  { val: "", label: "No AUF" },
+                  { val: "U", label: "U" },
+                  { val: "U'", label: "U'" },
+                  { val: "U2", label: "U2" }
+                ].map(opt => `
+                  <button type="button" class="btn-recog-auf ${this.guessAuf === opt.val ? 'active' : ''}" data-auf="${escapeHtmlAttr(opt.val)}">${opt.label}</button>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
         </div>
 
         <div id="recognitionFeedback" class="recognition-feedback ${this.lastResult ? (this.lastResult.isCorrect ? 'correct' : 'incorrect') : (this.selectWarning ? 'warning' : '')}" ${this.lastResult || this.selectWarning ? '' : 'hidden'}>
-          ${this.lastResult ? (this.lastResult.isCorrect
-            ? `🎉 <strong>Correct!</strong> That is ${this.lastResult.name}.`
-            : `❌ <strong>Incorrect.</strong> The case was <strong>${this.lastResult.name}</strong>.`)
-            : (this.selectWarning ? `⚠️ <strong>Please select a case above</strong> before clicking Verify.` : '')}
+          ${feedbackHtml}
         </div>
 
         <div class="recognition-actions">
@@ -713,6 +875,18 @@ export class PracticeView {
     }
 
     // Casual recognition drill event bindings
+    const aufToggle = this.container.querySelector('#toggleAufQuizModeBtn');
+    if (aufToggle) {
+      aufToggle.addEventListener('click', async () => {
+        this.aufQuizMode = !this.aufQuizMode;
+        this.guessAuf = null;
+        this.selectWarning = false;
+        this.selectWarningMsg = "";
+        await this.refreshExpectedAuf();
+        this.render();
+      });
+    }
+
     const twoSidedToggle = this.container.querySelector('#toggleTwoSidedModeBtn');
     if (twoSidedToggle) {
       twoSidedToggle.addEventListener('click', () => {
@@ -721,6 +895,15 @@ export class PracticeView {
         this.render();
       });
     }
+
+    this.container.querySelectorAll('.btn-recog-auf').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.guessAuf = btn.dataset.auf ?? "";
+        this.selectWarning = false;
+        this.selectWarningMsg = "";
+        this.render();
+      });
+    });
 
     this.container.querySelectorAll('.btn-recog-key').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -900,23 +1083,45 @@ export class PracticeView {
   verifyCasualGuess() {
     if (this.answered) return;
     let guess = this.guessCase;
+    let hasCaseSelection = Boolean(guess);
     if (this.isGroupNumberTrack()) {
-      if (!this.guessGroup || !this.guessCase) {
-        this.selectWarning = true;
-        this.render();
-        return;
+      hasCaseSelection = Boolean(this.guessGroup && this.guessCase);
+      if (hasCaseSelection) {
+        guess = `${this.getCaseIdPrefix()}${this.guessGroup}${this.guessCase}`;
       }
-      guess = `${this.getCaseIdPrefix()}${this.guessGroup}${this.guessCase}`;
     }
-    if (!guess) {
+
+    const aufRequired = this.isAufQuizActive() && this.expectedAufInfo != null;
+    const missingAuf = aufRequired && this.guessAuf === null;
+    if (!hasCaseSelection || missingAuf) {
       this.selectWarning = true;
+      if (!hasCaseSelection && missingAuf) {
+        this.selectWarningMsg = "Please select both the case and Post-Alg AUF";
+      } else if (missingAuf) {
+        this.selectWarningMsg = "Please select the expected Post-Alg AUF";
+      } else {
+        this.selectWarningMsg = "Please select a case above";
+      }
       this.render();
       return;
     }
     this.selectWarning = false;
+    this.selectWarningMsg = "";
+
+    const latencyMs = this.caseShownAt != null
+      ? Math.max(0, Math.round(this.nowMs() - this.caseShownAt))
+      : null;
+    if (latencyMs != null && Number.isFinite(latencyMs)) {
+      this.lastLatencyMs = latencyMs;
+      this.sessionLatencies.push(latencyMs);
+    }
 
     this.answered = true;
-    const isCorrect = this.checkAnswerMatch(guess);
+    const caseMatch = this.checkAnswerMatch(guess);
+    const expectedAuf = aufRequired ? this.expectedAufInfo.postAuf : null;
+    const aufMatch = !aufRequired || this.guessAuf === expectedAuf;
+    const isCorrect = caseMatch && aufMatch;
+
     if (isCorrect) {
       this.score++;
       this.streak++;
@@ -926,7 +1131,15 @@ export class PracticeView {
 
     this.lastResult = {
       isCorrect,
-      name: this.currentCase?.name || this.currentCase?.id || guess
+      caseMatch,
+      aufMatch,
+      name: this.currentCase?.name || this.currentCase?.id || guess,
+      latencyMs,
+      aufUsed: aufRequired,
+      expectedAuf,
+      guessedAuf: this.guessAuf,
+      algUsed: this.expectedAufInfo?.alg || "",
+      preAuf: this.expectedAufInfo?.preAuf || ""
     };
 
     if (this.onRecordRecognition && this.currentCase) {
@@ -944,12 +1157,25 @@ export class PracticeView {
     this.answered = false;
     this.guessGroup = null;
     this.guessCase = null;
+    this.guessAuf = null;
+    this.expectedAufInfo = null;
+    this.currentScramble = "";
     this.lastResult = null;
     this.selectWarning = false;
+    this.selectWarningMsg = "";
+    this.caseShownAt = null;
     if (this.onGenerateScramble) {
       const res = await this.onGenerateScramble(this.currentTrackId);
       if (gen !== this._gen) return;
       this.currentCase = typeof res === 'object' ? res?.caseObj : null;
+      this.currentScramble = typeof res === 'object' ? (res?.fullScramble || res?.scramble || "") : "";
+      if (this.aufQuizMode && this.isAufQuizSupported() && this.currentCase) {
+        await this.refreshExpectedAuf();
+        if (gen !== this._gen) return;
+      }
+      if (this.currentCase) {
+        this.caseShownAt = this.nowMs();
+      }
     }
     this.render();
   }
