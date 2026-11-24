@@ -9,6 +9,38 @@ import { ICON_PLAY, ICON_PAUSE, ICON_REPLAY } from './ui/transportIcons.js';
 let ScrambleDisplayClass = null;
 const ROTATION_TOKEN_RE = /^[xyz][2']?$/i;
 
+const HALF_SQRT2 = Math.SQRT1_2;
+const VIEW_AXIS_QUATS = {
+  "x":  [-HALF_SQRT2, 0, 0, HALF_SQRT2],
+  "x'": [HALF_SQRT2, 0, 0, HALF_SQRT2],
+  "x2": [1, 0, 0, 0],
+  "y":  [0, -HALF_SQRT2, 0, HALF_SQRT2],
+  "y'": [0, HALF_SQRT2, 0, HALF_SQRT2],
+  "y2": [0, 1, 0, 0],
+  "z":  [0, 0, -HALF_SQRT2, HALF_SQRT2],
+  "z'": [0, 0, HALF_SQRT2, HALF_SQRT2],
+  "z2": [0, 0, 1, 0]
+};
+
+/**
+ * Premultiply a world-axis 90/180-degree rotation token onto [x, y, z, w].
+ * Rotates the 3D puzzle object in screen/world space without changing sticker colors.
+ */
+export function multiplyViewQuaternion(curQuat = [0, 0, 0, 1], rotToken = "") {
+  const base = Array.isArray(curQuat) && curQuat.length === 4 ? [...curQuat] : [0, 0, 0, 1];
+  const tok = String(rotToken || "").trim().toLowerCase();
+  const rq = VIEW_AXIS_QUATS[tok];
+  if (!rq) return base;
+  const [ax, ay, az, aw] = rq;
+  const [bx, by, bz, bw] = base;
+  const x = aw * bx + ax * bw + ay * bz - az * by;
+  const y = aw * by - ax * bz + ay * bw + az * bx;
+  const z = aw * bz + ax * by - ay * bx + az * bw;
+  const w = aw * bw - ax * bx - ay * by - az * bz;
+  const len = Math.hypot(x, y, z, w) || 1;
+  return [x / len, y / len, z / len, w / len];
+}
+
 export function normalizeReplayMoves(rawMoves = []) {
   if (!Array.isArray(rawMoves)) return [];
   const out = [];
@@ -82,7 +114,7 @@ export class SolveReplayViewer {
     this.scramble = "";
     this.rawMoves = [];
     this.moves = []; // [{ move, t, split, origIdx }] (face turns only)
-    this.viewRotations = [];
+    this.viewQuat = [0, 0, 0, 1];
     this.stepBoundaries = [];
     this.pauseIndices = [];
     this.currentMoveIndex = 0;
@@ -267,7 +299,7 @@ export class SolveReplayViewer {
     this.scramble = solve.scramble || "";
     this.rawMoves = Array.isArray(solve.moves) ? [...solve.moves] : [];
     this.moves = normalizeReplayMoves(this.rawMoves);
-    this.viewRotations = [];
+    this.viewQuat = [0, 0, 0, 1];
     this.currentMoveIndex = 0;
     this.isPlaying = false;
     this.syncPlaybackSpeed(this.getSimSpeed ? this.getSimSpeed() : this.playbackSpeed);
@@ -405,38 +437,36 @@ export class SolveReplayViewer {
     }
   }
 
+  _applyViewQuaternion() {
+    const [qx, qy, qz, qw] = this.viewQuat || [0, 0, 0, 1];
+    this.display?.player?.experimentalCurrentThreeJSPuzzleObject?.().then(p => {
+      if (p?.quaternion) {
+        p.quaternion.set(qx, qy, qz, qw);
+        p.scheduleRenderCallback?.();
+      }
+    }).catch(() => {});
+  }
+
   rotateView(rot) {
     const tok = String(rot || "").trim();
     if (!tok) return;
     this.pause();
-    this.viewRotations.push(tok);
-    const seqInfo = buildReplayDisplaySequence(this.scramble, this.moves, this.viewRotations);
-    this.scrambleMoveCount = seqInfo.viewRotTokens.length + seqInfo.scrMoves.length;
-    this._moveIndexToDisplayIndex = seqInfo.moveIndexToDisplayIndex;
-    if (this.display) {
-      this.display.scramble = seqInfo.fullSequence;
-    }
-    this.jumpToMove(this.currentMoveIndex);
+    this.viewQuat = multiplyViewQuaternion(this.viewQuat, tok);
+    this._applyViewQuaternion();
   }
 
   resetViewOrientation() {
     this.pause();
-    this.viewRotations = [];
-    const seqInfo = buildReplayDisplaySequence(this.scramble, this.moves, []);
-    this.scrambleMoveCount = seqInfo.scrMoves.length;
-    this._moveIndexToDisplayIndex = seqInfo.moveIndexToDisplayIndex;
-    if (this.display) {
-      this.display.scramble = seqInfo.fullSequence;
-      if (this.display.player) {
-        try {
-          this.display.player.cameraLatitude = 35;
-          this.display.player.cameraLongitude = 30;
-          this.display.player.cameraDistance = 6;
-          this.display.player.experimentalModel?.twistySceneModel?.orbitCoordinatesRequest?.set("auto");
-        } catch {}
-      }
+    this.viewQuat = [0, 0, 0, 1];
+    this._applyViewQuaternion();
+    if (this.display?.player) {
+      try {
+        this.display.player.cameraLatitude = 35;
+        this.display.player.cameraLongitude = 30;
+        this.display.player.cameraDistance = 6;
+        this.display.player.experimentalModel?.twistySceneModel?.orbitCoordinatesRequest?.set("auto");
+      } catch {}
     }
-    this.jumpToMove(this.currentMoveIndex);
   }
 
   jumpToNextStep() {
@@ -503,10 +533,9 @@ export class SolveReplayViewer {
         disp.player.hintFacelets = showRefl ? "floating" : "none";
       }
 
-      // Strip gyro rotation tokens (hardware face turns are already in smart-cube WCA frame)
-      // and prepend user display-orientation rotations if any.
-      const seqInfo = buildReplayDisplaySequence(this.scramble, this.moves, this.viewRotations);
-      this.scrambleMoveCount = seqInfo.viewRotTokens.length + seqInfo.scrMoves.length;
+      // Strip gyro rotation tokens (hardware face turns are already in smart-cube WCA frame).
+      const seqInfo = buildReplayDisplaySequence(this.scramble, this.moves);
+      this.scrambleMoveCount = seqInfo.scrMoves.length;
       this._moveIndexToDisplayIndex = seqInfo.moveIndexToDisplayIndex;
       disp.scramble = seqInfo.fullSequence;
 
@@ -514,6 +543,7 @@ export class SolveReplayViewer {
       this.display = disp;
       this.cubeContainer.appendChild(disp);
       applyColorsTo3DCube(disp);
+      this._applyViewQuaternion();
     } catch (e) {
       console.warn("Could not mount Replay ScrambleDisplay:", e);
     }
@@ -666,6 +696,9 @@ export class SolveReplayViewer {
             const endTimestamp = indexer.indexToMoveStartTimestamp(targetScrambleIdx) + indexer.moveDuration(targetScrambleIdx);
             this.display.player.experimentalModel.timestampRequest.set(endTimestamp);
           }
+        }
+        if (this.viewQuat && (this.viewQuat[0] !== 0 || this.viewQuat[1] !== 0 || this.viewQuat[2] !== 0 || this.viewQuat[3] !== 1)) {
+          this._applyViewQuaternion();
         }
       } catch (err) {
         console.warn("Could not scrub replay player:", err);

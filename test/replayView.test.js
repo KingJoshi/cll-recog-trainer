@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { SolveReplayViewer, buildReplayDisplaySequence, normalizeReplayMoves } from '../src/replayView.js';
+import { SolveReplayViewer, buildReplayDisplaySequence, normalizeReplayMoves, multiplyViewQuaternion } from '../src/replayView.js';
 import { createModalManager } from '../src/ui/modalManager.js';
 
 test('SolveReplayViewer instantiation and initialization', () => {
@@ -186,18 +186,57 @@ test('normalizeReplayMoves removes gyro tokens, aligns split pauses, and SolveRe
   viewer.jumpToNextPause();
   assert.strictEqual(viewer.currentMoveIndex, 3);
 
-  // Display orientation rotates & resets without changing solve moves
-  viewer.display = fakeDisplay;
-  viewer.rotateView("x'");
-  assert.deepStrictEqual(viewer.viewRotations, ["x'"]);
-  assert.strictEqual(fakeDisplay.scramble, "x' R U' U' R' U R F'");
-  assert.deepStrictEqual(viewer._moveIndexToDisplayIndex, [3, 4, 5, 6, 7, 8]);
+  // Display orientation rotates 3D mesh quaternion & resets without changing solve scramble/moves or sticker colors
+  let quatValues = [0, 0, 0, 1];
+  let renderCount = 0;
+  const fakePuzzleObj = {
+    quaternion: {
+      set(x, y, z, w) {
+        quatValues = [x, y, z, w];
+      }
+    },
+    scheduleRenderCallback() {
+      renderCount++;
+    }
+  };
+  const mockDisplay = {
+    scramble: "R U' U' R' U R F'",
+    player: {
+      cameraLatitude: 10,
+      cameraLongitude: 20,
+      cameraDistance: 8,
+      experimentalCurrentThreeJSPuzzleObject: async () => fakePuzzleObj
+    }
+  };
+  viewer.display = mockDisplay;
+  viewer.rotateView("z");
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(mockDisplay.scramble, "R U' U' R' U R F'");
+  assert.ok(Math.abs(viewer.viewQuat[0]) < 1e-6 && Math.abs(viewer.viewQuat[1]) < 1e-6);
+  assert.ok(Math.abs(viewer.viewQuat[2] + Math.SQRT1_2) < 1e-6);
+  assert.ok(Math.abs(viewer.viewQuat[3] - Math.SQRT1_2) < 1e-6);
+  assert.deepStrictEqual(quatValues, viewer.viewQuat);
+  assert.strictEqual(renderCount, 1);
 
-  viewer.rotateView("y");
-  assert.strictEqual(fakeDisplay.scramble, "x' y R U' U' R' U R F'");
+  viewer.rotateView("z'");
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(mockDisplay.scramble, "R U' U' R' U R F'");
+  assert.ok(Math.abs(viewer.viewQuat[3] - 1) < 1e-6);
 
+  viewer.rotateView("x");
   viewer.resetViewOrientation();
-  assert.deepStrictEqual(viewer.viewRotations, []);
-  assert.strictEqual(fakeDisplay.scramble, "R U' U' R' U R F'");
+  await new Promise(r => setTimeout(r, 0));
+  assert.deepStrictEqual(viewer.viewQuat, [0, 0, 0, 1]);
+  assert.deepStrictEqual(quatValues, [0, 0, 0, 1]);
+  assert.strictEqual(mockDisplay.player.cameraLatitude, 35);
+  assert.strictEqual(mockDisplay.player.cameraLongitude, 30);
+  assert.strictEqual(mockDisplay.player.cameraDistance, 6);
+  assert.strictEqual(mockDisplay.scramble, "R U' U' R' U R F'");
+
+  // Pure helper: 4x quarter turn returns identity
+  let q = [0, 0, 0, 1];
+  for (let i = 0; i < 4; i++) q = multiplyViewQuaternion(q, "x");
+  assert.ok(Math.abs(Math.abs(q[3]) - 1) < 1e-6);
+  assert.ok(Math.abs(q[0]) < 1e-6 && Math.abs(q[1]) < 1e-6 && Math.abs(q[2]) < 1e-6);
   viewer.close();
 });

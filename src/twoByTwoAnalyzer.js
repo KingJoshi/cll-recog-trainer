@@ -13,7 +13,7 @@ import {
 } from './cfopAnalyzer.js';
 
 export const TWO_BY_TWO_COLOR_NAMES = ["White", "Yellow", "Green", "Blue", "Red", "Orange"];
-export const TWO_BY_TWO_ANALYSIS_VERSION = 3;
+export const TWO_BY_TWO_ANALYSIS_VERSION = 4;
 
 const OPPOSITE_COLOR_NAME = {
   White: "Yellow",
@@ -507,57 +507,98 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
     return prefBonus + stdOrder;
   };
 
+  const allCandStates = CANDIDATE_ROTATIONS_222.map(cand =>
+    patTransforms.map(pt => evaluateCandidateState(pt, cand))
+  );
+
   let bestCllCandidate = null;
   let bestOrtegaCandidate = null;
 
-  for (let cIdx = 0; cIdx < CANDIDATE_ROTATIONS_222.length; cIdx++) {
-    const cand = CANDIDATE_ROTATIONS_222[cIdx];
-    const states = patTransforms.map(pt => evaluateCandidateState(pt, cand));
-    const endState = states[N];
-    const endSolved = Boolean(endState?.isSkip);
-
-    // Find earliest 1st-layer state for CLL
-    const layerEndIdx = states.findIndex(st => st.layerOk && st.cllCase);
-    if (layerEndIdx !== -1) {
-      const layerColor = states[layerEndIdx].layerColor;
-      const cllCaseAtStart = states[layerEndIdx].cllCase;
-      const endsSolvedSameColor = Boolean(endSolved && endState.layerColor === layerColor);
-
-      // Count whether next moves after layerEndIdx start with cand-relative moves preserving this layer
-      const nextMovePreservesLayer = layerEndIdx < N
-        && Boolean(states[layerEndIdx + 1]?.layerOk && states[layerEndIdx + 1]?.layerColor === layerColor);
-      let revisitedLater = false;
-      for (let i = layerEndIdx + 4; i < N; i++) {
-        if (states[i]?.layerOk && states[i]?.layerColor === layerColor) {
-          revisitedLater = true;
+  // Evaluate CLL candidates grouped by layerColor across all 6 physical faces so a
+  // 1st-layer color that moves to another face during 2-look OLL/PLL still links cleanly.
+  for (const color of TWO_BY_TWO_COLOR_NAMES) {
+    let layerEndIdx = -1;
+    let startCandIdx = -1;
+    for (let i = 0; i <= N; i++) {
+      for (let cIdx = 0; cIdx < CANDIDATE_ROTATIONS_222.length; cIdx++) {
+        const st = allCandStates[cIdx][i];
+        if (st?.layerOk && st.cllCase && st.layerColor === color) {
+          layerEndIdx = i;
+          startCandIdx = cIdx;
           break;
         }
       }
-      const isTrivialEndLayer = layerEndIdx >= N;
-      const isRealCllCase = !isTrivialEndLayer && !cllCaseAtStart.isSkip;
+      if (layerEndIdx !== -1) break;
+    }
+    if (layerEndIdx === -1) continue;
 
-      const score =
-        (isRealCllCase ? 500000 : 0) +
-        (!isTrivialEndLayer ? 100000 : 0) +
-        (isRealCllCase && endsSolvedSameColor ? 10000 : (endsSolvedSameColor ? 500 : 0)) +
-        (isRealCllCase && revisitedLater ? 5000 : 0) +
-        (N - layerEndIdx) * 100 +
-        (nextMovePreservesLayer ? 25 : 0) +
-        colorPreferenceRank(layerColor) -
-        cIdx;
+    const cand = CANDIDATE_ROTATIONS_222[startCandIdx];
+    const states = allCandStates[startCandIdx];
+    const cllCaseAtStart = states[layerEndIdx].cllCase;
 
-      if (!bestCllCandidate || score > bestCllCandidate.score) {
-        bestCllCandidate = {
-          cand,
-          states,
-          layerEndIdx,
-          layerColor,
-          cllCase: cllCaseAtStart,
-          endsSolved: endsSolvedSameColor,
-          score
-        };
+    const nextMovePreservesLayer = layerEndIdx < N && allCandStates.some(cStates =>
+      Boolean(cStates[layerEndIdx + 1]?.layerOk && cStates[layerEndIdx + 1]?.layerColor === color)
+    );
+
+    let revisitedLater = false;
+    for (let i = layerEndIdx + 4; i < N; i++) {
+      if (allCandStates.some(cStates => Boolean(cStates[i]?.layerOk && cStates[i]?.layerColor === color))) {
+        revisitedLater = true;
+        break;
       }
     }
+
+    let endCandIdx = startCandIdx;
+    if (allCandStates[startCandIdx][N]?.layerColor !== color) {
+      const matchEnd = allCandStates.findIndex(cStates => cStates[N]?.layerColor === color);
+      if (matchEnd !== -1) endCandIdx = matchEnd;
+    }
+    const endStates = allCandStates[endCandIdx];
+    const endSolved = Boolean(endStates[N]?.isSkip);
+
+    const isTrivialEndLayer = layerEndIdx >= N;
+    const isRealCllCase = !isTrivialEndLayer && !cllCaseAtStart.isSkip;
+
+    let firstPostFaceMove = null;
+    for (let k = layerEndIdx; k < N; k++) {
+      if (!normMoves[k]?.isRotation) {
+        firstPostFaceMove = normMoves[k];
+        break;
+      }
+    }
+    const postMoveIsU = Boolean(firstPostFaceMove && isLayerUMove(firstPostFaceMove.move, cand));
+
+    const score =
+      (isRealCllCase ? 500000 : 0) +
+      (!isTrivialEndLayer ? 100000 : 0) +
+      (isRealCllCase && revisitedLater ? 15000 : 0) +
+      (endSolved ? 500 : 0) +
+      (N - layerEndIdx) * 100 +
+      (nextMovePreservesLayer ? 25 : 0) +
+      (postMoveIsU ? 10 : 0) +
+      colorPreferenceRank(color) -
+      startCandIdx;
+
+    if (!bestCllCandidate || score > bestCllCandidate.score) {
+      bestCllCandidate = {
+        cand,
+        endCand: CANDIDATE_ROTATIONS_222[endCandIdx],
+        endStates,
+        states,
+        layerEndIdx,
+        layerColor: color,
+        cllCase: cllCaseAtStart,
+        endsSolved: endSolved,
+        score
+      };
+    }
+  }
+
+  for (let cIdx = 0; cIdx < CANDIDATE_ROTATIONS_222.length; cIdx++) {
+    const cand = CANDIDATE_ROTATIONS_222[cIdx];
+    const states = allCandStates[cIdx];
+    const endState = states[N];
+    const endSolved = Boolean(endState?.isSkip);
 
     // Also evaluate Ortega 1st-face candidate
     const faceEndIdx = states.findIndex(st => st.faceOk && st.faceColor);
@@ -697,7 +738,7 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
 
   if (!bestCllCandidate) return null;
 
-  const { cand, layerEndIdx, layerColor, cllCase } = bestCllCandidate;
+  const { cand, endCand = cand, endStates = bestCllCandidate.states, layerEndIdx, layerColor, cllCase } = bestCllCandidate;
   const startedAtCll = layerEndIdx === 0;
   const steps = [];
 
@@ -738,11 +779,29 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
   // Separate trailing post-AUF summary row without altering CLL time or totals
   let aufSummary = null;
   let aufStartIdx = N;
-  while (aufStartIdx > layerEndIdx && isLayerSetupMove(normMoves[aufStartIdx - 1]?.move, cand)) {
-    aufStartIdx--;
+  const endedSolved = Boolean(endStates?.[N]?.isSkip);
+  while (aufStartIdx > layerEndIdx) {
+    const prevMove = normMoves[aufStartIdx - 1];
+    if (prevMove?.isRotation) {
+      aufStartIdx--;
+      continue;
+    }
+    if (endedSolved) {
+      const prevSt = endStates[aufStartIdx - 1];
+      if (prevSt?.cllCase?.isSkip && prevSt.layerColor === layerColor) {
+        aufStartIdx--;
+        continue;
+      }
+      break;
+    }
+    if (isLayerSetupMove(prevMove?.move, endCand)) {
+      aufStartIdx--;
+      continue;
+    }
+    break;
   }
-  const aufRawMoves = normMoves.slice(aufStartIdx, N);
-  const aufMs = aufStartIdx < N
+  const aufRawMoves = normMoves.slice(aufStartIdx, N).filter(m => !m.isRotation);
+  const aufMs = aufRawMoves.length > 0 && aufStartIdx < N
     ? Math.max(0, Math.round(timeAtIndex(N) - timeAtIndex(aufStartIdx)))
     : 0;
   const aufMovesStr = aufRawMoves.length > 0
