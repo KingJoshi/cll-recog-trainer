@@ -537,4 +537,24 @@
       gap: 6px;
     }
   }
+
+  .app-legal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 4px 16px 14px;
+    font-size: var(--font-xs);
+    color: var(--muted);
+  }
+
+  .app-legal-footer a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+
+  .app-legal-footer a:hover {
+    color: var(--primary);
+    text-decoration: underline;
+  }
 }

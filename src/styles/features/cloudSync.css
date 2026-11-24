@@ -211,6 +211,15 @@
     background: var(--surface-2, #f1f5f9);
 }
 
+.sync-privacy-note a {
+    color: var(--primary, #007bff);
+    text-decoration: none;
+}
+
+.sync-privacy-note a:hover {
+    text-decoration: underline;
+}
+
 .sync-setup-details {
     margin-bottom: 4px;
 }
