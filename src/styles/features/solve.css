@@ -1606,6 +1606,19 @@ button.solve-chip:active,
     }
 }
 
+@media (min-width: 1100px) {
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve .solve-left-pane .recent-matrix-row {
+        grid-template-columns: 52px repeat(4, minmax(42px, 1fr));
+        gap: 4px;
+        padding: 4px 6px;
+        font-size: 0.78rem;
+    }
+
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve .solve-left-pane .recent-stats-panel {
+        padding: 10px;
+    }
+}
+
 #solveFocusToggleBtn.active {
     background: var(--primary);
     border-color: var(--primary);
@@ -1615,6 +1628,7 @@ button.solve-chip:active,
 /* Focus / Zen Solving Mode */
 body.is-focus-mode .app-header,
 body.is-focus-mode .stage.mode-solve .mode-seg,
+body.is-focus-mode .stage.mode-solve #trainSubmodeBar,
 body.is-focus-mode .stage.mode-solve #trackBar,
 body.is-focus-mode .stage.mode-solve #settingsPanel,
 body.is-focus-mode .stage.mode-solve .solve-title-group,

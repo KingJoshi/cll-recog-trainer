@@ -58,6 +58,15 @@ export const GROUPS = ["A", "H", "L", "P", "S", "T", "U"];
 export const GROUP_DISPLAY_ORDER = ["H", "P", "U", "T", "L", "S", "A"];
 export const GROUP_NAMES = { A: "Anti-Sune", H: "H", L: "L", P: "Pi", S: "Sune", T: "T", U: "U" };
 
+/**
+ * Returns true when the current view renders the live Solve timer surface
+ * (either dedicated Full Solve mode, or Train -> Timed Drills).
+ */
+export function isTimerViewMode(state) {
+  if (!state) return false;
+  return state.mode === "solve" || (state.mode === "practice" && state.trainSubMode === "timed-drill");
+}
+
 export const normalizedCllList = cllCases.map(c => {
   const defaultAlgObj = c.algs?.[0] || {};
   return {
@@ -170,6 +179,15 @@ export class AppStore {
       }
     }
 
+    const hasSavedTrainSubMode = savedSettings.trainSubMode !== undefined || cookiePrefs.trainSubMode !== undefined;
+    let trainSubMode = (savedSettings.trainSubMode === "timed-drill" || cookiePrefs.trainSubMode === "timed-drill")
+      ? "timed-drill"
+      : "recog";
+    if (!hasSavedTrainSubMode && savedSettings.mode === "solve" && solveTarget && solveTarget !== "full" && !PUZZLES[currentPuzzle]?.solveOnly) {
+      mode = "practice";
+      trainSubMode = "timed-drill";
+    }
+
     const ohHand = savedSettings.ohHand === "right" ? "right" : (cookiePrefs.ohHand === "right" ? "right" : "left");
     const ohTableAbuse = savedSettings.ohTableAbuse !== undefined
       ? Boolean(savedSettings.ohTableAbuse)
@@ -215,6 +233,9 @@ export class AppStore {
       showCrossSolutionsWidget: savedSettings.showCrossSolutionsWidget ?? cookiePrefs.showCrossSolutionsWidget ?? true,
       showStatsPanel: savedSettings.showStatsPanel ?? cookiePrefs.showStatsPanel ?? true,
       showFreeFaceTurns: savedSettings.showFreeFaceTurns ?? cookiePrefs.showFreeFaceTurns ?? false,
+      llAnalyticsMode: (savedSettings.llAnalyticsMode === "2look" || cookiePrefs.llAnalyticsMode === "2look") ? "2look" : "full",
+      trainSubMode,
+      desktopMultiPane: savedSettings.desktopMultiPane ?? cookiePrefs.desktopMultiPane ?? true,
       customEvents,
       timerDrillPreset: savedSettings.timerDrillPreset || "righty",
       layerTargetFaces: Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
@@ -602,6 +623,30 @@ export class AppStore {
     this.notify("solveOptions", { solveInspection: next });
   }
 
+  setLlAnalyticsMode(mode) {
+    const next = mode === "2look" ? "2look" : "full";
+    if (this.state.llAnalyticsMode === next) return;
+    this.state.llAnalyticsMode = next;
+    this.saveSettings();
+    this.notify("llAnalyticsMode", { llAnalyticsMode: next });
+  }
+
+  setTrainSubMode(subMode) {
+    const next = subMode === "timed-drill" ? "timed-drill" : "recog";
+    if (this.state.trainSubMode === next) return;
+    this.state.trainSubMode = next;
+    this.saveSettings();
+    this.notify("trainSubMode", { trainSubMode: next });
+  }
+
+  setDesktopMultiPane(enabled) {
+    const next = Boolean(enabled);
+    if (Boolean(this.state.desktopMultiPane) === next) return;
+    this.state.desktopMultiPane = next;
+    this.saveSettings();
+    this.notify("desktopMultiPane", { desktopMultiPane: next });
+  }
+
   addCustomEvent({ name, shortName = "", scrambleType = "none" } = {}) {
     const cleanName = String(name || "").trim().slice(0, 32);
     if (!cleanName) return null;
@@ -698,6 +743,9 @@ export class AppStore {
       showCrossSolutionsWidget: s.showCrossSolutionsWidget !== false,
       showStatsPanel: s.showStatsPanel !== false,
       showFreeFaceTurns: Boolean(s.showFreeFaceTurns),
+      llAnalyticsMode: s.llAnalyticsMode === "2look" ? "2look" : "full",
+      trainSubMode: s.trainSubMode === "timed-drill" ? "timed-drill" : "recog",
+      desktopMultiPane: s.desktopMultiPane !== false,
       customEvents: sanitizeCustomEvents(s.customEvents),
       timerDrillPreset: s.timerDrillPreset,
       statsType: s.statsType,
@@ -751,6 +799,9 @@ export class AppStore {
       showCrossSolutionsWidget: s.showCrossSolutionsWidget !== false,
       showStatsPanel: s.showStatsPanel !== false,
       showFreeFaceTurns: Boolean(s.showFreeFaceTurns),
+      llAnalyticsMode: s.llAnalyticsMode === "2look" ? "2look" : "full",
+      trainSubMode: s.trainSubMode === "timed-drill" ? "timed-drill" : "recog",
+      desktopMultiPane: s.desktopMultiPane !== false,
       timerDrillPreset: s.timerDrillPreset,
       layerTargetFaces: s.layerTargetFaces,
       crossTargetFaces: s.crossTargetFaces
@@ -861,6 +912,9 @@ export class AppStore {
       s.showCrossSolutionsWidget = savedSettings.showCrossSolutionsWidget ?? s.showCrossSolutionsWidget ?? true;
       s.showStatsPanel = savedSettings.showStatsPanel ?? s.showStatsPanel ?? true;
       s.showFreeFaceTurns = savedSettings.showFreeFaceTurns ?? s.showFreeFaceTurns ?? false;
+      s.llAnalyticsMode = savedSettings.llAnalyticsMode === "2look" ? "2look" : "full";
+      s.trainSubMode = savedSettings.trainSubMode === "timed-drill" ? "timed-drill" : "recog";
+      s.desktopMultiPane = savedSettings.desktopMultiPane ?? s.desktopMultiPane ?? true;
       s.customEvents = hydratedCustomEvents;
       s.timerDrillPreset = savedSettings.timerDrillPreset || "righty";
       s.layerTargetFaces = Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length

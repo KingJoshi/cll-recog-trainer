@@ -255,7 +255,8 @@ export function createSessionLogView({
     if (is3x3Puzzle && isAdvanced && displaySolves.length >= 3) {
       html += renderCfopGoalCoachHtml(displaySolves, {
         goalSec: s.cfopGoalSec || 12,
-        isOpen: s.goalCoachOpen
+        isOpen: s.goalCoachOpen,
+        llAnalyticsMode: s.llAnalyticsMode || "full"
       });
     }
 
@@ -599,7 +600,8 @@ export function createSessionLogView({
           ollOpen: s.ollCasesStatsOpen,
           pllOpen: s.pllCasesStatsOpen,
           sortStateByTrack: ollPllBreakdownSort,
-          caseTags: s.caseTags || {}
+          caseTags: s.caseTags || {},
+          llAnalyticsMode: s.llAnalyticsMode || "full"
         });
       }
     } else if (!isAdvanced) {
@@ -770,6 +772,16 @@ export function createSessionLogView({
         if (!nextGoal || nextGoal === Number(s.cfopGoalSec)) return;
         s.cfopGoalSec = nextGoal;
         appStore.saveSettings();
+        render(container);
+      });
+    });
+
+    container.querySelectorAll("[data-ll-analytics-mode]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const nextLlMode = btn.dataset.llAnalyticsMode === "2look" ? "2look" : "full";
+        if (nextLlMode === (s.llAnalyticsMode || "full")) return;
+        appStore.setLlAnalyticsMode?.(nextLlMode);
         render(container);
       });
     });

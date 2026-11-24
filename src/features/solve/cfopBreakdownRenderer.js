@@ -295,8 +295,9 @@ export function renderLastSolveCfopInline(solve, { basic = false, refMedians = n
   return renderCfopStepTable(solve, { detailed: false, basic, refMedians });
 }
 
-export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pllOpen = true, sortStateByTrack = {}, caseTags = {} } = {}) {
-  const { ollCases: ollStats, pllCases: pllStats } = computeOllPllCaseStats(solvesList);
+export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pllOpen = true, sortStateByTrack = {}, caseTags = {}, llAnalyticsMode = "full" } = {}) {
+  const mode = llAnalyticsMode === "2look" ? "2look" : "full";
+  const { ollCases: ollStats, pllCases: pllStats } = computeOllPllCaseStats(solvesList, { llAnalyticsMode: mode });
 
   const TAG_LABELS = {
     none: "+ Tag",
@@ -347,7 +348,7 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
       const rawTag = ["learning", "review", "mastered"].includes(caseTags?.[item.id]) ? caseTags[item.id] : "none";
       const tagLabel = TAG_LABELS[rawTag] || "+ Tag";
       const tagBtnHtml = `<button type="button" class="cfop-case-tag-btn tag-${rawTag}" data-case-tag-id="${escapeHtml(item.id)}" data-tooltip="Click to cycle study tag (Pending → Learning → Review → Mastered)" aria-label="Study tag for ${escapeHtml(item.shortName)}: ${escapeHtml(tagLabel)}">${escapeHtml(tagLabel)}</button>`;
-      const svgDiagram = getCachedCaseSvg("333", trackId, item.id);
+      const svgDiagram = getCachedCaseSvg("333", trackId, item.svgCaseId || item.id);
       return `
         <tr>
           <td class="cfop-case-id-cell">
@@ -405,6 +406,15 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
     `;
   };
 
+  const ollTitle = mode === "2look" ? "OLL Cases (2-Look)" : "OLL Cases";
+  const ollSub = mode === "2look"
+    ? "Merged 2-Look Edge Orientation (Dot/Line/L) + 7 OCLL Corners"
+    : "Orientation of the Last Layer — Median, TrimMean, Mean & Pauses per Case";
+  const pllTitle = mode === "2look" ? "PLL Cases (2-Look)" : "PLL Cases";
+  const pllSub = mode === "2look"
+    ? "Merged 2-Look Corner Swap (Adj/Diag) + 4 Edge EPLLs"
+    : "Permutation of the Last Layer — Median, TrimMean, Mean & Pauses per Case";
+
   return `
     <div class="cfop-cases-improvement-section">
       <div class="layer-log-header" style="margin-top: 20px;">
@@ -412,10 +422,14 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
           <h3 class="layer-log-title">3x3 OLL &amp; PLL Case Performance &amp; Pauses (Where to Improve)</h3>
           <span class="layer-log-hint">Sorted by slowest Median first · Click any column header to sort</span>
         </div>
+        <div class="cfop-metric-pills ll-analytics-mode-group" role="group" aria-label="Last-layer case grouping">
+          <button type="button" class="cfop-metric-pill ${mode === "full" ? "active" : ""}" data-ll-analytics-mode="full" aria-pressed="${mode === "full" ? "true" : "false"}" title="Track each of the 57 OLL and 21 PLL cases individually">Full (57 / 21)</button>
+          <button type="button" class="cfop-metric-pill ${mode === "2look" ? "active" : ""}" data-ll-analytics-mode="2look" aria-pressed="${mode === "2look" ? "true" : "false"}" title="Merge non-OCLL OLLs into EO shapes (Dot/Line/L) and corner PLLs into Adj/Diag">2-Look</button>
+        </div>
       </div>
       <div class="cfop-cases-grid">
-        ${renderCaseSubTable("OLL Cases", "Orientation of the Last Layer — Median, TrimMean, Mean & Pauses per Case", ollStats, "badge-oll-case", "oll", ollOpen)}
-        ${renderCaseSubTable("PLL Cases", "Permutation of the Last Layer — Median, TrimMean, Mean & Pauses per Case", pllStats, "badge-pll-case", "pll", pllOpen)}
+        ${renderCaseSubTable(ollTitle, ollSub, ollStats, "badge-oll-case", "oll", ollOpen)}
+        ${renderCaseSubTable(pllTitle, pllSub, pllStats, "badge-pll-case", "pll", pllOpen)}
       </div>
     </div>
   `;

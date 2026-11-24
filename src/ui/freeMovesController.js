@@ -2,6 +2,7 @@
 
 import { escapeHtml } from '../services/htmlUtils.js';
 import { applyColorsTo3DCube } from '../caseVisualizer.js';
+import { isTimerViewMode } from '../state/appStore.js';
 
 export function invertMove(m) {
   if (!m) return "";
@@ -152,7 +153,7 @@ export function createFreeMovesController({
   }
 
   function handleKeyDown(e) {
-    if (appStore.state.mode === "practice" || appStore.state.mode === "study") return false;
+    if (appStore.state.mode === "study" || (appStore.state.mode === "practice" && !isTimerViewMode(appStore.state))) return false;
     const key = String(e.key || "").toUpperCase();
     if (["U", "D", "L", "R", "F", "B"].includes(key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
       const move = e.shiftKey ? `${key}'` : key;

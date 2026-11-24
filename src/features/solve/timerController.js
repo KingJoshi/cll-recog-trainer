@@ -3,7 +3,7 @@
 import { ganTimer, computeSolvePhaseSplits } from '../../ganTimer.js';
 import { smartCube } from '../../smartCube.js';
 import { ensureSolveCfop } from '../../cfopAnalyzer.js';
-import { MAX_SOLVES } from '../../state/appStore.js';
+import { MAX_SOLVES, isTimerViewMode } from '../../state/appStore.js';
 import { playInspectionBeep, startMetronome, stopMetronome, playPauseAlert } from '../../services/audioService.js';
 import { formatSolveTime, formatSolveDisplay } from '../../services/htmlUtils.js';
 import { getSolveFingerprint } from '../../services/syncMerge.js';
@@ -105,7 +105,7 @@ export function createTimerController({
 
   function startSolveInspection() {
     const s = appStore.state;
-    if (s.mode !== "solve" || solveState !== "idle") return;
+    if (!isTimerViewMode(s) || solveState !== "idle") return;
     solveState = "inspecting";
     solvePenalty = null;
     solveWarning8Played = false;
@@ -172,7 +172,7 @@ export function createTimerController({
 
   function armSolve() {
     const s = appStore.state;
-    if (s.mode !== "solve" || (solveState !== "idle" && solveState !== "inspecting")) return;
+    if (!isTimerViewMode(s) || (solveState !== "idle" && solveState !== "inspecting")) return;
     if (s.solveTarget === "cll" && !s.currentCaseId) return;
     if (ganTimer.isConnected()) return;
 
@@ -405,11 +405,11 @@ export function createTimerController({
   function handleSmartCubeSolved() {
     const s = appStore.state;
     const scUi = getSmartCubeUi();
-    if (s.mode === "solve" && solveState === "idle" && scUi?.getSmartCubeStage?.() === "needs_reset") {
+    if (isTimerViewMode(s) && solveState === "idle" && scUi?.getSmartCubeStage?.() === "needs_reset") {
       scUi.completeCubeReset?.();
       return;
     }
-    if (s.mode === "solve" && solveState === "idle" && scUi?.getSmartCubeStage?.() === "scrambling") {
+    if (isTimerViewMode(s) && solveState === "idle" && scUi?.getSmartCubeStage?.() === "scrambling") {
       if (scUi?.needsAutoResetOnSolved?.()) {
         scUi.clearScrambleCorrectionDelay();
         smartCube.setScramble("", s.currentPuzzle);
@@ -419,7 +419,7 @@ export function createTimerController({
       }
       return;
     }
-    if (s.mode !== "solve" || solveState !== "running") return;
+    if (!isTimerViewMode(s) || solveState !== "running") return;
     if (!trackedSolveMoves || trackedSolveMoves.length === 0) return;
     if (solveTimerDriven) {
       if (!solveFirstMoveTs || solveCubeSolvedTs) return;
@@ -440,7 +440,7 @@ export function createTimerController({
 
   function showGanTimerHandsOverlay(state) {
     const s = appStore.state;
-    if (s.mode !== "solve" || (solveState !== "idle" && solveState !== "inspecting")) return;
+    if (!isTimerViewMode(s) || (solveState !== "idle" && solveState !== "inspecting")) return;
     if (s.solveTarget === "cll" && !s.currentCaseId) return;
     if (solveOverlay) {
       solveOverlay.hidden = false;
@@ -461,7 +461,7 @@ export function createTimerController({
 
   function clearGanTimerHandsOverlay() {
     solveOverlay?.classList.remove("gan-hands-on", "armed");
-    if (appStore.state.mode !== "solve") return;
+    if (!isTimerViewMode(appStore.state)) return;
     if (solveState === "idle") {
       hideSolveOverlay();
     } else if (solveState === "inspecting" && solveOverlayHint) {
@@ -472,7 +472,7 @@ export function createTimerController({
   function startTimerDrivenSolve(ts) {
     const s = appStore.state;
     const scUi = getSmartCubeUi();
-    if (s.mode !== "solve" || solveState === "running") return;
+    if (!isTimerViewMode(s) || solveState === "running") return;
     if (s.solveTarget === "cll" && !s.currentCaseId) return;
     if (smartCube.getStatus().connected && scUi?.getSmartCubeStage?.() === "needs_reset") {
       showToast("Solve & reset your smart cube first (or click ↺ Cube Solved / Reset).", "warning", 3000);
@@ -529,7 +529,7 @@ export function createTimerController({
 
   function onSolveKeyDown(e) {
     const s = appStore.state;
-    if (s.mode !== "solve") return false;
+    if (!isTimerViewMode(s)) return false;
     if (solveState === "running") {
       if (["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key)) {
         return false;
@@ -586,7 +586,7 @@ export function createTimerController({
   }
 
   function onSolveKeyUp(e) {
-    if (appStore.state.mode !== "solve") return false;
+    if (!isTimerViewMode(appStore.state)) return false;
     if (e.code === "Space") {
       e.preventDefault();
       clearTimeout(solveArmTimeout);
@@ -687,7 +687,7 @@ export function createTimerController({
   // Pointer & penalty button bindings
   solveSurface?.addEventListener("pointerdown", e => {
     if (e.target.closest("button") || e.target.closest("input") || e.target.closest("label") || e.target.closest("select") || e.target.closest(".bt-disconnect-banner") || e.target.closest(".solve-inline-recent-stats")) return;
-    if (appStore.state.mode !== "solve" || solveState !== "idle") return;
+    if (!isTimerViewMode(appStore.state) || solveState !== "idle") return;
     e.preventDefault();
     if (smartCube.getStatus().connected && getSmartCubeUi()?.getSmartCubeStage?.() === "needs_reset") {
       showToast("Solve & reset your smart cube first (or click ↺ Cube Solved / Reset).", "warning", 3000);
@@ -703,7 +703,7 @@ export function createTimerController({
       return;
     }
     e.preventDefault();
-    if (appStore.state.mode !== "solve") return;
+    if (!isTimerViewMode(appStore.state)) return;
     if (solveState === "running") {
       if (solveTimerDriven && solveTimerSource === "GAN Smart Timer") return;
       stopSolve(true);
@@ -719,7 +719,7 @@ export function createTimerController({
 
   if (typeof document !== "undefined") {
     document.addEventListener("pointerup", () => {
-      if (appStore.state.mode !== "solve") return;
+      if (!isTimerViewMode(appStore.state)) return;
       clearTimeout(solveArmTimeout);
       if (solveState === "armed") {
         startManualArmedSolve("Touch");
@@ -730,7 +730,7 @@ export function createTimerController({
       }
     });
     document.addEventListener("pointercancel", () => {
-      if (appStore.state.mode === "solve" && (solveState === "armed" || solveState === "inspecting")) {
+      if (isTimerViewMode(appStore.state) && (solveState === "armed" || solveState === "inspecting")) {
         cancelSolve();
       }
     });
@@ -745,7 +745,7 @@ export function createTimerController({
 
   solveOverlayCancelBtn?.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (appStore.state.mode === "solve") cancelSolve();
+    if (isTimerViewMode(appStore.state)) cancelSolve();
   });
 
   solvePenaltyPlus2Btn?.addEventListener("click", () => toggleLastSolvePenalty("+2"));

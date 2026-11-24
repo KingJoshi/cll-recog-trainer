@@ -208,6 +208,16 @@
     }
 }
 
+.train-submode-bar {
+    background: var(--surface-2);
+    max-width: 520px;
+}
+
+.train-submode-bar .track-btn {
+    padding: 5px 12px;
+    font-size: 0.82rem;
+}
+
   .app-header {
     position: sticky;
     top: 0;

@@ -1023,9 +1023,106 @@ export function computeCfopAverages(solves = [], options = {}) {
   };
 }
 
+const TWO_LOOK_OLL_OCLL_IDS = new Set(["oll-21", "oll-22", "oll-23", "oll-24", "oll-25", "oll-26", "oll-27"]);
+const TWO_LOOK_OLL_DOT_IDS = new Set(["oll-01", "oll-02", "oll-03", "oll-04", "oll-17", "oll-18", "oll-19", "oll-20"]);
+const TWO_LOOK_OLL_LINE_IDS = new Set([
+  "oll-13", "oll-14", "oll-15", "oll-16",
+  "oll-33", "oll-34", "oll-39", "oll-40",
+  "oll-45", "oll-46", "oll-51", "oll-52",
+  "oll-55", "oll-56", "oll-57"
+]);
+
+const TWO_LOOK_PLL_EPLL_IDS = new Set(["Ua", "Ub", "H", "Z"]);
+const TWO_LOOK_PLL_ADJ_IDS = new Set(["Aa", "Ab", "F", "Ga", "Gb", "Gc", "Gd", "Ja", "Jb", "Ra", "Rb", "T"]);
+const TWO_LOOK_PLL_DIAG_IDS = new Set(["E", "Na", "Nb", "V", "Y"]);
+
+export function mapOllCaseTo2Look(ollCase) {
+  if (!ollCase || !ollCase.id) return ollCase;
+  const rawId = String(ollCase.id).toLowerCase();
+  const match = rawId.match(/^oll-(\d+)$/);
+  const normId = match ? `oll-${match[1].padStart(2, "0")}` : rawId;
+
+  if (TWO_LOOK_OLL_OCLL_IDS.has(normId)) {
+    return {
+      ...ollCase,
+      id: normId,
+      svgCaseId: normId
+    };
+  }
+  if (TWO_LOOK_OLL_DOT_IDS.has(normId)) {
+    return {
+      ...ollCase,
+      id: "2look-oll-dot",
+      shortName: "EO: Dot",
+      name: "2-Look EO: Dot (0 edges)",
+      group: "2-Look EO",
+      svgCaseId: "oll-01"
+    };
+  }
+  if (TWO_LOOK_OLL_LINE_IDS.has(normId)) {
+    return {
+      ...ollCase,
+      id: "2look-oll-line",
+      shortName: "EO: Line",
+      name: "2-Look EO: Line (2 opp edges)",
+      group: "2-Look EO",
+      svgCaseId: "oll-45"
+    };
+  }
+  return {
+    ...ollCase,
+    id: "2look-oll-lshape",
+    shortName: "EO: L-Shape",
+    name: "2-Look EO: L-Shape (2 adj edges)",
+    group: "2-Look EO",
+    svgCaseId: "oll-44"
+  };
+}
+
+export function mapPllCaseTo2Look(pllCase) {
+  if (!pllCase || !pllCase.id) return pllCase;
+  const id = String(pllCase.id);
+  if (TWO_LOOK_PLL_EPLL_IDS.has(id)) {
+    return {
+      ...pllCase,
+      id,
+      svgCaseId: id
+    };
+  }
+  if (TWO_LOOK_PLL_DIAG_IDS.has(id)) {
+    return {
+      ...pllCase,
+      id: "2look-pll-diag",
+      shortName: "Diag Corners",
+      name: "2-Look CPLL: Diagonal Swap",
+      group: "2-Look CPLL",
+      svgCaseId: "Y"
+    };
+  }
+  if (TWO_LOOK_PLL_ADJ_IDS.has(id) || pllCase.group === "Adjacent Corner Swap" || pllCase.group === "G-Permutation") {
+    return {
+      ...pllCase,
+      id: "2look-pll-adj",
+      shortName: "Adj Corners",
+      name: "2-Look CPLL: Adjacent Swap",
+      group: "2-Look CPLL",
+      svgCaseId: "T"
+    };
+  }
+  return {
+    ...pllCase,
+    id: "2look-pll-diag",
+    shortName: "Diag Corners",
+    name: "2-Look CPLL: Diagonal Swap",
+    group: "2-Look CPLL",
+    svgCaseId: "Y"
+  };
+}
+
 // Aggregate per-case OLL and PLL statistics (times and pauses per case) across solves
 export function computeOllPllCaseStats(solves = [], options = {}) {
   const validSolves = solves.filter(s => s && s.penalty !== "DNF" && s.penalty !== -1);
+  const llAnalyticsMode = options?.llAnalyticsMode === "2look" ? "2look" : "full";
   const ollMap = new Map();
   const pllMap = new Map();
 
@@ -1034,10 +1131,12 @@ export function computeOllPllCaseStats(solves = [], options = {}) {
     if (!cfop) continue;
 
     if (cfop.ollCase && cfop.ollCase.id && cfop.ollCase.id !== "OLL Skip") {
-      const oc = cfop.ollCase;
+      const rawOc = cfop.ollCase;
+      const oc = llAnalyticsMode === "2look" ? mapOllCaseTo2Look(rawOc) : rawOc;
       if (!ollMap.has(oc.id)) {
         ollMap.set(oc.id, {
           id: oc.id,
+          svgCaseId: oc.svgCaseId || oc.id,
           name: oc.name || oc.id,
           shortName: oc.shortName || oc.id,
           group: oc.group || "OLL",
@@ -1050,19 +1149,21 @@ export function computeOllPllCaseStats(solves = [], options = {}) {
         });
       }
       const entry = ollMap.get(oc.id);
-      if (typeof oc.ms === "number" && oc.ms > 0) entry.times.push(oc.ms);
-      if (typeof oc.pauseCount === "number") entry.pauseCounts.push(oc.pauseCount);
-      if (typeof oc.pauseMs === "number") entry.pauseMsList.push(oc.pauseMs);
-      if (typeof oc.recogMs === "number") entry.recogMsList.push(oc.recogMs);
-      if (typeof oc.execMs === "number") entry.execMsList.push(oc.execMs);
-      if (typeof oc.moveCount === "number") entry.moveCounts.push(oc.moveCount);
+      if (typeof rawOc.ms === "number" && rawOc.ms > 0) entry.times.push(rawOc.ms);
+      if (typeof rawOc.pauseCount === "number") entry.pauseCounts.push(rawOc.pauseCount);
+      if (typeof rawOc.pauseMs === "number") entry.pauseMsList.push(rawOc.pauseMs);
+      if (typeof rawOc.recogMs === "number") entry.recogMsList.push(rawOc.recogMs);
+      if (typeof rawOc.execMs === "number") entry.execMsList.push(rawOc.execMs);
+      if (typeof rawOc.moveCount === "number") entry.moveCounts.push(rawOc.moveCount);
     }
 
     if (cfop.pllCase && cfop.pllCase.id && cfop.pllCase.id !== "PLL Skip") {
-      const pc = cfop.pllCase;
+      const rawPc = cfop.pllCase;
+      const pc = llAnalyticsMode === "2look" ? mapPllCaseTo2Look(rawPc) : rawPc;
       if (!pllMap.has(pc.id)) {
         pllMap.set(pc.id, {
           id: pc.id,
+          svgCaseId: pc.svgCaseId || pc.id,
           name: pc.name || pc.id,
           shortName: pc.shortName || pc.id,
           group: pc.group || "PLL",
@@ -1075,12 +1176,12 @@ export function computeOllPllCaseStats(solves = [], options = {}) {
         });
       }
       const entry = pllMap.get(pc.id);
-      if (typeof pc.ms === "number" && pc.ms > 0) entry.times.push(pc.ms);
-      if (typeof pc.pauseCount === "number") entry.pauseCounts.push(pc.pauseCount);
-      if (typeof pc.pauseMs === "number") entry.pauseMsList.push(pc.pauseMs);
-      if (typeof pc.recogMs === "number") entry.recogMsList.push(pc.recogMs);
-      if (typeof pc.execMs === "number") entry.execMsList.push(pc.execMs);
-      if (typeof pc.moveCount === "number") entry.moveCounts.push(pc.moveCount);
+      if (typeof rawPc.ms === "number" && rawPc.ms > 0) entry.times.push(rawPc.ms);
+      if (typeof rawPc.pauseCount === "number") entry.pauseCounts.push(rawPc.pauseCount);
+      if (typeof rawPc.pauseMs === "number") entry.pauseMsList.push(rawPc.pauseMs);
+      if (typeof rawPc.recogMs === "number") entry.recogMsList.push(rawPc.recogMs);
+      if (typeof rawPc.execMs === "number") entry.execMsList.push(rawPc.execMs);
+      if (typeof rawPc.moveCount === "number") entry.moveCounts.push(rawPc.moveCount);
     }
   }
 
@@ -1112,10 +1213,12 @@ export function computeOllPllCaseStats(solves = [], options = {}) {
 
       list.push({
         id: entry.id,
+        svgCaseId: entry.svgCaseId || entry.id,
         name: entry.name,
         shortName: entry.shortName,
         group: entry.group,
         attempts: count,
+        count,
         avgMs,
         medianMs,
         trimMeanMs,

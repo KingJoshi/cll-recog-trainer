@@ -9,7 +9,7 @@ import {
   applyColorsTo3DCube
 } from '../../caseVisualizer.js';
 import { PUZZLES, CUSTOM_EVENT_SCRAMBLE_LABELS } from '../../data/algRegistry.js';
-import { sanitizeHexColor } from '../../state/appStore.js';
+import { sanitizeHexColor, isTimerViewMode } from '../../state/appStore.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
 import { ALL_SOLVER_FACES } from '../solve/solverWidgetsView.js';
 
@@ -72,7 +72,10 @@ export function createSettingsModalController({
   const settingsShowTooltips = typeof document !== "undefined" ? document.getElementById("settingsShowTooltips") : null;
   const settingsStatsModeBasicBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsModeBasicBtn") : null;
   const settingsStatsModeAdvancedBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsModeAdvancedBtn") : null;
+  const settingsLlModeFullBtn = typeof document !== "undefined" ? document.getElementById("settingsLlModeFullBtn") : null;
+  const settingsLlMode2LookBtn = typeof document !== "undefined" ? document.getElementById("settingsLlMode2LookBtn") : null;
   const settingsFocusMode = typeof document !== "undefined" ? document.getElementById("settingsFocusMode") : null;
+  const settingsDesktopMultiPane = typeof document !== "undefined" ? document.getElementById("settingsDesktopMultiPane") : null;
   const settingsShowLayerWidget = typeof document !== "undefined" ? document.getElementById("settingsShowLayerWidget") : null;
   const settingsShowCrossWidget = typeof document !== "undefined" ? document.getElementById("settingsShowCrossWidget") : null;
   const settingsShowStatsWidget = typeof document !== "undefined" ? document.getElementById("settingsShowStatsWidget") : null;
@@ -121,7 +124,17 @@ export function createSettingsModalController({
       settingsStatsModeAdvancedBtn.classList.toggle("active", adv);
       settingsStatsModeAdvancedBtn.setAttribute("aria-pressed", String(adv));
     }
+    const is2LookLl = s.llAnalyticsMode === "2look";
+    if (settingsLlModeFullBtn) {
+      settingsLlModeFullBtn.classList.toggle("active", !is2LookLl);
+      settingsLlModeFullBtn.setAttribute("aria-pressed", String(!is2LookLl));
+    }
+    if (settingsLlMode2LookBtn) {
+      settingsLlMode2LookBtn.classList.toggle("active", is2LookLl);
+      settingsLlMode2LookBtn.setAttribute("aria-pressed", String(is2LookLl));
+    }
     if (settingsFocusMode) settingsFocusMode.checked = Boolean(s.focusMode);
+    if (settingsDesktopMultiPane) settingsDesktopMultiPane.checked = s.desktopMultiPane !== false;
     if (settingsShowLayerWidget) settingsShowLayerWidget.checked = s.showLayerSolutionsWidget !== false;
     if (settingsShowCrossWidget) settingsShowCrossWidget.checked = s.showCrossSolutionsWidget !== false;
     if (settingsShowStatsWidget) settingsShowStatsWidget.checked = s.showStatsPanel !== false;
@@ -174,7 +187,7 @@ export function createSettingsModalController({
       applyColorsTo3DCube(sv.activeDisplay3d);
     }
     if (appStore.state.mode === "study") sv?.render?.();
-    else if (appStore.state.mode === "practice") getPracticeView()?.render?.();
+    else if (appStore.state.mode === "practice" && !isTimerViewMode(appStore.state)) getPracticeView()?.render?.();
   }
 
   function renderColorPickers() {
@@ -399,12 +412,24 @@ export function createSettingsModalController({
     appStore.setAdvancedMode?.(true);
     renderToggles();
   });
+  settingsLlModeFullBtn?.addEventListener("click", () => {
+    appStore.setLlAnalyticsMode?.("full");
+    renderToggles();
+  });
+  settingsLlMode2LookBtn?.addEventListener("click", () => {
+    appStore.setLlAnalyticsMode?.("2look");
+    renderToggles();
+  });
   settingsFocusMode?.addEventListener("change", (e) => {
     const enabled = Boolean(e.target.checked);
-    if (enabled && appStore.state.mode !== "solve") {
+    if (enabled && !isTimerViewMode(appStore.state)) {
       getNavCtrl()?.setMode?.("solve");
     }
     appStore.setFocusMode?.(enabled);
+    renderToggles();
+  });
+  settingsDesktopMultiPane?.addEventListener("change", (e) => {
+    appStore.setDesktopMultiPane?.(Boolean(e.target.checked));
     renderToggles();
   });
   settingsShowLayerWidget?.addEventListener("change", (e) => {

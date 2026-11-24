@@ -3,6 +3,7 @@
 import { ganTimer } from '../../ganTimer.js';
 import { smartCube } from '../../smartCube.js';
 import { showToast } from '../../ui/toastService.js';
+import { isTimerViewMode } from '../../state/appStore.js';
 
 export function createDisconnectAlertView({
   appStore,
@@ -73,7 +74,7 @@ export function createDisconnectAlertView({
     if (btDisconnectFloatingDesc) btDisconnectFloatingDesc.textContent = desc;
     if (btDisconnectFloatingReconnectBtn) btDisconnectFloatingReconnectBtn.textContent = btnLabel;
     if (btDisconnectFloatingAlert) {
-      const isSolveSurfaceVisible = appStore.state.mode === "solve" && (!solveOverlay || solveOverlay.hidden);
+      const isSolveSurfaceVisible = isTimerViewMode(appStore.state) && (!solveOverlay || solveOverlay.hidden);
       btDisconnectFloatingAlert.hidden = isSolveSurfaceVisible;
     }
   }

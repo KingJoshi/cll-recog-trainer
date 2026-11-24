@@ -4,6 +4,7 @@ import { ganTimer, shouldIgnorePrematureTimerStop } from '../../ganTimer.js';
 import { smartCube } from '../../smartCube.js';
 import { playDisconnectAlertSound } from '../../services/audioService.js';
 import { showToast } from '../../ui/toastService.js';
+import { isTimerViewMode } from '../../state/appStore.js';
 
 export function createGanTimerController({
   appStore,
@@ -50,7 +51,7 @@ export function createGanTimerController({
   ganTimer.addEventListener("statuschange", () => {
     updateGanTimerUI();
     getDisconnectAlertView()?.renderAlerts?.();
-    if (appStore.state.mode === "solve") {
+    if (isTimerViewMode(appStore.state)) {
       getSolvePanel()?.renderSolvePanel?.();
       getSmartCubeCtrl()?.updateSmartCubeIndicator?.();
     }
@@ -59,7 +60,7 @@ export function createGanTimerController({
   ganTimer.addEventListener("disconnected", (e) => {
     const reason = e.detail?.reason || "unexpected";
     getTimerCtrl()?.onGanTimerDisconnectedMidSolve?.();
-    if (reason !== "manual" || appStore.state.mode === "solve") {
+    if (reason !== "manual" || isTimerViewMode(appStore.state)) {
       const alertView = getDisconnectAlertView();
       alertView?.setTimerAlert?.(true);
       playDisconnectAlertSound();
@@ -71,7 +72,7 @@ export function createGanTimerController({
   ganTimer.addEventListener("timerstate", (e) => {
     const { state, recordedMs, ts } = e.detail || {};
     smartCube.logDiag("GAN_TIMER_STATE", { state, recordedMs });
-    if (appStore.state.mode !== "solve") return;
+    if (!isTimerViewMode(appStore.state)) return;
     const timerCtrl = getTimerCtrl();
     const scCtrl = getSmartCubeCtrl();
     if (!timerCtrl) return;

@@ -62,13 +62,18 @@
   <!-- Stage: mode progression (Study -> Practice -> Solve -> Simulate), track/focus bar, Active Cases, cube, drills, timer -->
   <section class="stage">
     <div class="seg mode-seg" role="group" aria-label="Mode">
-      <button type="button" class="mode-btn" data-mode="study" aria-pressed="false" data-tooltip="Browse algorithm cards, 2D/3D patterns, 2-sided recognition rules, and reference guides">📚 Study</button>
-      <button type="button" class="mode-btn" data-mode="practice" aria-pressed="false" data-tooltip="Drill case recognition speed or 15s inspection planning without needing a physical timer">🎯 Practice</button>
-      <button type="button" class="mode-btn" data-mode="solve" aria-pressed="true" data-tooltip="Time full solves or targeted sub-steps with Spacebar, Bluetooth smart cube, or GAN Timer">⏱️ Solve</button>
+      <button type="button" class="mode-btn" data-mode="study" aria-pressed="false" data-tooltip="Browse algorithm cards, 2D/3D patterns, 2-sided recognition rules, and reference guides">📚 Learn</button>
+      <button type="button" class="mode-btn" data-mode="practice" aria-pressed="false" data-tooltip="Drill case recognition speed, 15s inspection planning, or timed sub-step drills">🎯 Train</button>
+      <button type="button" class="mode-btn" data-mode="solve" aria-pressed="true" data-tooltip="Time full solves with Spacebar, Bluetooth smart cube, or GAN Timer">⏱️ Solve</button>
       <button type="button" class="mode-btn" data-mode="simulate" aria-pressed="false" data-tooltip="Step through scrambles and algorithms move-by-move on the 3D cube">🎬 Simulate</button>
     </div>
 
-    <div id="trackBar" class="track-bar" role="group" aria-label="Algorithm Track or Solve Focus"></div>
+    <div id="trainSubmodeBar" class="track-bar train-submode-bar" role="group" aria-label="Training Submode" hidden>
+      <button type="button" class="track-btn active" data-train-submode="recog" aria-pressed="true" data-tooltip="Drill case identification &amp; 15s inspection planning without a physical solve">🎯 Recognition &amp; Inspection</button>
+      <button type="button" class="track-btn" data-train-submode="timed-drill" aria-pressed="false" data-tooltip="Time targeted sub-step solves (Timer Drill, 1st Face, 1st Layer, CLL, OLL, PLL, Parity)">⏱️ Timed Drills</button>
+    </div>
+
+    <div id="trackBar" class="track-bar" role="group" aria-label="Algorithm Track or Timed Drill"></div>
 
     <!-- Active Cases: contextual to tracks/targets that select cases; collapsed state persisted -->
     <section class="panel settings collapsed" id="settingsPanel">
@@ -105,59 +110,7 @@
     <!-- Study View Container (Case Grid, 3D Flashcard, Guides) -->
     <div id="studyViewContainer" class="study-container" hidden></div>
 
-    <!-- Solve mode: scramble for a physical cube or virtual practice -->
-    <div id="solveScramble" class="solve-scramble" hidden>
-      <div class="solve-header-row">
-        <div class="solve-title-group">
-          <p class="solve-label">Solve Scramble</p>
-          <span class="solve-orient" id="solveScrambleOrient">(white on bottom)</span>
-        </div>
-        <div class="solve-session-control">
-          <label for="solveSessionSelect" class="session-label">Session:</label>
-          <select id="solveSessionSelect" class="session-select" aria-label="Active Solve Session"></select>
-          <button type="button" id="newSessionBtn" class="btn btn-xs" title="Create new session">+ New</button>
-          <button type="button" id="renameSessionBtn" class="btn btn-xs" title="Edit current session settings (name, target, 3D cube, inspection)">&#x270E; Edit</button>
-          <button type="button" id="deleteSessionBtn" class="btn btn-xs btn-danger" title="Delete current session">&times;</button>
-        </div>
-        <div class="solve-scramble-btns">
-          <button type="button" id="solveNewScrambleBtn" class="btn btn-xs">New Scramble</button>
-          <button type="button" id="solveCustomScrambleBtn" class="btn btn-xs" data-tooltip="Paste or type any scramble sequence to practice it">Custom</button>
-          <button type="button" id="solveFocusToggleBtn" class="btn btn-xs" aria-pressed="false" data-tooltip="Toggle distraction-free Zen Mode (Shift+Z)">Zen</button>
-        </div>
-      </div>
-      <div id="solveCustomScrambleRow" class="layer-custom-row" hidden>
-        <div class="layer-custom-wrap">
-          <input type="text" id="solveCustomInput" class="sim-input" placeholder="Enter custom scramble (e.g. U2 F2 U L2...)" aria-label="Enter custom scramble" autocomplete="off" spellcheck="false">
-          <button type="button" id="solveCustomClearBtn" class="sim-btn-clear" title="Clear input" aria-label="Clear custom scramble">&times;</button>
-        </div>
-        <button type="button" id="solveCustomApplyBtn" class="btn btn-primary sim-btn-load">Apply</button>
-        <button type="button" id="solveCustomCancelBtn" class="btn btn-small">Cancel</button>
-      </div>
-      <p id="solveScrambleText" class="solve-scramble-text"></p>
-      <p id="solveScrambleSubtext" class="solve-scramble-subtext" hidden></p>
-
-      <!-- Timer & Handling Drill Panel (visible when Target === "timer-drill") -->
-      <div id="timerDrillBanner" class="timer-drill-banner" hidden>
-        <div class="timer-drill-top">
-          <div class="timer-drill-info">
-            <span class="timer-drill-badge">⏱️ 4-Move Timer &amp; Handling Drill</span>
-            <p class="timer-drill-desc">Apply the <strong>4-move scramble</strong> above, start the timer, execute the <strong>reverse 4 moves</strong> to solve the cube, put it down, and stop the timer.</p>
-          </div>
-          <div class="timer-drill-preset-wrap">
-            <label for="timerDrillPresetSelect" class="timer-drill-preset-label">4-Move Drill:</label>
-            <select id="timerDrillPresetSelect" class="sim-select timer-drill-preset-select" aria-label="4-move timer drill sequence">
-              <option value="righty">Righty: Scramble U R U' R' → Solve R U R' U'</option>
-              <option value="lefty">Lefty: Scramble U' L' U L → Solve L' U' L U</option>
-              <option value="inv-righty">Inverse Righty: Scramble R U R' U' → Solve U R U' R'</option>
-              <option value="sledge">Sledgehammer: Scramble F R' F' R → Solve R' F R F'</option>
-              <option value="hedge">Hedgeslammer: Scramble R' F R F' → Solve F R' F' R</option>
-            </select>
-          </div>
-        </div>
-        <div id="timerDrillMetricsBar" class="timer-drill-metrics-bar"></div>
-      </div>
-    </div>
-
+    <div id="solveLeftPane" class="solve-left-pane">
     <div class="cube-card">
       <div id="display-container"></div>
       <div class="cube-card-controls">
@@ -239,6 +192,12 @@
           <button type="button" id="freeMoveResetSolvedBtn" class="btn btn-xs" title="Reset cube to solved" aria-label="Reset cube to solved">Reset Solved</button>
         </div>
       </div>
+    </div>
+    <div id="solveTimes" class="panel solve-times" hidden>
+      <div id="solveStatsBar" class="solve-stats-bar">
+        <!-- Populated by JavaScript: Ao5, Ao12, Ao100, Single Best, Mean -->
+      </div>
+    </div>
     </div>
 
     <p id="empty-state" class="empty-state" hidden>
@@ -345,6 +304,60 @@
         </div>
 
         <p class="kbd-hint">Keyboard: &larr; / &rarr; step moves &bull; Space to play/pause &bull; Home/End start/finish</p>
+      </div>
+    </div>
+
+    <div id="solveRightPane" class="solve-right-pane">
+    <!-- Solve mode: scramble for a physical cube or virtual practice -->
+    <div id="solveScramble" class="solve-scramble" hidden>
+      <div class="solve-header-row">
+        <div class="solve-title-group">
+          <p class="solve-label">Solve Scramble</p>
+          <span class="solve-orient" id="solveScrambleOrient">(white on bottom)</span>
+        </div>
+        <div class="solve-session-control">
+          <label for="solveSessionSelect" class="session-label">Session:</label>
+          <select id="solveSessionSelect" class="session-select" aria-label="Active Solve Session"></select>
+          <button type="button" id="newSessionBtn" class="btn btn-xs" title="Create new session">+ New</button>
+          <button type="button" id="renameSessionBtn" class="btn btn-xs" title="Edit current session settings (name, target, 3D cube, inspection)">&#x270E; Edit</button>
+          <button type="button" id="deleteSessionBtn" class="btn btn-xs btn-danger" title="Delete current session">&times;</button>
+        </div>
+        <div class="solve-scramble-btns">
+          <button type="button" id="solveNewScrambleBtn" class="btn btn-xs">New Scramble</button>
+          <button type="button" id="solveCustomScrambleBtn" class="btn btn-xs" data-tooltip="Paste or type any scramble sequence to practice it">Custom</button>
+          <button type="button" id="solveFocusToggleBtn" class="btn btn-xs" aria-pressed="false" data-tooltip="Toggle distraction-free Zen Mode (Shift+Z)">Zen</button>
+        </div>
+      </div>
+      <div id="solveCustomScrambleRow" class="layer-custom-row" hidden>
+        <div class="layer-custom-wrap">
+          <input type="text" id="solveCustomInput" class="sim-input" placeholder="Enter custom scramble (e.g. U2 F2 U L2...)" aria-label="Enter custom scramble" autocomplete="off" spellcheck="false">
+          <button type="button" id="solveCustomClearBtn" class="sim-btn-clear" title="Clear input" aria-label="Clear custom scramble">&times;</button>
+        </div>
+        <button type="button" id="solveCustomApplyBtn" class="btn btn-primary sim-btn-load">Apply</button>
+        <button type="button" id="solveCustomCancelBtn" class="btn btn-small">Cancel</button>
+      </div>
+      <p id="solveScrambleText" class="solve-scramble-text"></p>
+      <p id="solveScrambleSubtext" class="solve-scramble-subtext" hidden></p>
+
+      <!-- Timer & Handling Drill Panel (visible when Target === "timer-drill") -->
+      <div id="timerDrillBanner" class="timer-drill-banner" hidden>
+        <div class="timer-drill-top">
+          <div class="timer-drill-info">
+            <span class="timer-drill-badge">⏱️ 4-Move Timer &amp; Handling Drill</span>
+            <p class="timer-drill-desc">Apply the <strong>4-move scramble</strong> above, start the timer, execute the <strong>reverse 4 moves</strong> to solve the cube, put it down, and stop the timer.</p>
+          </div>
+          <div class="timer-drill-preset-wrap">
+            <label for="timerDrillPresetSelect" class="timer-drill-preset-label">4-Move Drill:</label>
+            <select id="timerDrillPresetSelect" class="sim-select timer-drill-preset-select" aria-label="4-move timer drill sequence">
+              <option value="righty">Righty: Scramble U R U' R' → Solve R U R' U'</option>
+              <option value="lefty">Lefty: Scramble U' L' U L → Solve L' U' L U</option>
+              <option value="inv-righty">Inverse Righty: Scramble R U R' U' → Solve U R U' R'</option>
+              <option value="sledge">Sledgehammer: Scramble F R' F' R → Solve R' F R F'</option>
+              <option value="hedge">Hedgeslammer: Scramble R' F R F' → Solve F R' F' R</option>
+            </select>
+          </div>
+        </div>
+        <div id="timerDrillMetricsBar" class="timer-drill-metrics-bar"></div>
       </div>
     </div>
 
@@ -456,11 +469,6 @@
         </div>
       </div>
     </details>
-
-    <div id="solveTimes" class="panel solve-times" hidden>
-      <div id="solveStatsBar" class="solve-stats-bar">
-        <!-- Populated by JavaScript: Ao5, Ao12, Ao100, Single Best, Mean -->
-      </div>
     </div>
   </section>
 
@@ -989,6 +997,13 @@
               <button type="button" id="settingsStatsModeAdvancedBtn" class="settings-speed-btn active" data-settings-stats-mode="advanced" aria-pressed="true">Advanced</button>
             </div>
           </div>
+          <div class="settings-speed-row">
+            <span class="settings-oh-label"><strong>3x3 OLL / PLL Grouping:</strong></span>
+            <div class="settings-speed-group" role="group" aria-label="3x3 OLL and PLL analytics grouping">
+              <button type="button" id="settingsLlModeFullBtn" class="settings-speed-btn active" data-settings-ll-mode="full" aria-pressed="true">Full (57 / 21)</button>
+              <button type="button" id="settingsLlMode2LookBtn" class="settings-speed-btn" data-settings-ll-mode="2look" aria-pressed="false">2-Look</button>
+            </div>
+          </div>
           <div class="toggle-with-tip">
             <label class="solve-toggle-label">
               <input type="checkbox" id="settingsFocusMode">
@@ -996,6 +1011,10 @@
             </label>
             <button type="button" class="info-tip-btn" data-tooltip="Hides header bars, stats panel, and solver helpers in Solve mode so only your scramble and timer stay visible. Press Shift+Z anytime to toggle." aria-label="Explain Zen Mode">?</button>
           </div>
+          <label class="solve-toggle-label">
+            <input type="checkbox" id="settingsDesktopMultiPane" checked>
+            <span>Desktop multi-pane Solve layout (3D cube &amp; recent solves sidebar on wide screens)</span>
+          </label>
           <label class="solve-toggle-label">
             <input type="checkbox" id="settingsShowLayerWidget" checked>
             <span>Show 2x2 1st Face / 1st Layer solutions widget</span>

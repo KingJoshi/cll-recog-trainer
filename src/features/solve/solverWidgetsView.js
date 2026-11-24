@@ -2,7 +2,7 @@
 
 import { findLayerSolutions, findFaceSolutions } from '../../layerSolver.js';
 import { findCrossSolutions } from '../../crossSolver.js';
-import { caseById } from '../../state/appStore.js';
+import { caseById, isTimerViewMode } from '../../state/appStore.js';
 import { escapeHtml, capitalize } from '../../services/htmlUtils.js';
 import { copyTextWithButtonFeedback } from '../../services/clipboard.js';
 import { ICON_POPUP_SIM } from '../../ui/transportIcons.js';
@@ -308,7 +308,7 @@ export function createSolverWidgetsView({
       updateCrossSolutions(scr);
     }
     const pv = getPracticeView();
-    if (appStore.state.mode === "practice" && pv?.solutionRevealed) {
+    if (appStore.state.mode === "practice" && !isTimerViewMode(appStore.state) && pv?.solutionRevealed) {
       pv.revealInspectionSolutions();
     }
   }

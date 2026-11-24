@@ -6,7 +6,7 @@ import { averagePhase, medianPhase, trimMeanPhase, ganTimer } from '../../ganTim
 import { smartCube } from '../../smartCube.js';
 import { getSolveTargetLabel } from '../../data/algRegistry.js';
 import { getSolveTime, computeAverageOfN, getBestAverageOfN } from '../../services/solveStats.js';
-import { caseById } from '../../state/appStore.js';
+import { caseById, isTimerViewMode } from '../../state/appStore.js';
 import { escapeHtml, formatSolveTime, formatSolveDisplay, formatCfopSplitMs } from '../../services/htmlUtils.js';
 import { showToast } from '../../ui/toastService.js';
 import { TIMER_DRILL_PRESETS, resolveTimerDrillPreset } from '../../ui/navController.js';
@@ -211,7 +211,7 @@ export function createSolvePanelView({
     const presetSelect = document.getElementById("timerDrillPresetSelect");
     const metricsBar = document.getElementById("timerDrillMetricsBar");
     if (!banner) return;
-    const isDrill = appStore.state.mode === "solve" && appStore.state.solveTarget === "timer-drill";
+    const isDrill = isTimerViewMode(appStore.state) && appStore.state.solveTarget === "timer-drill";
     banner.hidden = !isDrill;
     if (!isDrill) return;
 
@@ -413,12 +413,12 @@ export function createSolvePanelView({
         });
       }
       if (solveTimesEl) {
-        solveTimesEl.hidden = s.mode !== "solve" || solves.length === 0;
+        solveTimesEl.hidden = !isTimerViewMode(s) || solves.length === 0;
       }
     } else {
       if (solveTimesEl) solveTimesEl.hidden = true;
       if (solveInlineRecentStats) {
-        const showInline = s.mode === "solve" && solves.length > 0;
+        const showInline = isTimerViewMode(s) && solves.length > 0;
         solveInlineRecentStats.hidden = !showInline;
         if (showInline) {
           const refWindow = solves.slice(-100);
@@ -437,6 +437,16 @@ export function createSolvePanelView({
         } else {
           solveInlineRecentStats.innerHTML = "";
         }
+      }
+    }
+    if (typeof document !== "undefined") {
+      const stageEl = document.querySelector(".stage");
+      const cubeCardEl = document.querySelector(".cube-card");
+      if (stageEl) {
+        stageEl.classList.toggle(
+          "solve-sidebar-empty",
+          isTimerViewMode(s) && Boolean((!cubeCardEl || cubeCardEl.hidden) && (!solveTimesEl || solveTimesEl.hidden))
+        );
       }
     }
 
@@ -544,7 +554,7 @@ export function createSolvePanelView({
       const preset = resolveTimerDrillPreset(timerDrillPresetSelectEl.value);
       appStore.state.timerDrillPreset = preset.id;
       appStore.saveSettings();
-      if (appStore.state.mode === "solve" && appStore.state.solveTarget === "timer-drill") {
+      if (isTimerViewMode(appStore.state) && appStore.state.solveTarget === "timer-drill") {
         getNavCtrl()?.regenerateScramble?.();
       }
     });

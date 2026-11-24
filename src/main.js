@@ -7,7 +7,7 @@ import { PracticeView } from './practiceView.js';
 import { solveReplayViewer } from './replayView.js';
 import { clearSvgCache, applyColorsTo3DCube } from './caseVisualizer.js';
 import { smartCube } from './smartCube.js';
-import { appStore } from './state/appStore.js';
+import { appStore, isTimerViewMode } from './state/appStore.js';
 import { modalManager } from './ui/modalManager.js';
 import { showToast } from './ui/toastService.js';
 import { initSyncTracking } from './services/syncStorage.js';
@@ -199,8 +199,8 @@ casePickerCtrl = createCasePickerController({
   getStudyView: () => studyView,
   onSelectionApplied: () => {
     const s = appStore.state;
-    if (s.mode === "practice") practiceView?.setTrack(s.currentPuzzle, s.currentTrackId);
-    else if (s.mode === "solve") navCtrl?.regenerateScramble();
+    if (s.mode === "practice" && !isTimerViewMode(s)) practiceView?.setTrack(s.currentPuzzle, s.currentTrackId);
+    else if (isTimerViewMode(s)) navCtrl?.regenerateScramble();
   },
   onTagChanged: () => statsCtrl?.updateStatsTable()
 });
@@ -390,7 +390,7 @@ appStore.subscribe((evt) => {
   if (evt === "ohHand" || evt === "ohTableAbuse") {
     simulatorCtrl?.populateSimCaseSelect?.();
     if (appStore.state.mode === "study") studyView?.render?.();
-    else if (appStore.state.mode === "practice") practiceView?.render?.();
+    else if (appStore.state.mode === "practice" && !isTimerViewMode(appStore.state)) practiceView?.render?.();
   } else if (evt === "simSpeed") {
     const spd = appStore.state.simSpeed ?? 1;
     simulatorCtrl?.syncPlaybackSpeed?.(spd);
@@ -402,6 +402,15 @@ appStore.subscribe((evt) => {
     solvePanelView?.renderSolvePanel?.();
     navCtrl?.renderStage?.();
     statsCtrl?.updateStatsTable?.();
+  } else if (evt === "llAnalyticsMode") {
+    settingsModal?.renderToggles?.();
+    statsCtrl?.updateStatsTable?.();
+  } else if (evt === "desktopMultiPane") {
+    settingsModal?.renderToggles?.();
+    navCtrl?.renderStage?.();
+  } else if (evt === "trainSubMode") {
+    navCtrl?.renderTrackBar?.();
+    navCtrl?.renderStage?.();
   } else if (evt === "focusMode") {
     settingsModal?.renderToggles?.();
     solvePanelView?.renderSolvePanel?.();
@@ -431,7 +440,8 @@ function handleCustomShortcutKeyDown(e) {
   const overrides = s.keyboardShortcuts || {};
   const scStatus = smartCube.getStatus();
   const isVirtualActive = Boolean(scStatus.connected && smartCube.isVirtual);
-  const solveRunning = s.mode === "solve" && timerCtrl?.getSolveState?.() === "running";
+  const timerActive = isTimerViewMode(s);
+  const solveRunning = timerActive && timerCtrl?.getSolveState?.() === "running";
 
   if (isVirtualActive) {
     // When Virtual Smart Cube is active, user-customized shortcuts take priority over KeyboardPuzzle defaults,
@@ -454,8 +464,8 @@ function handleCustomShortcutKeyDown(e) {
   if (!actionId) return false;
 
   if (actionId.startsWith("move:")) {
-    // Preserve Study / Practice behavior for uncustomized Free Turn defaults
-    if ((s.mode === "practice" || s.mode === "study") && !(actionId in overrides)) {
+    // Preserve Learn / Recognition Training behavior for uncustomized Free Turn defaults
+    if ((s.mode === "study" || (s.mode === "practice" && !timerActive)) && !(actionId in overrides)) {
       return false;
     }
     const move = actionId.slice(5);
@@ -480,7 +490,7 @@ function handleCustomShortcutKeyDown(e) {
     const tgt = actionId.slice(7);
     e.preventDefault();
     const pData = PUZZLES[s.currentPuzzle];
-    if (s.mode === "solve") {
+    if (tgt === "full" || tgt === "timer-drill" || timerActive) {
       if (!navCtrl.setSolveTarget(tgt)) {
         showToast(`"${tgt}" target is not available for ${pData?.shortName || s.currentPuzzle}.`, "warning", 2200);
       }
@@ -495,7 +505,7 @@ function handleCustomShortcutKeyDown(e) {
   switch (actionId) {
     case "action:newScramble":
       e.preventDefault();
-      if (s.mode === "practice" && practiceView) {
+      if (s.mode === "practice" && !timerActive && practiceView) {
         if (practiceView.sprintRunning) void practiceView.advanceSprintScramble();
         else if (practiceView.isInspectionTrack?.()) void practiceView.advanceInspectionScramble();
         else void practiceView.advanceCasualScramble();
@@ -504,12 +514,12 @@ function handleCustomShortcutKeyDown(e) {
       }
       return true;
     case "action:toggleCube":
-      if (s.mode !== "solve") return false;
+      if (!timerActive) return false;
       e.preventDefault();
       appStore.setSolveShowCube(!s.solveShowCube);
       return true;
     case "action:toggleInspection":
-      if (s.mode !== "solve") return false;
+      if (!timerActive) return false;
       e.preventDefault();
       appStore.setSolveInspection(!s.solveInspection);
       return true;
@@ -552,7 +562,7 @@ function handleCustomShortcutKeyDown(e) {
       return true;
     case "action:toggleFocusMode": {
       e.preventDefault();
-      if (!s.focusMode && s.mode !== "solve") {
+      if (!s.focusMode && !timerActive) {
         navCtrl?.setMode?.("solve");
       }
       appStore.setFocusMode(!s.focusMode);
@@ -580,17 +590,17 @@ function handleCustomShortcutKeyDown(e) {
       cubeStage.resetCubeOrientation();
       return true;
     case "action:penaltyPlus2":
-      if (s.mode !== "solve") return false;
+      if (!timerActive) return false;
       e.preventDefault();
       timerCtrl.toggleLastSolvePenalty("+2");
       return true;
     case "action:penaltyDnf":
-      if (s.mode !== "solve") return false;
+      if (!timerActive) return false;
       e.preventDefault();
       timerCtrl.toggleLastSolvePenalty("DNF");
       return true;
     case "action:undoFreeMove":
-      if ((s.mode === "practice" || s.mode === "study") && !(actionId in overrides)) return false;
+      if ((s.mode === "study" || (s.mode === "practice" && !timerActive)) && !(actionId in overrides)) return false;
       if (freeMovesCtrl.getUserMoves().length === 0) return false;
       e.preventDefault();
       freeMovesCtrl.undoLastFreeMove();
@@ -611,6 +621,7 @@ function handleCustomShortcutKeyDown(e) {
 createKeyboardRouter({
   modalManager,
   getMode: () => appStore.state.mode,
+  isTimerActive: () => isTimerViewMode(appStore.state),
   isReplayOpen: () => solveReplayViewer.isOpen(),
   onReplayKey: (e) => solveReplayViewer.handleKeyDown(e),
   isQuickSimOpen: () => quickSimModal.isOpen(),
@@ -644,15 +655,15 @@ statsCtrl.updateStatsTable();
 
 if (appStore.state.mode === "study") {
   studyView.setTrack(appStore.state.currentPuzzle, appStore.state.currentTrackId);
-} else if (appStore.state.mode === "practice") {
-  practiceView.setTrack(appStore.state.currentPuzzle, appStore.state.currentTrackId);
-} else if (appStore.state.mode === "simulate") {
-  simulatorCtrl.simInit();
-} else {
+} else if (isTimerViewMode(appStore.state)) {
   if (appStore.state.currentPuzzle === "222" && appStore.state.solveTarget === "face") {
     solverWidgets.setLayerSolutionMode("face");
   }
   navCtrl.regenerateScramble();
+} else if (appStore.state.mode === "practice") {
+  practiceView.setTrack(appStore.state.currentPuzzle, appStore.state.currentTrackId);
+} else if (appStore.state.mode === "simulate") {
+  simulatorCtrl.simInit();
 }
 
 function refreshAllViewsAfterHydrate() {
@@ -676,7 +687,7 @@ function refreshAllViewsAfterHydrate() {
   navCtrl?.renderPuzzleButtons?.();
 
   if (s.mode !== "study") studyView?.deactivate?.();
-  if (s.mode !== "practice") {
+  if (s.mode !== "practice" || isTimerViewMode(s)) {
     practiceView?.deactivate?.();
     cubeStage.setTwoSidedCameraLock(false);
   }
@@ -710,6 +721,13 @@ function refreshAllViewsAfterHydrate() {
     } else {
       studyView?.render?.();
     }
+  } else if (isTimerViewMode(s)) {
+    if (s.currentPuzzle === "222" && s.solveTarget === "face") {
+      solverWidgets?.setLayerSolutionMode?.("face");
+    }
+    if ((!s.currentSolveScramble || modeChanged || puzzleChanged || targetChanged) && timerCtrl?.getSolveState?.() === "idle") {
+      navCtrl?.regenerateScramble?.();
+    }
   } else if (s.mode === "practice") {
     if (modeChanged || puzzleChanged || trackChanged) {
       practiceView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
@@ -719,13 +737,6 @@ function refreshAllViewsAfterHydrate() {
   } else if (s.mode === "simulate") {
     if (modeChanged || puzzleChanged || trackChanged) {
       simulatorCtrl?.simInit?.();
-    }
-  } else {
-    if (s.currentPuzzle === "222" && s.solveTarget === "face") {
-      solverWidgets?.setLayerSolutionMode?.("face");
-    }
-    if ((!s.currentSolveScramble || modeChanged || puzzleChanged || targetChanged) && timerCtrl?.getSolveState?.() === "idle") {
-      navCtrl?.regenerateScramble?.();
     }
   }
 }

@@ -3,7 +3,7 @@
 import { getTrack } from '../data/algRegistry.js';
 import { escapeHtml } from '../services/htmlUtils.js';
 import { getCachedCaseSvg, renderCaseSvg } from '../caseVisualizer.js';
-import { CASE_IDS, GROUP_DISPLAY_ORDER, casesByGroup } from '../state/appStore.js';
+import { CASE_IDS, GROUP_DISPLAY_ORDER, casesByGroup, isTimerViewMode } from '../state/appStore.js';
 
 export function getCasesInGroup(group, puzzleId = "222", trackId = "cll") {
   if (puzzleId === "222" && trackId === "cll") {
@@ -171,7 +171,7 @@ export function createCasePickerController({
       });
     }
 
-    if (cubeCardEl && (mode === "practice" || mode === "study")) {
+    if (cubeCardEl && (mode === "study" || (mode === "practice" && !isTimerViewMode(appStore.state)))) {
       const hasTrackCases = Boolean(track && track.cases && track.cases.length > 0);
       const hasActiveCases = !hasTrackCases || activeCount > 0;
       const hideCubeInStudy = mode === "study";

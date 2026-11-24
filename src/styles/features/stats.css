@@ -887,9 +887,9 @@
 .swatch-single { background: var(--muted, #94a3b8); }
 .swatch-ao5 { background: #2563eb; }
 .swatch-ao12 { background: #d97706; }
-.swatch-cross { background: #0284c7; height: 8px; width: 8px; }
-.swatch-f2l { background: #2563eb; height: 8px; width: 8px; }
-.swatch-oll { background: #d97706; height: 8px; width: 8px; }
+.swatch-cross { background: #2563eb; height: 8px; width: 8px; }
+.swatch-f2l { background: #16a34a; height: 8px; width: 8px; }
+.swatch-oll { background: #ea580c; height: 8px; width: 8px; }
 .swatch-pll { background: #7c3aed; height: 8px; width: 8px; }
 
 .stats-chart-svg {
@@ -1005,9 +1005,9 @@
     overflow: hidden;
 }
 
-.cfop-seg-cross { background: #0284c7; }
-.cfop-seg-f2l { background: #2563eb; }
-.cfop-seg-oll { background: #d97706; }
+.cfop-seg-cross { background: #2563eb; }
+.cfop-seg-f2l { background: #16a34a; }
+.cfop-seg-oll { background: #ea580c; }
 .cfop-seg-pll { background: #7c3aed; }
 
 /* CFOP Goal Coach & Bottleneck Detector */

@@ -236,19 +236,21 @@
     }
 
     .stage.mode-practice > .mode-seg,
+    .stage.mode-practice > .train-submode-bar,
     .stage.mode-practice > .track-bar,
     .stage.mode-practice > .settings,
     .stage.mode-simulate > .mode-seg,
+    .stage.mode-simulate > .train-submode-bar,
     .stage.mode-simulate > .track-bar,
     .stage.mode-simulate > .settings,
-    .stage.mode-simulate > .layer-solutions-widget {
+    .stage.mode-simulate .layer-solutions-widget {
         grid-column: 1 / -1;
         width: 100%;
     }
 
-    .stage.mode-practice > .cube-card,
+    .stage.mode-practice .cube-card,
     .stage.mode-practice > .empty-state,
-    .stage.mode-simulate > .cube-card {
+    .stage.mode-simulate .cube-card {
         grid-column: 1;
         align-self: start;
         width: 100%;
@@ -299,7 +301,9 @@
         --cube-w: 100%;
     }
 
-    .stage:not(.mode-solve) > * {
+    .stage:not(.mode-solve) > *,
+    .stage:not(.mode-solve) > .solve-left-pane > *,
+    .stage:not(.mode-solve) > .solve-right-pane > * {
         width: 100%;
         max-width: 100%;
     }
@@ -322,6 +326,70 @@
         width: 100%;
         max-width: var(--cube-card-max-w, 360px);
         justify-content: center;
+    }
+}
+
+/* Desktop multi-pane Solve layout (3D cube & recent solves sidebar left + Scramble & Timer canvas right) */
+
+@media (min-width: 1100px) {
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve {
+        grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
+        align-items: start;
+        gap: 16px;
+        max-width: 1360px;
+    }
+
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve > .mode-seg,
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve > .train-submode-bar,
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve > .track-bar,
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve > .settings {
+        grid-column: 1 / -1;
+    }
+
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve .solve-left-pane {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        grid-column: 1;
+        order: 20;
+        width: 100%;
+        min-width: 0;
+        align-self: start;
+    }
+
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve .solve-right-pane {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        grid-column: 2;
+        order: 21;
+        width: 100%;
+        min-width: 0;
+        align-self: start;
+    }
+
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve .solve-left-pane > *,
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve .solve-right-pane > * {
+        order: 0;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve .cube-card,
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve .solve-surface {
+        height: auto;
+    }
+
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve.solve-sidebar-empty .solve-left-pane {
+        display: none;
+    }
+
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve.solve-sidebar-empty .solve-right-pane {
+        grid-column: 1 / -1;
+    }
+
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve.solve-cube-hidden .solve-surface {
+        max-width: 100%;
     }
 }
 
@@ -352,6 +420,10 @@
     .stage.mode-solve {
         grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
         max-width: 1360px;
+    }
+
+    body.is-desktop-multipane:not(.is-focus-mode) .stage.mode-solve {
+        grid-template-columns: minmax(310px, 380px) minmax(0, 1fr);
     }
 
     .stage.mode-solve:not([data-solve-size="small"]):not([data-solve-size="medium"]) {

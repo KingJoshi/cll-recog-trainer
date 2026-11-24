@@ -10,6 +10,7 @@ export function isEditableElement(target) {
 export function createKeyboardRouter({
   modalManager = null,
   getMode = () => "solve",
+  isTimerActive = null,
   isReplayOpen = () => false,
   onReplayKey = () => false,
   isQuickSimOpen = () => false,
@@ -50,11 +51,12 @@ export function createKeyboardRouter({
     }
 
     const mode = getMode();
+    const timerActive = typeof isTimerActive === "function" ? Boolean(isTimerActive()) : mode === "solve";
 
-    // 4. Mode-specific handlers (e.g. Solve timer Space hold/stop, Simulate transport, Practice)
-    if (mode === "solve" && onSolveKeyDown(e)) return true;
+    // 4. Mode-specific handlers (e.g. Solve / Timed Drill timer Space hold/stop, Simulate transport, Recognition Practice)
+    if (timerActive && onSolveKeyDown(e)) return true;
     if (mode === "simulate" && onSimulateKeyDown(e)) return true;
-    if (mode === "practice" && onPracticeKeyDown(e)) return true;
+    if (mode === "practice" && !timerActive && onPracticeKeyDown(e)) return true;
 
     // 5. Customizable global & virtual-cube keyboard shortcuts
     if (onCustomShortcutKeyDown(e)) return true;
@@ -70,7 +72,8 @@ export function createKeyboardRouter({
     const target = e.target || (typeof document !== "undefined" ? document.activeElement : null);
     if (isEditableElement(target)) return false;
 
-    if (getMode() === "solve") {
+    const timerActive = typeof isTimerActive === "function" ? Boolean(isTimerActive()) : getMode() === "solve";
+    if (timerActive) {
       return Boolean(onSolveKeyUp(e));
     }
     return false;

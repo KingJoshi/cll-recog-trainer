@@ -1,6 +1,7 @@
 // Stats Panel Controller: tab switching, collapsible drawer, single CSV export, and reset confirmation
 
 import { PUZZLES, getTrack, getSolveTargetInfo } from '../../data/algRegistry.js';
+import { isTimerViewMode } from '../../state/appStore.js';
 import { exportSolvesToCSV, downloadCSV } from '../../services/solveStats.js';
 import { getSolveFingerprint } from '../../services/syncMerge.js';
 import { recordTombstones } from '../../services/syncStorage.js';
@@ -38,7 +39,7 @@ export function createStatsPanelController({
     const s = appStore.state;
     const track = getTrack(s.currentPuzzle, s.currentTrackId);
     const pName = PUZZLES[s.currentPuzzle]?.shortName || s.currentPuzzle;
-    const targetInfo = s.mode === "solve" ? getSolveTargetInfo(s.currentPuzzle, s.solveTarget) : null;
+    const targetInfo = isTimerViewMode(s) ? getSolveTargetInfo(s.currentPuzzle, s.solveTarget) : null;
     const scopeLabel = targetInfo ? targetInfo.shortName : (track?.shortName || s.currentTrackId);
     const caseTrackName = track?.cases?.length ? track.shortName : null;
 

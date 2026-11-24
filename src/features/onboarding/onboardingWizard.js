@@ -482,7 +482,12 @@ export function createOnboardingWizard({
 
     // Apply Solve Focus target & track cleanly
     const activeSess = appStore.getActiveSession();
-    const validTarget = getSolveTargetInfo(plan.puzzle, plan.solveTarget)?.id || "full";
+    const validTarget = plan.mode === "solve"
+      ? "full"
+      : (getSolveTargetInfo(plan.puzzle, plan.solveTarget)?.id || "full");
+    if (plan.mode === "practice") {
+      s.trainSubMode = "recog";
+    }
     s.solveTarget = validTarget;
     if (activeSess) {
       activeSess.target = validTarget;

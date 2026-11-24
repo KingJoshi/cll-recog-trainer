@@ -61,11 +61,33 @@
     }
 }
 
-.stage > * {
+.stage > *,
+.stage > .solve-left-pane > *,
+.stage > .solve-right-pane > * {
     width: min(100%, var(--cube-w));
     max-width: 100%;
     min-width: 0;
 }
+
+.solve-left-pane,
+.solve-right-pane {
+    display: contents;
+}
+
+.stage .mode-seg { order: 1; }
+.stage .train-submode-bar { order: 2; }
+.stage .track-bar:not(.train-submode-bar) { order: 3; }
+.stage > .settings { order: 4; }
+.stage .study-container { order: 5; }
+.stage .solve-scramble { order: 6; }
+.stage .cube-card { order: 7; }
+.stage .empty-state { order: 8; }
+.stage .practice-container { order: 9; }
+.stage .simulate-panel { order: 10; }
+.stage .solve-surface { order: 11; }
+.stage #layerSolutionsWidget { order: 12; }
+.stage #crossSolutionsWidget { order: 13; }
+.stage .solve-times { order: 14; }
 
 /* In all other tabs (Study, Practice, Simulate, Timed), span full width of the container */
 .stage:not(.mode-solve) {
@@ -76,7 +98,9 @@
     --cube-w: 100%;
 }
 
-.stage:not(.mode-solve) > * {
+.stage:not(.mode-solve) > *,
+.stage:not(.mode-solve) > .solve-left-pane > *,
+.stage:not(.mode-solve) > .solve-right-pane > * {
     width: 100%;
     max-width: 100%;
 }
@@ -89,7 +113,9 @@
         justify-items: stretch;
     }
 
-    .stage > * {
+    .stage > *,
+    .stage > .solve-left-pane > *,
+    .stage > .solve-right-pane > * {
         width: 100%;
         max-width: 100%;
     }

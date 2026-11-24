@@ -19,7 +19,12 @@ const PHASE_LABELS = {
   pll: "PLL"
 };
 
-export function computeCfopGoalAnalysis(solves = [], goalSec = 12) {
+export function computeCfopGoalAnalysis(solves = [], goalOrOpts = 12) {
+  const opts = (typeof goalOrOpts === "object" && goalOrOpts !== null)
+    ? goalOrOpts
+    : { goalSec: goalOrOpts };
+  const goalSec = opts.goalSec ?? 12;
+  const llAnalyticsMode = opts.llAnalyticsMode === "2look" ? "2look" : "full";
   const cleanGoal = Number(goalSec) > 0 ? Number(goalSec) : 12;
   const validSolves = (solves || []).filter(s => s && s.penalty !== "DNF" && s.penalty !== -1);
   if (validSolves.length === 0) return null;
@@ -47,7 +52,7 @@ export function computeCfopGoalAnalysis(solves = [], goalSec = 12) {
     .sort((a, b) => b.deltaMs - a.deltaMs);
   const topBottleneck = scoredPhases[0] || null;
 
-  const caseStats = computeOllPllCaseStats(validSolves);
+  const caseStats = computeOllPllCaseStats(validSolves, { llAnalyticsMode });
   const slowCases = [];
   const collectSlow = (items, trackLabel, phaseTargetMs) => {
     for (const item of (items || [])) {
@@ -83,8 +88,8 @@ export function computeCfopGoalAnalysis(solves = [], goalSec = 12) {
   };
 }
 
-export function renderCfopGoalCoachHtml(displaySolves = [], { goalSec = 12, isOpen = true } = {}) {
-  const analysis = computeCfopGoalAnalysis(displaySolves, goalSec);
+export function renderCfopGoalCoachHtml(displaySolves = [], { goalSec = 12, isOpen = true, llAnalyticsMode = "full" } = {}) {
+  const analysis = computeCfopGoalAnalysis(displaySolves, { goalSec, llAnalyticsMode });
   if (!analysis || !analysis.phases.some(p => p.actualMs != null)) return "";
 
   const fmtDelta = (deltaMs) => {

@@ -10,12 +10,12 @@ export const SHORTCUT_CATEGORIES = [
   {
     id: "modes",
     title: "Modes",
-    description: "Switch between Study, Practice, Solve, and Simulate tabs"
+    description: "Switch between Learn, Train, Solve, and Simulate tabs"
   },
   {
     id: "targets",
     title: "Submenus & Focus Targets",
-    description: "Jump to a Solve Focus target or Study/Practice track when available for the current puzzle"
+    description: "Jump to a Learn/Train track, Timed Drill, or Full Solve when available for the current puzzle"
   },
   {
     id: "actions",
@@ -46,26 +46,26 @@ export const SHORTCUT_ACTIONS = [
   { id: "puzzle:fto", category: "puzzles", label: "Switch to FTO" },
 
   // Modes
-  { id: "mode:study", category: "modes", label: "Mode: Study" },
-  { id: "mode:practice", category: "modes", label: "Mode: Practice" },
+  { id: "mode:study", category: "modes", label: "Mode: Learn" },
+  { id: "mode:practice", category: "modes", label: "Mode: Train" },
   { id: "mode:solve", category: "modes", label: "Mode: Solve" },
   { id: "mode:simulate", category: "modes", label: "Mode: Simulate" },
 
   // Submenus / Targets
-  { id: "target:timer-drill", category: "targets", label: "Target: Timer Drill" },
-  { id: "target:face", category: "targets", label: "Target / Track: 1st Face (2x2)" },
-  { id: "target:layer", category: "targets", label: "Target / Track: 1st Layer (2x2)" },
-  { id: "target:lbl", category: "targets", label: "Target / Track: LBL (2x2)" },
-  { id: "target:ortega", category: "targets", label: "Track: Ortega (2x2 Study/Practice)" },
-  { id: "target:cll", category: "targets", label: "Target / Track: CLL (2x2)" },
-  { id: "target:eg1", category: "targets", label: "Target / Track: EG-1 (2x2)" },
-  { id: "target:eg2", category: "targets", label: "Target / Track: EG-2 (2x2)" },
-  { id: "target:cross", category: "targets", label: "Track: White Cross (3x3 Study/Practice)" },
-  { id: "target:f2l", category: "targets", label: "Target / Track: F2L (3x3 / OH)" },
-  { id: "target:oll", category: "targets", label: "Target / Track: OLL (3x3 / OH)" },
-  { id: "target:pll", category: "targets", label: "Target / Track: PLL (3x3 / OH)" },
-  { id: "target:parity", category: "targets", label: "Target / Track: Parity (4x4 / 5x5)" },
-  { id: "target:full", category: "targets", label: "Target: Full Solve" },
+  { id: "target:timer-drill", category: "targets", label: "Drill: Timer Drill" },
+  { id: "target:face", category: "targets", label: "Track / Drill: 1st Face (2x2)" },
+  { id: "target:layer", category: "targets", label: "Track / Drill: 1st Layer (2x2)" },
+  { id: "target:lbl", category: "targets", label: "Track / Drill: LBL (2x2)" },
+  { id: "target:ortega", category: "targets", label: "Track: Ortega (2x2 Learn/Train)" },
+  { id: "target:cll", category: "targets", label: "Track / Drill: CLL (2x2)" },
+  { id: "target:eg1", category: "targets", label: "Track / Drill: EG-1 (2x2)" },
+  { id: "target:eg2", category: "targets", label: "Track / Drill: EG-2 (2x2)" },
+  { id: "target:cross", category: "targets", label: "Track: White Cross (3x3 Learn/Train)" },
+  { id: "target:f2l", category: "targets", label: "Track / Drill: F2L (3x3 / OH)" },
+  { id: "target:oll", category: "targets", label: "Track / Drill: OLL (3x3 / OH)" },
+  { id: "target:pll", category: "targets", label: "Track / Drill: PLL (3x3 / OH)" },
+  { id: "target:parity", category: "targets", label: "Track / Drill: Parity (4x4 / 5x5)" },
+  { id: "target:full", category: "targets", label: "Mode: Full Solve" },
 
   // Quick Actions & Settings
   { id: "action:newScramble", category: "actions", label: "Generate New Scramble" },

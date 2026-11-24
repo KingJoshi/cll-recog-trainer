@@ -1,7 +1,7 @@
 // Top-level navigation controller: Puzzle switcher, Mode tabs, Track/Focus bar, Stage visibility, and Scramble coordination
 
 import { PUZZLES, getTrack, getDefaultTrack, getSolveTargetsForPuzzle, getSolveTargetInfo, getSolveTargetLabel } from '../data/algRegistry.js';
-import { MODES, VALID_PUZZLES, caseById } from '../state/appStore.js';
+import { MODES, VALID_PUZZLES, caseById, isTimerViewMode } from '../state/appStore.js';
 import { escapeHtml } from '../services/htmlUtils.js';
 import { showToast } from './toastService.js';
 import {
@@ -80,6 +80,7 @@ export function createNavController({
   getSessionModal = () => null
 } = {}) {
   const trackBar = typeof document !== "undefined" ? document.getElementById("trackBar") : null;
+  const trainSubmodeBar = typeof document !== "undefined" ? document.getElementById("trainSubmodeBar") : null;
   const settingsPanel = typeof document !== "undefined" ? document.getElementById("settingsPanel") : null;
   const stage = typeof document !== "undefined" ? document.querySelector(".stage") : null;
   const cubeCard = typeof document !== "undefined" ? document.querySelector(".cube-card") : null;
@@ -146,10 +147,49 @@ export function createNavController({
       : "(white on top, green on front)";
   }
 
-  function renderTrackBar() {
-    if (!trackBar) return;
+  function ensureTimedDrillTargetAndSession() {
     const s = appStore.state;
-    if (s.mode === "simulate") {
+    const drills = getSolveTargetsForPuzzle(s.currentPuzzle).filter(item => item.id !== "full");
+    if (!drills.length) return false;
+    let nextTarget = s.solveTarget;
+    if (!nextTarget || nextTarget === "full" || !drills.some(item => item.id === nextTarget)) {
+      nextTarget = drills.find(i => i.id !== "timer-drill")?.id || drills[0].id;
+    }
+    const activeSess = appStore.getActiveSession?.();
+    if (s.solveTarget !== nextTarget || (activeSess && (activeSess.target || "full") !== nextTarget)) {
+      appStore.selectOrCreateSessionForTarget(nextTarget);
+      if (PUZZLES[s.currentPuzzle]?.tracks?.some(t => t.id === nextTarget)) {
+        s.currentTrackId = nextTarget;
+        appStore.loadTrackSelection(s.currentPuzzle, nextTarget);
+        casePickerCtrl?.buildCasePicker?.();
+        casePickerCtrl?.renderSelection?.();
+      }
+      if (s.currentPuzzle === "222" && (nextTarget === "face" || nextTarget === "layer")) {
+        getSolverWidgets()?.setLayerSolutionMode?.(nextTarget);
+      }
+      getSessionModal()?.populateSessionSelect?.();
+      return true;
+    }
+    return false;
+  }
+
+  function renderTrackBar() {
+    const s = appStore.state;
+    const isSolveOnly = Boolean(PUZZLES[s.currentPuzzle]?.solveOnly);
+    if (trainSubmodeBar) {
+      trainSubmodeBar.hidden = Boolean(isSolveOnly || s.mode !== "practice");
+      trainSubmodeBar.querySelectorAll("[data-train-submode]").forEach(btn => {
+        const active = btn.dataset.trainSubmode === s.trainSubMode;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-pressed", String(active));
+      });
+    }
+
+    if (!trackBar) return;
+    if (s.mode === "simulate" || s.mode === "solve") {
+      if (s.mode === "solve" && s.solveTarget !== "full") {
+        s.solveTarget = "full";
+      }
       trackBar.hidden = true;
       return;
     }
@@ -160,10 +200,14 @@ export function createNavController({
       return;
     }
 
-    if (s.mode === "solve") {
-      const items = getSolveTargetsForPuzzle(s.currentPuzzle);
+    if (s.mode === "practice" && s.trainSubMode === "timed-drill") {
+      const items = getSolveTargetsForPuzzle(s.currentPuzzle).filter(item => item.id !== "full");
+      if (!items.length) {
+        trackBar.hidden = true;
+        return;
+      }
       if (!items.some(item => item.id === s.solveTarget)) {
-        s.solveTarget = "full";
+        ensureTimedDrillTargetAndSession();
       }
 
       trackBar.classList.toggle("is-dense", items.length >= 6);
@@ -218,9 +262,9 @@ export function createNavController({
     });
 
     const simulating = s.mode === "simulate";
-    const solving = s.mode === "solve";
     const studying = s.mode === "study";
-    const practicing = s.mode === "practice";
+    const solving = isTimerViewMode(s);
+    const practicing = s.mode === "practice" && !solving;
 
     if (studyViewContainer) studyViewContainer.hidden = !studying;
     if (practiceViewContainer) practiceViewContainer.hidden = !practicing;
@@ -234,10 +278,6 @@ export function createNavController({
     if (studying) getStudyView()?.render?.();
     if (practicing) getPracticeView()?.render?.();
 
-    const isInspectionDrill = practicing && (
-      (s.currentPuzzle === "222" && ["face", "layer"].includes(s.currentTrackId)) ||
-      ((s.currentPuzzle === "333" || s.currentPuzzle === "333oh") && s.currentTrackId === "cross")
-    );
     if (regenerateBtn) regenerateBtn.hidden = true;
 
     const hasTrackCases = Boolean(getTrack(s.currentPuzzle, s.currentTrackId)?.cases?.length);
@@ -260,22 +300,6 @@ export function createNavController({
       resetOrientationBtn.hidden = cubeCard.hidden;
     }
 
-    if (stage) {
-      stage.classList.toggle("mode-solve", solving);
-      stage.classList.toggle("mode-study", studying);
-      stage.classList.toggle("mode-practice", practicing);
-      stage.classList.toggle("mode-simulate", simulating);
-      stage.classList.toggle("mode-timed", false);
-      stage.dataset.mode = s.mode;
-      stage.dataset.puzzle = s.currentPuzzle;
-      stage.classList.toggle("solve-cube-hidden", hideCubeInSolve);
-    }
-    if (typeof document !== "undefined" && document.body) {
-      document.body.dataset.puzzle = s.currentPuzzle;
-      document.body.dataset.mode = s.mode;
-      document.body.classList.toggle("is-focus-mode", Boolean(s.focusMode && solving));
-    }
-
     if (solveScramble) solveScramble.hidden = !solving;
     if (solveSurface) solveSurface.hidden = !solving;
     if (solveTimes) {
@@ -293,12 +317,120 @@ export function createNavController({
     if (freeMovesWrap) {
       freeMovesWrap.hidden = s.showFreeFaceTurns !== true;
     }
+
+    const sidebarEmpty = Boolean((!cubeCard || cubeCard.hidden) && (!solveTimes || solveTimes.hidden));
+    if (stage) {
+      stage.classList.toggle("mode-solve", solving);
+      stage.classList.toggle("mode-study", studying);
+      stage.classList.toggle("mode-practice", practicing);
+      stage.classList.toggle("mode-simulate", simulating);
+      stage.classList.toggle("mode-timed", false);
+      stage.dataset.mode = s.mode;
+      stage.dataset.trainSubmode = s.trainSubMode || "recog";
+      stage.dataset.puzzle = s.currentPuzzle;
+      stage.classList.toggle("solve-cube-hidden", hideCubeInSolve);
+      stage.classList.toggle("solve-sidebar-empty", solving && sidebarEmpty);
+    }
+    if (typeof document !== "undefined" && document.body) {
+      document.body.dataset.puzzle = s.currentPuzzle;
+      document.body.dataset.mode = s.mode;
+      document.body.classList.toggle("is-focus-mode", Boolean(s.focusMode && solving));
+      document.body.classList.toggle("is-desktop-multipane", s.desktopMultiPane !== false);
+    }
+  }
+
+  function restoreOrRegenerateTimerScramble() {
+    const s = appStore.state;
+    const solvePanel = getSolvePanelView();
+    const widgets = getSolverWidgets();
+    if (!s.currentSolveScramble) {
+      regenerateScramble();
+      return;
+    }
+    solvePanel?.updateSolveScrambleDisplay?.(s.currentSolveScramble);
+    const is333Case = (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") && ["f2l", "oll", "pll"].includes(s.solveTarget);
+    const displayScr = (s.alwaysWhiteBottom && is333Case) ? `z2 ${s.currentSolveScramble}` : s.currentSolveScramble;
+    cubeStage?.applyScrambleToDisplay?.(displayScr);
+    cubeStage?.applyReflection?.();
+    if (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") {
+      widgets?.updateCrossSolutions?.(s.currentSolveScramble);
+    } else if (s.currentPuzzle === "222") {
+      widgets?.updateLayerSolutions?.(s.currentSolveScramble);
+    }
+  }
+
+  function setTrainSubMode(subMode) {
+    const s = appStore.state;
+    if (PUZZLES[s.currentPuzzle]?.solveOnly) return false;
+    const next = subMode === "timed-drill" ? "timed-drill" : "recog";
+    if (s.mode === "practice" && s.trainSubMode === next) return false;
+    ++scrambleGenToken;
+
+    const timerCtrl = getTimerCtrl();
+    if (timerCtrl?.getSolveState?.() !== "idle") {
+      timerCtrl?.cancelSolve?.();
+    }
+    cubeStage?.setTwoSidedCameraLock?.(false);
+
+    if (next === "timed-drill") {
+      getPracticeView()?.deactivate?.();
+    }
+
+    s.trainSubMode = next;
+    appStore.resetCaseAppearances();
+
+    if (s.mode === "practice") {
+      if (next === "timed-drill") {
+        s.statsType = "log";
+        ensureTimedDrillTargetAndSession();
+      } else {
+        s.statsType = "recog";
+      }
+    }
+
+    appStore.saveSettings();
+    appStore.notify("trainSubMode", { trainSubMode: next });
+    renderTrackBar();
+    renderStage();
+    getStatsCtrl()?.renderStatsToggle?.();
+    getStatsCtrl()?.updateStatsTable?.();
+    getSolvePanelView()?.renderSolvePanel?.();
+    getSmartCubeCtrl()?.updateBluetoothUI?.();
+
+    if (s.mode === "practice") {
+      if (next === "timed-drill") {
+        regenerateScramble();
+      } else {
+        getPracticeView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+      }
+    }
+    return true;
   }
 
   function setSolveTarget(tgt) {
     const s = appStore.state;
     const pData = PUZZLES[s.currentPuzzle];
     if (!tgt || !getSolveTargetInfo(s.currentPuzzle, tgt)) return false;
+    if (pData?.solveOnly && tgt !== "full") return false;
+
+    const timerCtrl = getTimerCtrl();
+    if (timerCtrl?.getSolveState?.() !== "idle") {
+      timerCtrl?.cancelSolve?.();
+    }
+
+    const wantMode = tgt === "full" ? "solve" : "practice";
+    const wantSubMode = tgt === "full" ? s.trainSubMode : "timed-drill";
+    if (s.mode !== wantMode || s.trainSubMode !== wantSubMode) {
+      ++scrambleGenToken;
+      if (s.mode === "study") getStudyView()?.deactivate?.();
+      if (s.mode === "practice" && !isTimerViewMode(s)) getPracticeView()?.deactivate?.();
+      if (s.mode === "simulate") getSimulatorCtrl()?.simTeardown?.();
+      cubeStage?.setTwoSidedCameraLock?.(false);
+      s.mode = wantMode;
+      s.trainSubMode = wantSubMode;
+      s.statsType = "log";
+    }
+
     const res = appStore.selectOrCreateSessionForTarget(tgt);
     if (res?.action === "switched") {
       showToast(`Switched to session "${res.session.name}"`, "info", 2200);
@@ -318,8 +450,10 @@ export function createNavController({
     getSessionModal()?.populateSessionSelect?.();
     renderTrackBar();
     renderStage();
+    getStatsCtrl()?.renderStatsToggle?.();
     getSolvePanelView()?.renderSolvePanel?.();
     getStatsCtrl()?.updateStatsTable?.();
+    getSmartCubeCtrl()?.updateBluetoothUI?.();
     regenerateScramble();
     return true;
   }
@@ -336,12 +470,12 @@ export function createNavController({
 
     if (s.mode === "study") {
       getStudyView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
-    } else if (s.mode === "practice") {
+    } else if (s.mode === "practice" && !isTimerViewMode(s)) {
       getPracticeView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     }
 
     appStore.saveSettings();
-    if (s.mode === "solve") {
+    if (isTimerViewMode(s)) {
       if (["cross", "face", "layer", "lbl", "pll", "oll", "f2l", "cll", "eg1", "eg2", "parity"].includes(trackId)) {
         s.solveTarget = trackId;
       }
@@ -376,8 +510,9 @@ export function createNavController({
     if (prevMode === "study" && next !== "study") {
       getStudyView()?.deactivate?.();
     }
-    if (prevMode === "practice" && next !== "practice") {
+    if (prevMode === "practice" && (next !== "practice" || s.trainSubMode === "timed-drill")) {
       getPracticeView()?.deactivate?.();
+      cubeStage?.setTwoSidedCameraLock?.(false);
     }
     if (prevMode === "simulate" && next !== "simulate") {
       getSimulatorCtrl()?.simTeardown?.();
@@ -385,18 +520,31 @@ export function createNavController({
 
     s.mode = next;
     appStore.resetCaseAppearances();
-    if (s.mode === "solve") s.statsType = "log";
-    else if (s.mode === "practice") s.statsType = "recog";
+
+    if (s.mode === "solve") {
+      s.statsType = "log";
+      s.solveTarget = "full";
+      const activeSess = appStore.getActiveSession?.();
+      if (activeSess && (activeSess.target || "full") !== "full") {
+        appStore.selectOrCreateSessionForTarget("full");
+      }
+      getSessionModal()?.populateSessionSelect?.();
+    } else if (s.mode === "practice") {
+      if (s.trainSubMode === "timed-drill") {
+        s.statsType = "log";
+        ensureTimedDrillTargetAndSession();
+      } else {
+        s.statsType = "recog";
+      }
+    }
 
     appStore.saveSettings();
     renderTrackBar();
     renderStage();
     getStatsCtrl()?.renderStatsToggle?.();
     getStatsCtrl()?.updateStatsTable?.();
+    getSolvePanelView()?.renderSolvePanel?.();
     getSmartCubeCtrl()?.updateBluetoothUI?.();
-
-    const solvePanel = getSolvePanelView();
-    const widgets = getSolverWidgets();
 
     if (s.mode === "simulate") {
       if (!skipSimInit) {
@@ -405,20 +553,11 @@ export function createNavController({
         getSimulatorCtrl()?.populateSimCaseSelect?.();
         getSimulatorCtrl()?.attachSimPlayerListeners?.();
       }
-    } else if (s.mode === "solve") {
-      if (!s.currentSolveScramble) {
+    } else if (isTimerViewMode(s)) {
+      if (s.mode === "practice" && s.trainSubMode === "timed-drill") {
         regenerateScramble();
       } else {
-        solvePanel?.updateSolveScrambleDisplay?.(s.currentSolveScramble);
-        const is333Case = (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") && ["f2l", "oll", "pll"].includes(s.solveTarget);
-        const displayScr = (s.alwaysWhiteBottom && is333Case) ? `z2 ${s.currentSolveScramble}` : s.currentSolveScramble;
-        cubeStage?.applyScrambleToDisplay?.(displayScr);
-        cubeStage?.applyReflection?.();
-        if (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") {
-          widgets?.updateCrossSolutions?.(s.currentSolveScramble);
-        } else if (s.currentPuzzle === "222") {
-          widgets?.updateLayerSolutions?.(s.currentSolveScramble);
-        }
+        restoreOrRegenerateTimerScramble();
       }
     } else if (s.mode === "study") {
       cubeStage?.resetCubeOrientation?.();
@@ -470,12 +609,25 @@ export function createNavController({
       matchingSessions = [newSess];
       appStore.saveSessions();
     }
-    s.activeSessionId = matchingSessions[0].id;
+    if (s.mode === "solve") {
+      const fullSess = matchingSessions.find(sess => (sess.target || "full") === "full");
+      if (fullSess) {
+        s.activeSessionId = fullSess.id;
+      } else {
+        appStore.selectOrCreateSessionForTarget("full");
+      }
+    } else {
+      s.activeSessionId = matchingSessions[0].id;
+    }
     const activeSess = appStore.getActiveSession();
     s.lastSolve = activeSess.solves?.length ? activeSess.solves[activeSess.solves.length - 1] : null;
     s.solveTarget = activeSess.target || "full";
     s.solveShowCube = activeSess.showCube ?? true;
     s.solveInspection = activeSess.inspection ?? true;
+
+    if (s.mode === "practice" && s.trainSubMode === "timed-drill") {
+      ensureTimedDrillTargetAndSession();
+    }
 
     appStore.loadTrackSelection(s.currentPuzzle, s.currentTrackId);
     renderTrackBar();
@@ -494,6 +646,8 @@ export function createNavController({
 
     if (s.mode === "study") {
       getStudyView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+    } else if (isTimerViewMode(s)) {
+      regenerateScramble();
     } else if (s.mode === "practice") {
       getPracticeView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     } else if (s.mode === "simulate") {
@@ -513,7 +667,7 @@ export function createNavController({
     s.scrambleMoves = scr;
     s.scramble = displayScr;
     cubeStage?.applyScrambleToDisplay?.(displayScr);
-    if (s.mode === "solve") {
+    if (isTimerViewMode(s)) {
       solvePanel?.updateSolveScrambleDisplay?.(scr);
       if (solveScrambleSubtext && subtext) {
         solveScrambleSubtext.hidden = false;
@@ -525,17 +679,24 @@ export function createNavController({
   }
 
   /** Fetch an async WCA scramble and ignore stale resolutions after rapid puzzle/mode switches. */
-  function requestAsyncWcaScramble(token, expectedPuzzle, expectedMode, onExtraUpdate = null) {
+  function requestAsyncWcaScramble(token, expectedPuzzle, expectedTimerActive, onExtraUpdate = null) {
     const s = appStore.state;
+    const expectedMode = s.mode;
+    const expectedSubMode = s.trainSubMode;
     const solvePanel = getSolvePanelView();
     const scrTextEl = typeof document !== "undefined" ? document.getElementById("solveScrambleText") : null;
-    if (expectedMode === "solve" && scrTextEl) {
+    if (expectedTimerActive && scrTextEl) {
       scrTextEl.textContent = "Generating scramble...";
     }
     generateWcaScrambleForPuzzle(expectedPuzzle).then(wcaScr => {
-      if (token !== scrambleGenToken || appStore.state.currentPuzzle !== expectedPuzzle || appStore.state.mode !== expectedMode) return;
+      if (
+        token !== scrambleGenToken ||
+        appStore.state.currentPuzzle !== expectedPuzzle ||
+        appStore.state.mode !== expectedMode ||
+        appStore.state.trainSubMode !== expectedSubMode
+      ) return;
       cubeStage?.applyScrambleToDisplay?.(wcaScr);
-      if (expectedMode === "solve") {
+      if (expectedTimerActive) {
         solvePanel?.updateSolveScrambleDisplay?.(wcaScr);
         onExtraUpdate?.(wcaScr);
       } else {
@@ -551,7 +712,7 @@ export function createNavController({
     const token = ++scrambleGenToken;
     const s = appStore.state;
     const expectedPuzzle = s.currentPuzzle;
-    const expectedMode = s.mode;
+    const timerActive = isTimerViewMode(s);
     const solvePanel = getSolvePanelView();
     const widgets = getSolverWidgets();
     const hasCases = s.selectedCases.size > 0;
@@ -563,7 +724,7 @@ export function createNavController({
     updateSolveOrientationLabel();
     solvePanel?.renderTimerDrillBanner?.();
 
-    if (s.mode === "solve" && s.solveTarget === "timer-drill") {
+    if (timerActive && s.solveTarget === "timer-drill") {
       const preset = resolveTimerDrillPreset(s.timerDrillPreset);
       s.timerDrillPreset = preset.id;
       s.currentCaseId = null;
@@ -580,7 +741,7 @@ export function createNavController({
     }
 
     if (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") {
-      if (s.mode === "solve" && ["pll", "oll", "f2l"].includes(s.solveTarget)) {
+      if (timerActive && ["pll", "oll", "f2l"].includes(s.solveTarget)) {
         const track = getTrack(s.currentPuzzle, s.solveTarget);
         const active = track.cases.filter(c => s.selectedCases.has(c.id));
         const pool = active.length > 0 ? active : track.cases;
@@ -592,7 +753,7 @@ export function createNavController({
         return;
       }
 
-      if (s.mode !== "solve") {
+      if (!timerActive) {
         const track = getTrack(s.currentPuzzle, s.currentTrackId);
         if (track && track.cases.length > 0) {
           const active = track.cases.filter(c => s.selectedCases.has(c.id));
@@ -604,7 +765,7 @@ export function createNavController({
         }
       }
 
-      requestAsyncWcaScramble(token, expectedPuzzle, expectedMode, (wcaScr) => {
+      requestAsyncWcaScramble(token, expectedPuzzle, timerActive, (wcaScr) => {
         widgets?.updateCrossSolutions?.(wcaScr);
       });
       getStatsCtrl()?.updateStatsTable?.();
@@ -613,7 +774,7 @@ export function createNavController({
 
     if (s.currentPuzzle === "444" || s.currentPuzzle === "555") {
       const pLabel = s.currentPuzzle === "444" ? "4x4" : "5x5";
-      if ((s.mode === "solve" && s.solveTarget === "parity") || (s.mode !== "solve" && hasCases)) {
+      if ((timerActive && s.solveTarget === "parity") || (!timerActive && hasCases)) {
         const track = getTrack(s.currentPuzzle, "parity");
         const active = track.cases.filter(c => s.selectedCases.has(c.id));
         const pool = active.length > 0 ? active : track.cases;
@@ -621,9 +782,9 @@ export function createNavController({
         const scr = (c.scrambles && c.scrambles.length > 0)
           ? c.scrambles[Math.floor(Math.random() * c.scrambles.length)]
           : (c.setup || c.scramble);
-        applyCaseSelectionScramble(c, scr, s.mode === "solve" ? `${pLabel} Parity Case: ${c.name} (${c.group})` : null);
+        applyCaseSelectionScramble(c, scr, timerActive ? `${pLabel} Parity Case: ${c.name} (${c.group})` : null);
       } else {
-        requestAsyncWcaScramble(token, expectedPuzzle, expectedMode);
+        requestAsyncWcaScramble(token, expectedPuzzle, timerActive);
       }
       getStatsCtrl()?.updateStatsTable?.();
       return;
@@ -641,18 +802,18 @@ export function createNavController({
         updateSolveOrientationLabel("");
       } else {
         updateSolveOrientationLabel("(WCA orientation)");
-        requestAsyncWcaScramble(token, expectedPuzzle, expectedMode);
+        requestAsyncWcaScramble(token, expectedPuzzle, timerActive);
       }
       getStatsCtrl()?.updateStatsTable?.();
       return;
     }
 
     // 2x2x2
-    const is222CaseTarget = s.mode === "solve" && ["lbl", "cll", "eg1", "eg2"].includes(s.solveTarget);
-    if (s.mode === "solve" && !is222CaseTarget) {
+    const is222CaseTarget = timerActive && ["lbl", "cll", "eg1", "eg2"].includes(s.solveTarget);
+    if (timerActive && !is222CaseTarget) {
       if (s.solveTarget === "face") widgets?.setLayerSolutionMode?.("face");
       else if (s.solveTarget === "layer") widgets?.setLayerSolutionMode?.("layer");
-      requestAsyncWcaScramble(token, "222", "solve", (wcaScr) => {
+      requestAsyncWcaScramble(token, "222", true, (wcaScr) => {
         widgets?.updateLayerSolutions?.(wcaScr);
       });
       getStatsCtrl()?.updateStatsTable?.();
@@ -668,7 +829,7 @@ export function createNavController({
       };
     }
 
-    if (s.mode === "solve" && is222CaseTarget) {
+    if (timerActive && is222CaseTarget) {
       const targetTrack = getTrack("222", s.solveTarget);
       if (s.currentTrackId !== s.solveTarget && targetTrack) {
         s.currentTrackId = s.solveTarget;
@@ -721,7 +882,7 @@ export function createNavController({
       s.scrambleMoves = res.scrambleMoves;
       s.scramble = res.scramble;
       cubeStage?.applyScrambleToDisplay?.(s.scramble);
-      if (s.mode === "solve") {
+      if (timerActive) {
         solvePanel?.updateSolveScrambleDisplay?.(s.scrambleMoves);
         widgets?.updateLayerSolutions?.(s.scrambleMoves);
       }
@@ -827,10 +988,16 @@ export function createNavController({
     btn.addEventListener("click", () => setMode(btn.dataset.mode));
   });
 
+  trainSubmodeBar?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-train-submode]");
+    const sub = btn?.dataset.trainSubmode;
+    if (sub) setTrainSubMode(sub);
+  });
+
   if (regenerateBtn) {
     regenerateBtn.addEventListener("click", () => {
       const s = appStore.state;
-      if (s.mode === "practice") {
+      if (s.mode === "practice" && !isTimerViewMode(s)) {
         const pv = getPracticeView();
         if (pv) {
           if (pv.sprintRunning) void pv.advanceSprintScramble();
@@ -850,6 +1017,7 @@ export function createNavController({
     setSolveTarget,
     setTrack,
     setMode,
+    setTrainSubMode,
     setPuzzle,
     regenerateScramble,
     generatePracticeScramble,

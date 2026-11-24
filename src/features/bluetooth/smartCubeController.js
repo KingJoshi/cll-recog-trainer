@@ -7,6 +7,7 @@ import { GyroOrientationTracker } from '../../cube/gyroTracker.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
 import { playScrambleCompleteChime, playDisconnectAlertSound } from '../../services/audioService.js';
 import { showToast } from '../../ui/toastService.js';
+import { isTimerViewMode } from '../../state/appStore.js';
 
 const SCRAMBLE_CORRECTION_DELAY_MS = 180;
 
@@ -191,7 +192,7 @@ export function createSmartCubeController({
     const solveFirstMoveTs = timerCtrl?.getFirstMoveTs?.() || 0;
     const solveCubeSolvedTs = timerCtrl?.getCubeSolvedTs?.() || 0;
 
-    smartCubeSolveIndicator.hidden = !st.connected || s.mode !== "solve";
+    smartCubeSolveIndicator.hidden = !st.connected || !isTimerViewMode(s);
     if (!st.connected) return;
 
     const isNeedsReset = smartCubeStage === "needs_reset";
@@ -395,10 +396,10 @@ export function createSmartCubeController({
     if (btLiveStreamWrap) btLiveStreamWrap.hidden = !st.connected;
     if (btVirtualKeypad) btVirtualKeypad.hidden = !st.connected || !st.isVirtual;
 
-    if (smartCubeSolveIndicator) smartCubeSolveIndicator.hidden = !st.connected || s.mode !== "solve";
+    if (smartCubeSolveIndicator) smartCubeSolveIndicator.hidden = !st.connected || !isTimerViewMode(s);
     updateSmartCubeIndicator();
 
-    if (st.connected && s.mode === "solve" && smartCubeStage === "scrambling" && !scrambleTracker.isComplete()) {
+    if (st.connected && isTimerViewMode(s) && smartCubeStage === "scrambling" && !scrambleTracker.isComplete()) {
       if (!scrambleTracker.rawScramble || scrambleTracker.rawScramble !== s.currentSolveScramble) {
         scrambleTracker.reset(s.currentSolveScramble);
         smartCube.logDiag("SCRAMBLE_SYNC_RESET", { scramble: s.currentSolveScramble });
@@ -615,7 +616,7 @@ export function createSmartCubeController({
     latestGyroQuat = null;
     const { reason, deviceName, isVirtual } = e.detail || {};
     if (isVirtual) return;
-    if (reason !== "manual" || appStore.state.mode === "solve") {
+    if (reason !== "manual" || isTimerViewMode(appStore.state)) {
       const alertView = getDisconnectAlertView();
       alertView?.setCubeAlert?.({ deviceName: deviceName || "Smart Cube" });
       playDisconnectAlertSound();
@@ -633,7 +634,7 @@ export function createSmartCubeController({
     latestGyroQuat = quat;
     const s = appStore.state;
     const timerCtrl = getTimerCtrl();
-    if (s.mode === "solve" && timerCtrl?.getSolveState?.() === "running") {
+    if (isTimerViewMode(s) && timerCtrl?.getSolveState?.() === "running") {
       const res = gyroTracker.update(quat);
       if (res.changed && res.rotations.length > 0) {
         for (const rot of res.rotations) {
@@ -666,7 +667,7 @@ export function createSmartCubeController({
 
     const s = appStore.state;
     const timerCtrl = getTimerCtrl();
-    if (s.mode === "solve" && timerCtrl) {
+    if (isTimerViewMode(s) && timerCtrl) {
       const isRotation = /^[xyz]/i.test(move);
       const solveState = timerCtrl.getSolveState();
 
