@@ -325,11 +325,11 @@ export function parseBackupJson(text) {
     throw new Error("Invalid JSON file: could not parse backup.");
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Selected file is not a valid Speedcube Trainer backup.");
+    throw new Error("Selected file is not a valid Cubing.cc backup.");
   }
   const hasKnownKey = BACKUP_RECOGNIZED_KEYS.some(k => parsed[k] !== undefined);
   if (!hasKnownKey) {
-    throw new Error("Selected file does not contain Speedcube Trainer backup data.");
+    throw new Error("Selected file does not contain Cubing.cc backup data.");
   }
   return parsed;
 }

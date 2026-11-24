@@ -73,3 +73,21 @@ test('vite.config.js excludes /privacy and /terms from PWA navigateFallback', ()
   const viteConfig = readText('vite.config.js');
   assert.match(viteConfig, /navigateFallbackDenylist\s*:\s*\[[^\]]*\\\/privacy[^\]]*\\\/terms/);
 });
+
+test('App branding uses Cubing.cc across index.html, PWA manifest, and legal pages', () => {
+  const indexHtml = readText('index.html');
+  assert.match(indexHtml, /<title>Cubing\.cc /);
+  assert.match(indexHtml, /<h1 class="app-title" id="appTitle">Cubing\.cc<\/h1>/);
+
+  const viteConfig = readText('vite.config.js');
+  assert.match(viteConfig, /name:\s*'Cubing\.cc'/);
+  assert.match(viteConfig, /short_name:\s*'Cubing\.cc'/);
+
+  const privacyHtml = readText('public/privacy/index.html');
+  assert.match(privacyHtml, /<title>Privacy Policy — Cubing\.cc<\/title>/);
+  assert.doesNotMatch(privacyHtml, /Speedcube Trainer/);
+
+  const termsHtml = readText('public/terms/index.html');
+  assert.match(termsHtml, /<title>Terms of Service — Cubing\.cc<\/title>/);
+  assert.doesNotMatch(termsHtml, /Speedcube Trainer/);
+});

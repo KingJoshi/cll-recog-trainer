@@ -1,4 +1,4 @@
-# Speedcube Trainer (2x2 · 3x3 · OH · 4x4 · 5x5) — PWA
+# Cubing.cc (2x2 · 3x3 · OH · 4x4 · 5x5) — PWA
 
 An offline-ready Progressive Web App for multi-puzzle algorithm study, recognition drills, smart cube solve tracking, CFOP analytics, optimal first-layer/cross analysis, and 3D move-by-move replay across **2x2, 3x3, 3x3 One-Handed (OH), 4x4, and 5x5**.
 

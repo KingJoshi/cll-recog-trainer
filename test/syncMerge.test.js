@@ -388,8 +388,8 @@ test('statsMergeMode "max" merges recognition stats idempotently for JSON backup
 
 test('parseBackupJson validates input and importAndMergeBackup merges into AppStore idempotently', () => {
   assert.throws(() => parseBackupJson("{not json"), /Invalid JSON/);
-  assert.throws(() => parseBackupJson("[]"), /not a valid Speedcube Trainer backup/);
-  assert.throws(() => parseBackupJson('{"hello":"world"}'), /does not contain Speedcube Trainer backup data/);
+  assert.throws(() => parseBackupJson("[]"), /not a valid Cubing\.cc backup/);
+  assert.throws(() => parseBackupJson('{"hello":"world"}'), /does not contain Cubing\.cc backup data/);
 
   const prevLocal = globalThis.localStorage;
   const mem = new Map();

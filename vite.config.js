@@ -56,8 +56,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Speedcube Trainer',
-        short_name: 'CubeTrainer',
+        name: 'Cubing.cc',
+        short_name: 'Cubing.cc',
         description: 'Multi-puzzle 2x2-5x5 speedcube recognition, algorithm study, smart cube timer & 3D replay trainer',
         theme_color: '#007bff',
         background_color: '#ffffff',
