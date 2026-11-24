@@ -12,6 +12,7 @@ import { modalManager } from './ui/modalManager.js';
 import { showToast } from './ui/toastService.js';
 import { initSyncTracking } from './services/syncStorage.js';
 import { GoogleDriveSyncService } from './services/googleDriveSync.js';
+import { OneDriveSyncService } from './services/oneDriveSync.js';
 import { createCloudSyncController, formatMergeSummary } from './features/sync/cloudSyncController.js';
 import { createPwaInstallController } from './features/pwa/pwaInstallController.js';
 import { createKeyboardRouter } from './ui/keyboardRouter.js';
@@ -764,43 +765,61 @@ function refreshAllViewsAfterHydrate() {
 
 initSyncTracking(appStore, { onPreferredAlgChange });
 
-const googleDriveSync = new GoogleDriveSyncService({
-  appStore,
-  onDataHydrated: (summary, _merged, reason) => {
-    refreshAllViewsAfterHydrate();
-    if (reason === "startup" || reason === "visibility" || reason === "focus" || reason === "online") {
-      const msg = formatMergeSummary(summary);
-      if (msg && msg !== "Up to date") {
-        showToast(`Synced from Google Drive · ${msg}`, "info", 3200);
-      }
+function handleCloudDataHydrated(providerLabel, summary, reason) {
+  refreshAllViewsAfterHydrate();
+  if (reason === "startup" || reason === "visibility" || reason === "focus" || reason === "online") {
+    const msg = formatMergeSummary(summary);
+    if (msg && msg !== "Up to date") {
+      showToast(`Synced from ${providerLabel} · ${msg}`, "info", 3200);
     }
   }
+}
+
+const googleDriveSync = new GoogleDriveSyncService({
+  appStore,
+  onDataHydrated: (summary, _merged, reason) => handleCloudDataHydrated("Google Drive", summary, reason)
 });
+
+const oneDriveSync = new OneDriveSyncService({
+  appStore,
+  onDataHydrated: (summary, _merged, reason) => handleCloudDataHydrated("Microsoft OneDrive", summary, reason)
+});
+
+const cloudSyncServices = [googleDriveSync, oneDriveSync];
+
+function scheduleAllSignedInCloudSync() {
+  for (const svc of cloudSyncServices) {
+    if (svc.isSignedIn()) {
+      svc.scheduleAutoSync();
+    }
+  }
+}
 
 cloudSyncCtrl = createCloudSyncController({
   googleDriveSync,
+  oneDriveSync,
   appStore,
   modalManager,
   onCloseSettingsModal: () => settingsModal?.close?.(),
   onBackupImported: () => {
     refreshAllViewsAfterHydrate();
-    googleDriveSync.scheduleAutoSync();
+    scheduleAllSignedInCloudSync();
   }
 });
 
 appStore.subscribe((evt) => {
   if (evt === "persist") {
-    googleDriveSync.scheduleAutoSync();
+    scheduleAllSignedInCloudSync();
   }
 });
 
 onPreferredAlgChange(() => {
-  googleDriveSync.scheduleAutoSync();
+  scheduleAllSignedInCloudSync();
 });
 
 smartCube.addEventListener("savedcubeschange", (e) => {
   if (e?.detail?.cubes !== undefined) {
-    googleDriveSync.scheduleAutoSync();
+    scheduleAllSignedInCloudSync();
   }
 });
 
@@ -813,6 +832,8 @@ const pwaInstallCtrl = createPwaInstallController({
 });
 pwaInstallCtrl.init();
 
-if (googleDriveSync.isSignedIn() && googleDriveSync.getEffectiveClientId() && googleDriveSync.meta.autoSync !== false) {
-  void googleDriveSync.syncNow({ reason: "startup", interactive: false });
+for (const svc of cloudSyncServices) {
+  if (svc.isSignedIn() && svc.getEffectiveClientId() && svc.meta.autoSync !== false) {
+    void svc.syncNow({ reason: "startup", interactive: false });
+  }
 }

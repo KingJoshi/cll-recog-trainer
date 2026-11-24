@@ -59,6 +59,16 @@
     width: min(560px, 95vw);
 }
 
+.sync-provider-seg {
+    width: 100%;
+    margin-bottom: 14px;
+}
+
+.sync-provider-btn {
+    flex: 1 1 0;
+    text-align: center;
+}
+
 .sync-account-card {
     display: flex;
     align-items: center;

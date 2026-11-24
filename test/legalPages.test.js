@@ -33,6 +33,7 @@ test('Privacy Policy page exists at public/privacy/index.html with accurate disc
   assert.match(html, /<h1>\s*Privacy Policy\s*<\/h1>/);
   assert.match(html, /cubing\.cc/);
   assert.match(html, /https:\/\/www\.googleapis\.com\/auth\/drive\.appdata/);
+  assert.match(html, /Files\.ReadWrite\.AppFolder/);
   assert.match(html, /speedcube-trainer-sync\.json/);
   assert.match(html, /Google API Services User Data Policy/);
   assert.match(html, /Limited Use/);
@@ -69,9 +70,13 @@ test('index.html links Privacy Policy and Terms of Service in homepage footer an
   assert.match(cloudSyncSlice, /href="\/terms"/);
 });
 
-test('vite.config.js excludes /privacy and /terms from PWA navigateFallback', () => {
+test('vite.config.js excludes /privacy, /terms, and /auth/ from PWA navigateFallback and Microsoft callback exists', () => {
   const viteConfig = readText('vite.config.js');
-  assert.match(viteConfig, /navigateFallbackDenylist\s*:\s*\[[^\]]*\\\/privacy[^\]]*\\\/terms/);
+  assert.match(viteConfig, /navigateFallbackDenylist\s*:\s*\[[^\]]*\\\/privacy[^\]]*\\\/terms[^\]]*\\\/auth\\\//);
+
+  const msCallback = readText('public/auth/microsoft/index.html');
+  assert.match(msCallback, /cubing-ms-oauth-callback/);
+  assert.match(msCallback, /postMessage/);
 });
 
 test('App branding uses Cubing.cc across index.html, PWA manifest, and legal pages', () => {

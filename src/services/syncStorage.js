@@ -17,6 +17,10 @@ import { SYNC_SCHEMA_VERSION, canonicalStringify, mergeSyncPayloads } from './sy
 export const SYNC_META_KEY = "cll_gdrive_meta";
 export const SYNC_CLIENT_ID_KEY = "cll_gdrive_client_id";
 export const SYNC_TOKEN_SESSION_KEY = "cll_gdrive_token";
+export const SYNC_PROVIDER_KEY = "cll_sync_provider";
+export const ONEDRIVE_META_KEY = "cll_onedrive_meta";
+export const ONEDRIVE_CLIENT_ID_KEY = "cll_onedrive_client_id";
+export const ONEDRIVE_TOKEN_SESSION_KEY = "cll_onedrive_token";
 export const SYNC_TIMESTAMPS_KEY = "cll_sync_timestamps";
 export const SYNC_TOMBSTONES_KEY = "cll_sync_tombstones";
 export const SYNC_BASE_SNAPSHOT_KEY = "cll_sync_base_snapshot";
@@ -147,81 +151,134 @@ export function saveSyncBaseSnapshot(snapshot, accountSub = "") {
   });
 }
 
-export function loadSyncMeta() {
-  const raw = readStorageJSON(SYNC_META_KEY, null);
-  if (!raw || typeof raw !== "object") {
+function createProviderStorageHelpers({ metaKey, clientIdKey, tokenKey }) {
+  function loadMeta() {
+    const raw = readStorageJSON(metaKey, null);
+    if (!raw || typeof raw !== "object") {
+      return {
+        email: "",
+        name: "",
+        picture: "",
+        sub: "",
+        fileId: "",
+        lastSyncedAt: 0,
+        autoSync: true
+      };
+    }
     return {
-      email: "",
-      name: "",
-      picture: "",
-      sub: "",
-      fileId: "",
-      lastSyncedAt: 0,
-      autoSync: true
+      email: raw.email || "",
+      name: raw.name || "",
+      picture: raw.picture || "",
+      sub: raw.sub || "",
+      fileId: raw.fileId || "",
+      lastSyncedAt: Number(raw.lastSyncedAt || 0),
+      autoSync: raw.autoSync !== false
     };
   }
+
+  function saveMeta(meta) {
+    writeStorageJSON(metaKey, meta);
+  }
+
+  function clearMeta() {
+    removeStorageKey(metaKey);
+  }
+
+  function loadToken() {
+    return readSessionStorageJSON(tokenKey, null)
+      || readStorageJSON(tokenKey, null);
+  }
+
+  function saveToken(tokenObj) {
+    if (!tokenObj) {
+      clearToken();
+      return;
+    }
+    writeSessionStorageJSON(tokenKey, tokenObj);
+    writeStorageJSON(tokenKey, tokenObj);
+  }
+
+  function clearToken() {
+    if (hasSessionStorage()) {
+      try {
+        sessionStorage.removeItem(tokenKey);
+      } catch {}
+    }
+    removeStorageKey(tokenKey);
+  }
+
+  function loadClientId() {
+    const raw = readStorageJSON(clientIdKey, null);
+    if (typeof raw === "string") return raw.trim();
+    if (hasLocalStorage()) {
+      try {
+        const str = localStorage.getItem(clientIdKey);
+        if (str && !str.startsWith('"')) return str.trim();
+      } catch {}
+    }
+    return "";
+  }
+
+  function saveClientId(clientId) {
+    const clean = String(clientId || "").trim();
+    if (!clean) {
+      removeStorageKey(clientIdKey);
+      return;
+    }
+    writeStorageJSON(clientIdKey, clean);
+  }
+
   return {
-    email: raw.email || "",
-    name: raw.name || "",
-    picture: raw.picture || "",
-    sub: raw.sub || "",
-    fileId: raw.fileId || "",
-    lastSyncedAt: Number(raw.lastSyncedAt || 0),
-    autoSync: raw.autoSync !== false
+    loadMeta,
+    saveMeta,
+    clearMeta,
+    loadToken,
+    saveToken,
+    clearToken,
+    loadClientId,
+    saveClientId
   };
 }
 
-export function saveSyncMeta(meta) {
-  writeStorageJSON(SYNC_META_KEY, meta);
+const googleProviderStorage = createProviderStorageHelpers({
+  metaKey: SYNC_META_KEY,
+  clientIdKey: SYNC_CLIENT_ID_KEY,
+  tokenKey: SYNC_TOKEN_SESSION_KEY
+});
+
+const oneDriveProviderStorage = createProviderStorageHelpers({
+  metaKey: ONEDRIVE_META_KEY,
+  clientIdKey: ONEDRIVE_CLIENT_ID_KEY,
+  tokenKey: ONEDRIVE_TOKEN_SESSION_KEY
+});
+
+export function loadActiveSyncProvider() {
+  const raw = readStorageJSON(SYNC_PROVIDER_KEY, null);
+  return raw === "onedrive" ? "onedrive" : "google";
 }
 
-export function clearSyncMeta() {
-  removeStorageKey(SYNC_META_KEY);
+export function saveActiveSyncProvider(provider) {
+  const normalized = provider === "onedrive" ? "onedrive" : "google";
+  writeStorageJSON(SYNC_PROVIDER_KEY, normalized);
 }
 
-export function loadSessionToken() {
-  return readSessionStorageJSON(SYNC_TOKEN_SESSION_KEY, null)
-    || readStorageJSON(SYNC_TOKEN_SESSION_KEY, null);
-}
+export const loadSyncMeta = googleProviderStorage.loadMeta;
+export const saveSyncMeta = googleProviderStorage.saveMeta;
+export const clearSyncMeta = googleProviderStorage.clearMeta;
+export const loadSessionToken = googleProviderStorage.loadToken;
+export const saveSessionToken = googleProviderStorage.saveToken;
+export const clearSessionToken = googleProviderStorage.clearToken;
+export const loadStoredClientId = googleProviderStorage.loadClientId;
+export const saveStoredClientId = googleProviderStorage.saveClientId;
 
-export function saveSessionToken(tokenObj) {
-  if (!tokenObj) {
-    clearSessionToken();
-    return;
-  }
-  writeSessionStorageJSON(SYNC_TOKEN_SESSION_KEY, tokenObj);
-  writeStorageJSON(SYNC_TOKEN_SESSION_KEY, tokenObj);
-}
-
-export function clearSessionToken() {
-  if (hasSessionStorage()) {
-    try {
-      sessionStorage.removeItem(SYNC_TOKEN_SESSION_KEY);
-    } catch {}
-  }
-  removeStorageKey(SYNC_TOKEN_SESSION_KEY);
-}
-
-export function loadStoredClientId() {
-  const raw = readStorageJSON(SYNC_CLIENT_ID_KEY, null);
-  if (typeof raw === "string") return raw.trim();
-  if (hasLocalStorage()) {
-    try {
-      const str = localStorage.getItem(SYNC_CLIENT_ID_KEY);
-      if (str && !str.startsWith('"')) return str.trim();
-    } catch {}
-  }
-  return "";
-}
-
-export function saveStoredClientId(clientId) {
-  const clean = String(clientId || "").trim();
-  if (!clean) {
-    removeStorageKey(SYNC_CLIENT_ID_KEY);
-    return;
-  }
-  writeStorageJSON(SYNC_CLIENT_ID_KEY, clean);
-}
+export const loadOneDriveSyncMeta = oneDriveProviderStorage.loadMeta;
+export const saveOneDriveSyncMeta = oneDriveProviderStorage.saveMeta;
+export const clearOneDriveSyncMeta = oneDriveProviderStorage.clearMeta;
+export const loadOneDriveSessionToken = oneDriveProviderStorage.loadToken;
+export const saveOneDriveSessionToken = oneDriveProviderStorage.saveToken;
+export const clearOneDriveSessionToken = oneDriveProviderStorage.clearToken;
+export const loadStoredOneDriveClientId = oneDriveProviderStorage.loadClientId;
+export const saveStoredOneDriveClientId = oneDriveProviderStorage.saveClientId;
 
 function computeMaxUpdatedAt(timestamps, sessions) {
   let maxTs = 0;
