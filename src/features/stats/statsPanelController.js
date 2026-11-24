@@ -1,6 +1,8 @@
 // Stats Panel Controller: tab switching, collapsible drawer, single CSV export, and reset confirmation
 
 import { PUZZLES, getTrack, getSolveTargetInfo } from '../../data/algRegistry.js';
+import { ensureSolveCfop } from '../../cfopAnalyzer.js';
+import { ensureSolveTwoByTwo } from '../../twoByTwoAnalyzer.js';
 import { isTimerViewMode } from '../../state/appStore.js';
 import { exportSolvesToCSV, downloadCSV } from '../../services/solveStats.js';
 import { getSolveFingerprint } from '../../services/syncMerge.js';
@@ -90,6 +92,15 @@ export function createStatsPanelController({
     if (solves.length === 0) {
       showToast("No recorded solves in this session yet to export.", "warning");
       return;
+    }
+    const twoByTwoOpts = {
+      twoByTwoMethod: appStore.state.twoByTwoMethod || "cll",
+      layerTargetFaces: appStore.state.layerTargetFaces
+    };
+    for (const sv of solves) {
+      const puz = sv?.puzzle || sess?.puzzle || appStore.state.currentPuzzle;
+      if (puz === "222") ensureSolveTwoByTwo(sv, twoByTwoOpts);
+      else if (puz === "333" || puz === "333oh") ensureSolveCfop(sv);
     }
     const csvData = exportSolvesToCSV(solves, sess?.name || "Session");
     const filename = `${(sess?.name || "solves").toLowerCase().replace(/[^a-z0-9]/g, "-")}-${Date.now()}.csv`;

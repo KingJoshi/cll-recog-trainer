@@ -78,14 +78,52 @@ test('filterSolves, groupSolvesByCase, computeCaseStats, and computeStats aggreg
   assert.strictEqual(overall.best, 1500);
 });
 
-test('exportSolvesToCSV quotes fields with quotes safely and preserves +2 / DNF', () => {
+test('exportSolvesToCSV quotes fields with quotes safely, preserves +2 / DNF, and includes recon and 2x2 analysis columns', () => {
   const csv = exportSolvesToCSV([
-    { rawMs: 1200, penalty: '+2', puzzle: '222', track: 'cll', id: 'T1', scramble: 'R U "x"', at: 1700000000000 },
+    {
+      rawMs: 1200,
+      penalty: '+2',
+      puzzle: '222',
+      track: 'cll',
+      id: 'T1',
+      scramble: 'R U "x"',
+      at: 1700000000000,
+      moveCount: 8,
+      tps: 6.67,
+      moves: [
+        { move: 'R', t: 150, split: 150 },
+        { move: "U'", t: 300, split: 150 },
+        { move: 'U', t: 820, split: 520 },
+        { move: 'R', t: 1200, split: 380 }
+      ],
+      twoByTwo: {
+        method: 'cll',
+        layerColor: 'White',
+        splits: { layer: 300, cll: 750, auf: 150 },
+        cllCase: {
+          id: 'T1',
+          shortName: 'T1',
+          recogMs: 520,
+          setupMoves: 'U',
+          execMs: 230,
+          moveCount: 6
+        },
+        aufSummary: { caseId: 'U2', ms: 150 },
+        pauses: { totalCount: 1, totalMs: 520 },
+        steps: [
+          { phase: 'layer', label: '1st Layer', caseId: 'White', moveCount: 2, ms: 300, moves: "R U'" },
+          { phase: 'cll', label: 'CLL', caseId: 'T1', moveCount: 6, ms: 750, moves: 'U R' }
+        ]
+      }
+    },
     { rawMs: 2500, penalty: 'DNF', puzzle: '222', track: 'cll', id: 'H1', scramble: "R' U'", at: 1700000005000 }
   ]);
   const lines = csv.split('\r\n');
   assert.strictEqual(lines.length, 3);
+  assert.ok(lines[0].endsWith(',Move Count,TPS,Recon,Recon Timings(ms),2x2 Method,1st Layer Color,1st Layer(s),1st Layer Moves,CLL(s),CLL Case,CLL Recog(s),CLL Setup,CLL Exec(s),CLL Moves,AUF(s),AUF Moves,Analysis Steps'));
   assert.ok(lines[1].includes(',3.20,+2,1200,'));
   assert.ok(lines[1].includes('"R U ""x"""'));
+  assert.ok(lines[1].includes(',1,0.52,'));
+  assert.ok(lines[1].includes(',8,6.67,"R U\' U R","R@150 U\'@300 U@820 R@1200","cll","White",0.30,2,0.75,"T1",0.52,"U",0.23,6,0.15,"U2","1st Layer (White, 2m, 0.30s): R U\' | CLL (T1, 6m, 0.75s): U R | AUF (U2, 0.15s)"'));
   assert.ok(lines[2].includes(',DNF,DNF,2500,'));
 });

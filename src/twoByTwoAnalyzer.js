@@ -510,11 +510,13 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
       const nextMovePreservesLayer = layerEndIdx < N
         && Boolean(states[layerEndIdx + 1]?.layerOk && states[layerEndIdx + 1]?.layerColor === layerColor);
       const isTrivialEndLayer = layerEndIdx >= N;
+      const isRealCllCase = !isTrivialEndLayer && !cllCaseAtStart.isSkip;
 
       const score =
-        (endsSolvedSameColor ? 1000000 : 0) +
-        (!isTrivialEndLayer ? 50000 : 0) +
+        (isRealCllCase ? 500000 : 0) +
+        (!isTrivialEndLayer ? 100000 : 0) +
         (N - layerEndIdx) * 100 +
+        (endsSolvedSameColor ? 500 : 0) +
         (nextMovePreservesLayer ? 25 : 0) +
         colorPreferenceRank(layerColor) -
         cIdx;
@@ -544,10 +546,12 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
           break;
         }
       }
+      const isTrivialEndFace = faceEndIdx >= N;
       const score =
-        (endMatchedFace ? 1000000 : 0) +
+        (!isTrivialEndFace ? 100000 : 0) +
+        (ollEndIdx !== -1 && ollEndIdx < N ? 50000 : 0) +
         (N - faceEndIdx) * 100 +
-        (ollEndIdx !== -1 && ollEndIdx < N ? 2000 : 0) +
+        (endMatchedFace ? 500 : 0) +
         colorPreferenceRank(faceColor) -
         cIdx;
 

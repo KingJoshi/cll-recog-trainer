@@ -138,10 +138,46 @@ export function exportSolvesToCSV(solves = [], sessionName = "Session") {
     "Pickup(s)",
     "Cube Time(s)",
     "Putdown(s)",
-    "Timer"
+    "Timer",
+    "Move Count",
+    "TPS",
+    "Recon",
+    "Recon Timings(ms)",
+    "2x2 Method",
+    "1st Layer Color",
+    "1st Layer(s)",
+    "1st Layer Moves",
+    "CLL(s)",
+    "CLL Case",
+    "CLL Recog(s)",
+    "CLL Setup",
+    "CLL Exec(s)",
+    "CLL Moves",
+    "AUF(s)",
+    "AUF Moves",
+    "Analysis Steps"
   ];
 
   const fmtSec = (ms) => (typeof ms === "number" && Number.isFinite(ms) ? (ms / 1000).toFixed(2) : "");
+  const csvQuote = (val) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+
+  const formatAnalysisSteps = (s) => {
+    const analysis = s.twoByTwo || s.cfop;
+    if (!analysis || !Array.isArray(analysis.steps) || analysis.steps.length === 0) return "";
+    const parts = analysis.steps.map(st => {
+      const meta = [
+        st.caseId && st.caseId !== "-" ? st.caseId : "",
+        st.moveCount != null ? `${st.moveCount}m` : "",
+        st.ms != null ? `${fmtSec(st.ms)}s` : ""
+      ].filter(Boolean).join(", ");
+      const stepMoves = st.moves || st.execMoves || "";
+      return `${st.label || st.phase}${meta ? ` (${meta})` : ""}${stepMoves ? `: ${stepMoves}` : ""}`;
+    });
+    if (analysis.aufSummary && analysis.aufSummary.caseId && analysis.aufSummary.caseId !== "None") {
+      parts.push(`AUF (${analysis.aufSummary.caseId}, ${fmtSec(analysis.aufSummary.ms)}s)`);
+    }
+    return parts.join(" | ");
+  };
 
   const rows = solves.map((s, idx) => {
     const rawMs = (s.rawMs != null && Number.isFinite(s.rawMs))
@@ -155,8 +191,31 @@ export function exportSolvesToCSV(solves = [], sessionName = "Session") {
     const sp = s.cfop?.splits || {};
     const ollName = (s.cfop?.ollCase?.shortName || s.cfop?.ollCase?.id || "").replace(/"/g, '""');
     const pllName = (s.cfop?.pllCase?.shortName || s.cfop?.pllCase?.id || "").replace(/"/g, '""');
-    const pauseCount = s.cfop?.pauses?.totalCount != null ? s.cfop.pauses.totalCount : "";
-    const pauseSec = s.cfop?.pauses?.totalMs != null ? fmtSec(s.cfop.pauses.totalMs) : "";
+    const pauseInfo = s.cfop?.pauses ?? s.twoByTwo?.pauses;
+    const pauseCount = pauseInfo?.totalCount != null ? pauseInfo.totalCount : "";
+    const pauseSec = pauseInfo?.totalMs != null ? fmtSec(pauseInfo.totalMs) : "";
+
+    const movesArr = Array.isArray(s.moves) ? s.moves : [];
+    const moveCountVal = s.moveCount ?? (movesArr.length ? movesArr.length : "");
+    const tpsVal = s.tps ?? "";
+    const reconStr = movesArr.length ? movesArr.map(m => m.move).join(" ") : "";
+    const reconTimingsStr = movesArr.length ? movesArr.map(m => `${m.move}@${Math.round(m.t ?? 0)}`).join(" ") : "";
+
+    const two = s.twoByTwo;
+    const layerStep = two?.steps?.find(st => st.phase === "layer" || st.phase === "face");
+    const twoMethod = two?.method || "";
+    const twoLayerColor = two?.layerColor || "";
+    const twoLayerSec = fmtSec(two?.splits?.layer ?? two?.splits?.face);
+    const twoLayerMoves = layerStep?.moveCount ?? "";
+    const twoCllSec = fmtSec(two?.splits?.cll);
+    const twoCllCase = two?.cllCase?.shortName || two?.cllCase?.id || "";
+    const twoCllRecogSec = fmtSec(two?.cllCase?.recogMs);
+    const twoCllSetup = two?.cllCase?.setupMoves || "";
+    const twoCllExecSec = fmtSec(two?.cllCase?.execMs);
+    const twoCllMoves = two?.cllCase?.moveCount ?? "";
+    const twoAufSec = fmtSec(two?.splits?.auf);
+    const twoAufMoves = two?.aufSummary?.caseId || "";
+    const analysisStepsStr = formatAnalysisSteps(s);
 
     return [
       idx + 1,
@@ -184,7 +243,24 @@ export function exportSolvesToCSV(solves = [], sessionName = "Session") {
       fmtSec(s.pickupMs),
       fmtSec(s.cubeMs),
       fmtSec(s.putdownMs),
-      s.timer ? `"${String(s.timer).replace(/"/g, '""')}"` : ""
+      s.timer ? `"${String(s.timer).replace(/"/g, '""')}"` : "",
+      moveCountVal,
+      tpsVal,
+      csvQuote(reconStr),
+      csvQuote(reconTimingsStr),
+      csvQuote(twoMethod),
+      csvQuote(twoLayerColor),
+      twoLayerSec,
+      twoLayerMoves,
+      twoCllSec,
+      csvQuote(twoCllCase),
+      twoCllRecogSec,
+      csvQuote(twoCllSetup),
+      twoCllExecSec,
+      twoCllMoves,
+      twoAufSec,
+      csvQuote(twoAufMoves),
+      csvQuote(analysisStepsStr)
     ].join(",");
   });
 

@@ -465,13 +465,30 @@ export function createSmartCubeController({
 
   function getDiagnosticsExtraContext() {
     const timerCtrl = getTimerCtrl();
+    const activeSolves = appStore.getActiveSession()?.solves || [];
+    const recentSolves = activeSolves.slice(-5).map(sv => ({
+      at: sv.at,
+      puzzle: sv.puzzle,
+      target: sv.target,
+      ms: sv.ms,
+      rawMs: sv.rawMs,
+      cubeMs: sv.cubeMs,
+      moveCount: sv.moveCount,
+      tps: sv.tps,
+      scramble: sv.scramble,
+      moves: sv.moves,
+      twoByTwo: sv.twoByTwo || null,
+      cfop: sv.cfop || null
+    }));
     return {
       currentPuzzle: appStore.state.currentPuzzle,
       solveTarget: appStore.state.solveTarget,
+      twoByTwoMethod: appStore.state.twoByTwoMethod || "cll",
       smartCubeStage,
       solveState: timerCtrl?.getSolveState?.() || "idle",
       currentSolveScramble: appStore.state.currentSolveScramble,
-      scrambleTrackerStatus: scrambleTracker.getStatus()
+      scrambleTrackerStatus: scrambleTracker.getStatus(),
+      recentSolves
     };
   }
 

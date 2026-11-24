@@ -399,3 +399,37 @@ test('computeTwoByTwoAverages, computeCllCaseStats, CFOP breakdown renderer, ses
   const { merged } = mergeSyncPayloads(localSnap, remoteSnap);
   assert.strictEqual(merged.settings.twoByTwoMethod, "auto");
 });
+
+test('analyzeTwoByTwoSolve prefers real White CLL over trivial Yellow CLL Skip at end state', async () => {
+  await initTwoByTwoAnalyzer();
+
+  // Build White 1st Layer on physical F (x2 brings U->D, then x brings D->F => net rotation x').
+  // After executing T1 on B, finish with R L' (= x) so the cube ends in WCA solved (D=Yellow, F=Green),
+  // meaning at move N the F candidate is Green (Skip) while D is Yellow (Skip).
+  const t1Obj = cllCases.find(c => c.id === "T1");
+  const whiteToFMap = FACE_MAP_BY_ROT["x'"];
+  const cllOnB = t1Obj.algs[0].alg.trim().split(/\s+/).map(tok => {
+    const m = tok.match(/^([UDRLFB])([2']?)$/);
+    return `${whiteToFMap[m[1]]}${m[2]}`;
+  });
+  // Invert White->F frame so D' R U' R' builds White on F
+  const layerOnF = ["F'", "R", "B'", "R'"];
+  const allTokens = [...layerOnF, ...cllOnB, "R", "L'"];
+  const scramble = new Alg(allTokens.join(" ")).invert().toString();
+  const solve = {
+    puzzle: "222",
+    target: "full",
+    ms: 2100,
+    rawMs: 2100,
+    cubeMs: 2100,
+    scramble,
+    moves: buildTimedMoves(allTokens, { pauseAtIdx: layerOnF.length, pauseMs: 500, stepMs: 130 }),
+  };
+
+  const res = await analyzeTwoByTwoSolve(solve);
+  assert.ok(res);
+  assert.strictEqual(res.method, "cll");
+  assert.strictEqual(res.layerColor, "White");
+  assert.strictEqual(res.cllCase?.id, "T1");
+  assert.strictEqual(res.cllCase?.isSkip, false);
+});
