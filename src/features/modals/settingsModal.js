@@ -99,7 +99,7 @@ export function createSettingsModalController({
   const settingsOhHandRightBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandRightBtn") : null;
   const settingsOhTableOnBtn = typeof document !== "undefined" ? document.getElementById("settingsOhTableOnBtn") : null;
   const settingsOhTableOffBtn = typeof document !== "undefined" ? document.getElementById("settingsOhTableOffBtn") : null;
-  const settingsSpeedBtns = typeof document !== "undefined" ? Array.from(document.querySelectorAll(".settings-speed-btn")) : [];
+  const settingsSpeedBtns = typeof document !== "undefined" ? Array.from(document.querySelectorAll(".settings-speed-btn[data-settings-speed]")) : [];
 
   function setPickingColor(isPicking) {
     if (!modal) return;
@@ -596,7 +596,18 @@ export function createSettingsModalController({
   });
 
   appStore?.subscribe?.((evt) => {
-    if (evt === "theme" || evt === "ohHand" || evt === "ohTableAbuse" || evt === "simSpeed" || evt === "advancedMode" || evt === "focusMode" || evt === "widgetVisibility" || evt === "solveOptions") renderToggles();
+    if (
+      evt === "theme" ||
+      evt === "ohHand" ||
+      evt === "ohTableAbuse" ||
+      evt === "simSpeed" ||
+      evt === "advancedMode" ||
+      evt === "llAnalyticsMode" ||
+      evt === "desktopMultiPane" ||
+      evt === "focusMode" ||
+      evt === "widgetVisibility" ||
+      evt === "solveOptions"
+    ) renderToggles();
     else if (evt === "customEvents") renderCustomEvents();
     else if (evt === "hydrate") {
       renderColorPickers();
