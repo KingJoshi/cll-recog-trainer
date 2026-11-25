@@ -714,13 +714,13 @@
 
   .flb-case-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
     gap: 10px;
   }
 
   @media (min-width: 900px) {
     .flb-case-grid {
-      grid-template-columns: repeat(auto-fit, minmax(215px, 320px));
+      grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
     }
   }
 
