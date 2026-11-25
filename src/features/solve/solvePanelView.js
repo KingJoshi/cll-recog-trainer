@@ -185,6 +185,7 @@ export function createSolvePanelView({
   const solvePostSummary = typeof document !== "undefined" ? document.getElementById("solvePostSummary") : null;
   const solvePostReplayBtn = typeof document !== "undefined" ? document.getElementById("solvePostReplayBtn") : null;
   const solveStatsBar = typeof document !== "undefined" ? document.getElementById("solveStatsBar") : null;
+  const solveStepBreakdown = typeof document !== "undefined" ? document.getElementById("solveStepBreakdown") : null;
   const solveInlineRecentStats = typeof document !== "undefined" ? document.getElementById("solveInlineRecentStats") : null;
   const solveTimesEl = typeof document !== "undefined" ? document.getElementById("solveTimes") : null;
   const solveNewScrambleBtn = typeof document !== "undefined" ? document.getElementById("solveNewScrambleBtn") : null;
@@ -375,10 +376,14 @@ export function createSolvePanelView({
       if (phaseMeta) metaLine += ` · ${phaseMeta}`;
       const statsMode = s.statsDisplayMode || (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic"));
       if (solveCaseEl) {
-        solveCaseEl.innerHTML = `<div class="solve-case-meta">${metaLine}</div>` +
-          (statsMode === "advanced" && lastSolve.moves && lastSolve.moves.length > 0
-            ? renderLastSolveCfopInline(lastSolve, { basic: false, refMedians, twoByTwoMethod: s.twoByTwoMethod || "cll" })
-            : "");
+        solveCaseEl.innerHTML = `<div class="solve-case-meta">${metaLine}</div>`;
+      }
+      if (solveStepBreakdown) {
+        const advTableHtml = (statsMode === "advanced" && lastSolve.moves && lastSolve.moves.length > 0)
+          ? renderLastSolveCfopInline(lastSolve, { basic: false, refMedians, twoByTwoMethod: s.twoByTwoMethod || "cll" })
+          : "";
+        solveStepBreakdown.innerHTML = advTableHtml;
+        solveStepBreakdown.hidden = !advTableHtml;
       }
       if (solvePostSummary && solvePostReplayBtn) {
         const hasMoves = Boolean(lastSolve.moves && lastSolve.moves.length > 0);
@@ -393,6 +398,10 @@ export function createSolvePanelView({
         solveCaseEl.textContent = s.solveInspection
           ? "Scramble cube, then inspect & start timer."
           : "Scramble cube, then hold to arm & start timer.";
+      }
+      if (solveStepBreakdown) {
+        solveStepBreakdown.hidden = true;
+        solveStepBreakdown.innerHTML = "";
       }
       if (solvePostSummary) solvePostSummary.hidden = true;
     }
@@ -469,7 +478,11 @@ export function createSolvePanelView({
         solveInlineRecentStats.innerHTML = "";
       }
     }
-    solveSurface?.classList.toggle("has-inline-stats", Boolean(solveInlineRecentStats && !solveInlineRecentStats.hidden));
+    const hasInlineContent = Boolean(
+      (solveInlineRecentStats && !solveInlineRecentStats.hidden) ||
+      (!s.focusMode && solveStepBreakdown && !solveStepBreakdown.hidden)
+    );
+    solveSurface?.classList.toggle("has-inline-stats", hasInlineContent);
     if (typeof document !== "undefined") {
       const stageEl = document.querySelector(".stage");
       const cubeCardEl = document.querySelector(".cube-card");

@@ -53,11 +53,17 @@
 }
 
 .solve-surface.has-inline-stats,
-.solve-surface:has(#solveInlineRecentStats:not([hidden])) {
+.solve-surface:has(#solveInlineRecentStats:not([hidden])),
+.solve-surface:has(#solveStepBreakdown:not([hidden])) {
     padding: 12px;
     gap: 10px;
     background: var(--surface);
     border: 1px solid var(--border);
+}
+
+.solve-step-breakdown {
+    width: 100%;
+    min-width: 0;
 }
 
 .solve-timer-pad {
@@ -83,7 +89,8 @@
 }
 
 .solve-surface.has-inline-stats .solve-timer-pad,
-.solve-surface:has(#solveInlineRecentStats:not([hidden])) .solve-timer-pad {
+.solve-surface:has(#solveInlineRecentStats:not([hidden])) .solve-timer-pad,
+.solve-surface:has(#solveStepBreakdown:not([hidden])) .solve-timer-pad {
     border-radius: var(--radius-sm);
 }
 
@@ -1705,6 +1712,7 @@ body.is-focus-mode .stage.mode-solve #solveCustomScrambleBtn,
 body.is-focus-mode .stage.mode-solve #solveCustomScrambleRow,
 body.is-focus-mode .stage.mode-solve #layerSolutionsWidget,
 body.is-focus-mode .stage.mode-solve #crossSolutionsWidget,
+body.is-focus-mode .stage.mode-solve #solveStepBreakdown,
 body.is-focus-mode .stage.mode-solve #timerDrillBanner,
 body.is-focus-mode #statsPanel,
 body.is-focus-mode #regenerateBtn {
@@ -1759,11 +1767,14 @@ body.is-focus-mode .stage.mode-solve .solve-surface {
     min-height: 0;
     overflow-y: auto;
     padding: 0;
+    background: transparent;
+    border: 0;
 }
 
-body.is-focus-mode .stage.mode-solve .solve-surface.has-inline-stats,
 body.is-focus-mode .stage.mode-solve .solve-surface:has(#solveInlineRecentStats:not([hidden])) {
     padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
 }
 
 @media (max-width: 639.98px) {
