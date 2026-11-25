@@ -12,6 +12,8 @@ import { recordTombstone } from '../../services/syncStorage.js';
 import { showToast } from '../../ui/toastService.js';
 
 const PARTIAL_CUBE_TARGETS = new Set(["layer", "face", "cross", "f2l", "oll"]);
+const TOUCH_HOLD_MS = 300;
+const TOUCH_MOVE_CANCEL_PX = 10;
 
 export function createTimerController({
   appStore,
@@ -47,6 +49,15 @@ export function createTimerController({
   let solveWarning12Played = false;
   let overlayHideOnPointerUp = false;
   let swallowNextClick = false;
+  let pendingTouchHold = null; // { pointerId, startX, startY, timerId }
+
+  function clearPendingTouchHold() {
+    if (pendingTouchHold) {
+      clearTimeout(pendingTouchHold.timerId);
+      pendingTouchHold = null;
+    }
+    solveSurface?.classList.remove("is-touch-holding");
+  }
 
   // GAN Timer, Spacebar/Touch & Smart Cube split timestamps
   let solveTimerDriven = false;
@@ -389,6 +400,7 @@ export function createTimerController({
   }
 
   function cancelSolve() {
+    clearPendingTouchHold();
     solveState = "idle";
     stopMetronome();
     const scUi = getSmartCubeUi();
@@ -695,15 +707,44 @@ export function createTimerController({
 
   // Pointer & penalty button bindings
   solveSurface?.addEventListener("pointerdown", e => {
-    if (e.target.closest("button") || e.target.closest("input") || e.target.closest("label") || e.target.closest("select") || e.target.closest(".bt-disconnect-banner") || e.target.closest(".solve-inline-recent-stats")) return;
+    if (
+      e.target.closest("button") ||
+      e.target.closest("input") ||
+      e.target.closest("label") ||
+      e.target.closest("select") ||
+      e.target.closest(".bt-disconnect-banner") ||
+      e.target.closest(".solve-inline-recent-stats") ||
+      e.target.closest(".cfop-step-table-wrap") ||
+      e.target.closest(".solve-post-summary") ||
+      e.target.closest(".smart-cube-solve-indicator")
+    ) return;
     if (!isTimerViewMode(appStore.state) || solveState !== "idle") return;
-    e.preventDefault();
     if (smartCube.getStatus().connected && getSmartCubeUi()?.getSmartCubeStage?.() === "needs_reset") {
       showToast("Solve & reset your smart cube first (or click ↺ Cube Solved / Reset).", "warning", 3000);
       return;
     }
-    if (appStore.state.solveInspection) startSolveInspection();
-    else armSolve();
+
+    if (e.pointerType === "mouse") {
+      e.preventDefault();
+      if (appStore.state.solveInspection) startSolveInspection();
+      else armSolve();
+      return;
+    }
+
+    // On touch/pen, require a 300ms stationary hold so page scrolling never starts the timer
+    clearPendingTouchHold();
+    solveSurface.classList.add("is-touch-holding");
+    const pointerId = e.pointerId;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const timerId = setTimeout(() => {
+      if (!pendingTouchHold || pendingTouchHold.pointerId !== pointerId) return;
+      clearPendingTouchHold();
+      if (!isTimerViewMode(appStore.state) || solveState !== "idle") return;
+      if (appStore.state.solveInspection) startSolveInspection();
+      else armSolve();
+    }, TOUCH_HOLD_MS);
+    pendingTouchHold = { pointerId, startX, startY, timerId };
   });
 
   solveOverlay?.addEventListener("pointerdown", e => {
@@ -727,7 +768,14 @@ export function createTimerController({
   });
 
   if (typeof document !== "undefined") {
+    document.addEventListener("pointermove", e => {
+      if (!pendingTouchHold || e.pointerId !== pendingTouchHold.pointerId) return;
+      if (Math.hypot(e.clientX - pendingTouchHold.startX, e.clientY - pendingTouchHold.startY) > TOUCH_MOVE_CANCEL_PX) {
+        clearPendingTouchHold();
+      }
+    }, { passive: true });
     document.addEventListener("pointerup", () => {
+      clearPendingTouchHold();
       if (!isTimerViewMode(appStore.state)) return;
       clearTimeout(solveArmTimeout);
       if (solveState === "armed") {
@@ -739,6 +787,7 @@ export function createTimerController({
       }
     });
     document.addEventListener("pointercancel", () => {
+      clearPendingTouchHold();
       if (isTimerViewMode(appStore.state) && (solveState === "armed" || solveState === "inspecting")) {
         cancelSolve();
       }
