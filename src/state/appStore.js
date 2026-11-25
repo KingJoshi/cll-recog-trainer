@@ -61,6 +61,11 @@ export function sanitizeVisibleEvents(rawList, fallbackShowExtra = false) {
   return fallbackShowExtra ? [...ALL_BUILTIN_EVENT_IDS] : [...DEFAULT_VISIBLE_EVENTS];
 }
 export const MODES = ["study", "practice", "solve", "simulate"];
+export const VALID_TRAIN_SUBMODES = ["recog", "alg-drill", "timed-drill"];
+
+export function sanitizeTrainSubMode(val) {
+  return VALID_TRAIN_SUBMODES.includes(val) ? val : "recog";
+}
 export const LOG_PAGE_SIZE_OPTIONS = [5, 12, 25, 50, 100];
 export const SIM_SPEED_OPTIONS = [0.25, 0.5, 1, 1.5, 2];
 export const MAX_SOLVES = Infinity;
@@ -197,9 +202,7 @@ export class AppStore {
     }
 
     const hasSavedTrainSubMode = savedSettings.trainSubMode !== undefined || cookiePrefs.trainSubMode !== undefined;
-    let trainSubMode = (savedSettings.trainSubMode === "timed-drill" || cookiePrefs.trainSubMode === "timed-drill")
-      ? "timed-drill"
-      : "recog";
+    let trainSubMode = sanitizeTrainSubMode(savedSettings.trainSubMode ?? cookiePrefs.trainSubMode);
     if (!hasSavedTrainSubMode && savedSettings.mode === "solve" && solveTarget && solveTarget !== "full" && !PUZZLES[currentPuzzle]?.solveOnly) {
       mode = "practice";
       trainSubMode = "timed-drill";
@@ -861,7 +864,7 @@ export class AppStore {
   }
 
   setTrainSubMode(subMode) {
-    const next = subMode === "timed-drill" ? "timed-drill" : "recog";
+    const next = sanitizeTrainSubMode(subMode);
     if (this.state.trainSubMode === next) return;
     this.state.trainSubMode = next;
     this.saveSettings();
@@ -980,7 +983,7 @@ export class AppStore {
       pllMode: s.pllMode === "2look" ? "2look" : "full",
       llAnalyticsMode: (s.ollMode === "2look" && s.pllMode === "2look") ? "2look" : "full",
       twoByTwoMethod: ["cll", "auto", "ortega"].includes(s.twoByTwoMethod) ? s.twoByTwoMethod : "cll",
-      trainSubMode: s.trainSubMode === "timed-drill" ? "timed-drill" : "recog",
+      trainSubMode: sanitizeTrainSubMode(s.trainSubMode),
       desktopMultiPane: s.desktopMultiPane !== false,
       customEvents: sanitizeCustomEvents(s.customEvents),
       timerDrillPreset: s.timerDrillPreset,
@@ -1044,7 +1047,7 @@ export class AppStore {
       pllMode: s.pllMode === "2look" ? "2look" : "full",
       llAnalyticsMode: (s.ollMode === "2look" && s.pllMode === "2look") ? "2look" : "full",
       twoByTwoMethod: ["cll", "auto", "ortega"].includes(s.twoByTwoMethod) ? s.twoByTwoMethod : "cll",
-      trainSubMode: s.trainSubMode === "timed-drill" ? "timed-drill" : "recog",
+      trainSubMode: sanitizeTrainSubMode(s.trainSubMode),
       desktopMultiPane: s.desktopMultiPane !== false,
       timerDrillPreset: s.timerDrillPreset,
       layerTargetFaces: s.layerTargetFaces,
@@ -1192,7 +1195,7 @@ export class AppStore {
       s.llAnalyticsMode = (s.ollMode === "2look" && s.pllMode === "2look") ? "2look" : "full";
       const rawSynced222Method = savedSettings.twoByTwoMethod ?? s.twoByTwoMethod;
       s.twoByTwoMethod = ["cll", "auto", "ortega"].includes(rawSynced222Method) ? rawSynced222Method : "cll";
-      s.trainSubMode = savedSettings.trainSubMode === "timed-drill" ? "timed-drill" : "recog";
+      s.trainSubMode = sanitizeTrainSubMode(savedSettings.trainSubMode);
       s.desktopMultiPane = savedSettings.desktopMultiPane ?? s.desktopMultiPane ?? true;
       s.customEvents = hydratedCustomEvents;
       s.timerDrillPreset = savedSettings.timerDrillPreset || "righty";

@@ -71,6 +71,7 @@ export function createNavController({
   casePickerCtrl,
   getStudyView = () => null,
   getPracticeView = () => null,
+  getAlgDrillView = () => null,
   getSolvePanelView = () => null,
   getTimerCtrl = () => null,
   getSolverWidgets = () => null,
@@ -90,6 +91,7 @@ export function createNavController({
   const regenerateBtn = typeof document !== "undefined" ? document.getElementById("regenerateBtn") : null;
   const studyViewContainer = typeof document !== "undefined" ? document.getElementById("studyViewContainer") : null;
   const practiceViewContainer = typeof document !== "undefined" ? document.getElementById("practiceViewContainer") : null;
+  const algDrillContainer = typeof document !== "undefined" ? document.getElementById("algDrillContainer") : null;
   const simulatePanel = typeof document !== "undefined" ? document.getElementById("simulatePanel") : null;
   const solveScramble = typeof document !== "undefined" ? document.getElementById("solveScramble") : null;
   const solveScrambleSubtext = typeof document !== "undefined" ? document.getElementById("solveScrambleSubtext") : null;
@@ -233,8 +235,9 @@ export function createNavController({
       return;
     }
 
+    const isAlgDrill = s.mode === "practice" && s.trainSubMode === "alg-drill";
     const visibleTracks = s.mode === "practice"
-      ? pData.tracks.filter(t => !t.studyOnly)
+      ? pData.tracks.filter(t => !t.studyOnly && (!isAlgDrill || (t.cases && t.cases.length > 0)))
       : s.mode === "study"
         ? pData.tracks.filter(t => !t.practiceOnly)
         : pData.tracks;
@@ -286,10 +289,12 @@ export function createNavController({
     const simulating = s.mode === "simulate";
     const studying = s.mode === "study";
     const solving = isTimerViewMode(s);
-    const practicing = s.mode === "practice" && !solving;
+    const algDrilling = s.mode === "practice" && s.trainSubMode === "alg-drill";
+    const practicing = s.mode === "practice" && !solving && !algDrilling;
 
     if (studyViewContainer) studyViewContainer.hidden = !studying;
     if (practiceViewContainer) practiceViewContainer.hidden = !practicing;
+    if (algDrillContainer) algDrillContainer.hidden = !algDrilling;
 
     if (simulatePanel) simulatePanel.hidden = !simulating;
     if (simulating) {
@@ -299,6 +304,7 @@ export function createNavController({
 
     if (studying) getStudyView()?.render?.();
     if (practicing) getPracticeView()?.render?.();
+    if (algDrilling) getAlgDrillView()?.render?.();
 
     if (regenerateBtn) regenerateBtn.hidden = true;
 
@@ -315,7 +321,7 @@ export function createNavController({
     }
     if (emptyState && practicing) {
       emptyState.hidden = !hasTrackCases || hasCases;
-    } else if (emptyState && !practicing) {
+    } else if (emptyState) {
       emptyState.hidden = true;
     }
     if (resetOrientationBtn && cubeCard) {
@@ -350,7 +356,8 @@ export function createNavController({
     if (stage) {
       stage.classList.toggle("mode-solve", solving);
       stage.classList.toggle("mode-study", studying);
-      stage.classList.toggle("mode-practice", practicing);
+      stage.classList.toggle("mode-practice", practicing || algDrilling);
+      stage.classList.toggle("mode-alg-drill", algDrilling);
       stage.classList.toggle("mode-simulate", simulating);
       stage.classList.toggle("mode-timed", false);
       stage.dataset.mode = s.mode;
@@ -376,7 +383,7 @@ export function createNavController({
       return;
     }
     solvePanel?.updateSolveScrambleDisplay?.(s.currentSolveScramble);
-    const is333Case = (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") && ["f2l", "oll", "pll"].includes(s.solveTarget);
+    const is333Case = (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") && ["f2l", "oll", "pll", "coll", "cmll", "wv"].includes(s.solveTarget);
     const displayScr = (s.alwaysWhiteBottom && is333Case) ? `z2 ${s.currentSolveScramble}` : s.currentSolveScramble;
     cubeStage?.applyScrambleToDisplay?.(displayScr);
     cubeStage?.applyReflection?.();
@@ -390,7 +397,7 @@ export function createNavController({
   function setTrainSubMode(subMode) {
     const s = appStore.state;
     if (PUZZLES[s.currentPuzzle]?.solveOnly || PUZZLES[s.currentPuzzle]?.hideSimulate) return false;
-    const next = subMode === "timed-drill" ? "timed-drill" : "recog";
+    const next = ["timed-drill", "alg-drill"].includes(subMode) ? subMode : "recog";
     if (s.mode === "practice" && s.trainSubMode === next) return false;
     ++scrambleGenToken;
 
@@ -400,8 +407,11 @@ export function createNavController({
     }
     cubeStage?.setTwoSidedCameraLock?.(false);
 
-    if (next === "timed-drill") {
+    if (next !== "recog") {
       getPracticeView()?.deactivate?.();
+    }
+    if (next !== "alg-drill") {
+      getAlgDrillView()?.deactivate?.();
     }
 
     s.trainSubMode = next;
@@ -413,6 +423,18 @@ export function createNavController({
         ensureTimedDrillTargetAndSession();
       } else {
         s.statsType = "recog";
+        if (next === "alg-drill") {
+          const curTrack = getTrack(s.currentPuzzle, s.currentTrackId);
+          if (!curTrack || !curTrack.cases?.length) {
+            const firstCaseTrack = (PUZZLES[s.currentPuzzle]?.tracks || []).find(t => !t.studyOnly && t.cases?.length > 0);
+            if (firstCaseTrack) {
+              s.currentTrackId = firstCaseTrack.id;
+              appStore.loadTrackSelection(s.currentPuzzle, s.currentTrackId);
+              casePickerCtrl?.buildCasePicker?.();
+              casePickerCtrl?.renderSelection?.();
+            }
+          }
+        }
       }
     }
 
@@ -428,6 +450,8 @@ export function createNavController({
     if (s.mode === "practice") {
       if (next === "timed-drill") {
         regenerateScramble();
+      } else if (next === "alg-drill") {
+        getAlgDrillView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
       } else {
         getPracticeView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
       }
@@ -498,13 +522,15 @@ export function createNavController({
 
     if (s.mode === "study") {
       getStudyView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+    } else if (s.mode === "practice" && s.trainSubMode === "alg-drill") {
+      getAlgDrillView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     } else if (s.mode === "practice" && !isTimerViewMode(s)) {
       getPracticeView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     }
 
     appStore.saveSettings();
     if (isTimerViewMode(s)) {
-      if (["cross", "face", "layer", "lbl", "pll", "oll", "f2l", "cll", "eg1", "eg2", "parity"].includes(trackId)) {
+      if (["cross", "face", "layer", "lbl", "pll", "oll", "f2l", "coll", "cmll", "wv", "cll", "eg1", "eg2", "parity"].includes(trackId)) {
         s.solveTarget = trackId;
       }
       if (s.currentPuzzle === "222" && (trackId === "face" || trackId === "layer")) {
@@ -541,9 +567,12 @@ export function createNavController({
     if (prevMode === "study" && next !== "study") {
       getStudyView()?.deactivate?.();
     }
-    if (prevMode === "practice" && (next !== "practice" || s.trainSubMode === "timed-drill")) {
+    if (prevMode === "practice" && (next !== "practice" || s.trainSubMode !== "recog")) {
       getPracticeView()?.deactivate?.();
       cubeStage?.setTwoSidedCameraLock?.(false);
+    }
+    if (prevMode === "practice" && next !== "practice" && s.trainSubMode === "alg-drill") {
+      getAlgDrillView()?.deactivate?.();
     }
     if (prevMode === "simulate" && next !== "simulate") {
       getSimulatorCtrl()?.simTeardown?.();
@@ -611,6 +640,8 @@ export function createNavController({
     } else if (s.mode === "study") {
       cubeStage?.resetCubeOrientation?.();
       getStudyView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+    } else if (s.mode === "practice" && s.trainSubMode === "alg-drill") {
+      getAlgDrillView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     } else if (s.mode === "practice") {
       getPracticeView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     }
@@ -704,6 +735,10 @@ export function createNavController({
       getStudyView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     } else if (isTimerViewMode(s)) {
       regenerateScramble();
+    } else if (s.mode === "practice" && s.trainSubMode === "alg-drill") {
+      getAlgDrillView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+    } else if (s.mode === "practice" && s.trainSubMode === "alg-drill") {
+      getAlgDrillView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     } else if (s.mode === "practice") {
       getPracticeView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     } else if (s.mode === "simulate") {
@@ -797,12 +832,13 @@ export function createNavController({
     }
 
     if (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") {
-      if (timerActive && ["pll", "oll", "f2l"].includes(s.solveTarget)) {
+      if (timerActive && ["pll", "oll", "f2l", "coll", "cmll", "wv"].includes(s.solveTarget)) {
         const track = getTrack(s.currentPuzzle, s.solveTarget);
         const active = track.cases.filter(c => s.selectedCases.has(c.id));
         const pool = active.length > 0 ? active : track.cases;
         const c = pool[Math.floor(Math.random() * pool.length)];
-        const labelPrefix = s.solveTarget === "pll" ? "PLL Case" : s.solveTarget === "oll" ? "OLL Case" : "F2L Case";
+        const labelPrefixMap = { pll: "PLL Case", oll: "OLL Case", f2l: "F2L Case", coll: "COLL Case", cmll: "CMLL Case", wv: "WV Case" };
+        const labelPrefix = labelPrefixMap[s.solveTarget] || "Case";
         const labelName = s.solveTarget === "pll" ? c.name : c.id;
         applyCaseSelectionScramble(c, c.setup, `${labelPrefix}: ${labelName} (${c.group})`, "(white on bottom)");
         getStatsCtrl()?.updateStatsTable?.();
@@ -1066,6 +1102,38 @@ export function createNavController({
     });
   }
 
+  function startAlgDrill({ puzzleId = null, trackId = null, caseIds = [] } = {}) {
+    const s = appStore.state;
+    if (puzzleId && puzzleId !== s.currentPuzzle) {
+      setPuzzle(puzzleId);
+    }
+    if (s.mode !== "practice") {
+      s.trainSubMode = "alg-drill";
+      setMode("practice");
+    } else if (s.trainSubMode !== "alg-drill") {
+      setTrainSubMode("alg-drill");
+    }
+    if (trackId && trackId !== s.currentTrackId && getTrack(s.currentPuzzle, trackId)) {
+      setTrack(trackId);
+    }
+    const drillView = getAlgDrillView();
+    if (Array.isArray(caseIds) && caseIds.length > 0) {
+      if (drillView) {
+        drillView.setCasePool(caseIds);
+      } else {
+        s.selectedCases = new Set(caseIds);
+        appStore.saveTrackSelection(s.currentPuzzle, s.currentTrackId);
+        casePickerCtrl?.renderSelection?.();
+      }
+    } else {
+      drillView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+    }
+    renderStage();
+    if (algDrillContainer && typeof algDrillContainer.scrollIntoView === "function") {
+      algDrillContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
+
   return {
     renderPuzzleButtons,
     renderTrackBar,
@@ -1075,6 +1143,7 @@ export function createNavController({
     setMode,
     setTrainSubMode,
     setPuzzle,
+    startAlgDrill,
     regenerateScramble,
     generatePracticeScramble,
     updateSolveOrientationLabel

@@ -160,7 +160,7 @@ export class StudyView {
       : (fallbackAlg ? [{ id: `${c.id}-default`, alg: fallbackAlg, note: '' }] : []);
 
     const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
-    const needsZ2 = whiteBottom && ["lbl", "cll", "ortega", "eg1", "eg2", "f2l", "oll", "pll", "parity"].includes(this.currentTrackId);
+    const needsZ2 = whiteBottom && ["lbl", "cll", "ortega", "eg1", "eg2", "f2l", "oll", "pll", "coll", "cmll", "wv", "parity"].includes(this.currentTrackId);
     const displayId = formatCaseDisplayId(c.id);
     const distinctName = getDistinctCaseName(c);
     const baseTitle = `${displayId}${distinctName ? ` — ${distinctName}` : ''}`;
@@ -1842,7 +1842,7 @@ export class StudyView {
     if (wrapEl) {
       const normEvent = puzzle === "333oh" ? "333" : puzzle;
       const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
-      const needsZ2 = whiteBottom && ["lbl", "cll", "ortega", "eg1", "eg2", "f2l", "oll", "pll", "parity"].includes(trackId);
+      const needsZ2 = whiteBottom && ["lbl", "cll", "ortega", "eg1", "eg2", "f2l", "oll", "pll", "coll", "cmll", "wv", "parity"].includes(trackId);
       const rawSetup = (needsZ2 && setupWithAuf && !/^z2\b/i.test(setupWithAuf) ? `z2 ${setupWithAuf}` : setupWithAuf).trim();
       const parsedSetup = rawSetup ? parseScrambleInput(rawSetup) : { ok: false };
       const setupMoves = parsedSetup.ok ? parsedSetup.moves : (cleanAlg(rawSetup) ? cleanAlg(rawSetup).split(/\s+/).filter(Boolean) : []);

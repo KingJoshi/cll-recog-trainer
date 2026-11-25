@@ -4,6 +4,7 @@ import { ensureSolveCfop, computeOllPllCaseStats } from '../../cfopAnalyzer.js';
 import { ensureSolveTwoByTwo, computeCllCaseStats } from '../../twoByTwoAnalyzer.js';
 import { getCachedCaseSvg } from '../../caseVisualizer.js';
 import { escapeHtml, formatCfopSplitMs } from '../../services/htmlUtils.js';
+import { resolveDrillableCaseId } from '../../services/weakCasesService.js';
 
 const TAG_LABELS = {
   none: "+ Tag",
@@ -378,17 +379,39 @@ function renderBreakdownCaseTable({
   const sortedItems = sortBreakdownItems(items, sortState);
   const sortArrow = (col) => sortState.col === col ? (sortState.dir === "asc" ? " ▲" : " ▼") : "";
 
+  // Collect top slowest non-skip drillable case IDs for the one-click "Drill Weakest" button
+  const weakestByMedian = [...items]
+    .filter(item => !item.isSkip)
+    .sort((a, b) => (b.medianMs || 0) - (a.medianMs || 0));
+  const weakestIds = [];
+  const weakestSeen = new Set();
+  for (const item of weakestByMedian) {
+    const drillId = resolveDrillableCaseId(puzzleId, trackId, item.id);
+    if (drillId && !weakestSeen.has(drillId)) {
+      weakestSeen.add(drillId);
+      weakestIds.push(drillId);
+      if (weakestIds.length >= 5) break;
+    }
+  }
+  const drillWeakestBtnHtml = weakestIds.length > 0
+    ? `<button type="button" class="cfop-drill-weakest-btn" data-drill-weakest-puzzle="${escapeHtml(puzzleId)}" data-drill-weakest-track="${escapeHtml(trackId)}" data-drill-weakest-ids="${escapeHtml(weakestIds.join(","))}" title="Start Smart Cube Alg Drill on your ${weakestIds.length} slowest ${escapeHtml(title)}">⚡ Drill Weakest (${weakestIds.length})</button>`
+    : "";
+
   const rowsHtml = sortedItems.map((item) => {
     const rawTag = ["learning", "review", "mastered"].includes(caseTags?.[item.id]) ? caseTags[item.id] : "none";
     const tagLabel = TAG_LABELS[rawTag] || "+ Tag";
     const tagBtnHtml = `<button type="button" class="cfop-case-tag-btn tag-${rawTag}" data-case-tag-id="${escapeHtml(item.id)}" data-tooltip="Click to cycle study tag (Pending → Learning → Review → Mastered)" aria-label="Study tag for ${escapeHtml(item.shortName)}: ${escapeHtml(tagLabel)}">${escapeHtml(tagLabel)}</button>`;
+    const drillCaseId = item.isSkip ? null : resolveDrillableCaseId(puzzleId, trackId, item.id);
+    const caseBadgeHtml = drillCaseId
+      ? `<button type="button" class="cfop-drill-case-btn badge ${badgeClass}" data-drill-puzzle="${escapeHtml(puzzleId)}" data-drill-track="${escapeHtml(trackId)}" data-drill-case-id="${escapeHtml(drillCaseId)}" title="Click to start drilling ${escapeHtml(item.shortName)}"><strong>${escapeHtml(item.shortName)}</strong></button>`
+      : `<span class="badge ${badgeClass}"><strong>${escapeHtml(item.shortName)}</strong></span>`;
     const svgDiagram = item.isSkip
       ? `<span class="cfop-slot-tag">Solved</span>`
       : getCachedCaseSvg(puzzleId, trackId, item.svgCaseId || item.id);
     return `
       <tr>
         <td class="cfop-case-id-cell">
-          <span class="badge ${badgeClass}"><strong>${escapeHtml(item.shortName)}</strong></span>
+          ${caseBadgeHtml}
           ${tagBtnHtml}
         </td>
         <td class="case-svg-cell"><div class="case-table-svg">${svgDiagram}</div></td>
@@ -416,7 +439,10 @@ function renderBreakdownCaseTable({
           <span class="stats-subwidget-title">${escapeHtml(title)} (${items.length} case${items.length === 1 ? "" : "s"} solved)</span>
           <span class="cfop-case-breakdown-sub">${escapeHtml(subtitle)}</span>
         </button>
-        ${modeToggleHtml}
+        <div class="cfop-card-head-actions">
+          ${drillWeakestBtnHtml}
+          ${modeToggleHtml}
+        </div>
       </div>
       <div class="stats-subwidget-body">
         <div class="cfop-table-scroll">
@@ -481,7 +507,7 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
       <div class="layer-log-header" style="margin-top: 20px;">
         <div class="layer-log-title-wrap">
           <h3 class="layer-log-title">3x3 OLL &amp; PLL Case Performance &amp; Pauses (Where to Improve)</h3>
-          <span class="layer-log-hint">Sorted by slowest Median first · Click any column header to sort</span>
+          <span class="layer-log-hint">Sorted by slowest Median first · Click any case to drill it · Click headers to sort</span>
         </div>
       </div>
       <div class="cfop-cases-grid">
@@ -533,7 +559,7 @@ export function renderCllCasesBreakdownHtml(solvesList, { cllOpen = true, sortSt
       <div class="layer-log-header" style="margin-top: 20px;">
         <div class="layer-log-title-wrap">
           <h3 class="layer-log-title">2x2 CLL Case Performance &amp; Pauses (Where to Improve)</h3>
-          <span class="layer-log-hint">Color-neutral 1st Layer + CLL detection · Sorted by slowest Median first · Click any column header to sort</span>
+          <span class="layer-log-hint">Color-neutral 1st Layer + CLL detection · Sorted by slowest Median first · Click any case to drill it</span>
         </div>
       </div>
       <div class="cfop-cases-grid">

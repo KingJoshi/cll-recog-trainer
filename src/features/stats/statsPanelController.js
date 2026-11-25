@@ -18,7 +18,8 @@ export function createStatsPanelController({
   solveReplayViewer,
   getSolveDetailModal = () => null,
   getSolvePanel = () => null,
-  getSessionModal = () => null
+  getSessionModal = () => null,
+  onStartAlgDrill = null
 } = {}) {
   const statsPanel = typeof document !== "undefined" ? document.getElementById("statsPanel") : null;
   const statsToggle = typeof document !== "undefined" ? document.getElementById("statsToggle") : null;
@@ -26,15 +27,16 @@ export function createStatsPanelController({
   const statsExportCsvBtn = typeof document !== "undefined" ? document.getElementById("statsExportCsvBtn") : null;
   const resetStatsBtn = typeof document !== "undefined" ? document.getElementById("resetStatsBtn") : null;
 
-  const recogView = createRecogStatsView({ appStore });
-  const caseSolveView = createCaseSolveStatsView({ appStore });
+  const recogView = createRecogStatsView({ appStore, onStartAlgDrill });
+  const caseSolveView = createCaseSolveStatsView({ appStore, onStartAlgDrill });
   const sessionLogView = createSessionLogView({
     appStore,
     modalManager,
     solveReplayViewer,
     getSolveDetailModal,
     getSolvePanel,
-    getSessionModal
+    getSessionModal,
+    onStartAlgDrill
   });
 
   function renderStatsToggle() {

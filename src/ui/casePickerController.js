@@ -67,8 +67,8 @@ export function getCaseShortLabel(caseObj, track) {
   if (id.startsWith("lbl-pll-")) {
     return caseObj.shortName || id.replace(/^lbl-pll-/, "");
   }
-  if (track && (track.id === "pll" || track.id === "oll" || track.id === "f2l")) {
-    return id.replace(/^(pll|oll|f2l)-/, "");
+  if (track && ["pll", "oll", "f2l", "coll", "cmll", "wv"].includes(track.id)) {
+    return id.replace(/^(pll|oll|f2l|coll|cmll|wv)-/, "");
   }
 
   if (caseObj.name && caseObj.name.length <= 14) {
@@ -303,7 +303,7 @@ export function createCasePickerController({
       }
       const groups = track.groups || ["All"];
       const show3x3ChipSvg = (currentPuzzle === "333" || currentPuzzle === "333oh") &&
-        (track.id === "f2l" || track.id === "oll" || track.id === "pll");
+        ["f2l", "oll", "pll", "coll", "cmll", "wv"].includes(track.id);
       groups.forEach(group => {
         const casesInGroup = track.cases.filter(c => c.group === group);
         if (casesInGroup.length === 0) return;

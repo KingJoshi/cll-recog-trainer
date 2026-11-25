@@ -26,7 +26,7 @@ import {
 import { getSolveTime } from '../../services/solveStats.js';
 import { escapeHtml, formatSolveTime, formatCfopSplitMs } from '../../services/htmlUtils.js';
 
-export function createCaseSolveStatsView({ appStore } = {}) {
+export function createCaseSolveStatsView({ appStore, onStartAlgDrill = null } = {}) {
   const sortState = { col: "median", dir: "desc" };
 
   function render(container) {
@@ -180,12 +180,20 @@ export function createCaseSolveStatsView({ appStore } = {}) {
       return 0;
     });
 
+    const weakestCaseIds = [...caseStatsList]
+      .sort((a, b) => (b.median || 0) - (a.median || 0))
+      .slice(0, 5)
+      .map(x => x.id);
+
     caseStatsList.forEach(stat => {
       const svgDiagram = showCubeSvgCol
         ? getCachedCaseSvg(isCllTrack ? "222" : "333", isCllTrack ? "cll" : (isOllTrack ? "oll" : "pll"), stat.id)
         : "";
+      const caseBtnHtml = typeof onStartAlgDrill === "function"
+        ? `<button type="button" class="stats-case-drill-btn" data-stats-drill-case="${escapeHtml(stat.id)}" title="Click to drill ${escapeHtml(stat.id)}"><strong>${escapeHtml(stat.id)}</strong></button>`
+        : `<strong>${escapeHtml(stat.id)}</strong>`;
       html += `<tr>
-        <th scope="row"><strong>${escapeHtml(stat.id)}</strong></th>
+        <th scope="row">${caseBtnHtml}</th>
         ${showCubeSvgCol ? `<td class="case-svg-cell"><div class="case-table-svg">${svgDiagram}</div></td>` : ""}
         ${showGroupCol ? `<td class="case-stat-name-cell">${escapeHtml(stat.name)}</td>` : ""}
         <td>${stat.attempts}</td>
@@ -230,8 +238,28 @@ export function createCaseSolveStatsView({ appStore } = {}) {
     }
 
     html += "</table>";
+    if (typeof onStartAlgDrill === "function" && weakestCaseIds.length > 0) {
+      html = `
+        <div class="stats-weakest-bar">
+          <span class="stats-weakest-hint">Click any case row ID to drill it, or drill your slowest cases together:</span>
+          <button type="button" class="cfop-drill-weakest-btn" data-stats-drill-weakest="${escapeHtml(weakestCaseIds.join(","))}">⚡ Drill Weakest (${weakestCaseIds.length})</button>
+        </div>
+      ` + html;
+    }
     container.innerHTML = html;
     attachSortListeners(container);
+    if (typeof onStartAlgDrill === "function") {
+      container.querySelectorAll("[data-stats-drill-case]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.statsDrillCase;
+          if (id) onStartAlgDrill({ puzzleId: currentPuzzle, trackId: currentTrackId, caseIds: [id] });
+        });
+      });
+      container.querySelector("[data-stats-drill-weakest]")?.addEventListener("click", (e) => {
+        const ids = String(e.currentTarget.dataset.statsDrillWeakest || "").split(",").filter(Boolean);
+        if (ids.length > 0) onStartAlgDrill({ puzzleId: currentPuzzle, trackId: currentTrackId, caseIds: ids });
+      });
+    }
   }
 
   function attachSortListeners(container) {

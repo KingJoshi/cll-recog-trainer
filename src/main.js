@@ -4,6 +4,7 @@ import './styles/index.css';
 import { PUZZLES, getTrack, getSolveTargetInfo, onPreferredAlgChange } from './data/algRegistry.js';
 import { StudyView } from './studyView.js';
 import { PracticeView } from './practiceView.js';
+import { AlgDrillView } from './features/practice/algDrillView.js';
 import { solveReplayViewer } from './replayView.js';
 import { clearSvgCache, applyColorsTo3DCube } from './caseVisualizer.js';
 import { smartCube } from './smartCube.js';
@@ -49,6 +50,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 
 let studyView;
 let practiceView;
+let algDrillView;
 let freeMovesCtrl;
 let casePickerCtrl;
 let navCtrl;
@@ -200,7 +202,8 @@ casePickerCtrl = createCasePickerController({
   getStudyView: () => studyView,
   onSelectionApplied: () => {
     const s = appStore.state;
-    if (s.mode === "practice" && !isTimerViewMode(s)) practiceView?.setTrack(s.currentPuzzle, s.currentTrackId);
+    if (s.mode === "practice" && s.trainSubMode === "alg-drill") algDrillView?.syncPoolFromSelection();
+    else if (s.mode === "practice" && !isTimerViewMode(s)) practiceView?.setTrack(s.currentPuzzle, s.currentTrackId);
     else if (isTimerViewMode(s)) navCtrl?.regenerateScramble();
   },
   onTagChanged: () => statsCtrl?.updateStatsTable()
@@ -213,6 +216,7 @@ navCtrl = createNavController({
   casePickerCtrl,
   getStudyView: () => studyView,
   getPracticeView: () => practiceView,
+  getAlgDrillView: () => algDrillView,
   getSolvePanelView: () => solvePanelView,
   getTimerCtrl: () => timerCtrl,
   getSolverWidgets: () => solverWidgets,
@@ -259,7 +263,8 @@ smartCubeCtrl = createSmartCubeController({
   getTimerCtrl: () => timerCtrl,
   getGanTimerCtrl: () => ganTimerCtrl,
   getDisconnectAlertView: () => disconnectAlertView,
-  getNavCtrl: () => navCtrl
+  getNavCtrl: () => navCtrl,
+  getAlgDrillView: () => algDrillView
 });
 
 ganTimerCtrl = createGanTimerController({
@@ -277,7 +282,8 @@ statsCtrl = createStatsPanelController({
   solveReplayViewer,
   getSolveDetailModal: () => solveDetailModal,
   getSolvePanel: () => solvePanelView,
-  getSessionModal: () => sessionModal
+  getSessionModal: () => sessionModal,
+  onStartAlgDrill: (opts) => navCtrl?.startAlgDrill?.(opts)
 });
 
 simulatorCtrl = createSimulatorController({
@@ -398,10 +404,32 @@ practiceView = new PracticeView({
   onSetOhTableAbuse: (enabled) => appStore.setOhTableAbuse(enabled)
 });
 
+algDrillView = new AlgDrillView({
+  container: document.getElementById("algDrillContainer"),
+  appStore,
+  onApplyScrambleToDisplay: (scramble) => {
+    appStore.state.scrambleMoves = scramble || "";
+    appStore.state.scramble = scramble || "";
+    cubeStage.applyScrambleToDisplay(scramble || "");
+  },
+  onOpenCasePicker: () => {
+    appStore.state.settingsCollapsed = false;
+    casePickerCtrl.syncSettingsPanel();
+    appStore.saveSettings();
+    document.getElementById("settingsPanel")?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  },
+  onOpenBluetoothModal: () => smartCubeCtrl?.openBluetoothModal?.(),
+  onSelectionChange: () => {
+    casePickerCtrl.renderSelection();
+  },
+  isCubeConnected: () => Boolean(smartCube.getStatus().connected)
+});
+
 appStore.subscribe((evt) => {
   if (evt === "ohHand" || evt === "ohTableAbuse") {
     simulatorCtrl?.populateSimCaseSelect?.();
     if (appStore.state.mode === "study") studyView?.render?.();
+    else if (appStore.state.mode === "practice" && appStore.state.trainSubMode === "alg-drill") algDrillView?.setTrack?.(appStore.state.currentPuzzle, appStore.state.currentTrackId);
     else if (appStore.state.mode === "practice" && !isTimerViewMode(appStore.state)) practiceView?.render?.();
   } else if (evt === "simSpeed") {
     const spd = appStore.state.simSpeed ?? 1;
@@ -659,7 +687,17 @@ createKeyboardRouter({
   onSolveKeyDown: (e) => timerCtrl.onSolveKeyDown(e),
   onSolveKeyUp: (e) => timerCtrl.onSolveKeyUp(e),
   onSimulateKeyDown: (e) => simulatorCtrl.onSimulateKeyDown(e),
-  onPracticeKeyDown: (e) => practiceView.onKeyDown(e),
+  onPracticeKeyDown: (e) => {
+    if (appStore.state.trainSubMode === "alg-drill") {
+      if (e.code === "Space" || e.key === " ") {
+        e.preventDefault();
+        algDrillView?.completeManualRep?.();
+        return true;
+      }
+      return false;
+    }
+    return practiceView.onKeyDown(e);
+  },
   onCustomShortcutKeyDown: handleCustomShortcutKeyDown,
   onFreeMoveKeyDown: () => false
 }).mount();
@@ -690,6 +728,8 @@ if (appStore.state.mode === "study") {
     solverWidgets.setLayerSolutionMode("face");
   }
   navCtrl.regenerateScramble();
+} else if (appStore.state.mode === "practice" && appStore.state.trainSubMode === "alg-drill") {
+  algDrillView.setTrack(appStore.state.currentPuzzle, appStore.state.currentTrackId);
 } else if (appStore.state.mode === "practice") {
   practiceView.setTrack(appStore.state.currentPuzzle, appStore.state.currentTrackId);
 } else if (appStore.state.mode === "simulate") {
@@ -757,6 +797,12 @@ function refreshAllViewsAfterHydrate() {
     }
     if ((!s.currentSolveScramble || modeChanged || puzzleChanged || targetChanged) && timerCtrl?.getSolveState?.() === "idle") {
       navCtrl?.regenerateScramble?.();
+    }
+  } else if (s.mode === "practice" && s.trainSubMode === "alg-drill") {
+    if (modeChanged || puzzleChanged || trackChanged) {
+      algDrillView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+    } else {
+      algDrillView?.render?.();
     }
   } else if (s.mode === "practice") {
     if (modeChanged || puzzleChanged || trackChanged) {

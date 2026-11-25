@@ -188,6 +188,35 @@ function is3x3OllSolved(pattern, solved) {
   return false;
 }
 
+function is3x3CollSolved(pattern, solved) {
+  if (!is3x3F2lSolved(pattern, solved)) return false;
+  for (const u of U_AUFS) {
+    const p = u ? pattern.applyAlg(u) : pattern;
+    const cp = p.patternData.CORNERS.pieces;
+    const co = p.patternData.CORNERS.orientation;
+    const eo = p.patternData.EDGES.orientation;
+    if ([0, 1, 2, 3].every(i => cp[i] === i && co[i] === 0 && eo[i] === 0)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function is3x3CmllSolved(pattern, solved) {
+  for (const u of U_AUFS) {
+    const p = u ? pattern.applyAlg(u) : pattern;
+    const cp = p.patternData.CORNERS.pieces;
+    const co = p.patternData.CORNERS.orientation;
+    const ep = p.patternData.EDGES.pieces;
+    const eo = p.patternData.EDGES.orientation;
+    const blocksOk = [4, 5, 6, 7].every(i => cp[i] === i && co[i] === 0)
+      && [5, 7, 8, 9, 10, 11].every(i => ep[i] === i && eo[i] === 0);
+    const uCornersOk = [0, 1, 2, 3].every(i => cp[i] === i && co[i] === 0);
+    if (blocksOk && uCornersOk) return true;
+  }
+  return false;
+}
+
 function matchesTrackCompletion(pattern, tables, puzzleId, trackId, caseObj) {
   const id = String(caseObj?.id || "").toLowerCase();
   if (puzzleId === "222" && (id.startsWith("ortega-oll-") || id.startsWith("lbl-oll-"))) {
@@ -201,8 +230,14 @@ function matchesTrackCompletion(pattern, tables, puzzleId, trackId, caseObj) {
   if ((puzzleId === "333" || puzzleId === "333oh") && trackId === "f2l") {
     return is3x3F2lSolved(pattern, tables.solved);
   }
-  if ((puzzleId === "333" || puzzleId === "333oh") && trackId === "oll") {
+  if ((puzzleId === "333" || puzzleId === "333oh") && (trackId === "oll" || trackId === "wv")) {
     return is3x3OllSolved(pattern, tables.solved);
+  }
+  if ((puzzleId === "333" || puzzleId === "333oh") && trackId === "coll") {
+    return is3x3CollSolved(pattern, tables.solved);
+  }
+  if ((puzzleId === "333" || puzzleId === "333oh") && trackId === "cmll") {
+    return is3x3CmllSolved(pattern, tables.solved);
   }
   const allowAnyRot = puzzleId === "222"
     ? trackId === "cll"

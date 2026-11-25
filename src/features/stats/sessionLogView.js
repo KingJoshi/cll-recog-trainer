@@ -105,7 +105,8 @@ export function createSessionLogView({
   solveReplayViewer,
   getSolveDetailModal = () => null,
   getSolvePanel = () => null,
-  getSessionModal = () => null
+  getSessionModal = () => null,
+  onStartAlgDrill = null
 } = {}) {
   let sessionLogFilter = "all"; // "all" | "target:<targetId>"
   let showAllHistory = false;
@@ -1357,6 +1358,30 @@ export function createSessionLogView({
         if (!caseId) return;
         appStore.cycleCaseTag(caseId);
         render(container);
+      });
+    });
+
+    container.querySelectorAll(".cfop-drill-case-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const puzzleId = btn.dataset.drillPuzzle || s.currentPuzzle;
+        const trackId = btn.dataset.drillTrack || s.currentTrackId;
+        const caseId = btn.dataset.drillCaseId;
+        if (!caseId || typeof onStartAlgDrill !== "function") return;
+        const targetPuzzle = s.currentPuzzle === "333oh" && puzzleId === "333" ? "333oh" : puzzleId;
+        onStartAlgDrill({ puzzleId: targetPuzzle, trackId, caseIds: [caseId] });
+      });
+    });
+
+    container.querySelectorAll(".cfop-drill-weakest-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const puzzleId = btn.dataset.drillWeakestPuzzle || s.currentPuzzle;
+        const trackId = btn.dataset.drillWeakestTrack || s.currentTrackId;
+        const rawIds = String(btn.dataset.drillWeakestIds || "").split(",").map(x => x.trim()).filter(Boolean);
+        if (rawIds.length === 0 || typeof onStartAlgDrill !== "function") return;
+        const targetPuzzle = s.currentPuzzle === "333oh" && puzzleId === "333" ? "333oh" : puzzleId;
+        onStartAlgDrill({ puzzleId: targetPuzzle, trackId, caseIds: rawIds });
       });
     });
 

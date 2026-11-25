@@ -80,7 +80,8 @@ export function createSmartCubeController({
   getTimerCtrl = () => null,
   getGanTimerCtrl = () => null,
   getDisconnectAlertView = () => null,
-  getNavCtrl = () => null
+  getNavCtrl = () => null,
+  getAlgDrillView = () => null
 } = {}) {
   const bluetoothBtn = typeof document !== "undefined" ? document.getElementById("bluetoothBtn") : null;
   const bluetoothHeaderDot = typeof document !== "undefined" ? document.getElementById("bluetoothHeaderDot") : null;
@@ -699,6 +700,13 @@ export function createSmartCubeController({
 
     const s = appStore.state;
     const timerCtrl = getTimerCtrl();
+    if (s.mode === "practice" && s.trainSubMode === "alg-drill") {
+      getAlgDrillView()?.handleSmartMove?.(move, e.detail?.timestamp);
+      if (cubeCard && !cubeCard.hidden) {
+        freeMovesCtrl?.applyFreeMove?.(move);
+      }
+      return;
+    }
     if (isTimerViewMode(s) && timerCtrl) {
       const isRotation = /^[xyz]/i.test(move);
       const solveState = timerCtrl.getSolveState();

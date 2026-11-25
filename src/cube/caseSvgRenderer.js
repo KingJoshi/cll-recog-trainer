@@ -253,6 +253,12 @@ export async function renderCaseSvg(puzzleId, trackId, caseObj) {
         svg = await renderOllSvg(caseObj);
       } else if (trackId === "f2l") {
         svg = await renderF2lSvg(caseObj);
+      } else if (trackId === "coll") {
+        svg = await renderCollSvg(caseObj);
+      } else if (trackId === "cmll") {
+        svg = await renderCmllSvg(caseObj);
+      } else if (trackId === "wv") {
+        svg = await renderWvSvg(caseObj);
       } else {
         svg = renderCrossSvg(caseObj);
       }
@@ -473,6 +479,132 @@ export async function renderOllSvg(caseObj) {
     <!-- Right side (right) yellow indicators -->
     ${isCornerYellow(1, 2) ? rect(T + 3 * S + G, T, D, S, CUBE_COLORS.yellow) : ""}
     ${isEdgeYellow(1, 1) ? rect(T + 3 * S + G, T + S, D, S, CUBE_COLORS.yellow) : ""}
+    ${isCornerYellow(0, 1) ? rect(T + 3 * S + G, T + 2 * S, D, S, CUBE_COLORS.yellow) : ""}
+  </svg>`;
+}
+
+// ---------------------------------------------------------------------------
+// 3x3 COLL (corners colored, EO yellow) & Roux CMLL (corners colored, edges muted)
+// ---------------------------------------------------------------------------
+async function renderLastLayerCornerSvg(caseObj, { orientEdges = true, cssClass = "case-svg-coll" } = {}) {
+  const kp = await getKp3();
+  const def = kp.defaultPattern();
+  const scr = caseObj.setup || "";
+  const pat = scr ? def.applyAlg(new Alg(scr)) : def;
+
+  const { pieces: cPieces, orientation: cOrient } = pat.patternData.CORNERS;
+  const cornerColor = (loc, o) =>
+    FACE_COLORS[CORNER_FACES_333[cPieces[loc]][(o - cOrient[loc] + 3) % 3]] || CUBE_COLORS.yellow;
+
+  const S = 22;
+  const D = 8;
+  const G = 2.5;
+  const M = 2.5;
+  const T = M + D + G;
+  const W = T * 2 + 3 * S;
+  const edgeFill = orientEdges ? CUBE_COLORS.yellow : CUBE_COLORS.slate;
+  const sideEdgeFill = CUBE_COLORS.slate;
+
+  const rect = (x, y, w, h, fill) =>
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="${fill}" stroke="#1e293b" stroke-width="1.1"/>`;
+
+  return `<svg viewBox="0 0 ${W} ${W}" class="case-svg ${cssClass}" xmlns="http://www.w3.org/2000/svg">
+    ${rect(T, T, S, S, cornerColor(2, 0))}
+    ${rect(T + S, T, S, S, edgeFill)}
+    ${rect(T + 2 * S, T, S, S, cornerColor(1, 0))}
+
+    ${rect(T, T + S, S, S, edgeFill)}
+    ${rect(T + S, T + S, S, S, CUBE_COLORS.yellow)}
+    ${rect(T + 2 * S, T + S, S, S, edgeFill)}
+
+    ${rect(T, T + 2 * S, S, S, cornerColor(3, 0))}
+    ${rect(T + S, T + 2 * S, S, S, edgeFill)}
+    ${rect(T + 2 * S, T + 2 * S, S, S, cornerColor(0, 0))}
+
+    ${rect(T, M, S, D, cornerColor(2, 2))}
+    ${rect(T + S, M, S, D, sideEdgeFill)}
+    ${rect(T + 2 * S, M, S, D, cornerColor(1, 1))}
+
+    ${rect(T, T + 3 * S + G, S, D, cornerColor(3, 1))}
+    ${rect(T + S, T + 3 * S + G, S, D, sideEdgeFill)}
+    ${rect(T + 2 * S, T + 3 * S + G, S, D, cornerColor(0, 2))}
+
+    ${rect(M, T, D, S, cornerColor(2, 1))}
+    ${rect(M, T + S, D, S, sideEdgeFill)}
+    ${rect(M, T + 2 * S, D, S, cornerColor(3, 2))}
+
+    ${rect(T + 3 * S + G, T, D, S, cornerColor(1, 2))}
+    ${rect(T + 3 * S + G, T + S, D, S, sideEdgeFill)}
+    ${rect(T + 3 * S + G, T + 2 * S, D, S, cornerColor(0, 1))}
+  </svg>`;
+}
+
+export async function renderCollSvg(caseObj) {
+  return renderLastLayerCornerSvg(caseObj, { orientEdges: true, cssClass: "case-svg-coll" });
+}
+
+export async function renderCmllSvg(caseObj) {
+  return renderLastLayerCornerSvg(caseObj, { orientEdges: false, cssClass: "case-svg-cmll" });
+}
+
+// ---------------------------------------------------------------------------
+// 3x3 Winter Variation SVG (U-layer yellow/slate + highlighted FR F2L pair)
+// ---------------------------------------------------------------------------
+export async function renderWvSvg(caseObj) {
+  const kp = await getKp3();
+  const def = kp.defaultPattern();
+  const scr = caseObj.setup || "";
+  let pat = scr ? def.applyAlg(new Alg(scr)) : def;
+  for (let u = 0; u < 4; u++) {
+    const cp = pat.patternData.CORNERS.pieces;
+    if (cp[3] === 4 && pat.patternData.EDGES.pieces[0] === 8) break;
+    pat = pat.applyAlg("U");
+  }
+
+  const { pieces: cPieces, orientation: cOrient } = pat.patternData.CORNERS;
+  const isCornerYellow = (loc, faceIdx) => {
+    if (cPieces[loc] === 4) return false; // White/FR F2L corner in pair
+    return CORNER_FACES_333[cPieces[loc]][(faceIdx - cOrient[loc] + 3) % 3] === "U";
+  };
+
+  const S = 22;
+  const D = 7;
+  const G = 2.5;
+  const M = 2.5;
+  const T = M + D + G;
+  const W = T * 2 + 3 * S;
+  const rect = (x, y, w, h, fill, stroke = "#1e293b", sw = "1.1") =>
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+
+  const topFill = (loc, isEdge) => {
+    if (isEdge) {
+      if (pat.patternData.EDGES.pieces[loc] === 8) return CUBE_COLORS.green;
+      return CUBE_COLORS.yellow;
+    }
+    if (cPieces[loc] === 4) return CUBE_COLORS.white;
+    return isCornerYellow(loc, 0) ? CUBE_COLORS.yellow : CUBE_COLORS.slate;
+  };
+
+  return `<svg viewBox="0 0 ${W} ${W}" class="case-svg case-svg-wv" xmlns="http://www.w3.org/2000/svg">
+    ${rect(T, T, S, S, topFill(2, false))}
+    ${rect(T + S, T, S, S, topFill(2, true))}
+    ${rect(T + 2 * S, T, S, S, topFill(1, false))}
+
+    ${rect(T, T + S, S, S, topFill(3, true))}
+    ${rect(T + S, T + S, S, S, CUBE_COLORS.yellow)}
+    ${rect(T + 2 * S, T + S, S, S, topFill(1, true))}
+
+    ${rect(T, T + 2 * S, S, S, topFill(3, false), "#0284c7", "1.6")}
+    ${rect(T + S, T + 2 * S, S, S, topFill(0, true), "#0284c7", "1.6")}
+    ${rect(T + 2 * S, T + 2 * S, S, S, topFill(0, false))}
+
+    ${isCornerYellow(2, 2) ? rect(T, M, S, D, CUBE_COLORS.yellow) : ""}
+    ${isCornerYellow(1, 1) ? rect(T + 2 * S, M, S, D, CUBE_COLORS.yellow) : ""}
+    ${isCornerYellow(3, 1) ? rect(T, T + 3 * S + G, S, D, CUBE_COLORS.yellow) : ""}
+    ${isCornerYellow(0, 2) ? rect(T + 2 * S, T + 3 * S + G, S, D, CUBE_COLORS.yellow) : ""}
+    ${isCornerYellow(2, 1) ? rect(M, T, D, S, CUBE_COLORS.yellow) : ""}
+    ${isCornerYellow(3, 2) ? rect(M, T + 2 * S, D, S, CUBE_COLORS.yellow) : ""}
+    ${isCornerYellow(1, 2) ? rect(T + 3 * S + G, T, D, S, CUBE_COLORS.yellow) : ""}
     ${isCornerYellow(0, 1) ? rect(T + 3 * S + G, T + 2 * S, D, S, CUBE_COLORS.yellow) : ""}
   </svg>`;
 }

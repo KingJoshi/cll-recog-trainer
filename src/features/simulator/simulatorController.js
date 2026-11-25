@@ -735,7 +735,10 @@ export function createSimulatorController({
       const ohTableAbuse = appStore.state.ohTableAbuse !== false;
       [["f2l", "F2L (41 cases)"],
        ["oll", "OLL (57 cases)"],
-       ["pll", "PLL (21 cases)"]].forEach(([tid, label]) => {
+       ["pll", "PLL (21 cases)"],
+       ["coll", "COLL (40 cases)"],
+       ["cmll", "CMLL (42 cases)"],
+       ["wv", "Winter Variation (27 cases)"]].forEach(([tid, label]) => {
         const tr = getTrack(puz, tid) || getTrack("333", tid);
         if (!tr) return;
         const g = document.createElement("optgroup");
@@ -878,7 +881,7 @@ export function createSimulatorController({
     if (fallbackCase) {
       simLoadCaseWithSolution(fallbackCase, 0);
     } else {
-      const defaultAltTrack = (["f2l", "oll", "pll", "parity", "ortega", "cll"]
+      const defaultAltTrack = (["f2l", "oll", "pll", "coll", "cmll", "wv", "parity", "ortega", "cll"]
         .map(tid => getTrack(s.currentPuzzle, tid))
         .find(tr => tr?.cases?.length));
       if (defaultAltTrack) {

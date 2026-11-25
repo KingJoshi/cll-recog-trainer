@@ -70,7 +70,8 @@
 
     <div id="trainSubmodeBar" class="track-bar train-submode-bar" role="group" aria-label="Training Submode" hidden>
       <button type="button" class="track-btn active" data-train-submode="recog" aria-pressed="true" data-tooltip="Drill case identification &amp; 15s inspection planning without a physical solve">🎯 Recognition &amp; Inspection</button>
-      <button type="button" class="track-btn" data-train-submode="timed-drill" aria-pressed="false" data-tooltip="Time targeted sub-step solves (Timer Drill, 1st Face, 1st Layer, CLL, OLL, PLL, Parity)">⏱️ Timed Drills</button>
+      <button type="button" class="track-btn" data-train-submode="alg-drill" aria-pressed="false" data-tooltip="Execute algorithms repeatedly with live Smart Cube move tracking, mistake hints, and execution TPS">⚡ Alg Drill</button>
+      <button type="button" class="track-btn" data-train-submode="timed-drill" aria-pressed="false" data-tooltip="Time targeted sub-step solves (Timer Drill, 1st Face, 1st Layer, CLL, OLL, PLL, COLL, CMLL, WV, Parity)">⏱️ Timed Drills</button>
     </div>
 
     <div id="trackBar" class="track-bar" role="group" aria-label="Algorithm Track or Timed Drill"></div>
@@ -206,6 +207,9 @@
 
     <!-- Practice View Container (Recognition & Inspection planning drills, below 3D cube) -->
     <div id="practiceViewContainer" class="practice-container" hidden></div>
+
+    <!-- Smart Cube Alg Execution Drill Container -->
+    <div id="algDrillContainer" class="alg-drill-container" hidden></div>
 
     <!-- Simulate mode: input, stepping, scrubber, and playback controls -->
     <div id="simulatePanel" class="simulate-panel" hidden>

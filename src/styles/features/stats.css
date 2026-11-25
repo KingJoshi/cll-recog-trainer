@@ -1185,3 +1185,74 @@
     border-color: var(--primary);
     color: #fff;
 }
+
+.cfop-card-head-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.cfop-drill-weakest-btn {
+    padding: 3px 9px;
+    border-radius: 6px;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.14s ease;
+}
+
+.cfop-drill-weakest-btn:hover {
+    background: rgba(245, 158, 11, 0.22);
+    border-color: #d97706;
+}
+
+[data-theme="dark"] .cfop-drill-weakest-btn {
+    color: #fbbf24;
+}
+
+.cfop-drill-case-btn,
+.stats-case-drill-btn {
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.cfop-drill-case-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.stats-case-drill-btn {
+    background: transparent;
+    color: var(--primary);
+    padding: 1px 4px;
+    border-radius: 4px;
+    font: inherit;
+}
+
+.stats-case-drill-btn:hover {
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    text-decoration: underline;
+}
+
+.stats-weakest-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+}
+
+.stats-weakest-hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+}

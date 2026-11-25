@@ -5,7 +5,7 @@ import { getCachedCaseSvg, renderCaseSvg } from '../../caseVisualizer.js';
 import { GROUP_DISPLAY_ORDER, caseById } from '../../state/appStore.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
 
-export function createRecogStatsView({ appStore } = {}) {
+export function createRecogStatsView({ appStore, onStartAlgDrill = null } = {}) {
   const sortState = { col: "case", dir: "asc" };
 
   function render(container) {
@@ -165,9 +165,12 @@ export function createRecogStatsView({ appStore } = {}) {
               });
             }
           }
+          const caseHeaderHtml = typeof onStartAlgDrill === "function"
+            ? `<button type="button" class="stats-case-drill-btn" data-recog-drill-case="${escapeHtml(c.id)}" title="Click to drill ${escapeHtml(displayId)}"><strong>${escapeHtml(displayId)}</strong></button>`
+            : `<strong>${escapeHtml(displayId)}</strong>`;
           return `
             <tr>
-              <th scope="row"><strong>${escapeHtml(displayId)}</strong></th>
+              <th scope="row">${caseHeaderHtml}</th>
               ${showCubeCol ? `<td class="case-svg-cell"><div class="case-table-svg" data-recog-svg="${escapeHtml(c.id)}">${svgHtml}</div></td>` : ""}
               <td>${escapeHtml(displayName)}</td>
               <td>${correct} / ${shown}</td>
@@ -223,6 +226,14 @@ export function createRecogStatsView({ appStore } = {}) {
         render(container);
       });
     });
+    if (typeof onStartAlgDrill === "function") {
+      container.querySelectorAll("[data-recog-drill-case]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.recogDrillCase;
+          if (id) onStartAlgDrill({ puzzleId: currentPuzzle, trackId: currentTrackId, caseIds: [id] });
+        });
+      });
+    }
   }
 
   return { render };

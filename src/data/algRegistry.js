@@ -8,9 +8,14 @@ import { eg1Cases, eg1CaseById, eg2Cases, eg2CaseById } from './egData.js';
 import { pllCases, pllCaseById } from './pllData.js';
 import { ollCases, ollCaseById } from './ollData.js';
 import { f2lCases, f2lCaseById } from './f2lData.js';
+import { collCases, collCaseById } from './collData.js';
+import { cmllCases, cmllCaseById } from './cmllData.js';
+import { wvCases, wvCaseById } from './wvData.js';
 import { parity444Cases, parity444CaseById, parity555Cases, parity555CaseById } from './parityData.js';
 
 const C222_CASE_GROUPS = ["H-Group", "P-Group", "U-Group", "T-Group", "L-Group", "S-Group", "A-Group"];
+const CMLL_CASE_GROUPS = ["O-Group", ...C222_CASE_GROUPS];
+const WV_CASE_GROUPS = ["3 Oriented", "2 Oriented", "1 Oriented", "0 Oriented"];
 
 export const PUZZLES = {
   "222": {
@@ -153,6 +158,33 @@ export const PUZZLES = {
           "Diagonal Corner Swap",
           "G-Permutation"
         ]
+      },
+      {
+        id: "coll",
+        name: "COLL (40 Cases)",
+        shortName: "COLL",
+        description: "Corners of Last Layer (edges oriented): solve U corners while preserving EO for an EPLL skip/guarantee",
+        cases: collCases,
+        caseById: collCaseById,
+        groups: C222_CASE_GROUPS
+      },
+      {
+        id: "cmll",
+        name: "CMLL (42 Cases · Roux)",
+        shortName: "CMLL",
+        description: "Roux Last-Layer Corners: orient and permute all 4 U corners freely using M-slice & wide turns",
+        cases: cmllCases,
+        caseById: cmllCaseById,
+        groups: CMLL_CASE_GROUPS
+      },
+      {
+        id: "wv",
+        name: "Winter Variation (27 Cases)",
+        shortName: "WV",
+        description: "Insert the last paired F2L slot while orienting all U corners for an OLL Skip (edges oriented)",
+        cases: wvCases,
+        caseById: wvCaseById,
+        groups: WV_CASE_GROUPS
       }
     ]
   },
@@ -219,6 +251,33 @@ export const PUZZLES = {
         cases: pllCases,
         caseById: pllCaseById,
         groups: ["Edges Only", "Adjacent Corner Swap", "Diagonal Corner Swap", "G-Permutation"]
+      },
+      {
+        id: "coll",
+        name: "COLL (40 Cases)",
+        shortName: "COLL",
+        description: "Corners of Last Layer (edges oriented): solve U corners while preserving EO for an EPLL finish",
+        cases: collCases,
+        caseById: collCaseById,
+        groups: C222_CASE_GROUPS
+      },
+      {
+        id: "cmll",
+        name: "CMLL (42 Cases · Roux)",
+        shortName: "CMLL",
+        description: "Roux Last-Layer Corners: orient and permute all 4 U corners while preserving 1x2x3 blocks",
+        cases: cmllCases,
+        caseById: cmllCaseById,
+        groups: CMLL_CASE_GROUPS
+      },
+      {
+        id: "wv",
+        name: "Winter Variation (27 Cases)",
+        shortName: "WV",
+        description: "Insert the last paired F2L slot while orienting all U corners for an OLL Skip",
+        cases: wvCases,
+        caseById: wvCaseById,
+        groups: WV_CASE_GROUPS
       }
     ]
   },
@@ -651,6 +710,9 @@ export function formatCaseDisplayId(id) {
     .replace(/^oll-/i, "OLL-")
     .replace(/^pll-/i, "PLL-")
     .replace(/^f2l-/i, "F2L-")
+    .replace(/^coll-/i, "COLL-")
+    .replace(/^cmll-/i, "CMLL-")
+    .replace(/^wv-/i, "WV-")
     .replace(/^lbl-oll-/i, "LBL-OLL-")
     .replace(/^lbl-pll-/i, "LBL-PLL-")
     .replace(/^ortega-oll-/i, "Ortega-OLL-")
@@ -769,6 +831,27 @@ const SOLVE_TARGETS_BY_PUZZLE = {
       usesCases: true
     },
     {
+      id: "coll",
+      name: "COLL Case",
+      shortName: "COLL",
+      description: "Timed setup scrambles for your Active Cases COLL (40) selection",
+      usesCases: true
+    },
+    {
+      id: "cmll",
+      name: "CMLL Case",
+      shortName: "CMLL",
+      description: "Timed setup scrambles for your Active Cases Roux CMLL (42) selection",
+      usesCases: true
+    },
+    {
+      id: "wv",
+      name: "Winter Variation",
+      shortName: "WV",
+      description: "Timed setup scrambles for your Active Cases Winter Variation (27) selection",
+      usesCases: true
+    },
+    {
       id: "full",
       name: "Full Solve (3x3)",
       shortName: "Full Solve",
@@ -803,6 +886,27 @@ const SOLVE_TARGETS_BY_PUZZLE = {
       name: "PLL Case",
       shortName: "PLL",
       description: "Timed OH setup scrambles for your Active Cases PLL selection",
+      usesCases: true
+    },
+    {
+      id: "coll",
+      name: "COLL Case",
+      shortName: "COLL",
+      description: "Timed OH setup scrambles for your Active Cases COLL (40) selection",
+      usesCases: true
+    },
+    {
+      id: "cmll",
+      name: "CMLL Case",
+      shortName: "CMLL",
+      description: "Timed OH setup scrambles for your Active Cases CMLL (42) selection",
+      usesCases: true
+    },
+    {
+      id: "wv",
+      name: "Winter Variation",
+      shortName: "WV",
+      description: "Timed OH setup scrambles for your Active Cases Winter Variation (27) selection",
       usesCases: true
     },
     {
