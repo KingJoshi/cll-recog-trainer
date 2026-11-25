@@ -390,19 +390,21 @@
           <button type="button" id="smartCubeDiagCopyBtn" class="btn btn-xs smart-cube-action-btn" title="Copy Diagnostics Log JSON to clipboard">📋 Copy Log</button>
         </div>
       </div>
-      <div id="solveTime" class="solve-time">0.00</div>
-      <div id="solveCase" class="solve-case"></div>
-      <div id="solveLiveStats" class="solve-live-stats" hidden>
-        <span id="solveLiveMovesCount" class="badge">0 moves</span>
-        <span id="solveLiveTps" class="badge">0.00 TPS</span>
+      <div id="solveTimerPad" class="solve-timer-pad">
+        <div id="solveTime" class="solve-time">0.00</div>
+        <div id="solveCase" class="solve-case"></div>
+        <div id="solveLiveStats" class="solve-live-stats" hidden>
+          <span id="solveLiveMovesCount" class="badge">0 moves</span>
+          <span id="solveLiveTps" class="badge">0.00 TPS</span>
+        </div>
+        <div id="solvePostSummary" class="solve-post-summary" hidden>
+          <button type="button" id="solvePostReplayBtn" class="btn btn-primary btn-small">
+            <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="4.5,2.8 13.2,8 4.5,13.2"/></svg></span><span>Replay Solve (3D)</span>
+          </button>
+        </div>
+        <p class="solve-hint solve-hint-key">Hold <kbd>Space</kbd>, release to start. Any key stops.</p>
+        <p class="solve-hint solve-hint-touch">Hold 0.3s to arm, release to start. Swipe to scroll.</p>
       </div>
-      <div id="solvePostSummary" class="solve-post-summary" hidden>
-        <button type="button" id="solvePostReplayBtn" class="btn btn-primary btn-small">
-          <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="4.5,2.8 13.2,8 4.5,13.2"/></svg></span><span>Replay Solve (3D)</span>
-        </button>
-      </div>
-      <p class="solve-hint solve-hint-key">Hold <kbd>Space</kbd>, release to start. Any key stops.</p>
-      <p class="solve-hint solve-hint-touch">Hold 0.3s to arm, release to start. Swipe to scroll.</p>
       <div id="solveInlineRecentStats" class="solve-inline-recent-stats" hidden></div>
     </div>
 

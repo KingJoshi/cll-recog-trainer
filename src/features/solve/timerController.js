@@ -25,6 +25,7 @@ export function createTimerController({
   getDisconnectAlertView = () => null
 } = {}) {
   const solveSurface = typeof document !== "undefined" ? document.getElementById("solveSurface") : null;
+  const solveTimerPad = typeof document !== "undefined" ? (document.getElementById("solveTimerPad") || solveSurface) : null;
   const solveOverlay = typeof document !== "undefined" ? document.getElementById("solveOverlay") : null;
   const solveOverlayTime = typeof document !== "undefined" ? document.getElementById("solveOverlayTime") : null;
   const solveOverlayHint = typeof document !== "undefined" ? document.getElementById("solveOverlayHint") : null;
@@ -56,7 +57,7 @@ export function createTimerController({
       clearTimeout(pendingTouchHold.timerId);
       pendingTouchHold = null;
     }
-    solveSurface?.classList.remove("is-touch-holding");
+    solveTimerPad?.classList.remove("is-touch-holding");
   }
 
   // GAN Timer, Spacebar/Touch & Smart Cube split timestamps
@@ -705,8 +706,8 @@ export function createTimerController({
     return trackedSolveMoves.length;
   }
 
-  // Pointer & penalty button bindings
-  solveSurface?.addEventListener("pointerdown", e => {
+  // Pointer & penalty button bindings (attached only to #solveTimerPad above inline stats)
+  solveTimerPad?.addEventListener("pointerdown", e => {
     if (
       e.target.closest("button") ||
       e.target.closest("input") ||
@@ -733,7 +734,7 @@ export function createTimerController({
 
     // On touch/pen, require a 300ms stationary hold so page scrolling never starts the timer
     clearPendingTouchHold();
-    solveSurface.classList.add("is-touch-holding");
+    solveTimerPad.classList.add("is-touch-holding");
     const pointerId = e.pointerId;
     const startX = e.clientX;
     const startY = e.clientY;
