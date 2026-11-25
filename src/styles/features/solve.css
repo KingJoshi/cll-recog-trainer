@@ -1642,6 +1642,7 @@ button.solve-chip:active,
 
 /* Focus / Zen Solving Mode */
 body.is-focus-mode .app-header,
+body.is-focus-mode .app-legal-footer,
 body.is-focus-mode .stage.mode-solve .mode-seg,
 body.is-focus-mode .stage.mode-solve #trainSubmodeBar,
 body.is-focus-mode .stage.mode-solve #trackBar,
@@ -1663,8 +1664,68 @@ body.is-focus-mode .stage.mode-solve .solve-header-row {
     margin-bottom: 4px;
 }
 
+body.is-focus-mode {
+    overflow-x: hidden;
+}
+
 body.is-focus-mode .app {
-    padding-top: 12px;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 8px 12px;
+    gap: 8px;
+    box-sizing: border-box;
+    grid-template-rows: minmax(0, 1fr);
+    overflow-y: auto;
+}
+
+body.is-focus-mode .stage.mode-solve {
+    height: 100%;
+    min-height: 0;
+    align-content: stretch;
+    gap: 8px;
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+body.is-focus-mode .stage.mode-solve .solve-scramble {
+    padding: 8px 12px;
+    margin: 0;
+}
+
+body.is-focus-mode .stage.mode-solve .cube-card {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    padding: 8px 10px;
+}
+
+body.is-focus-mode .stage.mode-solve .cube-card #display-container {
+    width: min(100%, var(--solve-cube-max-w), calc(100dvh - 200px));
+}
+
+body.is-focus-mode .stage.mode-solve .solve-surface {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 10px 14px;
+}
+
+@media (max-width: 639.98px) {
+    body.is-focus-mode .stage.mode-solve {
+        grid-template-rows: auto auto minmax(0, 1fr);
+    }
+
+    body.is-focus-mode .stage.mode-solve .cube-card {
+        height: auto;
+        padding: 6px 10px;
+    }
+
+    body.is-focus-mode .stage.mode-solve .cube-card #display-container {
+        width: min(100%, var(--solve-cube-max-w), 32dvh);
+    }
+
+    body.is-focus-mode .stage.mode-solve .solve-time {
+        font-size: clamp(2.4rem, 11vw, var(--solve-timer-font));
+    }
 }
 
 }

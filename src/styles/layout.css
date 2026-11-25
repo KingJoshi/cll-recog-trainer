@@ -125,6 +125,84 @@
     }
 }
 
+/* Foldable / tablet inner displays: cube left + timer right side-by-side */
+@media (min-width: 640px) {
+    .stage.mode-solve {
+        grid-template-columns: minmax(220px, 42%) minmax(0, 1fr);
+        align-items: stretch;
+        --cube-w: 100%;
+        width: 100%;
+        max-width: 100%;
+        gap: 12px;
+        margin: 0 auto;
+    }
+
+    .stage.mode-solve > * {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .stage.mode-solve .track-bar,
+    .stage.mode-solve .mode-seg,
+    .stage.mode-solve > .settings,
+    .stage.mode-solve .solve-scramble,
+    .stage.mode-solve .layer-solutions-widget,
+    .stage.mode-solve #crossSolutionsWidget,
+    .stage.mode-solve .solve-times {
+        grid-column: 1 / -1;
+    }
+
+    .stage.mode-solve .cube-card {
+        grid-column: 1;
+        height: 100%;
+        width: 100%;
+        max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 10px 12px;
+        box-sizing: border-box;
+    }
+
+    .stage.mode-solve .cube-card #display-container {
+        width: min(100%, var(--solve-cube-max-w));
+    }
+
+    .stage.mode-solve .cube-card scramble-display {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1 / 1;
+    }
+
+    .stage.mode-solve .cube-card-controls {
+        justify-content: center;
+        gap: 6px;
+        margin-top: 6px;
+        width: 100%;
+        max-width: var(--solve-cube-max-w);
+    }
+
+    .stage.mode-solve .solve-surface {
+        grid-column: 2;
+        height: 100%;
+        min-height: min(var(--solve-timer-min-h), 280px);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 12px;
+        box-sizing: border-box;
+    }
+
+    .stage.mode-solve.solve-cube-hidden .solve-surface {
+        grid-column: 1 / -1;
+        max-width: 100%;
+        margin: 0;
+        width: 100%;
+    }
+}
+
 @media (min-width: 900px) {
     .app {
         grid-template-columns: minmax(0, 1fr);
@@ -168,6 +246,7 @@
     .stage.mode-solve > .settings,
     .stage.mode-solve .solve-scramble,
     .stage.mode-solve .layer-solutions-widget,
+    .stage.mode-solve #crossSolutionsWidget,
     .stage.mode-solve .solve-times {
         grid-column: 1 / -1;
     }
