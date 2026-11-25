@@ -1094,8 +1094,139 @@
 /* Smart Cube Alg Execution Drill */
 .alg-drill-container {
     width: 100%;
-    max-width: 780px;
-    margin: 0 auto 16px;
+    max-width: 100%;
+    margin: 0;
+}
+
+.alg-drill-stage-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.alg-drill-timer-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    min-width: 92px;
+}
+
+.alg-drill-timer {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--ink);
+}
+
+.alg-drill-timer.is-running {
+    color: #059669;
+}
+
+.alg-drill-timer.is-done {
+    color: var(--primary);
+}
+
+.alg-drill-timer-sub {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+.alg-drill-algs-drawer {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 6px 10px;
+}
+
+.alg-drill-algs-drawer > summary {
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.alg-drill-algs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.alg-drill-alg-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--ink);
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.alg-drill-alg-option.active {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+}
+
+.alg-drill-alg-option code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 700;
+}
+
+.alg-drill-alg-note {
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.alg-drill-recent-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 0.78rem;
+    color: var(--muted);
+}
+
+.alg-drill-rep-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 2px 6px 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+}
+
+.alg-drill-rep-del {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1;
+    padding: 0 2px;
+    cursor: pointer;
+}
+
+.alg-drill-rep-del:hover {
+    color: #ef4444;
 }
 
 .alg-drill-card {
@@ -1422,19 +1553,14 @@
     font-size: 0.92rem;
 }
 
+.alg-drill-recent-wrap {
+    margin-top: 2px;
+}
+
 .alg-drill-recent-strip {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-}
-
-.alg-drill-rep-pill {
-    font-size: 0.74rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--surface-2);
 }
 
 .alg-drill-rep-pill.is-clean {

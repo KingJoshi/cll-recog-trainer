@@ -488,7 +488,7 @@
       </button>
       <div class="stats-head-actions">
         <button type="button" id="statsExportCsvBtn" class="btn btn-small" data-tooltip="Export recorded solves from the active session as a CSV spreadsheet">📥 Export CSV</button>
-        <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger">Reset</button>
+        <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger" data-tooltip="Choose exactly which stats or solves to reset (current track recognition, all recognition stats, case times, or session solves)">Reset&hellip;</button>
       </div>
     </div>
     <div id="statsBody" class="stats-body">
@@ -1576,6 +1576,53 @@
     </div>
     <div class="solve-modal-actions">
       <button type="button" id="cloudSyncDoneBtn" class="btn btn-primary btn-small">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scoped Stats & Data Reset Modal -->
+<div id="resetStatsModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="resetStatsModalTitle" hidden>
+  <div class="solve-modal-card reset-stats-modal-card">
+    <div class="solve-modal-header">
+      <h3 id="resetStatsModalTitle" class="solve-modal-title">🗑️ Reset Specific Stats</h3>
+      <button type="button" id="resetStatsCloseBtn" class="solve-modal-close" aria-label="Close reset options">&times;</button>
+    </div>
+    <div class="solve-modal-body">
+      <p class="reset-stats-intro">Select exactly which statistics or solves you want to reset:</p>
+      <div class="reset-stats-options">
+        <label class="reset-stats-option">
+          <input type="checkbox" id="resetScopeRecogTrack" value="recog-track">
+          <span class="reset-stats-option-text">
+            <strong id="resetScopeRecogTrackTitle">Recognition Stats (Current Track)</strong>
+            <small id="resetScopeRecogTrackDesc">Clears recognition attempt &amp; accuracy counters for this track only.</small>
+          </span>
+        </label>
+        <label class="reset-stats-option">
+          <input type="checkbox" id="resetScopeRecogAll" value="recog-all">
+          <span class="reset-stats-option-text">
+            <strong id="resetScopeRecogAllTitle">Recognition Stats (All Puzzles &amp; Tracks)</strong>
+            <small id="resetScopeRecogAllDesc">Clears recognition attempt &amp; accuracy counters everywhere.</small>
+          </span>
+        </label>
+        <label class="reset-stats-option">
+          <input type="checkbox" id="resetScopeCaseTimes" value="case-times">
+          <span class="reset-stats-option-text">
+            <strong id="resetScopeCaseTimesTitle">Case Solve Times (Current Track in Active Session)</strong>
+            <small id="resetScopeCaseTimesDesc">Removes solves belonging to this track from the active session.</small>
+          </span>
+        </label>
+        <label class="reset-stats-option is-danger">
+          <input type="checkbox" id="resetScopeSession" value="session">
+          <span class="reset-stats-option-text">
+            <strong id="resetScopeSessionTitle">All Solves in Active Session</strong>
+            <small id="resetScopeSessionDesc">Clears all recorded solves in the current session.</small>
+          </span>
+        </label>
+      </div>
+    </div>
+    <div class="solve-modal-actions">
+      <button type="button" id="resetStatsCancelBtn" class="btn btn-small">Cancel</button>
+      <button type="button" id="resetStatsConfirmBtn" class="btn btn-small btn-danger-fill">Reset Selected</button>
     </div>
   </div>
 </div>

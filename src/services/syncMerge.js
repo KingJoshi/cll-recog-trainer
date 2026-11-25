@@ -511,16 +511,26 @@ function mergeSessions(localSessions = [], remoteSessions = [], mergedTombstones
   return mergedSessions;
 }
 
+export const MAX_VALID_RECOG_COUNT = 1000000;
+
+export function sanitizeRecognitionStatsMap(stats) {
+  return extractCanonicalStats(stats);
+}
+
 function extractCanonicalStats(stats) {
   const nested = {};
   if (!isPlainObject(stats)) return nested;
 
   const ensureEntry = (puzzle, trackId, caseId, entry) => {
     if (!entry || typeof entry.shown !== "number") return;
+    if (!Number.isSafeInteger(entry.shown) || entry.shown < 0 || entry.shown > MAX_VALID_RECOG_COUNT) return;
+    const rawCorrect = entry.correct ?? 0;
+    if (typeof rawCorrect !== "number" || !Number.isFinite(rawCorrect) || rawCorrect < 0 || rawCorrect > MAX_VALID_RECOG_COUNT) return;
     if (!nested[puzzle]) nested[puzzle] = {};
     if (!nested[puzzle][trackId]) nested[puzzle][trackId] = {};
-    const shown = Math.max(0, Math.floor(entry.shown));
-    const correct = Math.min(shown, Math.max(0, Math.floor(entry.correct || 0)));
+    const shown = Math.trunc(entry.shown);
+    const correct = Math.min(shown, Math.max(0, Math.trunc(rawCorrect)));
+    if (shown <= 0) return;
     nested[puzzle][trackId][caseId] = { shown, correct };
   };
 
@@ -603,8 +613,12 @@ function mergeStats(localStats, remoteStats, baseStats, statsMergeMode = "additi
           // Idempotent merge for stateless JSON backup imports (prevents double-counting on re-import)
           shown = Math.max(l.shown, r.shown);
           correct = Math.min(shown, Math.max(l.correct, r.correct));
+        } else if (l.shown === r.shown && l.correct === r.correct) {
+          // Identical counts with missing base snapshot indicate same history already synced; do not double!
+          shown = l.shown;
+          correct = l.correct;
         } else {
-          // No prior base for this case: additive across independent machines
+          // No prior base and distinct counts: additive across independent machines
           shown = l.shown + r.shown;
           correct = l.correct + r.correct;
         }

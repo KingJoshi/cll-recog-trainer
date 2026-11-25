@@ -3,7 +3,7 @@
 // Setup+Alg or Alg-Only flow, automatic execution timing, and Spacebar manual fallback.
 
 import { Alg } from 'cubing/alg';
-import { getTrack, getPreferredAlg, getCustomAlgsForCase } from '../../data/algRegistry.js';
+import { getTrack, getPreferredAlg, setPreferredAlg, getCustomAlgsForCase } from '../../data/algRegistry.js';
 import { getEffectiveAlgsForCase } from '../../cube/algMirror.js';
 import { getCachedCaseSvg, renderCaseSvg } from '../../caseVisualizer.js';
 import { ScrambleTracker, formatMove } from '../../scrambleTracker.js';
@@ -55,11 +55,39 @@ export class AlgDrillView {
     this.mistakesInRep = 0;
     this.lastRepResult = null;
     this.repHistory = []; // [{ caseId, shortName, ms, tps, moves, mistakes, at }]
+    this.algsDrawerOpen = false;
     this._advanceTimer = null;
+    this._timerInterval = null;
+    this._timerUiStartedAt = null;
     this._svgLoadToken = 0;
   }
 
+  _startLiveTimer() {
+    this._stopLiveTimer();
+    this._timerUiStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const updateTick = () => {
+      const el = this.container?.querySelector?.("#algDrillTimerDisplay");
+      if (!el || this._timerUiStartedAt == null) return;
+      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+      const elapsedSec = Math.max(0, (now - this._timerUiStartedAt) / 1000);
+      el.textContent = `${elapsedSec.toFixed(2)}s`;
+    };
+    updateTick();
+    if (typeof setInterval === "function") {
+      this._timerInterval = setInterval(updateTick, 33);
+    }
+  }
+
+  _stopLiveTimer() {
+    if (this._timerInterval) {
+      clearInterval(this._timerInterval);
+      this._timerInterval = null;
+    }
+    this._timerUiStartedAt = null;
+  }
+
   deactivate() {
+    this._stopLiveTimer();
     if (this._advanceTimer) {
       clearTimeout(this._advanceTimer);
       this._advanceTimer = null;
@@ -87,9 +115,7 @@ export class AlgDrillView {
     if (valid.length === 0) return;
 
     this.deactivate();
-    const s = this.appStore.state;
-    s.selectedCases = new Set(valid);
-    this.appStore.saveTrackSelection?.(this.currentPuzzle, this.currentTrackId);
+    this.appStore.setSelection(new Set(valid), { persist: true });
     this.onSelectionChange?.();
 
     this.poolIds = [...valid];
@@ -139,8 +165,8 @@ export class AlgDrillView {
     this.poolIds = ids;
   }
 
-  _resolvePreferredAlg(caseObj) {
-    if (!caseObj) return "";
+  _getAllAlgsForCase(caseObj) {
+    if (!caseObj) return { algs: [], activeAlgId: "" };
     const s = this.appStore?.state || {};
     const track = getTrack(this.currentPuzzle, this.currentTrackId);
     const ohHand = s.ohHand || "left";
@@ -152,9 +178,45 @@ export class AlgDrillView {
     });
     const customAlgs = getCustomAlgsForCase(this.currentPuzzle, caseObj.id);
     const merged = [...customAlgs, ...effAlgs];
+    const seenAlg = new Set();
+    const algs = [];
+    for (const a of merged) {
+      if (!a?.alg) continue;
+      const key = `${a.id}:${a.alg}`;
+      if (seenAlg.has(key)) continue;
+      seenAlg.add(key);
+      algs.push(a);
+    }
     const prefId = getPreferredAlg(this.currentPuzzle, caseObj.id);
-    const match = (prefId && merged.find(a => a.id === prefId)) || merged.find(a => a.isDefault) || merged[0];
-    return match?.alg || caseObj.algs?.[0]?.alg || "";
+    const active = (prefId && algs.find(a => a.id === prefId)) || algs.find(a => a.isDefault) || algs[0];
+    return { algs, activeAlgId: active?.id || "" };
+  }
+
+  _resolvePreferredAlg(caseObj) {
+    const { algs, activeAlgId } = this._getAllAlgsForCase(caseObj);
+    const match = algs.find(a => a.id === activeAlgId) || algs[0];
+    return match?.alg || caseObj?.algs?.[0]?.alg || "";
+  }
+
+  selectAlgForCurrentCase(algId) {
+    if (!this.currentCase || !algId) return;
+    setPreferredAlg(this.currentPuzzle, this.currentCase.id, algId);
+    this._loadCurrentCase({ resetDisplay: true });
+    this.render();
+  }
+
+  deleteRep(repIndex) {
+    if (!Number.isInteger(repIndex) || repIndex < 0 || repIndex >= this.repHistory.length) return;
+    this.repHistory.splice(repIndex, 1);
+    this.lastRepResult = this.repHistory.length ? this.repHistory[this.repHistory.length - 1] : null;
+    this.render();
+  }
+
+  clearReps() {
+    if (this.repHistory.length === 0) return;
+    this.repHistory = [];
+    this.lastRepResult = null;
+    this.render();
   }
 
   _formatForSmartTracker(seq) {
@@ -166,6 +228,7 @@ export class AlgDrillView {
   }
 
   _loadCurrentCase({ resetDisplay = false } = {}) {
+    this._stopLiveTimer();
     if (this._advanceTimer) {
       clearTimeout(this._advanceTimer);
       this._advanceTimer = null;
@@ -277,6 +340,7 @@ export class AlgDrillView {
       const wasAtStart = this.tracker.currentIndex === 0 && this.tracker.currentSubAmount === 0 && !this.tracker.getStatus().hasError;
       if (wasAtStart && this.execStartedAt == null) {
         this.execStartedAt = now;
+        this._startLiveTimer();
       }
       this.tracker.applyMove(tok);
       const st = this.tracker.getStatus();
@@ -293,6 +357,7 @@ export class AlgDrillView {
         this._recordCompletedRep({ ms: durationMs, moves: moveCount, tps, mistakes: this.mistakesInRep });
       } else {
         this.render();
+        if (this.execStartedAt != null) this._startLiveTimer();
       }
       return true;
     }
@@ -306,6 +371,7 @@ export class AlgDrillView {
       this.execStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
       this.phase = "alg";
       this.render();
+      this._startLiveTimer();
       return;
     }
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -318,6 +384,7 @@ export class AlgDrillView {
   }
 
   _recordCompletedRep({ ms, moves, tps, mistakes = 0 }) {
+    this._stopLiveTimer();
     const rep = {
       caseId: this.currentCase.id,
       shortName: this.currentCase.shortName || this.currentCase.id,
@@ -442,12 +509,41 @@ export class AlgDrillView {
       </span>`;
     }).join("");
 
-    const recentHtml = [...this.repHistory].slice(-8).reverse().map(r => {
+    const recentSlice = this.repHistory.map((r, idx) => ({ ...r, origIdx: idx })).slice(-8).reverse();
+    const recentHtml = recentSlice.map(r => {
       const cls = r.mistakes === 0 ? "is-clean" : "is-dirty";
-      return `<span class="alg-drill-rep-pill ${cls}" title="${escapeHtml(r.caseId)}: ${r.tps} TPS (${r.mistakes} mistake${r.mistakes === 1 ? "" : "s"})">${escapeHtml(r.shortName)} ${(r.ms / 1000).toFixed(2)}s</span>`;
+      return `<span class="alg-drill-rep-pill ${cls}" title="${escapeHtml(r.caseId)}: ${r.tps} TPS (${r.mistakes} mistake${r.mistakes === 1 ? "" : "s"})">
+        <span>${escapeHtml(r.shortName)} ${(r.ms / 1000).toFixed(2)}s</span>
+        <button type="button" class="alg-drill-rep-del" data-rep-delete="${r.origIdx}" aria-label="Delete rep ${escapeHtml(r.shortName)} ${(r.ms / 1000).toFixed(2)}s">&times;</button>
+      </span>`;
     }).join("");
 
     const manualRunning = this.phase === "alg" && this.execStartedAt != null;
+    const isDone = this.phase === "done" && this.lastRepResult;
+    const liveElapsedSec = manualRunning && this._timerUiStartedAt != null
+      ? Math.max(0, ((typeof performance !== "undefined" ? performance.now() : Date.now()) - this._timerUiStartedAt) / 1000)
+      : (isDone ? (this.lastRepResult.ms / 1000) : 0);
+    const timerCls = manualRunning ? "is-running" : (isDone ? "is-done" : "");
+    const timerSub = manualRunning
+      ? "Running"
+      : (isDone ? `${this.lastRepResult.tps} TPS` : "Ready");
+
+    const { algs: caseAlgs, activeAlgId } = this._getAllAlgsForCase(this.currentCase);
+    const algsDrawerHtml = caseAlgs.length > 0
+      ? `
+        <details class="alg-drill-algs-drawer" ${this.algsDrawerOpen ? "open" : ""}>
+          <summary>Algorithms for ${escapeHtml(this.currentCase?.shortName || caseId)} (${caseAlgs.length} option${caseAlgs.length === 1 ? "" : "s"} — click to switch)</summary>
+          <div class="alg-drill-algs-list">
+            ${caseAlgs.map(a => `
+              <button type="button" class="alg-drill-alg-option ${a.id === activeAlgId ? "active" : ""}" data-drill-select-alg="${escapeHtml(a.id)}">
+                <code>${escapeHtml(a.alg)}</code>
+                <span class="alg-drill-alg-note">${escapeHtml(a.note || (a.isDefault ? "Default" : "Alt"))}</span>
+              </button>
+            `).join("")}
+          </div>
+        </details>
+      `
+      : "";
 
     this.container.innerHTML = `
       <div class="alg-drill-card">
@@ -480,30 +576,38 @@ export class AlgDrillView {
         </div>
 
         <div class="alg-drill-stage">
-          <div class="alg-drill-case-banner">
-            <div class="alg-drill-case-svg">${svgHtml}</div>
-            <div class="alg-drill-case-info">
-              <div class="alg-drill-case-title-row">
-                <h3>${escapeHtml(caseLabel)}</h3>
-                <span class="badge badge-pll-case">${this.targetRepsPerCase > 0 ? `Rep ${this.repOnCurrent + 1} / ${this.targetRepsPerCase}` : `Rep ${this.repOnCurrent + 1}`}</span>
-                <span class="alg-drill-ble-badge ${connected ? "is-connected" : ""}">${connected ? "ᛒ Smart Cube Live" : "No Smart Cube"}</span>
+          <div class="alg-drill-stage-header">
+            <div class="alg-drill-case-banner">
+              <div class="alg-drill-case-svg">${svgHtml}</div>
+              <div class="alg-drill-case-info">
+                <div class="alg-drill-case-title-row">
+                  <h3>${escapeHtml(caseLabel)}</h3>
+                  <span class="badge badge-pll-case">${this.targetRepsPerCase > 0 ? `Rep ${this.repOnCurrent + 1} / ${this.targetRepsPerCase}` : `Rep ${this.repOnCurrent + 1}`}</span>
+                  <span class="alg-drill-ble-badge ${connected ? "is-connected" : ""}">${connected ? "ᛒ Smart Cube Live" : "No Smart Cube"}</span>
+                </div>
+                <div class="alg-drill-phase-sub">
+                  ${this.phase === "setup"
+                    ? `Step 1/2 — Apply setup on cube: <strong>${escapeHtml(this.currentSetup)}</strong>`
+                    : (this.phase === "done"
+                      ? `✓ Done in <strong>${(this.lastRepResult.ms / 1000).toFixed(2)}s</strong> (${this.lastRepResult.tps} TPS)`
+                      : (connected
+                        ? "Execute the highlighted moves on your Smart Cube — timer starts automatically on Move 1"
+                        : "Press Space (or Start) before &amp; after executing the alg, or connect a Smart Cube"))}
+                  ${weakNote ? `<span class="alg-drill-weak-note">· ${escapeHtml(weakNote)}</span>` : ""}
+                </div>
               </div>
-              <div class="alg-drill-phase-sub">
-                ${this.phase === "setup"
-                  ? `Step 1/2 — Apply setup on cube: <strong>${escapeHtml(this.currentSetup)}</strong>`
-                  : (this.phase === "done"
-                    ? `✓ Done in <strong>${(this.lastRepResult.ms / 1000).toFixed(2)}s</strong> (${this.lastRepResult.tps} TPS)`
-                    : (connected
-                      ? "Execute the highlighted moves on your Smart Cube — timer starts automatically on Move 1"
-                      : "Press Space (or Start) before &amp; after executing the alg, or connect a Smart Cube"))}
-                ${weakNote ? `<span class="alg-drill-weak-note">· ${escapeHtml(weakNote)}</span>` : ""}
-              </div>
+            </div>
+            <div class="alg-drill-timer-box" aria-live="off">
+              <div id="algDrillTimerDisplay" class="alg-drill-timer ${timerCls}">${liveElapsedSec.toFixed(2)}s</div>
+              <span class="alg-drill-timer-sub">${escapeHtml(timerSub)}</span>
             </div>
           </div>
 
           <div class="alg-drill-teleprompter">
             ${this._renderTeleprompterTokens()}
           </div>
+
+          ${algsDrawerHtml}
 
           <div class="alg-drill-action-row">
             ${!connected ? `<button type="button" id="algDrillConnectCubeBtn" class="btn btn-small">ᛒ Connect Smart Cube</button>` : ""}
@@ -522,7 +626,15 @@ export class AlgDrillView {
           <div class="drill-stat-box"><span>Avg TPS</span><strong>${metrics.avgTps}</strong></div>
         </div>
 
-        ${recentHtml ? `<div class="alg-drill-recent-strip">${recentHtml}</div>` : ""}
+        ${recentHtml ? `
+          <div class="alg-drill-recent-wrap">
+            <div class="alg-drill-recent-head">
+              <span>Recent Reps (${this.repHistory.length})</span>
+              <button type="button" id="algDrillClearRepsBtn" class="btn btn-xs">Clear Reps</button>
+            </div>
+            <div class="alg-drill-recent-strip">${recentHtml}</div>
+          </div>
+        ` : ""}
       </div>
     `;
 
@@ -598,6 +710,24 @@ export class AlgDrillView {
       this.queueIdx = this.poolIds.length > 0 ? (this.queueIdx + 1) % this.poolIds.length : 0;
       this._loadCurrentCase({ resetDisplay: true });
       this.render();
+    });
+    this.container.querySelector(".alg-drill-algs-drawer")?.addEventListener("toggle", (e) => {
+      this.algsDrawerOpen = Boolean(e.currentTarget?.open);
+    });
+    this.container.querySelectorAll("[data-drill-select-alg]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const algId = btn.dataset.drillSelectAlg;
+        if (algId) this.selectAlgForCurrentCase(algId);
+      });
+    });
+    this.container.querySelectorAll("[data-rep-delete]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.repDelete);
+        if (Number.isInteger(idx)) this.deleteRep(idx);
+      });
+    });
+    this.container.querySelector("#algDrillClearRepsBtn")?.addEventListener("click", () => {
+      this.clearReps();
     });
   }
 }

@@ -9,7 +9,7 @@ import { formatCaseDisplayId, getTrack } from '../src/data/algRegistry.js';
 import { renderCaseSvg } from '../src/cube/caseSvgRenderer.js';
 import { resolveDrillableCaseId, getWeakestCasesForTrack } from '../src/services/weakCasesService.js';
 import { AlgDrillView } from '../src/features/practice/algDrillView.js';
-import { AppStore, sanitizeTrainSubMode } from '../src/state/appStore.js';
+import { AppStore, sanitizeTrainSubMode, sanitizeStoredStats } from '../src/state/appStore.js';
 import { renderOllPllCasesBreakdownHtml, renderCllCasesBreakdownHtml } from '../src/features/solve/cfopBreakdownRenderer.js';
 import { initCfopAnalyzer } from '../src/cfopAnalyzer.js';
 import { initTwoByTwoAnalyzer } from '../src/twoByTwoAnalyzer.js';
@@ -207,6 +207,26 @@ test('AppStore persists trainSubMode alg-drill cleanly and AlgDrillView tracks l
   assert.strictEqual(view.repHistory[0].caseId, 'coll-S1');
   assert.strictEqual(view.repHistory[0].ms, ts - 1000);
   assert.strictEqual(view.repHistory[0].mistakes, 1);
+
+  // Verify single-source-of-truth sync with selectedByTrack and case deletion / clearing / alg switching
+  assert.deepStrictEqual(store.state.selectedByTrack['333:coll'], ['coll-S1', 'coll-S5']);
+  view.selectAlgForCurrentCase('coll-S1-default');
+  assert.strictEqual(view.currentAlg, "R U R' U R U2 R'");
+  view.deleteRep(0);
+  assert.strictEqual(view.repHistory.length, 0);
+
+  // Verify AppStore sanitizes corrupted e+295 stats and supports resetAllRecognitionStats
+  const cleaned = sanitizeStoredStats({
+    '222': { cll: { H1: { shown: 8.4e295, correct: 8.4e295 }, H2: { shown: 10, correct: 8 } } },
+    H1: { shown: 8.4e295, correct: 8.4e295 },
+    H2: { shown: 10, correct: 8 }
+  });
+  assert.strictEqual(cleaned['222'].cll.H1, undefined);
+  assert.deepStrictEqual(cleaned['222'].cll.H2, { shown: 10, correct: 8 });
+  store.state.stats = cleaned;
+  store.resetAllRecognitionStats();
+  assert.deepStrictEqual(store.state.stats, {});
+
   view.deactivate();
 });
 

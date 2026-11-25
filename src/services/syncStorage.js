@@ -140,10 +140,13 @@ export function loadSyncBaseSnapshot(accountSub = "") {
 
 export function saveSyncBaseSnapshot(snapshot, accountSub = "") {
   if (!snapshot || typeof snapshot !== "object") return;
+  // Store only compact recognition stats for 3-way delta merging so localStorage quota is never exceeded
   writeStorageJSON(SYNC_BASE_SNAPSHOT_KEY, {
     accountSub: accountSub || "",
     savedAt: Date.now(),
-    snapshot: clone(snapshot)
+    snapshot: {
+      stats: clone(snapshot.stats || {})
+    }
   });
 }
 

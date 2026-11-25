@@ -138,54 +138,109 @@ export function createStatsPanelController({
     const pName = PUZZLES[s.currentPuzzle]?.shortName || s.currentPuzzle;
     const tName = track?.shortName || s.currentTrackId;
 
-    if (s.statsType === "log" || s.statsType === "solve") {
-      const ok = await modalManager.confirmDialog({
-        title: "Clear Session Solves",
-        message: `Clear all ${sess.solves?.length || 0} recorded solves in session "${sess.name}"?`,
-        confirmLabel: "Clear Solves",
-        danger: true
-      });
-      if (!ok) return;
-      const deletedFps = (sess.solves || []).map(getSolveFingerprint).filter(Boolean);
-      if (deletedFps.length > 0) recordTombstones("solves", deletedFps);
-      s.lastSolve = null;
-      appStore.setSolves([]);
-      getSessionModal()?.populateSessionSelect?.();
-      getSolvePanel()?.renderSolvePanel?.();
+    const modalEl = typeof document !== "undefined" ? document.getElementById("resetStatsModal") : null;
+    if (!modalEl || !modalManager?.open) {
+      if (s.statsType === "recog") appStore.resetRecognitionStats(s.currentPuzzle, s.currentTrackId);
       updateStatsTable();
-    } else if (s.statsType === "cll") {
-      const trackCaseIds = track?.cases ? track.cases.map(c => c.id) : [];
-      const ok = await modalManager.confirmDialog({
-        title: `Clear ${tName} Solves`,
-        message: `Clear all ${tName} solve times in session "${sess.name}"?`,
-        confirmLabel: "Clear Times",
-        danger: true
-      });
-      if (!ok) return;
-      const removed = [];
-      const filtered = (sess.solves || []).filter(sv => {
-        const shouldRemove = (sv.track && sv.track === s.currentTrackId) || (sv.id && trackCaseIds.includes(sv.id));
-        if (shouldRemove) removed.push(sv);
-        return !shouldRemove;
-      });
-      const deletedFps = removed.map(getSolveFingerprint).filter(Boolean);
-      if (deletedFps.length > 0) recordTombstones("solves", deletedFps);
-      s.lastSolve = filtered.length ? filtered[filtered.length - 1] : null;
-      appStore.setSolves(filtered);
-      getSessionModal()?.populateSessionSelect?.();
-      getSolvePanel()?.renderSolvePanel?.();
-      updateStatsTable();
-    } else {
-      const ok = await modalManager.confirmDialog({
-        title: "Reset Recognition Stats",
-        message: `Reset recognition statistics for ${pName} ${tName}?`,
-        confirmLabel: "Reset",
-        danger: true
-      });
-      if (!ok) return;
-      appStore.resetRecognitionStats(s.currentPuzzle, s.currentTrackId);
-      updateStatsTable();
+      return;
     }
+
+    const cbRecogTrack = modalEl.querySelector("#resetScopeRecogTrack");
+    const cbRecogAll = modalEl.querySelector("#resetScopeRecogAll");
+    const cbCaseTimes = modalEl.querySelector("#resetScopeCaseTimes");
+    const cbSession = modalEl.querySelector("#resetScopeSession");
+
+    const titleRecogTrack = modalEl.querySelector("#resetScopeRecogTrackTitle");
+    const descRecogTrack = modalEl.querySelector("#resetScopeRecogTrackDesc");
+    const titleRecogAll = modalEl.querySelector("#resetScopeRecogAllTitle");
+    const titleCaseTimes = modalEl.querySelector("#resetScopeCaseTimesTitle");
+    const descCaseTimes = modalEl.querySelector("#resetScopeCaseTimesDesc");
+    const titleSession = modalEl.querySelector("#resetScopeSessionTitle");
+
+    const trackStatBucket = s.stats?.[s.currentPuzzle]?.[s.currentTrackId] || {};
+    const trackStatCount = Object.keys(trackStatBucket).filter(id => (trackStatBucket[id]?.shown || 0) > 0).length;
+    const allSolves = sess.solves || [];
+    const trackCaseIds = track?.cases ? track.cases.map(c => c.id) : [];
+    const matchingTrackSolves = allSolves.filter(sv => (sv.track && sv.track === s.currentTrackId) || (sv.id && trackCaseIds.includes(sv.id)));
+
+    if (titleRecogTrack) titleRecogTrack.textContent = `Recognition Stats (${pName} ${tName})`;
+    if (descRecogTrack) descRecogTrack.textContent = trackStatCount > 0 ? `Clears recognition accuracy for ${trackStatCount} practiced case${trackStatCount === 1 ? "" : "s"} in ${pName} ${tName}.` : `No recognition stats recorded yet for ${pName} ${tName}.`;
+    if (titleRecogAll) titleRecogAll.textContent = `Recognition Stats (All Puzzles & Tracks)`;
+    if (titleCaseTimes) titleCaseTimes.textContent = `Case Solve Times (${tName} in "${sess.name}")`;
+    if (descCaseTimes) descCaseTimes.textContent = `Removes ${matchingTrackSolves.length} targeted ${tName} solve${matchingTrackSolves.length === 1 ? "" : "s"} from "${sess.name}".`;
+    if (titleSession) titleSession.textContent = `All Solves in "${sess.name}" (${allSolves.length} solve${allSolves.length === 1 ? "" : "s"})`;
+
+    if (cbRecogTrack) cbRecogTrack.checked = s.statsType === "recog";
+    if (cbRecogAll) cbRecogAll.checked = false;
+    if (cbCaseTimes) cbCaseTimes.checked = s.statsType === "cll";
+    if (cbSession) cbSession.checked = s.statsType === "log" || s.statsType === "solve";
+
+    const closeBtn = modalEl.querySelector("#resetStatsCloseBtn");
+    const cancelBtn = modalEl.querySelector("#resetStatsCancelBtn");
+    const confirmBtn = modalEl.querySelector("#resetStatsConfirmBtn");
+
+    const onCloseClick = () => modalManager.close(modalEl);
+    const onConfirmClick = () => {
+      const doRecogAll = Boolean(cbRecogAll?.checked);
+      const doRecogTrack = Boolean(cbRecogTrack?.checked) && !doRecogAll;
+      const doSession = Boolean(cbSession?.checked);
+      const doCaseTimes = Boolean(cbCaseTimes?.checked) && !doSession;
+
+      if (!doRecogAll && !doRecogTrack && !doSession && !doCaseTimes) {
+        showToast("Select at least one item to reset.", "warning", 2000);
+        return;
+      }
+
+      const doneLabels = [];
+      if (doRecogAll) {
+        appStore.resetAllRecognitionStats();
+        doneLabels.push("All Recognition Stats");
+      } else if (doRecogTrack) {
+        appStore.resetRecognitionStats(s.currentPuzzle, s.currentTrackId);
+        doneLabels.push(`${pName} ${tName} Recognition`);
+      }
+
+      if (doSession) {
+        const deletedFps = (sess.solves || []).map(getSolveFingerprint).filter(Boolean);
+        if (deletedFps.length > 0) recordTombstones("solves", deletedFps);
+        s.lastSolve = null;
+        appStore.setSolves([]);
+        doneLabels.push(`All Solves in "${sess.name}"`);
+      } else if (doCaseTimes) {
+        const removed = [];
+        const filtered = (sess.solves || []).filter(sv => {
+          const shouldRemove = (sv.track && sv.track === s.currentTrackId) || (sv.id && trackCaseIds.includes(sv.id));
+          if (shouldRemove) removed.push(sv);
+          return !shouldRemove;
+        });
+        const deletedFps = removed.map(getSolveFingerprint).filter(Boolean);
+        if (deletedFps.length > 0) recordTombstones("solves", deletedFps);
+        s.lastSolve = filtered.length ? filtered[filtered.length - 1] : null;
+        appStore.setSolves(filtered);
+        doneLabels.push(`${tName} Times in "${sess.name}"`);
+      }
+
+      modalManager.close(modalEl);
+      getSessionModal()?.populateSessionSelect?.();
+      getSolvePanel()?.renderSolvePanel?.();
+      updateStatsTable();
+      showToast(`Reset: ${doneLabels.join(", ")}.`, "success", 2600);
+    };
+
+    const cleanup = () => {
+      closeBtn?.removeEventListener("click", onCloseClick);
+      cancelBtn?.removeEventListener("click", onCloseClick);
+      confirmBtn?.removeEventListener("click", onConfirmClick);
+    };
+
+    closeBtn?.addEventListener("click", onCloseClick);
+    cancelBtn?.addEventListener("click", onCloseClick);
+    confirmBtn?.addEventListener("click", onConfirmClick);
+
+    modalManager.open(modalEl, {
+      initialFocus: confirmBtn,
+      onClose: cleanup
+    });
   });
 
   return {

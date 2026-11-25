@@ -264,6 +264,7 @@
     }
 
     .stage.mode-practice > .practice-container,
+    .stage.mode-practice > .alg-drill-container,
     .stage.mode-simulate > .simulate-panel {
         grid-column: 2;
         grid-row: span 2;

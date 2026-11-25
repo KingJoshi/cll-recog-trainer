@@ -113,6 +113,41 @@ export function sanitizeHexColor(val) {
   return typeof val === "string" && /^#[0-9a-fA-F]{6}$/.test(val) ? val.toLowerCase() : null;
 }
 
+const MAX_VALID_RECOG_COUNT = 1000000;
+
+export function sanitizeStoredStats(rawStats) {
+  if (!rawStats || typeof rawStats !== "object" || Array.isArray(rawStats)) return {};
+  const clean = {};
+  const addEntry = (puzzle, trackId, caseId, entry) => {
+    if (!entry || typeof entry.shown !== "number") return;
+    if (!Number.isSafeInteger(entry.shown) || entry.shown <= 0 || entry.shown > MAX_VALID_RECOG_COUNT) return;
+    const rawC = entry.correct ?? 0;
+    if (typeof rawC !== "number" || !Number.isFinite(rawC) || rawC < 0 || rawC > MAX_VALID_RECOG_COUNT) return;
+    const shown = Math.trunc(entry.shown);
+    const correct = Math.min(shown, Math.max(0, Math.trunc(rawC)));
+    if (!clean[puzzle]) clean[puzzle] = {};
+    if (!clean[puzzle][trackId]) clean[puzzle][trackId] = {};
+    clean[puzzle][trackId][caseId] = { shown, correct };
+    if (puzzle === "222" && trackId === "cll") {
+      clean[caseId] = { shown, correct };
+    }
+  };
+  for (const [k, v] of Object.entries(rawStats)) {
+    if (!v || typeof v !== "object") continue;
+    if (typeof v.shown === "number") {
+      if (!rawStats["222"]?.["cll"]?.[k]) addEntry("222", "cll", k, v);
+    } else {
+      for (const [tid, tMap] of Object.entries(v)) {
+        if (!tMap || typeof tMap !== "object") continue;
+        for (const [cid, entry] of Object.entries(tMap)) {
+          addEntry(k, tid, cid, entry);
+        }
+      }
+    }
+  }
+  return clean;
+}
+
 export class AppStore {
   constructor() {
     this.listeners = new Set();
@@ -342,7 +377,7 @@ export class AppStore {
       solveShowCube: activeSession.showCube ?? true,
       solveInspection: activeSession.inspection ?? true,
       keyboardShortcuts: sanitizeShortcutOverrides(savedSettings.keyboardShortcuts),
-      stats: readStorageJSON(STORAGE_KEYS.STATS, {}) || {},
+      stats: sanitizeStoredStats(readStorageJSON(STORAGE_KEYS.STATS, {}) || {}),
       caseTags: readStorageJSON(STORAGE_KEYS.CASE_TAGS, {}) || {},
       customCllLabels: readStorageJSON(STORAGE_KEYS.CUSTOM_LABELS, {}) || {},
       pblSettings: readStorageJSON(STORAGE_KEYS.PBL_SETTINGS, {}) || {},
@@ -632,6 +667,13 @@ export class AppStore {
     this.resetCaseAppearances();
     this.saveStats({ silent: true });
     this._emitPersist("resetStats", { puzzle, trackId });
+  }
+
+  resetAllRecognitionStats() {
+    this.state.stats = {};
+    this.resetCaseAppearances();
+    this.saveStats({ silent: true });
+    this._emitPersist("resetStats", { all: true });
   }
 
   setOhHand(hand) {
@@ -1218,7 +1260,7 @@ export class AppStore {
       s.solveTarget = activeSession.target || savedSettings.solveTarget || "full";
       s.solveShowCube = activeSession.showCube ?? savedSettings.solveShowCube ?? true;
       s.solveInspection = activeSession.inspection ?? savedSettings.solveInspection ?? true;
-      s.stats = mergedPayload.stats ? JSON.parse(JSON.stringify(mergedPayload.stats)) : {};
+      s.stats = sanitizeStoredStats(mergedPayload.stats || {});
       s.caseTags = mergedPayload.caseTags ? JSON.parse(JSON.stringify(mergedPayload.caseTags)) : {};
       s.customCllLabels = mergedPayload.customCllLabels ? JSON.parse(JSON.stringify(mergedPayload.customCllLabels)) : {};
       s.pblSettings = mergedPayload.pblSettings ? JSON.parse(JSON.stringify(mergedPayload.pblSettings)) : {};

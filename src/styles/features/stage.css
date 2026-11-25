@@ -82,7 +82,8 @@
 .stage .solve-scramble { order: 6; }
 .stage .cube-card { order: 7; }
 .stage .empty-state { order: 8; }
-.stage .practice-container { order: 9; }
+.stage .practice-container,
+.stage .alg-drill-container { order: 9; }
 .stage .simulate-panel { order: 10; }
 .stage .solve-surface { order: 11; }
 .stage #layerSolutionsWidget { order: 12; }

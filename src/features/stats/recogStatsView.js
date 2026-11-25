@@ -44,8 +44,8 @@ export function createRecogStatsView({ appStore, onStartAlgDrill = null } = {}) 
           const caseId = `${group}${caseNum}`;
           if (!caseById.has(caseId)) return "<td></td>";
           const stat = appStore.getCaseStat("222", "cll", caseId);
-          const correct = stat?.correct || 0;
-          const shown = stat?.shown || 0;
+          const shown = Math.max(0, Math.trunc(Number(stat?.shown) || 0));
+          const correct = Math.min(shown, Math.max(0, Math.trunc(Number(stat?.correct) || 0)));
           grpShown += shown;
           grpCorrect += correct;
           return `<td title="${caseId}: ${correct}/${shown}">${correct}/${shown}</td>`;
@@ -88,10 +88,12 @@ export function createRecogStatsView({ appStore, onStartAlgDrill = null } = {}) 
 
       track.cases.forEach(c => {
         const stat = appStore.getCaseStat(currentPuzzle, currentTrackId, c.id);
-        if (stat.shown > 0) {
+        const sVal = Math.max(0, Math.trunc(Number(stat?.shown) || 0));
+        const cVal = Math.min(sVal, Math.max(0, Math.trunc(Number(stat?.correct) || 0)));
+        if (sVal > 0) {
           testedCases++;
-          totalAttempts += stat.shown;
-          totalCorrect += stat.correct;
+          totalAttempts += sVal;
+          totalCorrect += cVal;
         }
       });
 
@@ -133,8 +135,8 @@ export function createRecogStatsView({ appStore, onStartAlgDrill = null } = {}) 
 
         const caseItems = groupCases.map((c, idx) => {
           const stat = appStore.getCaseStat(currentPuzzle, currentTrackId, c.id);
-          const shown = stat.shown || 0;
-          const correct = stat.correct || 0;
+          const shown = Math.max(0, Math.trunc(Number(stat?.shown) || 0));
+          const correct = Math.min(shown, Math.max(0, Math.trunc(Number(stat?.correct) || 0)));
           gShown += shown;
           gCorrect += correct;
           const pct = shown > 0 ? Math.round((correct / shown) * 100) : null;

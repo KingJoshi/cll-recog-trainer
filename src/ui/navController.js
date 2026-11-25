@@ -1120,9 +1120,11 @@ export function createNavController({
     if (Array.isArray(caseIds) && caseIds.length > 0) {
       if (drillView) {
         drillView.setCasePool(caseIds);
+        casePickerCtrl?.buildCasePicker?.();
+        casePickerCtrl?.renderSelection?.();
       } else {
-        s.selectedCases = new Set(caseIds);
-        appStore.saveTrackSelection(s.currentPuzzle, s.currentTrackId);
+        appStore.setSelection(new Set(caseIds), { persist: true });
+        casePickerCtrl?.buildCasePicker?.();
         casePickerCtrl?.renderSelection?.();
       }
     } else {

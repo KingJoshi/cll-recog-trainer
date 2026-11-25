@@ -1256,3 +1256,52 @@
     font-size: 0.8rem;
     color: var(--muted);
 }
+
+.reset-stats-modal-card {
+    max-width: 480px;
+}
+
+.reset-stats-intro {
+    margin: 0 0 10px;
+    font-size: 0.86rem;
+    color: var(--muted);
+}
+
+.reset-stats-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.reset-stats-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 11px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    cursor: pointer;
+}
+
+.reset-stats-option input[type="checkbox"] {
+    margin-top: 3px;
+    accent-color: #dc2626;
+    cursor: pointer;
+}
+
+.reset-stats-option-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.84rem;
+}
+
+.reset-stats-option-text small {
+    color: var(--muted);
+    font-size: 0.76rem;
+}
+
+.reset-stats-option.is-danger {
+    border-color: rgba(220, 38, 38, 0.35);
+}

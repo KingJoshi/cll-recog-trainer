@@ -285,7 +285,7 @@ test('3-way recognition stats merge handles additive deltas, initial merge, and 
   // H2 reset on local, remote added +2/+1 since base
   assert.deepStrictEqual(res.merged.stats["222"].cll.H2, { shown: 2, correct: 1 });
 
-  // Without base: additive across independent machines
+  // Without base: distinct counts still add across independent machines
   const noBaseRes = mergeSyncPayloads(
     makeSnapshot({ stats: { "333": { pll: { T: { shown: 4, correct: 3 } } } } }),
     makeSnapshot({ stats: { "333": { pll: { T: { shown: 6, correct: 5 } } } } }),
@@ -293,6 +293,25 @@ test('3-way recognition stats merge handles additive deltas, initial merge, and 
     5000
   );
   assert.deepStrictEqual(noBaseRes.merged.stats["333"].pll.T, { shown: 10, correct: 8 });
+
+  // Without base: identical counts must NOT exponentially double across repeated syncs
+  const identicalNoBase = mergeSyncPayloads(
+    makeSnapshot({ stats: { "222": { cll: { H1: { shown: 12, correct: 9 } } }, H1: { shown: 12, correct: 9 } } }),
+    makeSnapshot({ stats: { "222": { cll: { H1: { shown: 12, correct: 9 } } }, H1: { shown: 12, correct: 9 } } }),
+    null,
+    5000
+  );
+  assert.deepStrictEqual(identicalNoBase.merged.stats["222"].cll.H1, { shown: 12, correct: 9 });
+
+  // Corrupted e+295 scientific floats from legacy sync doubling are discarded cleanly
+  const corruptedClean = mergeSyncPayloads(
+    makeSnapshot({ stats: { "222": { cll: { H1: { shown: 8.4e295, correct: 8.4e295 }, H2: { shown: 7, correct: 5 } } } } }),
+    makeSnapshot({ stats: { "222": { cll: { H2: { shown: 7, correct: 5 } } } } }),
+    null,
+    5000
+  );
+  assert.strictEqual(corruptedClean.merged.stats["222"].cll.H1, undefined);
+  assert.deepStrictEqual(corruptedClean.merged.stats["222"].cll.H2, { shown: 7, correct: 5 });
 });
 
 test('merges caseTags, customCllLabels, pblSettings, preferredAlgs, and savedSmartCubes with tombstones', () => {
