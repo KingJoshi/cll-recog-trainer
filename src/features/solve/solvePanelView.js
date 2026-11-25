@@ -469,6 +469,7 @@ export function createSolvePanelView({
         solveInlineRecentStats.innerHTML = "";
       }
     }
+    solveSurface?.classList.toggle("has-inline-stats", Boolean(solveInlineRecentStats && !solveInlineRecentStats.hidden));
     if (typeof document !== "undefined") {
       const stageEl = document.querySelector(".stage");
       const cubeCardEl = document.querySelector(".cube-card");
