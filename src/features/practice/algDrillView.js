@@ -3,6 +3,7 @@
 // Setup+Alg or Alg-Only flow, automatic execution timing, and Spacebar manual fallback.
 
 import { Alg } from 'cubing/alg';
+import { cleanAlg, parseScrambleInput } from '../../algParser.js';
 import { getTrack, getPreferredAlg, setPreferredAlg, getCustomAlgsForCase } from '../../data/algRegistry.js';
 import { getEffectiveAlgsForCase } from '../../cube/algMirror.js';
 import { getCachedCaseSvg, renderCaseSvg } from '../../caseVisualizer.js';
@@ -20,6 +21,7 @@ export class AlgDrillView {
     onOpenCasePicker = null,
     onOpenBluetoothModal = null,
     onSelectionChange = null,
+    onQuickSimSolutions = null,
     isCubeConnected = () => false
   } = {}) {
     this.container = container || null;
@@ -28,6 +30,7 @@ export class AlgDrillView {
     this.onOpenCasePicker = onOpenCasePicker;
     this.onOpenBluetoothModal = onOpenBluetoothModal;
     this.onSelectionChange = onSelectionChange;
+    this.onQuickSimSolutions = onQuickSimSolutions;
     this.isCubeConnected = isCubeConnected;
 
     this.currentPuzzle = appStore?.state?.currentPuzzle || "333";
@@ -203,6 +206,64 @@ export class AlgDrillView {
     setPreferredAlg(this.currentPuzzle, this.currentCase.id, algId);
     this._loadCurrentCase({ resetDisplay: true });
     this.render();
+  }
+
+  openAlgQuickSim(targetAlgId = null) {
+    if (!this.currentCase || !this.onQuickSimSolutions) return;
+    const { algs: caseAlgs, activeAlgId } = this._getAllAlgsForCase(this.currentCase);
+    if (!caseAlgs.length) return;
+
+    const s = this.appStore?.state || {};
+    const whiteBottom = s.alwaysWhiteBottom !== false;
+    const needsZ2 = whiteBottom && ["lbl", "cll", "ortega", "eg1", "eg2", "f2l", "oll", "pll", "coll", "cmll", "wv", "parity"].includes(this.currentTrackId);
+    const title = this.currentCase.name || this.currentCase.shortName || this.currentCase.id;
+
+    const solutions = caseAlgs.map((a, idx) => {
+      let baseSetup = a.mirroredSetup || this.currentCase.setup || this.currentCase.scramble || "";
+      if (!baseSetup && a.alg) {
+        try {
+          baseSetup = new Alg(a.alg).invert().toString();
+        } catch {
+          baseSetup = "";
+        }
+      }
+      const rawSetupWithAuf = `${baseSetup}${a.startAuf ? ` ${a.startAuf}` : ""}`.trim();
+      const scramble = `${needsZ2 && rawSetupWithAuf && !/^z2\b/i.test(rawSetupWithAuf) ? "z2 " : ""}${rawSetupWithAuf}`.trim();
+      const cleanMoves = cleanAlg(a.alg || "");
+      const parsed = cleanMoves ? parseScrambleInput(cleanMoves) : { ok: false };
+      const moveCount = parsed.ok
+        ? parsed.moves.length
+        : (cleanMoves ? cleanMoves.split(/\s+/).filter(Boolean).length : 0);
+      const isPref = a.id === activeAlgId;
+      const shortName = a.ohBadge || (idx === 0 ? "Primary" : `Alg ${idx + 1}`);
+      const pillLabel = `${isPref ? "★ " : ""}${shortName}${moveCount ? ` · ${moveCount}m` : ""}`;
+
+      return {
+        label: title,
+        shortLabel: shortName,
+        pillLabel,
+        moves: cleanMoves,
+        moveCount,
+        inspection: "none",
+        scramble,
+        note: a.note || "",
+        group: this.currentCase.group || null,
+        ohBadge: a.ohBadge || null,
+        startAuf: a.startAuf || null
+      };
+    });
+
+    const wantedId = targetAlgId || activeAlgId;
+    let activeIndex = wantedId ? caseAlgs.findIndex(a => a.id === wantedId) : 0;
+    if (activeIndex < 0) activeIndex = 0;
+
+    this.onQuickSimSolutions({
+      puzzle: this.currentPuzzle,
+      scramble: solutions[activeIndex]?.scramble || "",
+      solutions,
+      activeIndex,
+      title
+    });
   }
 
   deleteRep(repIndex) {
@@ -535,10 +596,13 @@ export class AlgDrillView {
           <summary>Algorithms for ${escapeHtml(this.currentCase?.shortName || caseId)} (${caseAlgs.length} option${caseAlgs.length === 1 ? "" : "s"} — click to switch)</summary>
           <div class="alg-drill-algs-list">
             ${caseAlgs.map(a => `
-              <button type="button" class="alg-drill-alg-option ${a.id === activeAlgId ? "active" : ""}" data-drill-select-alg="${escapeHtml(a.id)}">
-                <code>${escapeHtml(a.alg)}</code>
-                <span class="alg-drill-alg-note">${escapeHtml(a.note || (a.isDefault ? "Default" : "Alt"))}</span>
-              </button>
+              <div class="alg-drill-alg-row ${a.id === activeAlgId ? "active" : ""}">
+                <button type="button" class="alg-drill-alg-option" data-drill-select-alg="${escapeHtml(a.id)}">
+                  <code>${escapeHtml(a.alg)}</code>
+                  <span class="alg-drill-alg-note">${escapeHtml(a.note || (a.isDefault ? "Default" : "Alt"))}</span>
+                </button>
+                <button type="button" class="btn btn-xs alg-drill-alg-sim-btn" data-drill-sim-alg="${escapeHtml(a.id)}" title="Simulate this solution in 3D popup">Sim</button>
+              </div>
             `).join("")}
           </div>
         </details>
@@ -551,7 +615,7 @@ export class AlgDrillView {
           <div class="alg-drill-pool-head">
             <strong>Drill Pool (${this.poolIds.length} case${this.poolIds.length === 1 ? "" : "s"})</strong>
             <div class="alg-drill-pool-actions">
-              <button type="button" id="algDrillChooseCasesBtn" class="btn btn-small">⚙️ Choose Cases</button>
+              <button type="button" id="algDrillChooseCasesBtn" class="btn btn-small" title="Open Active Cases picker above to add or remove cases">⚙️ Choose Cases</button>
               <button type="button" id="algDrillLoadWeakestBtn" class="btn btn-small btn-weakest">⚡ Load Weakest</button>
             </div>
           </div>
@@ -718,6 +782,13 @@ export class AlgDrillView {
       btn.addEventListener("click", () => {
         const algId = btn.dataset.drillSelectAlg;
         if (algId) this.selectAlgForCurrentCase(algId);
+      });
+    });
+    this.container.querySelectorAll("[data-drill-sim-alg]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const algId = btn.dataset.drillSimAlg;
+        if (algId) this.openAlgQuickSim(algId);
       });
     });
     this.container.querySelectorAll("[data-rep-delete]").forEach(btn => {

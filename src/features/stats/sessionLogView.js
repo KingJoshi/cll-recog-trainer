@@ -39,7 +39,7 @@ import {
 } from '../../services/htmlUtils.js';
 import { renderOllPllCasesBreakdownHtml, renderCllCasesBreakdownHtml } from '../solve/cfopBreakdownRenderer.js';
 import { renderStatsChartsHtml } from './statsChartsView.js';
-import { renderCfopGoalCoachHtml } from './cfopGoalCoach.js';
+import { renderCfopGoalCoachHtml, sanitizeCfopGoalSec } from './cfopGoalCoach.js';
 import { ICON_PLAY, ICON_RESET_ANGLE } from '../../ui/transportIcons.js';
 
 function renderTwoByTwoLayerCellHtml(two, sv, { compact = false } = {}) {
@@ -1261,12 +1261,35 @@ export function createSessionLogView({
     container.querySelectorAll("[data-cfop-goal]").forEach(btn => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        const nextGoal = Number(btn.dataset.cfopGoal);
+        const nextGoal = sanitizeCfopGoalSec(btn.dataset.cfopGoal, 0);
         if (!nextGoal || nextGoal === Number(s.cfopGoalSec)) return;
         s.cfopGoalSec = nextGoal;
         appStore.saveSettings();
         render(container);
       });
+    });
+
+    const applyCustomGoal = (rawVal) => {
+      const nextGoal = sanitizeCfopGoalSec(rawVal, 0);
+      if (!nextGoal) return;
+      s.cfopGoalSec = nextGoal;
+      appStore.saveSettings();
+      render(container);
+    };
+    const customGoalInput = container.querySelector("[data-cfop-goal-input]");
+    if (customGoalInput) {
+      customGoalInput.addEventListener("click", (e) => e.stopPropagation());
+      customGoalInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.stopPropagation();
+          applyCustomGoal(customGoalInput.value);
+        }
+      });
+    }
+    container.querySelector("[data-cfop-goal-apply]")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      applyCustomGoal(customGoalInput?.value);
     });
 
     container.querySelectorAll("[data-oll-mode]").forEach(btn => {

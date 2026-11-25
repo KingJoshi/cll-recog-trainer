@@ -390,4 +390,17 @@
     }
 }
 
+.panel.panel-attention-pulse {
+    animation: panelAttentionPulse 1.1s ease-out;
+}
+
+@keyframes panelAttentionPulse {
+    0% {
+        box-shadow: 0 0 0 3px var(--primary), 0 0 0 6px color-mix(in srgb, var(--primary) 28%, transparent);
+    }
+    100% {
+        box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent;
+    }
+}
+
 }

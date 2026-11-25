@@ -215,6 +215,26 @@ test('AppStore persists trainSubMode alg-drill cleanly and AlgDrillView tracks l
   view.deleteRep(0);
   assert.strictEqual(view.repHistory.length, 0);
 
+  // Verify openAlgQuickSim passes puzzle, z2-prefixed scramble when alwaysWhiteBottom is true, solutions, and activeIndex
+  let capturedSimPayload = null;
+  store.state.alwaysWhiteBottom = true;
+  const simView = new AlgDrillView({
+    container,
+    appStore: store,
+    onQuickSimSolutions: (payload) => { capturedSimPayload = payload; }
+  });
+  simView.setTrack('333', 'coll');
+  simView.setCasePool(['coll-H1']);
+  const { algs: h1Algs } = simView._getAllAlgsForCase(simView.currentCase);
+  const targetAlg = h1Algs[h1Algs.length - 1];
+  simView.openAlgQuickSim(targetAlg.id);
+  assert.ok(capturedSimPayload);
+  assert.strictEqual(capturedSimPayload.puzzle, '333');
+  assert.strictEqual(capturedSimPayload.solutions.length, h1Algs.length);
+  assert.strictEqual(capturedSimPayload.activeIndex, h1Algs.length - 1);
+  assert.ok(capturedSimPayload.scramble.startsWith('z2 '));
+  simView.deactivate();
+
   // Verify AppStore sanitizes corrupted e+295 stats and supports resetAllRecognitionStats
   const cleaned = sanitizeStoredStats({
     '222': { cll: { H1: { shown: 8.4e295, correct: 8.4e295 }, H2: { shown: 10, correct: 8 } } },

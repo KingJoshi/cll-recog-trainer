@@ -9,11 +9,12 @@ import {
   DEFAULT_PAUSE_THRESHOLD_MS,
   collapseDoubleFlickMoves,
   computeMedian,
-  computeTrimmedMean
+  computeTrimmedMean,
+  computePhaseRecogSetupExec
 } from './cfopAnalyzer.js';
 
 export const TWO_BY_TWO_COLOR_NAMES = ["White", "Yellow", "Green", "Blue", "Red", "Orange"];
-export const TWO_BY_TWO_ANALYSIS_VERSION = 4;
+export const TWO_BY_TWO_ANALYSIS_VERSION = 6;
 
 const OPPOSITE_COLOR_NAME = {
   White: "Yellow",
@@ -359,20 +360,11 @@ function buildPhaseStep({
   const execMoves = collapseDoubleFlickMoves(phaseMoves.slice(setupMoveCount).map(m => m.move)).join(" ");
   const allCollapsedMoves = collapseDoubleFlickMoves(phaseMoves.map(m => m.move)).join(" ");
 
-  const recogMs = (() => {
-    if (!isSetupAware || phaseMoves.length === 0) return 0;
-    let rMs = 0;
-    for (let mIdx = 0; mIdx < phaseMoves.length; mIdx++) {
-      rMs += phaseMoves[mIdx].split;
-      if (!phaseMoves[mIdx].isRotation && !isLayerUMove(phaseMoves[mIdx].move, cand)) {
-        break;
-      }
-    }
-    return Math.min(durationMs, rMs);
-  })();
+  const { recogMs, setupMs, execMs } = isSetupAware
+    ? computePhaseRecogSetupExec(phaseMoves, setupMoveCount, durationMs, pauseThresholdMs)
+    : { recogMs: 0, setupMs: 0, execMs: durationMs };
 
   const faceTurnCount = phaseMoves.filter(m => !m.isRotation).length;
-  const execMs = isSetupAware ? Math.max(0, durationMs - recogMs) : durationMs;
   const tps = durationMs > 0 ? Number((faceTurnCount / (durationMs / 1000)).toFixed(2)) : 0;
 
   return {
@@ -381,6 +373,7 @@ function buildPhaseStep({
     caseId,
     ms: durationMs,
     recogMs,
+    setupMs,
     setupMoves,
     execMs,
     execMoves,
@@ -760,24 +753,7 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
     steps.push(layerStep);
   }
 
-  const cllStep = buildPhaseStep({
-    key: "cll",
-    label: "CLL",
-    caseId: cllCase ? cllCase.shortName : (layerEndIdx === N ? "Skip" : "-"),
-    startIdx: layerEndIdx,
-    endIdx: N,
-    normMoves,
-    timeAtIndex,
-    allPauses,
-    pauseThresholdMs,
-    cand,
-    isSetupAware: true
-  });
-  splits.cll = cllStep.ms;
-  steps.push(cllStep);
-
-  // Separate trailing post-AUF summary row without altering CLL time or totals
-  let aufSummary = null;
+  // Separate trailing post-AUF before building CLL step so CLL timing excludes final AUF
   let aufStartIdx = N;
   const endedSolved = Boolean(endStates?.[N]?.isSkip);
   while (aufStartIdx > layerEndIdx) {
@@ -800,6 +776,23 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
     }
     break;
   }
+
+  const cllStep = buildPhaseStep({
+    key: "cll",
+    label: "CLL",
+    caseId: cllCase ? cllCase.shortName : (layerEndIdx === aufStartIdx ? "Skip" : "-"),
+    startIdx: layerEndIdx,
+    endIdx: aufStartIdx,
+    normMoves,
+    timeAtIndex,
+    allPauses,
+    pauseThresholdMs,
+    cand,
+    isSetupAware: true
+  });
+  splits.cll = cllStep.ms;
+  steps.push(cllStep);
+
   const aufRawMoves = normMoves.slice(aufStartIdx, N).filter(m => !m.isRotation);
   const aufMs = aufRawMoves.length > 0 && aufStartIdx < N
     ? Math.max(0, Math.round(timeAtIndex(N) - timeAtIndex(aufStartIdx)))
@@ -807,22 +800,31 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
   const aufMovesStr = aufRawMoves.length > 0
     ? (collapseDoubleFlickMoves(aufRawMoves.map(m => m.move)).join(" ") || "None")
     : "None";
-  const aufPauses = aufRawMoves.filter(m => m.split >= pauseThresholdMs);
+  const aufPauses = [];
+  for (const mv of normMoves.slice(aufStartIdx, N)) {
+    if (mv.split >= pauseThresholdMs) aufPauses.push(mv);
+    const matchP = allPauses.find(p => p.moveIndex === mv.index);
+    if (matchP) {
+      matchP.phase = "auf";
+      matchP.phaseLabel = "AUF";
+    }
+  }
   const aufPauseMs = aufPauses.reduce((acc, m) => acc + m.split, 0);
   const aufTps = (aufMs > 0 && aufRawMoves.length > 0)
     ? Number((aufRawMoves.length / (aufMs / 1000)).toFixed(2))
     : 0;
   splits.auf = aufMs;
-  aufSummary = {
+  const aufSummary = {
     phase: "auf",
     label: "AUF",
     caseId: aufMovesStr,
     ms: aufMs,
     recogMs: null,
+    setupMs: null,
     setupMoves: "",
     execMs: aufMs,
     execMoves: aufMovesStr === "None" ? "" : aufMovesStr,
-    accumMs: cllStep.accumMs,
+    accumMs: timeAtIndex(N),
     moveCount: aufRawMoves.length,
     tps: aufTps,
     moves: aufMovesStr === "None" ? "" : aufMovesStr,
@@ -835,6 +837,7 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
         ...cllCase,
         ms: cllStep.ms,
         recogMs: cllStep.recogMs,
+        setupMs: cllStep.setupMs,
         execMs: cllStep.execMs,
         setupMoves: cllStep.setupMoves,
         moveCount: cllStep.moveCount,

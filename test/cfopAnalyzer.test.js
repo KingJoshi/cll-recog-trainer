@@ -8,6 +8,7 @@ import {
   computeOllPllCaseStats,
   computeMedian,
   computeTrimmedMean,
+  computePhaseRecogSetupExec,
   DEFAULT_PAUSE_THRESHOLD_MS,
 } from '../src/cfopAnalyzer.js';
 
@@ -92,7 +93,8 @@ test('analyzeCfopSolve accurately detects Cross, F2L 1-4, OLL 27 (Sune), PLL (T 
   assert.strictEqual(cfop.splits.f2l4, 820);
   assert.strictEqual(cfop.splits.f2lTotal, 1060 + 1000 + 860 + 820);
   assert.strictEqual(cfop.splits.oll, 1870);
-  assert.strictEqual(cfop.splits.pll, 3630);
+  assert.strictEqual(cfop.splits.pll, 3430);
+  assert.strictEqual(cfop.splits.auf, 200);
 
   // OLL & PLL case identification
   assert.strictEqual(cfop.ollCase.shortName, 'OLL 27');
@@ -115,10 +117,48 @@ test('analyzeCfopSolve accurately detects Cross, F2L 1-4, OLL 27 (Sune), PLL (T 
   assert.strictEqual(crossStep.accumMs, 720);
   assert.strictEqual(ollStep.caseId, 'OLL 27');
   assert.strictEqual(ollStep.setupMoves, 'U');
-  assert.strictEqual(ollStep.recogMs + ollStep.execMs, ollStep.ms);
+  assert.strictEqual(ollStep.recogMs, 550);
+  assert.strictEqual(ollStep.setupMs, 200);
+  assert.strictEqual(ollStep.recogMs + ollStep.setupMs + ollStep.execMs, ollStep.ms);
   assert.strictEqual(pllStep.caseId, 'T');
   assert.strictEqual(pllStep.setupMoves, 'U');
-  assert.strictEqual(pllStep.accumMs, 9960);
+  assert.strictEqual(pllStep.recogMs, 630);
+  assert.strictEqual(pllStep.setupMs, 200);
+  assert.strictEqual(pllStep.recogMs + pllStep.setupMs + pllStep.execMs, pllStep.ms);
+  assert.strictEqual(pllStep.accumMs, 9760);
+
+  // Heuristic edge case: U-fishing with pause right before first alg turn folds into Recog
+  const fishing = computePhaseRecogSetupExec(
+    [
+      { move: 'U', split: 140 },
+      { move: 'R', split: 520 },
+      { move: 'U', split: 160 }
+    ],
+    1,
+    820,
+    400
+  );
+  assert.strictEqual(fishing.recogMs, 660);
+  assert.strictEqual(fishing.setupMs, 0);
+  assert.strictEqual(fishing.execMs, 160);
+
+  // Heuristic edge case: Pause -> U -> U' (fishing w/ pause between setups) -> R
+  const midPause = computePhaseRecogSetupExec(
+    [
+      { move: 'U', split: 120 },
+      { move: "U'", split: 480 },
+      { move: 'R', split: 150 },
+      { move: 'U', split: 150 }
+    ],
+    2,
+    900,
+    400
+  );
+  assert.strictEqual(midPause.recogMs, 600);
+  assert.strictEqual(midPause.setupMs, 150);
+  assert.strictEqual(midPause.execMs, 150);
+  assert.strictEqual(cfop.aufSummary?.ms, 200);
+  assert.strictEqual(cfop.aufSummary?.accumMs, 9960);
   assert.ok(cfop.f2lSummary);
   assert.strictEqual(cfop.f2lSummary.ms, 3740);
   assert.strictEqual(cfop.f2lSummary.accumMs, 4460);
@@ -172,7 +212,8 @@ test('computeCfopAverages and computeOllPllCaseStats aggregate session and pagin
   assert.strictEqual(avg.cross, 720);
   assert.strictEqual(avg.f2lTotal, 3740);
   assert.strictEqual(avg.oll, 1870);
-  assert.strictEqual(avg.pll, 3630);
+  assert.strictEqual(avg.pll, 3430);
+  assert.strictEqual(avg.auf, 200);
   assert.strictEqual(avg.avgPauseCount, 4);
 
   const caseStats = computeOllPllCaseStats([solve1, solve2]);
@@ -186,6 +227,6 @@ test('computeCfopAverages and computeOllPllCaseStats aggregate session and pagin
   assert.strictEqual(caseStats.pllCases[0].shortName, 'T');
   assert.strictEqual(caseStats.pllCases[0].name, 'T-Perm (Adjacent Swap - Classic)');
   assert.strictEqual(caseStats.pllCases[0].attempts, 2);
-  assert.strictEqual(caseStats.pllCases[0].avgMs, 3630);
+  assert.strictEqual(caseStats.pllCases[0].avgMs, 3430);
   assert.strictEqual(caseStats.pllCases[0].avgPauseCount, 1);
 });

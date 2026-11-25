@@ -62,12 +62,17 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
   const pickupOffset = hasPickup ? solve.pickupMs : 0;
 
   const isNoRecogPhase = (phase) => phase === "cross" || phase === "layer" || phase === "face";
+  const hasSeparateAuf = Boolean(analysis.aufSummary && !realSteps.some(st => st.phase === "auf"));
+  const aufMsExtra = hasSeparateAuf ? (analysis.aufSummary.ms || 0) : 0;
+  const aufExecExtra = hasSeparateAuf ? (analysis.aufSummary.execMs ?? analysis.aufSummary.ms ?? 0) : 0;
+  const aufMoveExtra = hasSeparateAuf ? (analysis.aufSummary.moveCount || 0) : 0;
   const totalRecogMs = realSteps.reduce((acc, s) => acc + (isNoRecogPhase(s.phase) ? 0 : (s.recogMs || 0)), 0);
-  const totalExecMs = realSteps.reduce((acc, s) => acc + (s.execMs || 0), 0);
-  const stepsTotalMs = realSteps.reduce((acc, s) => acc + (s.ms || 0), 0);
+  const totalSetupMs = realSteps.reduce((acc, s) => acc + (isNoRecogPhase(s.phase) ? 0 : (s.setupMs || 0)), 0);
+  const totalExecMs = realSteps.reduce((acc, s) => acc + (s.execMs || 0), 0) + aufExecExtra;
+  const stepsTotalMs = realSteps.reduce((acc, s) => acc + (s.ms || 0), 0) + aufMsExtra;
   const cubeSolveMs = typeof solve.cubeMs === "number" && Number.isFinite(solve.cubeMs) ? solve.cubeMs : stepsTotalMs;
   const solveMs = solve.rawMs ?? solve.ms ?? (pickupOffset + cubeSolveMs + (hasPutdown ? solve.putdownMs : 0));
-  const totalMoves = solve.moveCount ?? realSteps.reduce((acc, s) => acc + (s.moveCount || 0), 0);
+  const totalMoves = solve.moveCount ?? (realSteps.reduce((acc, s) => acc + (s.moveCount || 0), 0) + aufMoveExtra);
   const pCnt = analysis.pauses?.totalCount || 0;
   const pMs = analysis.pauses?.totalMs || 0;
 
@@ -121,6 +126,7 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
       label: "Pick-up",
       caseId: solve.timer || "Timer",
       recogMs: null,
+      setupMs: null,
       setupMoves: "",
       execMs: null,
       ms: solve.pickupMs,
@@ -155,6 +161,7 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
       label: "Cube Solve",
       caseId: solve.smartCube || "Smart Cube",
       recogMs: totalRecogMs,
+      setupMs: totalSetupMs,
       setupMoves: "",
       execMs: totalExecMs,
       ms: cubeSolveMs,
@@ -172,6 +179,7 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
       label: "Put-down",
       caseId: solve.timer || "Timer",
       recogMs: null,
+      setupMs: null,
       setupMoves: "",
       execMs: null,
       ms: solve.putdownMs,
@@ -184,7 +192,7 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
   }
 
   const rowsHtml = displayRows.map(row => {
-    const isSummaryRow = row.phase === "f2lTotal" || row.phase === "cubeTotal" || row.phase === "auf";
+    const isSummaryRow = row.phase === "f2lTotal" || row.phase === "cubeTotal";
     const isHandlingRow = row.phase === "pickup" || row.phase === "putdown";
     let stepBadgeClass = "cfop-step-badge-default";
     if (row.phase === "f2lTotal" || row.phase === "cubeTotal") stepBadgeClass = "cfop-step-badge-f2lsum";
@@ -233,9 +241,9 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
       ? `<span class="cfop-muted-dash">-</span>`
       : formatCfopSplitMs(row.recogMs);
 
-    const setupTxt = row.setupMoves
-      ? `<code class="cfop-setup-code">${escapeHtml(row.setupMoves)}</code>`
-      : `<span class="cfop-muted-dash">-</span>`;
+    const setupTxt = (isNoRecogPhase(row.phase) || row.phase === "auf" || isHandlingRow)
+      ? `<span class="cfop-muted-dash">-</span>`
+      : formatCfopSplitMs(row.setupMs ?? 0);
 
     const execTxt = isHandlingRow
       ? `<span class="cfop-muted-dash">-</span>`
@@ -251,7 +259,7 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
           ? `<span class="pause-cell-warn">${row.pauseCount} <small>(${formatCfopSplitMs(row.pauseMs)})</small></span>`
           : `<span class="pause-cell-clean">0</span>`);
 
-    const reconStr = row.execMoves || row.moves || "";
+    const reconStr = row.moves || row.execMoves || "";
     const reconTxt = (isSummaryRow || isHandlingRow)
       ? `<span class="cfop-muted-dash">-</span>`
       : (reconStr ? `<code class="cfop-recon-code">${escapeHtml(reconStr)}</code>` : `<span class="cfop-muted-dash">-</span>`);
@@ -305,10 +313,10 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
           <tr>
             <th scope="col">Step</th>
             <th scope="col">Case</th>
-            <th scope="col" title="Recognition + pre-AUF time">Recog</th>
-            <th scope="col" title="Pre-AUF / rotation setup moves (e.g. U, U', U2)">Setup</th>
-            <th scope="col" title="Execution time after recognition">Exec</th>
-            <th scope="col" title="Total time for this step (Recog + Exec)">Total</th>
+            <th scope="col" title="Recognition time before setup / execution">Recog</th>
+            <th scope="col" title="Pre-AUF / rotation setup time before alg execution">Setup</th>
+            <th scope="col" title="Algorithm execution time">Exec</th>
+            <th scope="col" title="Total time for this step (Recog + Setup + Exec)">Total</th>
             <th scope="col" title="Total accumulated solve time after this step">Accum</th>
             <th scope="col">Moves</th>
             <th scope="col" title="Pauses ≥0.40s during this step">Pauses</th>
@@ -320,7 +328,7 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
           <tr class="cfop-step-tfoot-row">
             <th scope="row" colspan="2">Solve Total</th>
             <td>${formatCfopSplitMs(totalRecogMs)}</td>
-            <td><span class="cfop-muted-dash">-</span></td>
+            <td>${formatCfopSplitMs(totalSetupMs)}</td>
             <td>${formatCfopSplitMs(totalExecMs)}</td>
             <td class="${totalSolveCmp.cls}"${totalSolveCmp.titleAttr}><strong>${formatCfopSplitMs(solveMs)}</strong></td>
             <td><strong>${formatCfopSplitMs(solveMs)}</strong></td>

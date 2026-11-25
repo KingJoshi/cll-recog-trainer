@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { GyroOrientationTracker, quatMultiply, quatNormalize } from '../src/cube/gyroTracker.js';
 import { analyzeCfopSolve } from '../src/cfopAnalyzer.js';
-import { computeCfopGoalAnalysis, renderCfopGoalCoachHtml, CFOP_SPLIT_RATIOS } from '../src/features/stats/cfopGoalCoach.js';
+import { computeCfopGoalAnalysis, renderCfopGoalCoachHtml, CFOP_SPLIT_RATIOS, sanitizeCfopGoalSec } from '../src/features/stats/cfopGoalCoach.js';
 import { PUZZLES, getSolveTargetsForPuzzle } from '../src/data/algRegistry.js';
 import { generateWcaScrambleForPuzzle } from '../src/services/scrambleService.js';
 import { AppStore, VALID_PUZZLES } from '../src/state/appStore.js';
@@ -140,6 +140,50 @@ test('computeCfopGoalAnalysis & renderCfopGoalCoachHtml detect bottlenecks and s
   assert.ok(html.includes('cfop-goal-delta-good'));
   assert.ok(html.includes('Top bottleneck'));
   assert.ok(html.includes('Gb'));
+  assert.ok(html.includes('data-cfop-goal-input'));
+  assert.ok(html.includes('data-cfop-goal-apply'));
+
+  // Goal Coach adds Pick-up to Cross and AUF + Put-down to PLL for sub-X targets
+  const handlingSolves = Array.from({ length: 4 }, (_, i) => ({
+    ms: 11200,
+    rawMs: 11200,
+    pickupMs: 350,
+    putdownMs: 400,
+    puzzle: '333',
+    target: 'full',
+    at: 1700000100000 + i * 1000,
+    cfop: {
+      splits: { cross: 1000, f2lTotal: 5200, oll: 1500, pll: 2500, auf: 250 },
+      ollCase: { id: '27', shortName: 'OLL 27', name: 'Sune', ms: 1500 },
+      pllCase: { id: 'T', shortName: 'T', name: 'T-Perm', ms: 2500 },
+      pauses: { totalCount: 0, totalMs: 0 },
+      steps: [
+        { phase: 'cross', ms: 1000, accumMs: 1000 },
+        { phase: 'oll', ms: 1500, accumMs: 7700 },
+        { phase: 'pll', ms: 2500, accumMs: 10200 }
+      ],
+      aufSummary: { phase: 'auf', caseId: 'U', ms: 250, accumMs: 10450 }
+    }
+  }));
+
+  const effRes = computeCfopGoalAnalysis(handlingSolves, 9.5);
+  assert.strictEqual(effRes.goalSec, 9.5);
+  const crossPhase = effRes.phases.find(p => p.key === 'cross');
+  const pllPhase = effRes.phases.find(p => p.key === 'pll');
+  assert.strictEqual(crossPhase.actualMs, 1000 + 350);
+  assert.strictEqual(crossPhase.rawActualMs, 1000);
+  assert.strictEqual(crossPhase.note, '+Pick-up');
+  assert.strictEqual(pllPhase.actualMs, 2500 + 250 + 400);
+  assert.strictEqual(pllPhase.rawActualMs, 2500);
+  assert.strictEqual(pllPhase.note, '+AUF + Put-down');
+
+  assert.strictEqual(sanitizeCfopGoalSec('9.5'), 9.5);
+  assert.strictEqual(sanitizeCfopGoalSec('0'), 12);
+  assert.strictEqual(sanitizeCfopGoalSec('500'), 300);
+  const customHtml = renderCfopGoalCoachHtml(handlingSolves, { goalSec: 9.5, isOpen: true });
+  assert.ok(customHtml.includes('Sub-9.5'));
+  assert.ok(customHtml.includes('+Pick-up'));
+  assert.ok(customHtml.includes('+AUF + Put-down'));
 });
 
 test('Extra WCA solve-only and learn+solve puzzles expose registry metadata and generate valid scrambles', async () => {

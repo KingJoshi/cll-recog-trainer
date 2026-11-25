@@ -413,15 +413,31 @@ algDrillView = new AlgDrillView({
     cubeStage.applyScrambleToDisplay(scramble || "");
   },
   onOpenCasePicker: () => {
-    appStore.state.settingsCollapsed = false;
-    casePickerCtrl.syncSettingsPanel();
-    appStore.saveSettings();
-    document.getElementById("settingsPanel")?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    const panel = document.getElementById("settingsPanel");
+    const wasCollapsed = Boolean(appStore.state.settingsCollapsed);
+    if (wasCollapsed) {
+      appStore.state.settingsCollapsed = false;
+      casePickerCtrl.syncSettingsPanel();
+      appStore.saveSettings();
+    } else {
+      casePickerCtrl.syncSettingsPanel();
+    }
+    if (panel) {
+      panel.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      panel.classList.remove("panel-attention-pulse");
+      void panel.offsetWidth;
+      panel.classList.add("panel-attention-pulse");
+      clearTimeout(panel._pulseTimer);
+      panel._pulseTimer = setTimeout(() => panel.classList.remove("panel-attention-pulse"), 1200);
+      const focusTarget = panel.querySelector(".case-chip, #settingsToggle");
+      focusTarget?.focus?.({ preventScroll: true });
+    }
   },
   onOpenBluetoothModal: () => smartCubeCtrl?.openBluetoothModal?.(),
   onSelectionChange: () => {
     casePickerCtrl.renderSelection();
   },
+  onQuickSimSolutions: openQuickSim,
   isCubeConnected: () => Boolean(smartCube.getStatus().connected)
 });
 

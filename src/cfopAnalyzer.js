@@ -17,6 +17,58 @@ import {
 } from './cube/cubeUtils.js';
 
 export const DEFAULT_PAUSE_THRESHOLD_MS = 400;
+export const CFOP_ANALYSIS_VERSION = 3;
+
+/**
+ * Split pre-execution phase time into recognition (pause/fishing before setup)
+ * vs. pre-AUF/rotation setup transition time (`setupMs`) vs. alg execution (`execMs`).
+ */
+export function computePhaseRecogSetupExec(
+  phaseMoves = [],
+  setupMoveCount = 0,
+  durationMs = 0,
+  pauseThresholdMs = DEFAULT_PAUSE_THRESHOLD_MS
+) {
+  if (!Array.isArray(phaseMoves) || phaseMoves.length === 0) {
+    return { recogMs: 0, setupMs: 0, execMs: Math.max(0, durationMs) };
+  }
+  const clampedDur = Math.max(0, durationMs);
+  if (setupMoveCount <= 0) {
+    const recogMs = Math.min(clampedDur, Math.max(0, phaseMoves[0]?.split || 0));
+    return { recogMs, setupMs: 0, execMs: Math.max(0, clampedDur - recogMs) };
+  }
+
+  const endIdx = Math.min(phaseMoves.length - 1, setupMoveCount);
+  let totalPreExecMs = 0;
+  for (let i = 0; i <= endIdx; i++) {
+    totalPreExecMs += Math.max(0, phaseMoves[i]?.split || 0);
+  }
+  totalPreExecMs = Math.min(clampedDur, totalPreExecMs);
+
+  let recogMs = 0;
+  let setupMs = 0;
+  if (setupMoveCount < phaseMoves.length && (phaseMoves[setupMoveCount]?.split || 0) >= pauseThresholdMs) {
+    // Pause occurred after pre-AUF/fishing right before the first alg move
+    recogMs = totalPreExecMs;
+    setupMs = 0;
+  } else {
+    let recogEndIdx = 0;
+    for (let i = 1; i < setupMoveCount; i++) {
+      if ((phaseMoves[i]?.split || 0) >= pauseThresholdMs) {
+        recogEndIdx = i;
+      }
+    }
+    let rSum = 0;
+    for (let i = 0; i <= recogEndIdx && i < phaseMoves.length; i++) {
+      rSum += Math.max(0, phaseMoves[i]?.split || 0);
+    }
+    recogMs = Math.min(totalPreExecMs, rSum);
+    setupMs = Math.max(0, totalPreExecMs - recogMs);
+  }
+
+  const execMs = Math.max(0, clampedDur - recogMs - setupMs);
+  return { recogMs, setupMs, execMs };
+}
 
 let kp333 = null;
 let defaultPat = null;
@@ -603,15 +655,23 @@ export function analyzeCfopSolveSync(solve, options = {}) {
   const ollSolved = startedAtPll || (f2l4Solved && states[ollEnd]?.ollOk);
   const isFullCfop = !startedAtPll && !startedAtOll && f2l4Solved && ollSolved;
 
-  // Build the 7 phase step definitions
+  const pllActive = ollSolved && (!startedAtOll || ollEnd < pllEnd);
+  let aufStartIdx = pllEnd;
+  if (pllActive) {
+    while (aufStartIdx > ollEnd && isCrossSetupMove(normMoves[aufStartIdx - 1]?.move, bestCandidate.cand)) {
+      aufStartIdx--;
+    }
+  }
+
+  // Build the 7 phase step definitions (trailing post-PLL AUF excluded from PLL into splits.auf)
   const rawPhases = [
-    { key: "cross", label: "Cross", startIdx: 0,       endIdx: crossEnd, active: !startedAtOll && !startedAtPll && crossSolved },
-    { key: "f2l1",  label: "F2L 1", startIdx: crossEnd, endIdx: f2l1End,  active: !startedAtOll && !startedAtPll && crossSolved && (f2l1End > crossEnd || f2l4Solved) },
-    { key: "f2l2",  label: "F2L 2", startIdx: f2l1End,  endIdx: f2l2End,  active: !startedAtOll && !startedAtPll && crossSolved && (f2l2End > f2l1End || f2l4Solved) },
-    { key: "f2l3",  label: "F2L 3", startIdx: f2l2End,  endIdx: f2l3End,  active: !startedAtOll && !startedAtPll && crossSolved && (f2l3End > f2l2End || f2l4Solved) },
-    { key: "f2l4",  label: "F2L 4", startIdx: f2l3End,  endIdx: f2l4End,  active: !startedAtOll && !startedAtPll && crossSolved && (f2l4End > f2l3End || f2l4Solved) },
-    { key: "oll",   label: "OLL",   startIdx: f2l4End,  endIdx: ollEnd,   active: !startedAtPll && f2l4Solved },
-    { key: "pll",   label: "PLL",   startIdx: ollEnd,   endIdx: pllEnd,   active: ollSolved && (!startedAtOll || ollEnd < pllEnd) }
+    { key: "cross", label: "Cross", startIdx: 0,       endIdx: crossEnd,    active: !startedAtOll && !startedAtPll && crossSolved },
+    { key: "f2l1",  label: "F2L 1", startIdx: crossEnd, endIdx: f2l1End,    active: !startedAtOll && !startedAtPll && crossSolved && (f2l1End > crossEnd || f2l4Solved) },
+    { key: "f2l2",  label: "F2L 2", startIdx: f2l1End,  endIdx: f2l2End,    active: !startedAtOll && !startedAtPll && crossSolved && (f2l2End > f2l1End || f2l4Solved) },
+    { key: "f2l3",  label: "F2L 3", startIdx: f2l2End,  endIdx: f2l3End,    active: !startedAtOll && !startedAtPll && crossSolved && (f2l3End > f2l2End || f2l4Solved) },
+    { key: "f2l4",  label: "F2L 4", startIdx: f2l3End,  endIdx: f2l4End,    active: !startedAtOll && !startedAtPll && crossSolved && (f2l4End > f2l3End || f2l4Solved) },
+    { key: "oll",   label: "OLL",   startIdx: f2l4End,  endIdx: ollEnd,     active: !startedAtPll && f2l4Solved },
+    { key: "pll",   label: "PLL",   startIdx: ollEnd,   endIdx: aufStartIdx, active: pllActive }
   ];
 
   const splits = {
@@ -688,19 +748,10 @@ export function analyzeCfopSolveSync(solve, options = {}) {
     const execMoves = collapseDoubleFlickMoves(rawExecList).join(" ");
     const allCollapsedMoves = collapseDoubleFlickMoves(phaseMoves.map(m => m.move)).join(" ");
 
-    const recogMs = (() => {
-      if (ph.key === "cross" || phaseMoves.length === 0) return 0;
-      let rMs = 0;
-      for (let mIdx = 0; mIdx < phaseMoves.length; mIdx++) {
-        rMs += phaseMoves[mIdx].split;
-        if (!phaseMoves[mIdx].isRotation && !isCrossUMove(phaseMoves[mIdx].move, bestCandidate.cand)) {
-          break;
-        }
-      }
-      return Math.min(durationMs, rMs);
-    })();
+    const { recogMs, setupMs, execMs } = ph.key === "cross"
+      ? { recogMs: 0, setupMs: 0, execMs: durationMs }
+      : computePhaseRecogSetupExec(phaseMoves, setupMoveCount, durationMs, pauseThresholdMs);
     const faceTurnCount = phaseMoves.filter(m => !m.isRotation).length;
-    const execMs = Math.max(0, durationMs - recogMs);
     const tps = durationMs > 0 ? Number((faceTurnCount / (durationMs / 1000)).toFixed(2)) : 0;
 
     splits[ph.key] = durationMs;
@@ -710,6 +761,7 @@ export function analyzeCfopSolveSync(solve, options = {}) {
       caseId,
       ms: durationMs,
       recogMs,
+      setupMs,
       setupMoves,
       execMs,
       execMoves,
@@ -736,6 +788,7 @@ export function analyzeCfopSolveSync(solve, options = {}) {
     splits.f2lTotal = splits.f2l1 + splits.f2l2 + splits.f2l3 + splits.f2l4;
     const f2lSteps = steps.filter(s => s.phase.startsWith("f2l"));
     const f2lRecogMs = f2lSteps.reduce((acc, s) => acc + (s.recogMs || 0), 0);
+    const f2lSetupMs = f2lSteps.reduce((acc, s) => acc + (s.setupMs || 0), 0);
     const f2lExecMs = f2lSteps.reduce((acc, s) => acc + (s.execMs || 0), 0);
     const f2lMoves = f2lSteps.reduce((acc, s) => acc + (s.moveCount || 0), 0);
     const f2lPauseCount = f2lSteps.reduce((acc, s) => acc + (s.pauseCount || 0), 0);
@@ -748,6 +801,7 @@ export function analyzeCfopSolveSync(solve, options = {}) {
       caseId: "4 Pairs",
       ms: splits.f2lTotal,
       recogMs: f2lRecogMs,
+      setupMs: f2lSetupMs,
       setupMoves: f2lSetups,
       execMs: f2lExecMs,
       execMoves: "",
@@ -769,6 +823,7 @@ export function analyzeCfopSolveSync(solve, options = {}) {
         ...detectedOll,
         ms: ollStep.ms,
         recogMs: ollStep.recogMs,
+        setupMs: ollStep.setupMs,
         execMs: ollStep.execMs,
         setupMoves: ollStep.setupMoves,
         moveCount: ollStep.moveCount,
@@ -787,6 +842,7 @@ export function analyzeCfopSolveSync(solve, options = {}) {
         ...detectedPll,
         ms: pllStep.ms,
         recogMs: pllStep.recogMs,
+        setupMs: pllStep.setupMs,
         execMs: pllStep.execMs,
         setupMoves: pllStep.setupMoves,
         moveCount: pllStep.moveCount,
@@ -796,14 +852,10 @@ export function analyzeCfopSolveSync(solve, options = {}) {
     }
   }
 
-  // Separate trailing AUF summary row without altering PLL time or totals
+  // Separate trailing AUF summary row (excluded from PLL split; splits.cross..splits.auf sum cleanly)
   let aufSummary = null;
   const pllStep = steps.find(s => s.phase === "pll");
   if (pllStep) {
-    let aufStartIdx = pllEnd;
-    while (aufStartIdx > ollEnd && isCrossSetupMove(normMoves[aufStartIdx - 1]?.move, bestCandidate.cand)) {
-      aufStartIdx--;
-    }
     const aufRawMoves = normMoves.slice(aufStartIdx, pllEnd);
     const aufMs = aufStartIdx < pllEnd
       ? Math.max(0, Math.round(timeAtIndex(pllEnd) - timeAtIndex(aufStartIdx)))
@@ -811,7 +863,15 @@ export function analyzeCfopSolveSync(solve, options = {}) {
     const aufMovesStr = aufRawMoves.length > 0
       ? (collapseDoubleFlickMoves(aufRawMoves.map(m => m.move)).join(" ") || "None")
       : "None";
-    const aufPauses = aufRawMoves.filter(m => m.split >= pauseThresholdMs);
+    const aufPauses = [];
+    for (const mv of aufRawMoves) {
+      if (mv.split >= pauseThresholdMs) aufPauses.push(mv);
+      const matchP = allPauses.find(p => p.moveIndex === mv.index);
+      if (matchP) {
+        matchP.phase = "auf";
+        matchP.phaseLabel = "AUF";
+      }
+    }
     const aufPauseMs = aufPauses.reduce((acc, m) => acc + m.split, 0);
     const aufTps = (aufMs > 0 && aufRawMoves.length > 0)
       ? Number((aufRawMoves.length / (aufMs / 1000)).toFixed(2))
@@ -823,10 +883,11 @@ export function analyzeCfopSolveSync(solve, options = {}) {
       caseId: aufMovesStr,
       ms: aufMs,
       recogMs: null,
+      setupMs: null,
       setupMoves: "",
       execMs: aufMs,
       execMoves: aufMovesStr === "None" ? "" : aufMovesStr,
-      accumMs: pllStep.accumMs,
+      accumMs: timeAtIndex(pllEnd),
       moveCount: aufRawMoves.length,
       tps: aufTps,
       moves: aufMovesStr === "None" ? "" : aufMovesStr,
@@ -836,6 +897,7 @@ export function analyzeCfopSolveSync(solve, options = {}) {
   }
 
   return {
+    version: CFOP_ANALYSIS_VERSION,
     isFullCfop,
     crossColor,
     splits,
@@ -866,7 +928,8 @@ export function ensureSolveCfop(solve, options = {}) {
     solve.cfop &&
     solve.cfop.splits &&
     (!solve.cfop.steps?.length || solve.cfop.steps[0].accumMs !== undefined) &&
-    (!solve.moves?.length || solve.cfop.splits.pll == null || solve.cfop.aufSummary !== undefined);
+    (!solve.moves?.length || solve.cfop.splits.pll == null || solve.cfop.aufSummary !== undefined) &&
+    (!solve.moves?.length || (solve.cfop.version ?? 0) >= CFOP_ANALYSIS_VERSION);
   if (hasUpgradedSteps) return solve.cfop;
   if (isCfopAnalyzerReady()) {
     const analyzed = analyzeCfopSolveSync(solve, options);

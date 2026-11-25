@@ -341,7 +341,7 @@ test('analyzeCfopSolve extracts separate AUF split without shrinking PLL time, a
   const solve = { puzzle: '333', target: 'full', ms: 9960, rawMs: 9960, scramble: scrambleWithAuf, moves: movesWithAuf };
   const cfop = await analyzeCfopSolve(solve);
 
-  assert.strictEqual(cfop.splits.pll, 3630);
+  assert.strictEqual(cfop.splits.pll, 3430);
   assert.strictEqual(cfop.splits.auf, 200);
   assert.ok(cfop.aufSummary);
   assert.strictEqual(cfop.aufSummary.label, 'AUF');
@@ -361,7 +361,7 @@ test('analyzeCfopSolve extracts separate AUF split without shrinking PLL time, a
   assert.strictEqual(noAufCfop.aufSummary.caseId, 'None');
 
   // Step table includes AUF row and highlights faster (green) / slower (red) vs median
-  const refMedians = { cross: 900, f2lTotal: 3500, oll: 2000, pll: 3500, auf: 200, totalMs: 10500 };
+  const refMedians = { cross: 900, f2lTotal: 3500, oll: 2000, pll: 3200, auf: 200, totalMs: 10500 };
   const coloredAdv = renderCfopStepTable(solve, { detailed: false, basic: false, refMedians });
   assert.ok(coloredAdv.includes('cfop-row-auf'));
   assert.ok(coloredAdv.includes('cfop-step-badge-auf'));

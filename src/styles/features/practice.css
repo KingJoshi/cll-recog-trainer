@@ -1161,35 +1161,52 @@
     margin-top: 8px;
 }
 
+.alg-drill-alg-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+}
+
+.alg-drill-alg-row.active {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+}
+
 .alg-drill-alg-option {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
     text-align: left;
-    padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--surface-2);
+    padding: 2px 4px;
+    border: 0;
+    background: transparent;
     color: var(--ink);
     cursor: pointer;
     font-size: 0.8rem;
 }
 
-.alg-drill-alg-option.active {
-    border-color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
-}
-
 .alg-drill-alg-option code {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-weight: 700;
+    overflow-wrap: anywhere;
 }
 
 .alg-drill-alg-note {
     font-size: 0.72rem;
     color: var(--muted);
+    white-space: nowrap;
+}
+
+.alg-drill-alg-sim-btn {
+    flex: none;
     white-space: nowrap;
 }
 
