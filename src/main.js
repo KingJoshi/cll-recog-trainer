@@ -398,6 +398,8 @@ practiceView = new PracticeView({
   onQuickSimSolutions: openQuickSim,
   getCrossTargetFaces: () => appStore.state.crossTargetFaces,
   getLayerTargetFaces: () => appStore.state.layerTargetFaces,
+  getTrainingBottomFaces: () => appStore.state.trainingBottomFaces,
+  onSetTrainingBottomFaces: (faces) => appStore.setTrainingBottomFaces(faces),
   getOhHand: () => appStore.state.ohHand || "left",
   onSetOhHand: (hand) => appStore.setOhHand(hand),
   getOhTableAbuse: () => appStore.state.ohTableAbuse !== false,
@@ -442,7 +444,16 @@ algDrillView = new AlgDrillView({
 });
 
 appStore.subscribe((evt) => {
-  if (evt === "ohHand" || evt === "ohTableAbuse") {
+  if (evt === "trainingBottomFaces") {
+    settingsModal?.renderToggles?.();
+    if (appStore.state.mode === "practice" && appStore.state.trainSubMode === "alg-drill") {
+      algDrillView?.refreshOrientation?.();
+    } else if (appStore.state.mode === "practice" && !isTimerViewMode(appStore.state)) {
+      practiceView?.loadNextCase?.();
+    } else if (isTimerViewMode(appStore.state)) {
+      navCtrl?.newScramble?.();
+    }
+  } else if (evt === "ohHand" || evt === "ohTableAbuse") {
     simulatorCtrl?.populateSimCaseSelect?.();
     if (appStore.state.mode === "study") studyView?.render?.();
     else if (appStore.state.mode === "practice" && appStore.state.trainSubMode === "alg-drill") algDrillView?.setTrack?.(appStore.state.currentPuzzle, appStore.state.currentTrackId);

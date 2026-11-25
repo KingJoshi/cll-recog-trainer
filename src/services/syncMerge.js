@@ -22,6 +22,7 @@ const SETTINGS_SCALAR_FIELDS = [
   "ohTableAbuse",
   "simSpeed",
   "alwaysWhiteBottom",
+  "trainingBottomFaces",
   "allowAUF",
   "showReflection",
   "darkMode",

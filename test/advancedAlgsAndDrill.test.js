@@ -10,6 +10,12 @@ import { renderCaseSvg } from '../src/cube/caseSvgRenderer.js';
 import { resolveDrillableCaseId, getWeakestCasesForTrack } from '../src/services/weakCasesService.js';
 import { AlgDrillView } from '../src/features/practice/algDrillView.js';
 import { AppStore, sanitizeTrainSubMode, sanitizeStoredStats } from '../src/state/appStore.js';
+import {
+  sanitizeTrainingBottomFaces,
+  pickBottomLayerOrientation,
+  applyTrainingBottomOrientation,
+  buildCaseScramble
+} from '../src/services/scrambleService.js';
 import { renderOllPllCasesBreakdownHtml, renderCllCasesBreakdownHtml } from '../src/features/solve/cfopBreakdownRenderer.js';
 import { initCfopAnalyzer } from '../src/cfopAnalyzer.js';
 import { initTwoByTwoAnalyzer } from '../src/twoByTwoAnalyzer.js';
@@ -284,4 +290,51 @@ test('Case Performance breakdowns render clickable case drill buttons and Drill 
   ]);
   assert.ok(html222.includes('data-drill-weakest-track="cll"'));
   assert.ok(html222.includes('data-drill-case-id="T1"'));
+});
+
+test('trainingBottomFaces orientation helpers, AppStore persistence, and AlgDrillView orientation work across colors', () => {
+  assert.deepStrictEqual(sanitizeTrainingBottomFaces(['yellow', 'WHITE', 'bad', 'yellow']), ['yellow', 'white']);
+  assert.deepStrictEqual(sanitizeTrainingBottomFaces([]), ['white']);
+
+  assert.strictEqual(pickBottomLayerOrientation(['white'], { randomY: false }), 'z2');
+  assert.strictEqual(pickBottomLayerOrientation(['yellow'], { randomY: false }), '');
+  assert.strictEqual(pickBottomLayerOrientation(['green'], { randomY: false }), "x'");
+  assert.strictEqual(pickBottomLayerOrientation(['blue'], { randomY: false }), 'x');
+  assert.strictEqual(pickBottomLayerOrientation(['red'], { randomY: false }), 'z');
+  assert.strictEqual(pickBottomLayerOrientation(['orange'], { randomY: false }), "z'");
+
+  assert.strictEqual(applyTrainingBottomOrientation("R U R'", ['white'], { randomY: false }), "z2 R U R'");
+  assert.strictEqual(applyTrainingBottomOrientation("R U R'", ['green'], { randomY: false }), "x' R U R'");
+
+  const scrRes = buildCaseScramble({
+    caseObj: { id: 'T1', scrambles: ["R U R' U'"] },
+    trainingBottomFaces: ['green'],
+    allowAUF: false,
+    isStudy: false
+  });
+  assert.strictEqual(scrRes.scramble, "x' R U R' U'");
+
+  const store = new AppStore();
+  assert.deepStrictEqual(store.state.trainingBottomFaces, ['white']);
+  store.setTrainingBottomFaces(['white', 'yellow', 'green']);
+  assert.deepStrictEqual(store.state.trainingBottomFaces, ['white', 'yellow', 'green']);
+  assert.strictEqual(store.getSettingsPayload().trainingBottomFaces.join(','), 'white,yellow,green');
+  assert.strictEqual(store.state.alwaysWhiteBottom, false);
+
+  store.state.allowAUF = false;
+  store.state.currentPuzzle = '222';
+  store.state.currentTrackId = 'cll';
+  store.state.selectedCases = new Set(['T1']);
+  let displayed = '';
+  const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+  const drill = new AlgDrillView({
+    container,
+    appStore: store,
+    onApplyScrambleToDisplay: (s) => { displayed = s; }
+  });
+  store.setTrainingBottomFaces(['orange']);
+  drill.setTrack('222', 'cll');
+  assert.ok(displayed.startsWith("z' "), `Expected z' prefix for orange bottom on 2x2 CLL, got: ${displayed}`);
+  assert.ok(container.innerHTML.includes('data-bottom-face="orange"'));
+  drill.deactivate();
 });

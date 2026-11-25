@@ -341,14 +341,59 @@ export function chooseWeightedCaseId(ids = [], caseAppearances = {}, solves = []
   return chosenId;
 }
 
+export const ALL_BOTTOM_FACES = ["white", "yellow", "green", "blue", "red", "orange"];
+
+export const BOTTOM_LAYER_ROTATIONS = {
+  white: "z2",
+  yellow: "",
+  green: "x'",
+  blue: "x",
+  red: "z",
+  orange: "z'"
+};
+
+const Y_TURNS = ["", "y", "y2", "y'"];
+
+export function sanitizeTrainingBottomFaces(faces, fallback = ["white"]) {
+  if (!Array.isArray(faces)) return [...fallback];
+  const seen = new Set();
+  const clean = [];
+  for (const raw of faces) {
+    const f = String(raw || "").trim().toLowerCase();
+    if (ALL_BOTTOM_FACES.includes(f) && !seen.has(f)) {
+      seen.add(f);
+      clean.push(f);
+    }
+  }
+  return clean.length > 0 ? clean : [...fallback];
+}
+
+export function pickBottomLayerOrientation(trainingBottomFaces = ["white"], { randomY = true } = {}) {
+  const pool = sanitizeTrainingBottomFaces(trainingBottomFaces, ["white"]);
+  const face = pool[Math.floor(Math.random() * pool.length)];
+  const baseRot = BOTTOM_LAYER_ROTATIONS[face] ?? "z2";
+  const yRot = randomY ? Y_TURNS[Math.floor(Math.random() * Y_TURNS.length)] : "";
+  return [baseRot, yRot].filter(Boolean).join(" ");
+}
+
+export function applyTrainingBottomOrientation(scrambleMoves, trainingBottomFaces = ["white"], { randomY = true } = {}) {
+  const orient = pickBottomLayerOrientation(trainingBottomFaces, { randomY });
+  return [orient, scrambleMoves].filter(Boolean).join(" ").trim();
+}
+
 export function buildCaseScramble({
   caseObj,
   alwaysWhiteBottom = true,
+  trainingBottomFaces = null,
   allowAUF = true,
   isStudy = false
 }) {
   let orientation = "";
-  if (alwaysWhiteBottom || isStudy) {
+  if (isStudy) {
+    orientation = "z2";
+  } else if (Array.isArray(trainingBottomFaces) && trainingBottomFaces.length > 0) {
+    orientation = pickBottomLayerOrientation(trainingBottomFaces, { randomY: allowAUF });
+  } else if (alwaysWhiteBottom) {
     orientation = "z2";
   } else {
     const rot = (axis, turns) => {

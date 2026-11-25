@@ -8,6 +8,7 @@ import { findLayerSolutions, findFaceSolutions } from './layerSolver.js';
 import { findCrossSolutions } from './crossSolver.js';
 import { ICON_POPUP_SIM } from './ui/transportIcons.js';
 import { BldMemoTrainer } from './features/practice/bldMemoTrainer.js';
+import { renderBottomLayerPickerHtml, bindBottomLayerPickerEvents } from './ui/bottomLayerPicker.js';
 
 function escapeHtmlAttr(val) {
   return String(val ?? '')
@@ -28,6 +29,8 @@ export class PracticeView {
     this.onQuickSimSolutions = options.onQuickSimSolutions || null; // (payload) => void
     this.getCrossTargetFaces = options.getCrossTargetFaces || (() => ['white']);
     this.getLayerTargetFaces = options.getLayerTargetFaces || (() => ['white']);
+    this.getTrainingBottomFaces = options.getTrainingBottomFaces || (() => ['white']);
+    this.onSetTrainingBottomFaces = options.onSetTrainingBottomFaces || null;
     this.getOhHand = options.getOhHand || (() => 'left');
     this.onSetOhHand = options.onSetOhHand || null;
     this.getOhTableAbuse = options.getOhTableAbuse || (() => true);
@@ -293,6 +296,7 @@ export class PracticeView {
         </div>
 
         <div class="practice-header-controls">
+          ${!isInspectionDrill ? renderBottomLayerPickerHtml(this.getTrainingBottomFaces(), { label: "Bottom:" }) : ''}
           ${isOh ? `
             <div class="oh-hand-switcher oh-hand-switcher-compact" role="group" aria-label="One-Handed Solving Hand">
               <button type="button" class="oh-hand-btn ${ohHand === 'left' ? 'active' : ''}" data-oh-hand="left" aria-pressed="${ohHand === 'left'}" data-tooltip="Left-Handed OH (standard <R, U>)">🤚 Left OH</button>
@@ -778,6 +782,12 @@ export class PracticeView {
         }
       });
     });
+
+    bindBottomLayerPickerEvents(
+      this.container,
+      () => this.getTrainingBottomFaces(),
+      (nextFaces) => this.onSetTrainingBottomFaces?.(nextFaces)
+    );
 
     if (isInspectionDrill) {
       const startBtn = this.container.querySelector('#startInspectionBtn');

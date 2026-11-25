@@ -7,7 +7,8 @@ import { showToast } from './toastService.js';
 import {
   generateWcaScrambleForPuzzle,
   chooseWeightedCaseId,
-  buildCaseScramble
+  buildCaseScramble,
+  applyTrainingBottomOrientation
 } from '../services/scrambleService.js';
 
 export const TIMER_DRILL_PRESETS = {
@@ -384,7 +385,9 @@ export function createNavController({
     }
     solvePanel?.updateSolveScrambleDisplay?.(s.currentSolveScramble);
     const is333Case = (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") && ["f2l", "oll", "pll", "coll", "cmll", "wv"].includes(s.solveTarget);
-    const displayScr = (s.alwaysWhiteBottom && is333Case) ? `z2 ${s.currentSolveScramble}` : s.currentSolveScramble;
+    const displayScr = is333Case
+      ? applyTrainingBottomOrientation(s.currentSolveScramble, s.trainingBottomFaces, { randomY: s.allowAUF !== false })
+      : s.currentSolveScramble;
     cubeStage?.applyScrambleToDisplay?.(displayScr);
     cubeStage?.applyReflection?.();
     if (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") {
@@ -752,7 +755,10 @@ export function createNavController({
     const s = appStore.state;
     const solvePanel = getSolvePanelView();
     const is333 = s.currentPuzzle === "333" || s.currentPuzzle === "333oh";
-    const displayScr = (s.alwaysWhiteBottom && is333) ? `z2 ${scr}` : scr;
+    const is222Case = s.currentPuzzle === "222" && ["lbl", "cll", "eg1", "eg2", "ortega"].includes(s.currentTrackId);
+    const displayScr = (is333 || is222Case)
+      ? applyTrainingBottomOrientation(scr, s.trainingBottomFaces, { randomY: s.allowAUF !== false })
+      : scr;
     s.currentCaseId = caseObj.id;
     s.currentCaseScramble = scr;
     s.scrambleMoves = scr;
@@ -938,6 +944,7 @@ export function createNavController({
         const res = buildCaseScramble({
           caseObj,
           alwaysWhiteBottom: s.alwaysWhiteBottom,
+          trainingBottomFaces: s.trainingBottomFaces,
           allowAUF: s.allowAUF,
           isStudy: false
         });
@@ -966,6 +973,7 @@ export function createNavController({
       const res = buildCaseScramble({
         caseObj,
         alwaysWhiteBottom: s.alwaysWhiteBottom,
+        trainingBottomFaces: s.trainingBottomFaces,
         allowAUF: s.allowAUF,
         isStudy: s.mode === "study"
       });
@@ -1020,6 +1028,7 @@ export function createNavController({
         const res = buildCaseScramble({
           caseObj,
           alwaysWhiteBottom: s.alwaysWhiteBottom,
+          trainingBottomFaces: s.trainingBottomFaces,
           allowAUF: s.allowAUF,
           isStudy: false
         });
@@ -1038,7 +1047,9 @@ export function createNavController({
         ? caseObj.scrambles[Math.floor(Math.random() * caseObj.scrambles.length)]
         : (caseObj.setup || caseObj.scramble || "");
       const is333 = s.currentPuzzle === "333" || s.currentPuzzle === "333oh";
-      const displayScr = (s.alwaysWhiteBottom && is333) ? `z2 ${scr}` : scr;
+      const displayScr = is333
+        ? applyTrainingBottomOrientation(scr, s.trainingBottomFaces, { randomY: s.allowAUF !== false })
+        : scr;
       s.currentCaseId = caseObj.id;
       s.currentCaseScramble = scr;
       s.scrambleMoves = scr;

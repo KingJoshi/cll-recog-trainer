@@ -19,6 +19,8 @@ import {
 } from '../../services/themeColors.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
 import { ALL_SOLVER_FACES } from '../solve/solverWidgetsView.js';
+import { ALL_BOTTOM_FACES } from '../../services/scrambleService.js';
+import { renderBottomLayerPickerHtml, bindBottomLayerPickerEvents } from '../../ui/bottomLayerPicker.js';
 import { showToast } from '../../ui/toastService.js';
 
 const COLOR_CONFIG = [
@@ -107,6 +109,7 @@ export function createSettingsModalController({
   const settingsShowFreeFaceTurns = typeof document !== "undefined" ? document.getElementById("settingsShowFreeFaceTurns") : null;
   const settingsDarkTheme = typeof document !== "undefined" ? document.getElementById("settingsDarkTheme") : null;
   const settingsAlwaysWhiteBottom = typeof document !== "undefined" ? document.getElementById("settingsAlwaysWhiteBottom") : null;
+  const settingsTrainingBottomPicker = typeof document !== "undefined" ? document.getElementById("settingsTrainingBottomPicker") : null;
   const settingsAllowAUF = typeof document !== "undefined" ? document.getElementById("settingsAllowAUF") : null;
   const settingsShowReflection = typeof document !== "undefined" ? document.getElementById("settingsShowReflection") : null;
   const settingsPauseAlertEnabled = typeof document !== "undefined" ? document.getElementById("settingsPauseAlertEnabled") : null;
@@ -228,6 +231,14 @@ export function createSettingsModalController({
     if (settingsShowFreeFaceTurns) settingsShowFreeFaceTurns.checked = Boolean(s.showFreeFaceTurns);
     if (settingsDarkTheme) settingsDarkTheme.checked = s.darkMode;
     if (settingsAlwaysWhiteBottom) settingsAlwaysWhiteBottom.checked = s.alwaysWhiteBottom;
+    if (settingsTrainingBottomPicker) {
+      settingsTrainingBottomPicker.innerHTML = renderBottomLayerPickerHtml(s.trainingBottomFaces || ["white"], { label: "Drill bottom colors:" });
+      bindBottomLayerPickerEvents(
+        settingsTrainingBottomPicker,
+        () => appStore.state.trainingBottomFaces || ["white"],
+        (nextFaces) => appStore.setTrainingBottomFaces?.(nextFaces)
+      );
+    }
     if (settingsAllowAUF) settingsAllowAUF.checked = s.allowAUF;
     if (settingsShowReflection) settingsShowReflection.checked = s.showReflection;
     if (settingsPauseAlertEnabled) settingsPauseAlertEnabled.checked = Boolean(s.pauseAlertEnabled);
@@ -630,7 +641,11 @@ export function createSettingsModalController({
           cubeStage?.setDarkMode?.(!appStore.state.darkMode);
           return;
         }
-        if (key === "alwaysWhiteBottom") appStore.state.alwaysWhiteBottom = !appStore.state.alwaysWhiteBottom;
+        if (key === "alwaysWhiteBottom") {
+          const nextWhite = !appStore.state.alwaysWhiteBottom;
+          appStore.state.alwaysWhiteBottom = nextWhite;
+          appStore.setTrainingBottomFaces?.(nextWhite ? ["white"] : ALL_BOTTOM_FACES);
+        }
         else if (key === "allowAUF") appStore.state.allowAUF = !appStore.state.allowAUF;
         else if (key === "showReflection") {
           appStore.state.showReflection = !appStore.state.showReflection;
@@ -794,9 +809,10 @@ export function createSettingsModalController({
     renderToggles();
   });
   settingsAlwaysWhiteBottom?.addEventListener("change", (e) => {
-    appStore.state.alwaysWhiteBottom = e.target.checked;
+    const nextWhite = Boolean(e.target.checked);
+    appStore.state.alwaysWhiteBottom = nextWhite;
+    appStore.setTrainingBottomFaces?.(nextWhite ? ["white"] : ALL_BOTTOM_FACES);
     renderToggles();
-    appStore.saveSettings();
     getNavCtrl()?.regenerateScramble?.();
     refreshActiveViews();
   });

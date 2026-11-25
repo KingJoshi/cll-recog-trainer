@@ -19,6 +19,10 @@ import {
   assignShortcutOverride
 } from '../services/keyboardShortcuts.js';
 import {
+  ALL_BOTTOM_FACES,
+  sanitizeTrainingBottomFaces
+} from '../services/scrambleService.js';
+import {
   readStorageJSON,
   writeStorageJSON,
   readSessionStorageJSON,
@@ -301,6 +305,10 @@ export class AppStore {
       selectedByTrack,
       selectedCases: new Set(),
       alwaysWhiteBottom: savedSettings.alwaysWhiteBottom ?? true,
+      trainingBottomFaces: sanitizeTrainingBottomFaces(
+        savedSettings.trainingBottomFaces ?? cookiePrefs.trainingBottomFaces,
+        (savedSettings.alwaysWhiteBottom ?? true) ? ["white"] : ALL_BOTTOM_FACES
+      ),
       allowAUF: savedSettings.allowAUF ?? true,
       showReflection: savedSettings.showReflection ?? true,
       darkMode,
@@ -905,6 +913,16 @@ export class AppStore {
     this.notify("twoByTwoMethod", { twoByTwoMethod: next });
   }
 
+  setTrainingBottomFaces(faces) {
+    const next = sanitizeTrainingBottomFaces(faces, ["white"]);
+    const prev = sanitizeTrainingBottomFaces(this.state.trainingBottomFaces, ["white"]);
+    if (prev.length === next.length && prev.every((f, i) => f === next[i])) return;
+    this.state.trainingBottomFaces = next;
+    this.state.alwaysWhiteBottom = next.length === 1 && next[0] === "white";
+    this.saveSettings();
+    this.notify("trainingBottomFaces", { trainingBottomFaces: next });
+  }
+
   setTrainSubMode(subMode) {
     const next = sanitizeTrainSubMode(subMode);
     if (this.state.trainSubMode === next) return;
@@ -988,6 +1006,7 @@ export class AppStore {
       selected: cllSel,
       selectedByTrack: s.selectedByTrack,
       alwaysWhiteBottom: s.alwaysWhiteBottom,
+      trainingBottomFaces: sanitizeTrainingBottomFaces(s.trainingBottomFaces, ["white"]),
       allowAUF: s.allowAUF,
       showReflection: s.showReflection,
       darkMode: s.darkMode,
@@ -1060,6 +1079,7 @@ export class AppStore {
       showTooltips: s.showTooltips,
       onboardingCompleted: s.onboardingCompleted,
       alwaysWhiteBottom: s.alwaysWhiteBottom,
+      trainingBottomFaces: sanitizeTrainingBottomFaces(s.trainingBottomFaces, ["white"]),
       allowAUF: s.allowAUF,
       showReflection: s.showReflection,
       casesCollapsed: s.settingsCollapsed,
@@ -1177,6 +1197,10 @@ export class AppStore {
       s.simSpeed = simSpeed;
       s.selectedByTrack = selectedByTrack;
       s.alwaysWhiteBottom = savedSettings.alwaysWhiteBottom ?? true;
+      s.trainingBottomFaces = sanitizeTrainingBottomFaces(
+        savedSettings.trainingBottomFaces,
+        s.alwaysWhiteBottom ? ["white"] : ALL_BOTTOM_FACES
+      );
       s.allowAUF = savedSettings.allowAUF ?? true;
       s.showReflection = savedSettings.showReflection ?? true;
       s.darkMode = savedSettings.darkMode ?? false;

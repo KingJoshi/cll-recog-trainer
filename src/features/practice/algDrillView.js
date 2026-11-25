@@ -8,10 +8,11 @@ import { getTrack, getPreferredAlg, setPreferredAlg, getCustomAlgsForCase } from
 import { getEffectiveAlgsForCase } from '../../cube/algMirror.js';
 import { getCachedCaseSvg, renderCaseSvg } from '../../caseVisualizer.js';
 import { ScrambleTracker, formatMove } from '../../scrambleTracker.js';
-import { normalize2x2ScrambleToURF } from '../../services/scrambleService.js';
+import { normalize2x2ScrambleToURF, applyTrainingBottomOrientation } from '../../services/scrambleService.js';
 import { getWeakestCasesForTrack } from '../../services/weakCasesService.js';
 import { escapeHtml, formatCfopSplitMs } from '../../services/htmlUtils.js';
 import { computeAverageOfN } from '../../services/solveStats.js';
+import { renderBottomLayerPickerHtml, bindBottomLayerPickerEvents } from '../../ui/bottomLayerPicker.js';
 
 export class AlgDrillView {
   constructor({
@@ -334,11 +335,17 @@ export class AlgDrillView {
 
     if (resetDisplay && this.onApplyScrambleToDisplay) {
       const s = this.appStore?.state || {};
-      const is333 = this.currentPuzzle === "333" || this.currentPuzzle === "333oh";
       const scr = this.currentSetup || "";
-      const displayScr = (s.alwaysWhiteBottom && is333 && scr) ? `z2 ${scr}` : scr;
+      const displayScr = scr
+        ? applyTrainingBottomOrientation(scr, s.trainingBottomFaces, { randomY: s.allowAUF !== false })
+        : "";
       this.onApplyScrambleToDisplay(displayScr);
     }
+  }
+
+  refreshOrientation() {
+    this._loadCurrentCase({ resetDisplay: true });
+    this.render();
   }
 
   _advanceToNextRep() {
@@ -636,6 +643,7 @@ export class AlgDrillView {
             <button type="button" class="drill-opt-btn ${this.execMode === "alg-only" ? "active" : ""}" data-drill-flow="alg-only">Alg Only</button>
             <button type="button" class="drill-opt-btn ${this.execMode === "setup-alg" ? "active" : ""}" data-drill-flow="setup-alg">Setup + Alg</button>
           </div>
+          ${renderBottomLayerPickerHtml(this.appStore?.state?.trainingBottomFaces || ["white"], { label: "Bottom:" })}
           <button type="button" id="algDrillToggleShowBtn" class="drill-opt-btn ${this.showAlg ? "active" : ""}">${this.showAlg ? "👁 Alg Shown" : "🙈 Alg Hidden"}</button>
         </div>
 
@@ -759,6 +767,18 @@ export class AlgDrillView {
       this.showAlg = !this.showAlg;
       this.render();
     });
+    bindBottomLayerPickerEvents(
+      this.container,
+      () => this.appStore?.state?.trainingBottomFaces || ["white"],
+      (nextFaces) => {
+        if (this.appStore?.setTrainingBottomFaces) {
+          this.appStore.setTrainingBottomFaces(nextFaces);
+        } else if (this.appStore?.state) {
+          this.appStore.state.trainingBottomFaces = nextFaces;
+          this.refreshOrientation();
+        }
+      }
+    );
     this.container.querySelector("#algDrillConnectCubeBtn")?.addEventListener("click", () => {
       this.onOpenBluetoothModal?.();
     });

@@ -1588,4 +1588,58 @@
     border-color: rgba(245, 158, 11, 0.5);
 }
 
+/* Training Bottom Layer Picker (W / Y / G / B / R / O + W/Y + All) */
+.bottom-layer-picker {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.bottom-layer-lbl {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-right: 2px;
+}
+
+.bottom-layer-faces {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.bottom-layer-face-btn,
+.bottom-layer-preset-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    line-height: 1.2;
+}
+
+.bottom-layer-face-btn.active,
+.bottom-layer-preset-btn.active {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 15%, var(--surface));
+    color: var(--primary);
+}
+
+.bottom-layer-face-btn .face-chip-dot {
+    width: 9px;
+    height: 9px;
+}
+
+.settings-bottom-layer-row {
+    margin: 2px 0 8px 22px;
+}
+
 }
