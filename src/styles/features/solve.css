@@ -1713,6 +1713,7 @@ body.is-focus-mode .stage.mode-solve #solveCustomScrambleRow,
 body.is-focus-mode .stage.mode-solve #layerSolutionsWidget,
 body.is-focus-mode .stage.mode-solve #crossSolutionsWidget,
 body.is-focus-mode .stage.mode-solve #solveStepBreakdown,
+body.is-focus-mode .stage.mode-solve #solvePostSummary,
 body.is-focus-mode .stage.mode-solve #timerDrillBanner,
 body.is-focus-mode #statsPanel,
 body.is-focus-mode #regenerateBtn {
