@@ -212,7 +212,7 @@ export function createSettingsModalController({
     }
     const twoByTwoMethod = ["cll", "auto", "ortega"].includes(s.twoByTwoMethod) ? s.twoByTwoMethod : "cll";
     settings222MethodBtns.forEach(btn => {
-      const isMatch = btn.dataset.settings222Method === twoByTwoMethod;
+      const isMatch = btn.getAttribute("data-settings-222-method") === twoByTwoMethod;
       btn.classList.toggle("active", isMatch);
       btn.setAttribute("aria-pressed", String(isMatch));
     });
@@ -499,9 +499,8 @@ export function createSettingsModalController({
       : (s.showExtraWcaEvents ? ALL_BUILTIN_EVENT_IDS : DEFAULT_VISIBLE_EVENTS);
     const visibleSet = new Set(visibleList);
     const groups = [
-      { label: "Core Cubes (Learn, Train, Solve)", ids: ["222", "333", "333oh", "444", "555"] },
-      { label: "Big Cubes & FTO", ids: ["666", "777", "fto"] },
-      { label: "WCA Side Events & BLD", ids: ["pyram", "skewb", "minx", "sq1", "clock", "333bf"] }
+      { label: "NxN", ids: ["222", "333", "333oh", "444", "555", "666", "777"] },
+      { label: "WCA Side Events", ids: ["pyram", "skewb", "minx", "sq1", "clock", "333bf", "fto"] }
     ];
     settingsEventsGrid.innerHTML = groups.map(grp => `
       <div>
@@ -753,7 +752,7 @@ export function createSettingsModalController({
   });
   settings222MethodBtns.forEach(btn => {
     btn?.addEventListener("click", () => {
-      const m = btn.dataset.settings222Method;
+      const m = btn.getAttribute("data-settings-222-method");
       if (!m) return;
       appStore.setTwoByTwoMethod?.(m);
       renderToggles();
