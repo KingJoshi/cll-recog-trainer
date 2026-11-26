@@ -1379,6 +1379,13 @@
 
         <!-- Tab 5: Theme & Colors -->
         <div class="settings-tab-panel" data-settings-panel="colors" role="tabpanel" hidden>
+          <div class="settings-color-subtabs" role="tablist" aria-label="Theme and color sections">
+            <button type="button" class="settings-color-subtab active" role="tab" aria-selected="true" data-color-subtab="light">☀️ Light Theme</button>
+            <button type="button" class="settings-color-subtab" role="tab" aria-selected="false" data-color-subtab="dark">🌙 Dark Theme</button>
+            <button type="button" class="settings-color-subtab" role="tab" aria-selected="false" data-color-subtab="cube">🧊 Cube Colors</button>
+            <button type="button" class="settings-color-subtab" role="tab" aria-selected="false" data-color-subtab="bld">🕶️ 3BLD Colors</button>
+          </div>
+
           <!-- Widget 1: Light Theme -->
           <div class="settings-section settings-color-widget" data-color-widget="light">
             <div class="settings-color-widget-head">
@@ -1400,7 +1407,7 @@
           </div>
 
           <!-- Widget 2: Dark Theme -->
-          <div class="settings-section settings-color-widget" data-color-widget="dark">
+          <div class="settings-section settings-color-widget" data-color-widget="dark" hidden>
             <div class="settings-color-widget-head">
               <div class="settings-section-head">
                 <h4 class="settings-section-title">🌙 Dark Theme</h4>
@@ -1420,7 +1427,7 @@
           </div>
 
           <!-- Widget 3: Cube Colors -->
-          <div class="settings-section settings-color-widget" data-color-widget="cube">
+          <div class="settings-section settings-color-widget" data-color-widget="cube" hidden>
             <div class="settings-color-widget-head">
               <div class="settings-section-head">
                 <h4 class="settings-section-title">🧊 Cube Colors (2D &amp; 3D)</h4>
@@ -1439,7 +1446,7 @@
           </div>
 
           <!-- Widget 4: 3BLD Colors -->
-          <div class="settings-section settings-color-widget" data-color-widget="bld">
+          <div class="settings-section settings-color-widget" data-color-widget="bld" hidden>
             <div class="settings-color-widget-head">
               <div class="settings-section-head">
                 <h4 class="settings-section-title">🕶️ 3BLD Colors</h4>

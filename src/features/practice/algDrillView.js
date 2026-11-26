@@ -8,7 +8,7 @@ import { getTrack, getPreferredAlg, setPreferredAlg, getCustomAlgsForCase } from
 import { getEffectiveAlgsForCase } from '../../cube/algMirror.js';
 import { getCachedCaseSvg, renderCaseSvg } from '../../caseVisualizer.js';
 import { ScrambleTracker, formatMove } from '../../scrambleTracker.js';
-import { normalize2x2ScrambleToURF, applyTrainingBottomOrientation } from '../../services/scrambleService.js';
+import { normalize2x2ScrambleToURF, applyTrainingBottomOrientation, pickBottomLayerOrientation } from '../../services/scrambleService.js';
 import { getWeakestCasesForTrack } from '../../services/weakCasesService.js';
 import { escapeHtml, formatCfopSplitMs } from '../../services/htmlUtils.js';
 import { computeAverageOfN } from '../../services/solveStats.js';
@@ -325,19 +325,23 @@ export class AlgDrillView {
     this.execStartedAt = null;
     this.mistakesInRep = 0;
 
+    const s = this.appStore?.state || {};
+    this.currentOrientation = pickBottomLayerOrientation(s.trainingBottomFaces, { randomY: s.allowAUF !== false });
+    const is2x2 = this.currentPuzzle === "222";
+
     if (this.execMode === "setup-alg" && this.currentSetup) {
       this.phase = "setup";
-      this.tracker.reset(this._formatForSmartTracker(this.currentSetup));
+      const orientedSetup = [this.currentOrientation, this.currentSetup].filter(Boolean).join(" ").trim();
+      this.tracker.reset(orientedSetup, { is2x2 });
     } else {
       this.phase = "alg";
-      this.tracker.reset(this._formatForSmartTracker(this.currentAlg));
+      this.tracker.reset(this._formatForSmartTracker(this.currentAlg), { is2x2 });
     }
 
     if (resetDisplay && this.onApplyScrambleToDisplay) {
-      const s = this.appStore?.state || {};
       const scr = this.currentSetup || "";
       const displayScr = scr
-        ? applyTrainingBottomOrientation(scr, s.trainingBottomFaces, { randomY: s.allowAUF !== false })
+        ? [this.currentOrientation, scr].filter(Boolean).join(" ").trim()
         : "";
       this.onApplyScrambleToDisplay(displayScr);
     }
@@ -397,7 +401,8 @@ export class AlgDrillView {
       if (st.hasError) this.mistakesInRep++;
       if (this.tracker.isComplete()) {
         this.phase = "alg";
-        this.tracker.reset(this._formatForSmartTracker(this.currentAlg));
+        const orientedAlg = [this.currentOrientation, this.currentAlg].filter(Boolean).join(" ").trim();
+        this.tracker.reset(orientedAlg, { is2x2: this.currentPuzzle === "222" });
         this.execStartedAt = null;
       }
       this.render();
@@ -503,6 +508,11 @@ export class AlgDrillView {
       return `<div class="alg-drill-complete-banner">✓ ${this.phase === "setup" ? "Setup Complete!" : "Executed Cleanly!"}</div>`;
     }
     const parts = [];
+    if (Array.isArray(this.tracker.leadingRotations) && this.tracker.leadingRotations.length > 0) {
+      for (const rot of this.tracker.leadingRotations) {
+        parts.push(`<span class="drill-tok is-rotation" title="Orient cube from WCA (White top, Green front)">${escapeHtml(rot)}</span>`);
+      }
+    }
     for (let i = 0; i < this.tracker.currentIndex; i++) {
       parts.push(`<span class="drill-tok is-done">${escapeHtml(this.tracker.moves[i].text)}</span>`);
     }

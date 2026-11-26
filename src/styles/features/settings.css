@@ -701,4 +701,46 @@
   .settings-custom-event-select {
     min-width: 195px;
   }
+
+  .settings-color-subtabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+
+  .settings-color-subtab {
+    flex: 1 1 0;
+    min-width: 112px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+  }
+
+  .settings-color-subtab:hover {
+    color: var(--text);
+    background: color-mix(in srgb, var(--surface) 75%, transparent);
+  }
+
+  .settings-color-subtab.active {
+    background: var(--surface);
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: 700;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  }
 }

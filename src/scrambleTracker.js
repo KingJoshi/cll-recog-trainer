@@ -2,6 +2,97 @@
 // Guides physical smart cube users through scrambles with move verification and correction,
 // preventing premature timer triggers before the scramble is completed.
 
+const ROTATION_STEP_MAPS = {
+  x: { U: "F", B: "U", D: "B", F: "D", R: "R", L: "L" },
+  y: { F: "R", L: "F", B: "L", R: "B", U: "U", D: "D" },
+  z: { R: "U", D: "R", L: "D", U: "L", F: "F", B: "B" }
+};
+
+const TWO_BY_TWO_SENSOR_CONJUGATIONS = {
+  L: { urf: "R", rot: { U: "B", B: "D", D: "F", F: "U", R: "R", L: "L" } },
+  D: { urf: "U", rot: { F: "L", L: "B", B: "R", R: "F", U: "U", D: "D" } },
+  B: { urf: "F", rot: { U: "R", R: "D", D: "L", L: "U", F: "F", B: "B" } }
+};
+
+function applyWcaRotationStep(faceMap, stepMap, times = 1) {
+  let next = { ...faceMap };
+  const n = ((times % 4) + 4) % 4;
+  for (let i = 0; i < n; i++) {
+    const mapped = {};
+    for (const [k, stepSrc] of Object.entries(stepMap)) {
+      mapped[k] = next[stepSrc];
+    }
+    next = mapped;
+  }
+  return next;
+}
+
+function applyFaceMapStep(faceMap, stepMap, times = 1) {
+  let next = { ...faceMap };
+  const n = ((times % 4) + 4) % 4;
+  for (let i = 0; i < n; i++) {
+    const mapped = {};
+    for (const [k, v] of Object.entries(next)) {
+      mapped[k] = stepMap[v];
+    }
+    next = mapped;
+  }
+  return next;
+}
+
+function mapFaceLetter(faceLetter, faceMap) {
+  const upper = faceLetter.toUpperCase();
+  const mappedUpper = faceMap[upper] || upper;
+  return faceLetter === upper ? mappedUpper : mappedUpper.toLowerCase();
+}
+
+/**
+ * Convert scramble tokens that may include cube rotations (x, y, z) into expected
+ * physical smart-cube hardware turns (WCA coordinates for 3x3+, and pure {U, R, F}
+ * DLB-anchored coordinates for 2x2) while preserving the original display text.
+ */
+export function conjugateTokensToHardwareMoves(tokens = [], { is2x2 = false } = {}) {
+  let wcaFaceMap = { U: "U", D: "D", F: "F", B: "B", R: "R", L: "L" };
+  let sensor222Map = { U: "U", D: "D", F: "F", B: "B", R: "R", L: "L" };
+  const leadingRotations = [];
+  const moves = [];
+
+  for (const tok of tokens) {
+    const cleaned = String(tok || "").trim();
+    if (!cleaned) continue;
+
+    const rotMatch = /^([xyz])([2']|2')?$/i.exec(cleaned);
+    if (rotMatch) {
+      const axis = rotMatch[1].toLowerCase();
+      const suffix = rotMatch[2] || "";
+      const amount = suffix.includes("2") ? 2 : (suffix.includes("'") ? 3 : 1);
+      wcaFaceMap = applyWcaRotationStep(wcaFaceMap, ROTATION_STEP_MAPS[axis], amount);
+      if (moves.length === 0) leadingRotations.push(cleaned);
+      continue;
+    }
+
+    const parsed = parseMoveToken(cleaned);
+    if (!parsed) continue;
+
+    const wcaFace = mapFaceLetter(parsed.face, wcaFaceMap);
+    if (is2x2) {
+      const upperWca = wcaFace.toUpperCase();
+      const physFace = sensor222Map[upperWca] || upperWca;
+      const conj = TWO_BY_TWO_SENSOR_CONJUGATIONS[physFace];
+      if (conj) {
+        moves.push({ face: conj.urf, amount: parsed.amount, text: cleaned });
+        sensor222Map = applyFaceMapStep(sensor222Map, conj.rot, parsed.amount);
+      } else {
+        moves.push({ face: physFace, amount: parsed.amount, text: cleaned });
+      }
+    } else {
+      moves.push({ face: wcaFace, amount: parsed.amount, text: cleaned });
+    }
+  }
+
+  return { leadingRotations, moves };
+}
+
 export function parseMoveToken(token) {
   if (!token || typeof token !== "string") return null;
   const cleaned = token.trim();
@@ -28,6 +119,12 @@ export function renderScrambleTrackerHtml(tracker, options = {}) {
   const suppressSubAmount = Boolean(options.suppressSubAmount);
 
   const parts = [];
+
+  if (Array.isArray(tracker.leadingRotations) && tracker.leadingRotations.length > 0) {
+    for (const rot of tracker.leadingRotations) {
+      parts.push(`<span class="scramble-token token-rotation" title="Orient cube from WCA (White top, Green front) before scrambling">${rot}</span>`);
+    }
+  }
 
   for (let i = 0; i < tracker.currentIndex; i++) {
     parts.push(`<span class="scramble-token token-done">${tracker.moves[i].text}</span>`);
@@ -96,18 +193,18 @@ export function invertMove(moveObj) {
 }
 
 export class ScrambleTracker {
-  constructor(scrambleStr = '') {
-    this.reset(scrambleStr);
+  constructor(scrambleStr = '', options = {}) {
+    this.reset(scrambleStr, options);
   }
 
-  reset(scrambleStr = '') {
+  reset(scrambleStr = '', options = {}) {
     this.rawScramble = scrambleStr || '';
     this.scrambleString = this.rawScramble;
+    this.trackerOptions = { is2x2: Boolean(options?.is2x2) };
     this.originalTokens = this._extractTokens(this.rawScramble);
-    this.moves = this.originalTokens.map(t => {
-      const p = parseMoveToken(t);
-      return p ? { face: p.face, amount: p.amount, text: t } : null;
-    }).filter(Boolean);
+    const { leadingRotations, moves } = conjugateTokensToHardwareMoves(this.originalTokens, this.trackerOptions);
+    this.leadingRotations = leadingRotations;
+    this.moves = moves;
 
     this.currentIndex = 0;
     this.currentSubAmount = 0; // Tracks partial progress on current move (e.g. turned R of R2)

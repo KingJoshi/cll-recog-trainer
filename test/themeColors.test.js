@@ -180,6 +180,11 @@ test('Settings UI exposes Theme & Colors tab with 4 color widgets and CSS variab
   const practiceCss = fs.readFileSync(new URL('../src/styles/features/practice.css', import.meta.url), 'utf8');
 
   assert.match(html, /data-settings-tab="colors"[^>]*>.*Theme &amp; Colors/);
+  assert.ok(html.includes('class="settings-color-subtabs"'));
+  assert.ok(html.includes('data-color-subtab="light"'));
+  assert.ok(html.includes('data-color-subtab="dark"'));
+  assert.ok(html.includes('data-color-subtab="cube"'));
+  assert.ok(html.includes('data-color-subtab="bld"'));
   assert.ok(html.includes('id="lightThemeColorGrid"'));
   assert.ok(html.includes('id="darkThemeColorGrid"'));
   assert.ok(html.includes('id="colorPickerGrid"'));

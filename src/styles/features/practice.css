@@ -1505,6 +1505,12 @@
     color: #dc2626;
 }
 
+.drill-tok.is-rotation {
+    background: var(--primary-soft);
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+    color: var(--primary);
+}
+
 [data-theme="dark"] .drill-tok.is-done {
     color: #34d399;
 }

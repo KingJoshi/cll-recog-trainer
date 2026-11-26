@@ -136,11 +136,7 @@ export function createSmartCubeController({
   let pendingSolveCubeUpdateRaf = null;
 
   function resolveTrackerScramble(scrambleStr) {
-    const raw = scrambleStr || "";
-    if (appStore.state.currentPuzzle === "222" && /[LDB]/.test(raw)) {
-      return normalize2x2ScrambleToURF(raw);
-    }
-    return raw;
+    return scrambleStr || "";
   }
 
   // Wire non-blocking accessible MAC address prompt instead of window.prompt()
@@ -164,7 +160,8 @@ export function createSmartCubeController({
 
   function resetScrambleTracker(scrambleStr, markDone = false) {
     lastTrackedSourceScramble = scrambleStr || "";
-    scrambleTracker.reset(resolveTrackerScramble(lastTrackedSourceScramble));
+    const is2x2 = appStore.state.currentPuzzle === "222";
+    scrambleTracker.reset(resolveTrackerScramble(lastTrackedSourceScramble), { is2x2 });
     if (markDone) scrambleTracker.markComplete();
   }
 
@@ -413,9 +410,14 @@ export function createSmartCubeController({
 
     if (st.connected && isTimerViewMode(s) && smartCubeStage === "scrambling" && !scrambleTracker.isComplete()) {
       const targetScramble = resolveTrackerScramble(s.currentSolveScramble);
-      if (lastTrackedSourceScramble !== (s.currentSolveScramble || "") || scrambleTracker.rawScramble !== targetScramble) {
+      const is2x2Now = s.currentPuzzle === "222";
+      if (
+        lastTrackedSourceScramble !== (s.currentSolveScramble || "") ||
+        scrambleTracker.rawScramble !== targetScramble ||
+        Boolean(scrambleTracker.trackerOptions?.is2x2) !== is2x2Now
+      ) {
         resetScrambleTracker(s.currentSolveScramble);
-        smartCube.logDiag("SCRAMBLE_SYNC_RESET", { scramble: s.currentSolveScramble, tracked: targetScramble });
+        smartCube.logDiag("SCRAMBLE_SYNC_RESET", { scramble: s.currentSolveScramble, tracked: targetScramble, is2x2: is2x2Now });
       }
       renderSmartScrambleAssistant();
     }

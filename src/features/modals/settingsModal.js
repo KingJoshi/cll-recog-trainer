@@ -125,7 +125,23 @@ export function createSettingsModalController({
   const settingsCustomEventsList = typeof document !== "undefined" ? document.getElementById("settingsCustomEventsList") : null;
   const settingsNavBtns = typeof document !== "undefined" ? Array.from(document.querySelectorAll("[data-settings-tab]")) : [];
   const settingsTabPanels = typeof document !== "undefined" ? Array.from(document.querySelectorAll("[data-settings-panel]")) : [];
+  const colorSubtabBtns = typeof document !== "undefined" ? Array.from(document.querySelectorAll("[data-color-subtab]")) : [];
+  const colorWidgets = typeof document !== "undefined" ? Array.from(document.querySelectorAll("[data-color-widget]")) : [];
   let activeTab = "general";
+  let activeColorSubtab = appStore?.state?.darkMode ? "dark" : "light";
+
+  function setActiveColorSubtab(subtabId = "light") {
+    const valid = ["light", "dark", "cube", "bld"];
+    activeColorSubtab = valid.includes(subtabId) ? subtabId : "light";
+    colorSubtabBtns.forEach(btn => {
+      const active = btn.dataset.colorSubtab === activeColorSubtab;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-selected", String(active));
+    });
+    colorWidgets.forEach(widget => {
+      widget.hidden = widget.dataset.colorWidget !== activeColorSubtab;
+    });
+  }
 
   function setActiveTab(tabId = "general") {
     activeTab = tabId || "general";
@@ -137,6 +153,9 @@ export function createSettingsModalController({
     settingsTabPanels.forEach(panel => {
       panel.hidden = panel.dataset.settingsPanel !== activeTab;
     });
+    if (activeTab === "colors") {
+      setActiveColorSubtab(activeColorSubtab);
+    }
   }
   const settingsOhHandLeftBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandLeftBtn") : null;
   const settingsOhHandRightBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandRightBtn") : null;
@@ -500,7 +519,7 @@ export function createSettingsModalController({
     const visibleSet = new Set(visibleList);
     const groups = [
       { label: "NxN", ids: ["222", "333", "333oh", "444", "555", "666", "777"] },
-      { label: "WCA Side Events", ids: ["pyram", "skewb", "minx", "sq1", "clock", "333bf", "fto"] }
+      { label: "Other WCA Events", ids: ["pyram", "skewb", "minx", "sq1", "clock", "333bf", "fto"] }
     ];
     settingsEventsGrid.innerHTML = groups.map(grp => `
       <div>
@@ -551,6 +570,7 @@ export function createSettingsModalController({
     if (!modal) return;
     setPickingColor(false);
     setActiveTab(activeTab);
+    setActiveColorSubtab(activeColorSubtab);
     renderColorPickers();
     renderToggles();
     renderCustomEvents();
@@ -707,6 +727,13 @@ export function createSettingsModalController({
     btn.addEventListener("click", () => {
       const tab = btn.dataset.settingsTab;
       if (tab) setActiveTab(tab);
+    });
+  });
+
+  colorSubtabBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const subtab = btn.dataset.colorSubtab;
+      if (subtab) setActiveColorSubtab(subtab);
     });
   });
 

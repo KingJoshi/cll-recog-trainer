@@ -381,6 +381,54 @@ export function applyTrainingBottomOrientation(scrambleMoves, trainingBottomFace
   return [orient, scrambleMoves].filter(Boolean).join(" ").trim();
 }
 
+const DESCRIBE_ROT_STEP = {
+  x: { U: "F", B: "U", D: "B", F: "D", R: "R", L: "L" },
+  y: { F: "R", L: "F", B: "L", R: "B", U: "U", D: "D" },
+  z: { R: "U", D: "R", L: "D", U: "L", F: "F", B: "B" }
+};
+
+const WCA_FACE_COLORS = {
+  U: "White",
+  D: "Yellow",
+  F: "Green",
+  B: "Blue",
+  R: "Red",
+  L: "Orange"
+};
+
+/**
+ * Derive a concise bottom-color orientation label from the leading rotations of a scramble.
+ */
+export function describeTrainingBottomOrientation(scrambleStr = "", solveTarget = "") {
+  const tokens = String(scrambleStr || "").trim().split(/\s+/).filter(Boolean);
+  const leadingRots = [];
+  let map = { U: "U", D: "D", F: "F", B: "B", R: "R", L: "L" };
+
+  for (const tok of tokens) {
+    const m = /^([xyz])([2']|2')?$/i.exec(tok);
+    if (!m) break;
+    leadingRots.push(tok);
+    const axis = m[1].toLowerCase();
+    const n = (m[2] || "").includes("2") ? 2 : ((m[2] || "").includes("'") ? 3 : 1);
+    const step = DESCRIBE_ROT_STEP[axis];
+    for (let i = 0; i < n; i++) {
+      const next = {};
+      for (const [k, src] of Object.entries(step)) next[k] = map[src];
+      map = next;
+    }
+  }
+
+  const bottomColor = WCA_FACE_COLORS[map.D] || "Yellow";
+  const isCaseDrill = ["lbl", "cll", "eg1", "eg2", "f2l", "oll", "pll", "coll", "cmll", "wv"].includes(solveTarget);
+  if (leadingRots.length > 0) {
+    return `(${bottomColor} bottom · ${leadingRots.join(" ")})`;
+  }
+  if (isCaseDrill) {
+    return "(Yellow bottom · WCA)";
+  }
+  return "(WCA orientation)";
+}
+
 export function buildCaseScramble({
   caseObj,
   alwaysWhiteBottom = true,

@@ -11,6 +11,7 @@ import { caseById, isTimerViewMode } from '../../state/appStore.js';
 import { escapeHtml, formatSolveTime, formatSolveDisplay, formatCfopSplitMs } from '../../services/htmlUtils.js';
 import { showToast } from '../../ui/toastService.js';
 import { TIMER_DRILL_PRESETS, resolveTimerDrillPreset } from '../../ui/navController.js';
+import { describeTrainingBottomOrientation } from '../../services/scrambleService.js';
 import { renderLastSolveCfopInline, renderSolvePhaseInline } from './cfopBreakdownRenderer.js';
 
 export function renderSolveStatsBar(container, solvesList, { sessionName = "", compact = false, stepBreakdownHtml = "", onSelectSolve = null } = {}) {
@@ -305,7 +306,7 @@ export function createSolvePanelView({
       solveFocusToggleBtn.textContent = focused ? "Exit Zen" : "Zen";
     }
 
-    const currentScr = s.scrambleMoves || s.currentSolveScramble || s.scramble;
+    const currentScr = s.currentSolveScramble || s.scramble || s.scrambleMoves;
     const st = smartCube.getStatus();
     const scUi = getSmartCubeUi();
     if (st.connected && scUi?.getSmartCubeStage?.() === "needs_reset") {
@@ -320,8 +321,7 @@ export function createSolvePanelView({
     scUi?.updateSmartCubeIndicator?.();
 
     if (solveScrambleOrient) {
-      const isWhiteBottom = s.solveTarget === "cll" || ((s.currentPuzzle === "333" || s.currentPuzzle === "333oh") && ["f2l", "oll", "pll"].includes(s.solveTarget));
-      solveScrambleOrient.textContent = isWhiteBottom ? "(white on bottom)" : "(WCA orientation)";
+      solveScrambleOrient.textContent = describeTrainingBottomOrientation(currentScr, s.solveTarget);
     }
 
     if (solveScrambleSubtext) {

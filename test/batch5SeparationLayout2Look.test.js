@@ -404,7 +404,7 @@ test('UI markup & CSS wire Learn/Train/Solve tabs, Train submodes, desktop multi
   const settingsJs = fs.readFileSync(new URL('../src/features/modals/settingsModal.js', import.meta.url), 'utf8');
   assert.ok(!settingsJs.includes('Non-WCA'));
   assert.ok(settingsJs.includes('label: "NxN"'));
-  assert.ok(settingsJs.includes('label: "WCA Side Events"'));
+  assert.ok(settingsJs.includes('label: "Other WCA Events"'));
   assert.ok(!settingsJs.includes('Big Cubes & FTO'));
   assert.ok(!settingsJs.includes('WCA Side Events & BLD'));
   assert.ok(settingsJs.includes('getAttribute("data-settings-222-method")'));

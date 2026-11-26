@@ -8,7 +8,8 @@ import {
   generateWcaScrambleForPuzzle,
   chooseWeightedCaseId,
   buildCaseScramble,
-  applyTrainingBottomOrientation
+  applyTrainingBottomOrientation,
+  describeTrainingBottomOrientation
 } from '../services/scrambleService.js';
 
 export const TIMER_DRILL_PRESETS = {
@@ -383,17 +384,18 @@ export function createNavController({
       regenerateScramble();
       return;
     }
-    solvePanel?.updateSolveScrambleDisplay?.(s.currentSolveScramble);
     const is333Case = (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") && ["f2l", "oll", "pll", "coll", "cmll", "wv"].includes(s.solveTarget);
-    const displayScr = is333Case
+    const hasLeadingRot = /^\s*[xyz][2']?\b/i.test(s.currentSolveScramble);
+    const displayScr = (is333Case && !hasLeadingRot)
       ? applyTrainingBottomOrientation(s.currentSolveScramble, s.trainingBottomFaces, { randomY: s.allowAUF !== false })
       : s.currentSolveScramble;
+    solvePanel?.updateSolveScrambleDisplay?.(displayScr);
     cubeStage?.applyScrambleToDisplay?.(displayScr);
     cubeStage?.applyReflection?.();
     if (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") {
-      widgets?.updateCrossSolutions?.(s.currentSolveScramble);
+      widgets?.updateCrossSolutions?.(s.scrambleMoves || displayScr);
     } else if (s.currentPuzzle === "222") {
-      widgets?.updateLayerSolutions?.(s.currentSolveScramble);
+      widgets?.updateLayerSolutions?.(s.scrambleMoves || displayScr);
     }
   }
 
@@ -761,17 +763,19 @@ export function createNavController({
       : scr;
     s.currentCaseId = caseObj.id;
     s.currentCaseScramble = scr;
-    s.scrambleMoves = scr;
     s.scramble = displayScr;
     cubeStage?.applyScrambleToDisplay?.(displayScr);
     if (isTimerViewMode(s)) {
-      solvePanel?.updateSolveScrambleDisplay?.(scr);
+      solvePanel?.updateSolveScrambleDisplay?.(displayScr);
+      s.scrambleMoves = scr;
       if (solveScrambleSubtext && subtext) {
         solveScrambleSubtext.hidden = false;
         solveScrambleSubtext.textContent = subtext;
       }
-      if (orientText) updateSolveOrientationLabel(orientText);
+      updateSolveOrientationLabel(orientText || describeTrainingBottomOrientation(displayScr, s.solveTarget));
       if (is333) getSolverWidgets()?.updateCrossSolutions?.(scr);
+    } else {
+      s.scrambleMoves = scr;
     }
   }
 
@@ -846,7 +850,7 @@ export function createNavController({
         const labelPrefixMap = { pll: "PLL Case", oll: "OLL Case", f2l: "F2L Case", coll: "COLL Case", cmll: "CMLL Case", wv: "WV Case" };
         const labelPrefix = labelPrefixMap[s.solveTarget] || "Case";
         const labelName = s.solveTarget === "pll" ? c.name : c.id;
-        applyCaseSelectionScramble(c, c.setup, `${labelPrefix}: ${labelName} (${c.group})`, "(white on bottom)");
+        applyCaseSelectionScramble(c, c.setup, `${labelPrefix}: ${labelName} (${c.group})`);
         getStatsCtrl()?.updateStatsTable?.();
         return;
       }
@@ -950,10 +954,11 @@ export function createNavController({
         });
         s.currentCaseId = caseObj.id;
         s.currentCaseScramble = res.selectedScramble;
-        s.scrambleMoves = res.scrambleMoves;
         s.scramble = res.scramble;
         cubeStage?.applyScrambleToDisplay?.(s.scramble);
-        solvePanel?.updateSolveScrambleDisplay?.(s.scrambleMoves);
+        solvePanel?.updateSolveScrambleDisplay?.(s.scramble);
+        s.scrambleMoves = res.scrambleMoves;
+        updateSolveOrientationLabel(describeTrainingBottomOrientation(s.scramble, s.solveTarget));
         if (solveScrambleSubtext) {
           solveScrambleSubtext.hidden = false;
           solveScrambleSubtext.textContent = `${targetTrack.shortName || s.solveTarget}: ${caseObj.shortName || caseObj.name} (${caseObj.group})`;
@@ -979,12 +984,15 @@ export function createNavController({
       });
       s.currentCaseId = caseObj?.id || null;
       s.currentCaseScramble = res.selectedScramble;
-      s.scrambleMoves = res.scrambleMoves;
       s.scramble = res.scramble;
       cubeStage?.applyScrambleToDisplay?.(s.scramble);
       if (timerActive) {
-        solvePanel?.updateSolveScrambleDisplay?.(s.scrambleMoves);
+        solvePanel?.updateSolveScrambleDisplay?.(s.scramble);
+        s.scrambleMoves = res.scrambleMoves;
+        updateSolveOrientationLabel(describeTrainingBottomOrientation(s.scramble, s.solveTarget));
         widgets?.updateLayerSolutions?.(s.scrambleMoves);
+      } else {
+        s.scrambleMoves = res.scrambleMoves;
       }
     } else {
       s.currentCaseId = null;

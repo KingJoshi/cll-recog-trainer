@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { puzzles } from 'cubing/puzzles';
 import { Alg } from 'cubing/alg';
-import { ScrambleTracker, parseMoveToken, formatMove, invertMove } from '../src/scrambleTracker.js';
-import { normalize2x2ScrambleToURF, generateWca2x2Scramble } from '../src/services/scrambleService.js';
+import { ScrambleTracker, parseMoveToken, formatMove, invertMove, conjugateTokensToHardwareMoves } from '../src/scrambleTracker.js';
+import { normalize2x2ScrambleToURF, generateWca2x2Scramble, describeTrainingBottomOrientation } from '../src/services/scrambleService.js';
 
 test('parseMoveToken and formatMove integrity', () => {
   assert.deepStrictEqual(parseMoveToken('R'), { face: 'R', amount: 1, raw: 'R' });
@@ -284,6 +284,75 @@ test('ScrambleTracker completes normalized MoYu WCU_MY22 scramble using single {
   assert.strictEqual(tracker.isComplete(), true);
   assert.strictEqual(tracker.getStatus().hasError, false);
   assert.strictEqual(tracker.getStatus().nextRequired, null);
+});
+
+test('ScrambleTracker conjugates leading orientation rotations (e.g. z2, y) for 3x3 and 2x2 smart cubes', async () => {
+  // 3x3 with z2 (White bottom): R -> L hardware, U2 -> D2 hardware
+  const res333 = conjugateTokensToHardwareMoves(['z2', 'R', 'U2', "R'", "U'"], { is2x2: false });
+  assert.deepStrictEqual(res333.leadingRotations, ['z2']);
+  assert.deepStrictEqual(
+    res333.moves.map(m => formatMove(m.face, m.amount)),
+    ['L', 'D2', "L'", "D'"]
+  );
+  assert.deepStrictEqual(res333.moves.map(m => m.text), ['R', 'U2', "R'", "U'"]);
+
+  const tracker333 = new ScrambleTracker("z2 R U2 R' U'", { is2x2: false });
+  const html333 = tracker333.getHtml();
+  assert.ok(html333.includes('token-rotation'));
+  assert.ok(html333.includes('>z2<'));
+  for (const hwMove of ['L', 'D', 'D', "L'", "D'"]) {
+    tracker333.applyMove(hwMove);
+  }
+  assert.strictEqual(tracker333.isComplete(), true);
+
+  // Verify mathematical equivalence on 3x3x3 KPuzzle: (z2 + y + turns) == (hardwareTurns + z2 + y)
+  const kp3 = await puzzles['3x3x3'].kpuzzle();
+  const solved3 = kp3.defaultPattern();
+  const sample3 = "z2 y R U R' U' F'";
+  const hw3 = conjugateTokensToHardwareMoves(sample3.split(' '), { is2x2: false });
+  const hwAlg3 = hw3.moves.map(m => formatMove(m.face, m.amount)).join(' ');
+  assert.ok(
+    solved3.applyAlg(new Alg(sample3)).isIdentical(solved3.applyAlg(new Alg(`${hwAlg3} z2 y`))),
+    '3x3 rotated hardware moves must match z2 y scramble mathematically'
+  );
+
+  // 2x2x2 with z2 / z2 y / x' (all bottom colors): verify pure {U,R,F} hardware moves & 2x2 KPuzzle match
+  const kp2 = await puzzles['2x2x2'].kpuzzle();
+  const solved2 = kp2.defaultPattern();
+  const rots2 = [];
+  for (let x = 0; x < 4; x++) {
+    for (let y = 0; y < 4; y++) {
+      for (let z = 0; z < 4; z++) {
+        const s = [x ? `x${x}` : '', y ? `y${y}` : '', z ? `z${z}` : ''].filter(Boolean).join(' ');
+        const pat = solved2.applyAlg(new Alg(s));
+        if (!rots2.some(r => r.pat.isIdentical(pat))) rots2.push({ s, pat });
+      }
+    }
+  }
+
+  for (const orientedScr of ["z2 R U R' U'", "z2 y2 F R' F' R U2", "x' R2 U' R2 U2 F2"]) {
+    const tracker222 = new ScrambleTracker(orientedScr, { is2x2: true });
+    for (const m of tracker222.moves) {
+      assert.match(m.face, /^[URF]$/, `2x2 hardware face must be U, R, or F, got ${m.face}`);
+    }
+    const hwSeq = tracker222.moves.map(m => formatMove(m.face, m.amount)).join(' ');
+    const expected = solved2.applyAlg(new Alg(orientedScr));
+    const equiv = rots2.some(r => expected.isIdentical(solved2.applyAlg(new Alg(`${hwSeq} ${r.s}`.trim()))));
+    assert.ok(equiv, `"${orientedScr}" -> "${hwSeq}" must match on 2x2 KPuzzle up to whole-cube rotation`);
+
+    // Simulate physical cube completing all mapped hardware turns
+    for (const m of tracker222.moves) {
+      tracker222.applyMove(formatMove(m.face, m.amount));
+    }
+    assert.strictEqual(tracker222.isComplete(), true);
+  }
+
+  // Orientation label formatting for Dual Color / multi-color drills
+  assert.strictEqual(describeTrainingBottomOrientation("z2 R U R'", "cll"), "(White bottom · z2)");
+  assert.strictEqual(describeTrainingBottomOrientation("z2 y' R U R'", "cll"), "(White bottom · z2 y')");
+  assert.strictEqual(describeTrainingBottomOrientation("y2 R U R'", "cll"), "(Yellow bottom · y2)");
+  assert.strictEqual(describeTrainingBottomOrientation("R U R'", "cll"), "(Yellow bottom · WCA)");
+  assert.strictEqual(describeTrainingBottomOrientation("R U R'", "full"), "(WCA orientation)");
 });
 
 
