@@ -22,7 +22,8 @@ export function createTimerController({
   getStatsCtrl = () => null,
   getNavCtrl = () => null,
   getSmartCubeUi = () => null,
-  getDisconnectAlertView = () => null
+  getDisconnectAlertView = () => null,
+  getSessionLimitCtrl = () => null
 } = {}) {
   const solveSurface = typeof document !== "undefined" ? document.getElementById("solveSurface") : null;
   const solveTimerPad = typeof document !== "undefined" ? (document.getElementById("solveTimerPad") || solveSurface) : null;
@@ -392,12 +393,14 @@ export function createTimerController({
       } else {
         showToast(`DNF (${formatSolveTime(rawMs)}) — cube was not solved. Solve & reset the cube for the next scramble.`, "error", 5500);
       }
+      getSessionLimitCtrl()?.onSolveFinished?.({ counted: true });
       return;
     }
     scUi?.setSmartCubeStage?.("scrambling");
     getSolvePanel()?.renderSolvePanel?.();
     getStatsCtrl()?.updateStatsTable?.();
     getNavCtrl()?.regenerateScramble?.();
+    getSessionLimitCtrl()?.onSolveFinished?.({ counted: true });
   }
 
   function cancelSolve() {
@@ -422,6 +425,7 @@ export function createTimerController({
       scUi?.renderSmartScrambleAssistant?.();
     }
     getSolvePanel()?.renderSolvePanel?.();
+    getSessionLimitCtrl()?.onSolveFinished?.({ counted: false });
   }
 
   function handleSmartCubeSolved() {

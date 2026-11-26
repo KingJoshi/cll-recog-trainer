@@ -79,6 +79,12 @@ export const GROUPS = ["A", "H", "L", "P", "S", "T", "U"];
 export const GROUP_DISPLAY_ORDER = ["H", "P", "U", "T", "L", "S", "A"];
 export const GROUP_NAMES = { A: "Anti-Sune", H: "H", L: "L", P: "Pi", S: "Sune", T: "T", U: "U" };
 
+export function sanitizeSolveLimitMinutes(val, fallback = 15) {
+  const n = Math.round(Number(val));
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.min(240, Math.max(1, n));
+}
+
 /**
  * Returns true when the current view renders the live Solve timer surface
  * (either dedicated Full Solve mode, or Train -> Timed Drills).
@@ -364,6 +370,8 @@ export class AppStore {
       desktopMultiPane: savedSettings.desktopMultiPane ?? cookiePrefs.desktopMultiPane ?? true,
       customEvents,
       timerDrillPreset: savedSettings.timerDrillPreset || "righty",
+      solveLimitMinutes: sanitizeSolveLimitMinutes(savedSettings.solveLimitMinutes, 15),
+      solveLimitSound: savedSettings.solveLimitSound !== false,
       layerTargetFaces: Array.isArray(savedSettings.layerTargetFaces) && savedSettings.layerTargetFaces.length
         ? savedSettings.layerTargetFaces
         : ["white"],
@@ -939,6 +947,24 @@ export class AppStore {
     this.notify("desktopMultiPane", { desktopMultiPane: next });
   }
 
+  setSolveLimitMinutes(minutes) {
+    const next = sanitizeSolveLimitMinutes(minutes, this.state.solveLimitMinutes || 15);
+    if (this.state.solveLimitMinutes === next) return next;
+    this.state.solveLimitMinutes = next;
+    this.saveSettings();
+    this.notify("solveLimitMinutes", { solveLimitMinutes: next });
+    return next;
+  }
+
+  setSolveLimitSound(enabled) {
+    const next = Boolean(enabled);
+    if (Boolean(this.state.solveLimitSound) === next) return next;
+    this.state.solveLimitSound = next;
+    this.saveSettings();
+    this.notify("solveLimitSound", { solveLimitSound: next });
+    return next;
+  }
+
   addCustomEvent({ name, shortName = "", scrambleType = "none" } = {}) {
     const cleanName = String(name || "").trim().slice(0, 32);
     if (!cleanName) return null;
@@ -1055,6 +1081,8 @@ export class AppStore {
       solveTarget: s.solveTarget,
       solveShowCube: s.solveShowCube,
       solveInspection: s.solveInspection,
+      solveLimitMinutes: sanitizeSolveLimitMinutes(s.solveLimitMinutes, 15),
+      solveLimitSound: s.solveLimitSound !== false,
       sessionLogPageSize: s.sessionLogPageSize,
       keyboardShortcuts: sanitizeShortcutOverrides(s.keyboardShortcuts),
       customColors: { ...CUBE_COLORS },
@@ -1284,6 +1312,8 @@ export class AppStore {
       s.solveTarget = activeSession.target || savedSettings.solveTarget || "full";
       s.solveShowCube = activeSession.showCube ?? savedSettings.solveShowCube ?? true;
       s.solveInspection = activeSession.inspection ?? savedSettings.solveInspection ?? true;
+      s.solveLimitMinutes = sanitizeSolveLimitMinutes(savedSettings.solveLimitMinutes, s.solveLimitMinutes || 15);
+      s.solveLimitSound = savedSettings.solveLimitSound !== undefined ? savedSettings.solveLimitSound !== false : (s.solveLimitSound !== false);
       s.stats = sanitizeStoredStats(mergedPayload.stats || {});
       s.caseTags = mergedPayload.caseTags ? JSON.parse(JSON.stringify(mergedPayload.caseTags)) : {};
       s.customCllLabels = mergedPayload.customCllLabels ? JSON.parse(JSON.stringify(mergedPayload.customCllLabels)) : {};

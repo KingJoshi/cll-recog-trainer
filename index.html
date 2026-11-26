@@ -329,7 +329,32 @@
         <div class="solve-scramble-btns">
           <button type="button" id="solveNewScrambleBtn" class="btn btn-xs">New Scramble</button>
           <button type="button" id="solveCustomScrambleBtn" class="btn btn-xs" data-tooltip="Paste or type any scramble sequence to practice it">Custom</button>
+          <button type="button" id="solveLimitToggleBtn" class="btn btn-xs" aria-pressed="false" data-tooltip="Set a fixed session countdown (e.g. 15 or 30 mins) with 5m, 1m, and 5-1s reminders">⏱ Limit</button>
           <button type="button" id="solveFocusToggleBtn" class="btn btn-xs" aria-pressed="false" data-tooltip="Toggle distraction-free Zen Mode (Shift+Z)">Zen</button>
+        </div>
+      </div>
+      <div id="solveLimitConfigRow" class="solve-limit-config-row" hidden>
+        <div class="solve-limit-presets" role="group" aria-label="Session countdown presets">
+          <span class="solve-limit-cfg-label">Session limit:</span>
+          <button type="button" class="btn btn-xs solve-limit-preset-btn" data-limit-minutes="5">5m</button>
+          <button type="button" class="btn btn-xs solve-limit-preset-btn" data-limit-minutes="10">10m</button>
+          <button type="button" class="btn btn-xs solve-limit-preset-btn" data-limit-minutes="15">15m</button>
+          <button type="button" class="btn btn-xs solve-limit-preset-btn" data-limit-minutes="20">20m</button>
+          <button type="button" class="btn btn-xs solve-limit-preset-btn" data-limit-minutes="30">30m</button>
+          <button type="button" class="btn btn-xs solve-limit-preset-btn" data-limit-minutes="45">45m</button>
+          <button type="button" class="btn btn-xs solve-limit-preset-btn" data-limit-minutes="60">60m</button>
+        </div>
+        <div class="solve-limit-custom-controls">
+          <label for="solveLimitMinutesInput" class="solve-limit-min-label">
+            <input type="number" id="solveLimitMinutesInput" class="sim-input solve-limit-minutes-input" min="1" max="240" step="1" value="15" aria-label="Custom session time limit in minutes">
+            <span>min</span>
+          </label>
+          <label class="solve-limit-sound-toggle">
+            <input type="checkbox" id="solveLimitSoundToggle" checked>
+            <span>Voice/Sound</span>
+          </label>
+          <button type="button" id="solveLimitStartBtn" class="btn btn-primary btn-xs">Start Countdown</button>
+          <button type="button" id="solveLimitCloseConfigBtn" class="btn btn-xs" aria-label="Close session limit setup">&times;</button>
         </div>
       </div>
       <div id="solveCustomScrambleRow" class="layer-custom-row" hidden>
@@ -390,6 +415,7 @@
           <button type="button" id="smartCubeDiagCopyBtn" class="btn btn-xs smart-cube-action-btn" title="Copy Diagnostics Log JSON to clipboard">📋 Copy Log</button>
         </div>
       </div>
+      <div id="solveLimitBanner" class="solve-limit-banner" role="status" aria-live="polite" hidden></div>
       <div id="solveTimerPad" class="solve-timer-pad">
         <div id="solveTime" class="solve-time">0.00</div>
         <div id="solveCase" class="solve-case"></div>
@@ -519,6 +545,7 @@
 <!-- Solve mode: full-screen timer while armed / running -->
 <div id="solveOverlay" class="solve-overlay" hidden>
   <button type="button" id="solveOverlayCancelBtn" class="solve-overlay-cancel-btn" hidden title="Cancel inspection (Esc)">&times; Cancel</button>
+  <div id="solveOverlayCountdownBadge" class="solve-overlay-countdown-badge" hidden></div>
   <div id="solveOverlayTime" class="solve-overlay-time">0.00</div>
   <p id="solveOverlayHint" class="solve-overlay-hint"></p>
 </div>

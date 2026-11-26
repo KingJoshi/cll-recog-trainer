@@ -135,3 +135,54 @@ export function startMetronome(bpm = 180) {
   metronomeTimerId = setInterval(tick, intervalMs);
   return safeBpm;
 }
+
+/**
+ * Play a short crisp pip for the final 5-second session countdown (5, 4, 3, 2, 1).
+ */
+export function playCountdownTickBeep(secondsLeft = 5) {
+  const freq = Number(secondsLeft) === 1 ? 880 : 660;
+  playToneSequence([{ freq, dur: 0.06, type: "sine", peak: 0.10 }]);
+}
+
+/**
+ * Play a session time-limit reminder or completion cue, using speech synthesis when enabled
+ * with Web Audio chime fallback.
+ */
+export function playSessionLimitCue(message, { kind = "reminder", useVoice = true } = {}) {
+  const speakText = () => {
+    if (!useVoice || !message) return false;
+    try {
+      const host = typeof window !== "undefined" ? window : globalThis;
+      const synth = host?.speechSynthesis;
+      const Utterance = host?.SpeechSynthesisUtterance;
+      if (synth && typeof synth.speak === "function" && typeof Utterance === "function") {
+        const utter = new Utterance(String(message));
+        utter.lang = "en-US";
+        utter.rate = 1.05;
+        utter.pitch = 1.0;
+        synth.speak(utter);
+        return true;
+      }
+    } catch {
+      // Fall back to tone chime
+    }
+    return false;
+  };
+
+  if (kind === "expired") {
+    playToneSequence([
+      { freq: 523.25, start: 0, dur: 0.14, type: "triangle", peak: 0.16 },
+      { freq: 659.25, start: 0.15, dur: 0.14, type: "triangle", peak: 0.16 },
+      { freq: 783.99, start: 0.30, dur: 0.28, type: "triangle", peak: 0.18 }
+    ]);
+    speakText();
+    return;
+  }
+
+  if (!speakText()) {
+    playToneSequence([
+      { freq: 587.33, start: 0, dur: 0.11, type: "triangle", peak: 0.14 },
+      { freq: 783.99, start: 0.13, dur: 0.18, type: "triangle", peak: 0.14 }
+    ]);
+  }
+}

@@ -29,6 +29,7 @@ import { createNavController } from './ui/navController.js';
 import { createSolverWidgetsView } from './features/solve/solverWidgetsView.js';
 import { createSolvePanelView } from './features/solve/solvePanelView.js';
 import { createTimerController } from './features/solve/timerController.js';
+import { createSessionLimitController } from './features/solve/sessionLimitController.js';
 import { createDisconnectAlertView } from './features/bluetooth/disconnectAlertView.js';
 import { createSmartCubeController } from './features/bluetooth/smartCubeController.js';
 import { createGanTimerController } from './features/bluetooth/ganTimerController.js';
@@ -57,6 +58,7 @@ let navCtrl;
 let solverWidgets;
 let solvePanelView;
 let timerCtrl;
+let sessionLimitCtrl;
 let disconnectAlertView;
 let smartCubeCtrl;
 let ganTimerCtrl;
@@ -244,6 +246,11 @@ disconnectAlertView = createDisconnectAlertView({
   getGanTimerCtrl: () => ganTimerCtrl
 });
 
+sessionLimitCtrl = createSessionLimitController({
+  appStore,
+  getTimerCtrl: () => timerCtrl
+});
+
 timerCtrl = createTimerController({
   appStore,
   solveReplayViewer,
@@ -251,7 +258,8 @@ timerCtrl = createTimerController({
   getStatsCtrl: () => statsCtrl,
   getNavCtrl: () => navCtrl,
   getSmartCubeUi: () => smartCubeCtrl,
-  getDisconnectAlertView: () => disconnectAlertView
+  getDisconnectAlertView: () => disconnectAlertView,
+  getSessionLimitCtrl: () => sessionLimitCtrl
 });
 
 smartCubeCtrl = createSmartCubeController({
