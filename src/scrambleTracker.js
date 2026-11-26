@@ -46,6 +46,27 @@ function mapFaceLetter(faceLetter, faceMap) {
   return faceLetter === upper ? mappedUpper : mappedUpper.toLowerCase();
 }
 
+function buildHwToUserFaceMap(wcaFaceMap, sensor222Map, is2x2) {
+  const hwToUser = {};
+  if (is2x2) {
+    // Check primary {U, R, F} user faces first so every hardware axis maps to the user's grip
+    for (const userF of ["U", "R", "F", "D", "L", "B"]) {
+      const wcaF = wcaFaceMap[userF] || userF;
+      const physF = sensor222Map[wcaF] || wcaF;
+      const hwF = TWO_BY_TWO_SENSOR_CONJUGATIONS[physF]?.urf || physF;
+      if (!hwToUser[hwF]) {
+        hwToUser[hwF] = userF;
+      }
+    }
+    return hwToUser;
+  }
+  for (const [userF, hwF] of Object.entries(wcaFaceMap)) {
+    hwToUser[hwF] = userF;
+    hwToUser[hwF.toLowerCase()] = userF.toLowerCase();
+  }
+  return hwToUser;
+}
+
 /**
  * Convert scramble tokens that may include cube rotations (x, y, z) into expected
  * physical smart-cube hardware turns (WCA coordinates for 3x3+, and pure {U, R, F}
@@ -74,23 +95,28 @@ export function conjugateTokensToHardwareMoves(tokens = [], { is2x2 = false } = 
     const parsed = parseMoveToken(cleaned);
     if (!parsed) continue;
 
+    const hwToUserFace = buildHwToUserFaceMap(wcaFaceMap, sensor222Map, is2x2);
     const wcaFace = mapFaceLetter(parsed.face, wcaFaceMap);
     if (is2x2) {
       const upperWca = wcaFace.toUpperCase();
       const physFace = sensor222Map[upperWca] || upperWca;
       const conj = TWO_BY_TWO_SENSOR_CONJUGATIONS[physFace];
       if (conj) {
-        moves.push({ face: conj.urf, amount: parsed.amount, text: cleaned });
+        moves.push({ face: conj.urf, displayFace: parsed.face, amount: parsed.amount, text: cleaned, hwToUserFace });
         sensor222Map = applyFaceMapStep(sensor222Map, conj.rot, parsed.amount);
       } else {
-        moves.push({ face: physFace, amount: parsed.amount, text: cleaned });
+        moves.push({ face: physFace, displayFace: parsed.face, amount: parsed.amount, text: cleaned, hwToUserFace });
       }
     } else {
-      moves.push({ face: wcaFace, amount: parsed.amount, text: cleaned });
+      moves.push({ face: wcaFace, displayFace: parsed.face, amount: parsed.amount, text: cleaned, hwToUserFace });
     }
   }
 
-  return { leadingRotations, moves };
+  return {
+    leadingRotations,
+    moves,
+    defaultHwToUserFace: buildHwToUserFaceMap(wcaFaceMap, sensor222Map, is2x2)
+  };
 }
 
 export function parseMoveToken(token) {
@@ -135,7 +161,7 @@ export function renderScrambleTrackerHtml(tracker, options = {}) {
   if (tracker.currentIndex < tracker.moves.length) {
     cur = tracker.moves[tracker.currentIndex];
     const remAmount = (cur.amount - tracker.currentSubAmount + 4) % 4;
-    displayNext = formatMove(cur.face, remAmount);
+    displayNext = formatMove(cur.displayFace || cur.face, remAmount);
     const subLabel = (!suppressSubAmount && tracker.currentSubAmount > 0)
       ? ` <small class="token-sub">(${displayNext} needed)</small>`
       : '';
@@ -202,9 +228,10 @@ export class ScrambleTracker {
     this.scrambleString = this.rawScramble;
     this.trackerOptions = { is2x2: Boolean(options?.is2x2) };
     this.originalTokens = this._extractTokens(this.rawScramble);
-    const { leadingRotations, moves } = conjugateTokensToHardwareMoves(this.originalTokens, this.trackerOptions);
+    const { leadingRotations, moves, defaultHwToUserFace } = conjugateTokensToHardwareMoves(this.originalTokens, this.trackerOptions);
     this.leadingRotations = leadingRotations;
     this.moves = moves;
+    this.defaultHwToUserFace = defaultHwToUserFace || {};
 
     this.currentIndex = 0;
     this.currentSubAmount = 0; // Tracks partial progress on current move (e.g. turned R of R2)
@@ -284,8 +311,9 @@ export class ScrambleTracker {
   getStatus() {
     const isDone = this.isComplete();
     const cur = (!isDone && this.currentIndex < this.moves.length) ? this.moves[this.currentIndex] : null;
+    const activeHwToUser = cur?.hwToUserFace || this.defaultHwToUserFace || {};
     const remAmount = cur ? (cur.amount - this.currentSubAmount + 4) % 4 : 0;
-    const remMove = cur ? formatMove(cur.face, remAmount) : null;
+    const remMove = cur ? formatMove(cur.displayFace || cur.face, remAmount) : null;
 
     // A partial turn on a non-double move (e.g. R' instead of R, or R2 instead of R) is a direction/overshoot error on the current face.
     // A 90° turn on a double move (e.g. R of R2) is a normal mid-double-flick state unless other face deviations also occurred.
@@ -300,7 +328,8 @@ export class ScrambleTracker {
     // Corrections are the reverse inverse of deviations, PLUS any remaining turn on the current move if partially turned
     const corrections = [...this.deviations].reverse().map(d => {
       const inv = (4 - (d.amount % 4)) % 4;
-      return formatMove(d.face, inv);
+      const userFace = activeHwToUser[d.face] || d.face;
+      return formatMove(userFace, inv);
     }).filter(Boolean);
 
     if (this.currentSubAmount > 0 && remMove && (this.deviations.length > 0 || isSameFaceWrongDir)) {

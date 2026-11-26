@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { puzzles } from 'cubing/puzzles';
 import { Alg } from 'cubing/alg';
 import { ScrambleTracker, parseMoveToken, formatMove, invertMove, conjugateTokensToHardwareMoves } from '../src/scrambleTracker.js';
-import { normalize2x2ScrambleToURF, generateWca2x2Scramble, describeTrainingBottomOrientation } from '../src/services/scrambleService.js';
+import { normalize2x2ScrambleToURF, generateWca2x2Scramble, describeTrainingBottomOrientation, buildCaseScramble } from '../src/services/scrambleService.js';
 
 test('parseMoveToken and formatMove integrity', () => {
   assert.deepStrictEqual(parseMoveToken('R'), { face: 'R', amount: 1, raw: 'R' });
@@ -353,6 +353,85 @@ test('ScrambleTracker conjugates leading orientation rotations (e.g. z2, y) for 
   assert.strictEqual(describeTrainingBottomOrientation("y2 R U R'", "cll"), "(Yellow bottom · y2)");
   assert.strictEqual(describeTrainingBottomOrientation("R U R'", "cll"), "(Yellow bottom · WCA)");
   assert.strictEqual(describeTrainingBottomOrientation("R U R'", "full"), "(WCA orientation)");
+});
+
+test('ScrambleTracker reports user-grip nextRequired and undo corrections across rotated 2x2 and 3x3 scrambles', () => {
+  // Exact 2x2 scramble from MoYu WCU_MY22 diagnostic log: y' U F R2 F U2 F2 U2 F2 R' U' R U'
+  const scr = "y' U F R2 F U2 F2 U2 F2 R' U' R U'";
+  const tracker = new ScrambleTracker(scr, { is2x2: true });
+  assert.deepStrictEqual(tracker.leadingRotations, ["y'"]);
+
+  // Steps 0..4: U, F (BLE R), R2 (BLE U2), F (BLE R), U2 (BLE U2)
+  assert.strictEqual(tracker.getStatus().nextRequired, 'U');
+  tracker.applyMove('U');
+  assert.strictEqual(tracker.getStatus().nextRequired, 'F');
+  tracker.applyMove('R'); // user's F -> BLE R
+  assert.strictEqual(tracker.getStatus().nextRequired, 'R2');
+  tracker.applyMove('U');
+  tracker.applyMove('U');
+  assert.strictEqual(tracker.getStatus().nextRequired, 'F');
+  tracker.applyMove('R'); // user's F -> BLE R
+  assert.strictEqual(tracker.getStatus().nextRequired, 'U2');
+
+  // Off-track move at step 4: BLE F (which is user's R) -> correction must say "R'", NOT "F'"
+  tracker.applyMove('F');
+  assert.strictEqual(tracker.getStatus().hasError, true);
+  assert.deepStrictEqual(tracker.getStatus().corrections, ["R'"]);
+  tracker.applyMove("F'"); // undo with user's R' -> clears error cleanly
+  assert.strictEqual(tracker.getStatus().hasError, false);
+  assert.strictEqual(tracker.getStatus().nextRequired, 'U2');
+
+  // Complete U2 (BLE U2), then verify step 5 (F2 -> BLE R2) says nextRequired === 'F2'
+  tracker.applyMove('U');
+  tracker.applyMove('U');
+  assert.strictEqual(tracker.getStatus().nextRequired, 'F2');
+  tracker.applyMove('R');
+  assert.strictEqual(tracker.getStatus().nextRequired, 'F'); // half of F2
+  assert.ok(tracker.getHtml({ suppressSubAmount: false }).includes('(F needed)'));
+  tracker.applyMove('R');
+  assert.strictEqual(tracker.getStatus().nextRequired, 'U2');
+
+  // Complete steps 6..7 (U2 -> BLE U2, F2 -> BLE R2), then step 8 (R' -> BLE F')
+  tracker.applyMove('U');
+  tracker.applyMove('U');
+  tracker.applyMove('R');
+  tracker.applyMove('R');
+  assert.strictEqual(tracker.getStatus().nextRequired, "R'");
+  tracker.applyMove("F'");
+
+  // Step 9: U' (BLE U'), step 10: R (BLE F, must say nextRequired 'R'!), step 11: U'
+  assert.strictEqual(tracker.getStatus().nextRequired, "U'");
+  tracker.applyMove("U'");
+  assert.strictEqual(tracker.getStatus().nextRequired, 'R');
+  tracker.applyMove('F');
+  assert.strictEqual(tracker.getStatus().nextRequired, "U'");
+  tracker.applyMove("U'");
+  assert.strictEqual(tracker.isComplete(), true);
+
+  // 3x3 with z2: nextRequired and off-track undo corrections stay in user's z2 grip
+  const t3 = new ScrambleTracker("z2 R U2 R' U'", { is2x2: false });
+  assert.strictEqual(t3.getStatus().nextRequired, 'R');
+  t3.applyMove('F'); // wrong front face -> undo F'
+  assert.deepStrictEqual(t3.getStatus().corrections, ["F'"]);
+  t3.applyMove("F'");
+  t3.applyMove('L'); // hardware L = user R
+  assert.strictEqual(t3.getStatus().nextRequired, 'U2');
+  t3.applyMove('L'); // accidental user R (hardware L) instead of U2 -> correction must say "R'", not "L'"
+  assert.deepStrictEqual(t3.getStatus().corrections, ["R'"]);
+  t3.applyMove("L'");
+  assert.strictEqual(t3.getStatus().hasError, false);
+  assert.strictEqual(t3.getStatus().nextRequired, 'U2');
+
+  // Dual color (W/Y) drill scrambles must not emit unnecessary y/y2/y' rotations
+  for (let i = 0; i < 25; i++) {
+    const res = buildCaseScramble({
+      caseObj: { id: 'T1', scrambles: ["R U R' U'"] },
+      trainingBottomFaces: ['white', 'yellow'],
+      allowAUF: true,
+      isStudy: false
+    });
+    assert.ok(!/\by[2']?\b/.test(res.scramble), `Unexpected y rotation in Dual Color scramble: ${res.scramble}`);
+  }
 });
 
 

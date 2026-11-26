@@ -387,7 +387,7 @@ export function createNavController({
     const is333Case = (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") && ["f2l", "oll", "pll", "coll", "cmll", "wv"].includes(s.solveTarget);
     const hasLeadingRot = /^\s*[xyz][2']?\b/i.test(s.currentSolveScramble);
     const displayScr = (is333Case && !hasLeadingRot)
-      ? applyTrainingBottomOrientation(s.currentSolveScramble, s.trainingBottomFaces, { randomY: s.allowAUF !== false })
+      ? applyTrainingBottomOrientation(s.currentSolveScramble, s.trainingBottomFaces)
       : s.currentSolveScramble;
     solvePanel?.updateSolveScrambleDisplay?.(displayScr);
     cubeStage?.applyScrambleToDisplay?.(displayScr);
@@ -759,7 +759,7 @@ export function createNavController({
     const is333 = s.currentPuzzle === "333" || s.currentPuzzle === "333oh";
     const is222Case = s.currentPuzzle === "222" && ["lbl", "cll", "eg1", "eg2", "ortega"].includes(s.currentTrackId);
     const displayScr = (is333 || is222Case)
-      ? applyTrainingBottomOrientation(scr, s.trainingBottomFaces, { randomY: s.allowAUF !== false })
+      ? applyTrainingBottomOrientation(scr, s.trainingBottomFaces)
       : scr;
     s.currentCaseId = caseObj.id;
     s.currentCaseScramble = scr;
@@ -1056,7 +1056,7 @@ export function createNavController({
         : (caseObj.setup || caseObj.scramble || "");
       const is333 = s.currentPuzzle === "333" || s.currentPuzzle === "333oh";
       const displayScr = is333
-        ? applyTrainingBottomOrientation(scr, s.trainingBottomFaces, { randomY: s.allowAUF !== false })
+        ? applyTrainingBottomOrientation(scr, s.trainingBottomFaces)
         : scr;
       s.currentCaseId = caseObj.id;
       s.currentCaseScramble = scr;

@@ -368,7 +368,7 @@ export function sanitizeTrainingBottomFaces(faces, fallback = ["white"]) {
   return clean.length > 0 ? clean : [...fallback];
 }
 
-export function pickBottomLayerOrientation(trainingBottomFaces = ["white"], { randomY = true } = {}) {
+export function pickBottomLayerOrientation(trainingBottomFaces = ["white"], { randomY = false } = {}) {
   const pool = sanitizeTrainingBottomFaces(trainingBottomFaces, ["white"]);
   const face = pool[Math.floor(Math.random() * pool.length)];
   const baseRot = BOTTOM_LAYER_ROTATIONS[face] ?? "z2";
@@ -376,7 +376,7 @@ export function pickBottomLayerOrientation(trainingBottomFaces = ["white"], { ra
   return [baseRot, yRot].filter(Boolean).join(" ");
 }
 
-export function applyTrainingBottomOrientation(scrambleMoves, trainingBottomFaces = ["white"], { randomY = true } = {}) {
+export function applyTrainingBottomOrientation(scrambleMoves, trainingBottomFaces = ["white"], { randomY = false } = {}) {
   const orient = pickBottomLayerOrientation(trainingBottomFaces, { randomY });
   return [orient, scrambleMoves].filter(Boolean).join(" ").trim();
 }
@@ -440,7 +440,7 @@ export function buildCaseScramble({
   if (isStudy) {
     orientation = "z2";
   } else if (Array.isArray(trainingBottomFaces) && trainingBottomFaces.length > 0) {
-    orientation = pickBottomLayerOrientation(trainingBottomFaces, { randomY: allowAUF });
+    orientation = pickBottomLayerOrientation(trainingBottomFaces, { randomY: false });
   } else if (alwaysWhiteBottom) {
     orientation = "z2";
   } else {

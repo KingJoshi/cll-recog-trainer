@@ -326,7 +326,7 @@ export class AlgDrillView {
     this.mistakesInRep = 0;
 
     const s = this.appStore?.state || {};
-    this.currentOrientation = pickBottomLayerOrientation(s.trainingBottomFaces, { randomY: s.allowAUF !== false });
+    this.currentOrientation = pickBottomLayerOrientation(s.trainingBottomFaces);
     const is2x2 = this.currentPuzzle === "222";
 
     if (this.execMode === "setup-alg" && this.currentSetup) {
