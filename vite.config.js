@@ -52,6 +52,27 @@ export default defineConfig({
     }
   },
   plugins: [
+    {
+      name: 'legal-clean-urls',
+      configureServer(server) {
+        server.middlewares.use((req, _res, next) => {
+          const clean = (req.url || '').split('?')[0].replace(/\/+$/, '');
+          if (clean === '/privacy' || clean === '/terms') {
+            req.url = `${clean}/index.html`;
+          }
+          next();
+        });
+      },
+      configurePreviewServer(server) {
+        server.middlewares.use((req, _res, next) => {
+          const clean = (req.url || '').split('?')[0].replace(/\/+$/, '');
+          if (clean === '/privacy' || clean === '/terms') {
+            req.url = `${clean}/index.html`;
+          }
+          next();
+        });
+      }
+    },
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],

@@ -55,7 +55,8 @@ export const STORAGE_KEYS = {
 export const VALID_PUZZLES = ["222", "333", "333oh", "444", "555", "666", "777", "fto", "pyram", "skewb", "minx", "sq1", "clock", "333bf"];
 export const DEFAULT_VISIBLE_EVENTS = ["222", "333", "333oh", "444", "555"];
 export const ALL_BUILTIN_EVENT_IDS = [...VALID_PUZZLES];
-export const BETA_TRACK_IDS = new Set(["eg1", "eg2"]);
+export const BETA_TRACK_IDS_222 = new Set(["eg1", "eg2", "layer"]);
+export const BETA_TRACK_IDS_333 = new Set(["coll", "cmll", "wv"]);
 
 export const EXPERIMENTAL_FEATURES = Object.freeze([
   {
@@ -67,6 +68,26 @@ export const EXPERIMENTAL_FEATURES = Object.freeze([
     id: "eg2",
     label: "2x2 EG-2",
     description: "40 EG-2 algorithm cases across Learn, Train, Timed Drills, and Simulate"
+  },
+  {
+    id: "twoByTwoFirstLayer",
+    label: "2x2 1st Layer",
+    description: "75-case 2x2 1st Layer explorer, grid/quiz, 2-look guide, and inspection/timed drills"
+  },
+  {
+    id: "coll",
+    label: "3x3 COLL",
+    description: "40 COLL (Corners of Last Layer with oriented edges) cases across Learn, Train, and Timed Drills"
+  },
+  {
+    id: "cmll",
+    label: "3x3 CMLL",
+    description: "42 Roux CMLL cases across Learn, Train, and Timed Drills"
+  },
+  {
+    id: "wv",
+    label: "3x3 Winter Variation (WV)",
+    description: "27 Winter Variation cases across Learn, Train, and Timed Drills"
   },
   {
     id: "extraPuzzles",
@@ -82,9 +103,50 @@ export const EXPERIMENTAL_FEATURES = Object.freeze([
     id: "stackmatG5",
     label: "Stackmat G5 Audio Timer",
     description: "Decode SpeedStacks Stackmat G5 (and G4/G3) via Web Audio line-in under Settings → Devices → Timers"
+  },
+  {
+    id: "virtualKeyboard",
+    label: "Devices: Virtual / Keyboard Cube",
+    description: "Unlock the Virtual / Keyboard Cube tab under Settings → Devices"
+  },
+  {
+    id: "quickSetup",
+    label: "Quick Setup Wizard",
+    description: "Show the guided setup wizard launcher in Settings → General and the Help dialog"
+  },
+  {
+    id: "metronome",
+    label: "Lookahead Metronome & Pause Alerts",
+    description: "Show and activate BPM metronome ticks and hesitation alerts under Settings → Solve & Timer"
+  },
+  {
+    id: "ohSettings",
+    label: "3x3 OH Settings",
+    description: "Show 3x3 One-Handed hand and Table Abuse options across Settings, Learn, and Train"
   }
 ]);
 export const EXPERIMENTAL_FEATURE_IDS = EXPERIMENTAL_FEATURES.map(f => f.id);
+
+export function getTrackExperimentalFeature(puzzleId, trackId) {
+  if (!trackId) return null;
+  if (puzzleId === "222") {
+    if (trackId === "eg1") return "eg1";
+    if (trackId === "eg2") return "eg2";
+    if (trackId === "layer") return "twoByTwoFirstLayer";
+  } else if (puzzleId === "333" || puzzleId === "333oh") {
+    if (trackId === "coll") return "coll";
+    if (trackId === "cmll") return "cmll";
+    if (trackId === "wv") return "wv";
+  }
+  return null;
+}
+
+export function getFallbackTrackForPuzzle(puzzleId) {
+  if (puzzleId === "222") return "cll";
+  const def = getDefaultTrack(puzzleId)?.id;
+  if (def && !getTrackExperimentalFeature(puzzleId, def)) return def;
+  return "oll";
+}
 
 export function sanitizeExperimentalFeatures(rawObj, legacyBetaFlag = false) {
   const hasMap = Boolean(rawObj && typeof rawObj === "object" && !Array.isArray(rawObj));
@@ -108,7 +170,7 @@ export function isExperimentalEnabled(stateOrMap, featureId) {
 }
 
 export function isBetaTrack(puzzleId, trackId) {
-  return puzzleId === "222" && BETA_TRACK_IDS.has(trackId);
+  return Boolean(getTrackExperimentalFeature(puzzleId, trackId));
 }
 
 export function isBetaPuzzle(puzzleId) {
@@ -116,8 +178,9 @@ export function isBetaPuzzle(puzzleId) {
 }
 
 export function isTrackEnabled(state, puzzleId, trackId) {
-  if (!isBetaTrack(puzzleId, trackId)) return true;
-  return isExperimentalEnabled(state, trackId);
+  const feat = getTrackExperimentalFeature(puzzleId, trackId);
+  if (!feat) return true;
+  return isExperimentalEnabled(state, feat);
 }
 
 export function isPuzzleEnabled(state, puzzleId) {
@@ -310,7 +373,7 @@ export class AppStore {
         mode = "solve";
       }
       if (!isTrackEnabled({ experimentalFeatures, betaFeatures }, currentPuzzle, currentTrackId)) {
-        currentTrackId = "cll";
+        currentTrackId = getFallbackTrackForPuzzle(currentPuzzle);
       }
       if (!getTrack(currentPuzzle, currentTrackId)) {
         currentTrackId = getDefaultTrack(currentPuzzle)?.id || "cll";
@@ -346,7 +409,7 @@ export class AppStore {
     }
 
     if (!isTrackEnabled({ experimentalFeatures, betaFeatures }, currentPuzzle, solveTarget)) {
-      solveTarget = mode === "solve" ? "full" : "cll";
+      solveTarget = mode === "solve" ? "full" : getFallbackTrackForPuzzle(currentPuzzle);
     }
 
     const hasSavedTrainSubMode = savedSettings.trainSubMode !== undefined || cookiePrefs.trainSubMode !== undefined;
@@ -1392,7 +1455,7 @@ export class AppStore {
       s.experimentalFeatures = incomingExp;
       s.betaFeatures = EXPERIMENTAL_FEATURE_IDS.some(id => incomingExp[id]);
       s.currentPuzzle = (!isPuzzleEnabled(s, currentPuzzle)) ? "333" : currentPuzzle;
-      s.currentTrackId = (!isTrackEnabled(s, s.currentPuzzle, currentTrackId)) ? "cll" : (s.currentPuzzle !== currentPuzzle ? (getDefaultTrack(s.currentPuzzle)?.id || "oll") : currentTrackId);
+      s.currentTrackId = (!isTrackEnabled(s, s.currentPuzzle, currentTrackId)) ? getFallbackTrackForPuzzle(s.currentPuzzle) : (s.currentPuzzle !== currentPuzzle ? (getDefaultTrack(s.currentPuzzle)?.id || "oll") : currentTrackId);
       s.mode = mode;
       s.ohHand = savedSettings.ohHand === "right" ? "right" : "left";
       s.ohTableAbuse = savedSettings.ohTableAbuse !== undefined ? Boolean(savedSettings.ohTableAbuse) : true;
@@ -1493,7 +1556,7 @@ export class AppStore {
       s.activeSessionId = activeSessionId;
       s.solveTarget = activeSession.target || savedSettings.solveTarget || "full";
       if (!isTrackEnabled(s, s.currentPuzzle, s.solveTarget)) {
-        s.solveTarget = s.mode === "solve" ? "full" : "cll";
+        s.solveTarget = s.mode === "solve" ? "full" : getFallbackTrackForPuzzle(s.currentPuzzle);
       }
       s.solveShowCube = activeSession.showCube ?? savedSettings.solveShowCube ?? true;
       s.solveInspection = activeSession.inspection ?? savedSettings.solveInspection ?? true;

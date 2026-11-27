@@ -160,6 +160,7 @@ export function createSettingsModalController({
     if (activeTab === "colors") {
       setActiveColorSubtab(activeColorSubtab);
     } else if (activeTab === "devices") {
+      getSmartCubeCtrl()?.syncExperimentalDevicesUI?.();
       getSmartCubeCtrl()?.updateBluetoothUI?.();
     }
   }
@@ -276,6 +277,22 @@ export function createSettingsModalController({
     if (settingsMetronomeBpm) settingsMetronomeBpm.value = String(bpm);
     if (settingsMetronomeBpmLabel) {
       settingsMetronomeBpmLabel.textContent = `${bpm} BPM (${(bpm / 60).toFixed(1)} TPS)`;
+    }
+    if (typeof document !== "undefined") {
+      const quickSetupOn = isExperimentalEnabled(s, "quickSetup");
+      const metronomeOn = isExperimentalEnabled(s, "metronome");
+      const ohSettingsOn = isExperimentalEnabled(s, "ohSettings");
+      if (openWizardBtn) openWizardBtn.hidden = !quickSetupOn;
+      const quickTitle = document.getElementById("settingsQuickSetupTitle");
+      if (quickTitle) {
+        quickTitle.innerHTML = quickSetupOn
+          ? '🧭 Quick Setup<sup class="beta-sup" aria-label="Experimental">β</sup> &amp; Hotkeys'
+          : '⌨️ Keyboard Shortcuts';
+      }
+      const metroSec = document.getElementById("settingsMetronomeSection");
+      if (metroSec) metroSec.hidden = !metronomeOn;
+      const ohSec = document.getElementById("settingsOhSection");
+      if (ohSec) ohSec.hidden = !ohSettingsOn;
     }
     renderEventsGrid();
     const isRight = s.ohHand === "right";

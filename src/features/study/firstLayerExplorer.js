@@ -471,11 +471,11 @@ export function renderFirstFaceStudyHtml() {
         </section>
 
         <section class="guide-card guide-card-full">
-          <h3 class="guide-card-title">&#x1F3AC; 6 Essential 1st Face Patterns (Click Sim to Preview in 3D)</h3>
-          <p class="hint" style="margin-bottom: 10px;">Each example plays in an in-place 3D popup so you can cycle Next / Prev across all 6 patterns without leaving this guide.</p>
+          <h3 class="guide-card-title">&#x1F3AC; 6 Essential 1st Face Patterns</h3>
+          <p class="hint" style="margin-bottom: 10px;">Play or step each pattern directly on its 3D cube, or click <strong>Sim</strong> for an expanded interactive view.</p>
           <div class="ff-examples-grid">
             ${FIRST_FACE_EXAMPLES.map((ex, idx) => `
-              <div class="ff-example-card">
+              <div class="ff-example-card" data-ff-card-id="${escapeHtml(ex.id)}">
                 <div class="ff-example-head">
                   <span class="ff-example-title">${escapeHtml(ex.label)}</span>
                   <div class="ff-example-badges">
@@ -483,9 +483,16 @@ export function renderFirstFaceStudyHtml() {
                     <span class="badge ${ex.bottomPerm === 'Layer Solved' ? 'badge-solved' : 'badge-warning'}">${escapeHtml(ex.bottomPerm)}</span>
                   </div>
                 </div>
+                <div class="ff-example-3d-wrap" data-ff-card-id="${escapeHtml(ex.id)}" data-ff-idx="${idx}" data-ff-scramble="${escapeHtml(ex.scramble)}" data-ff-moves="${escapeHtml(ex.moves)}" aria-label="${escapeHtml(ex.label)} 3D preview"></div>
                 <div class="ff-example-moves-row">
                   <span class="ff-alg-code">${escapeHtml(ex.moves)}</span>
-                  <button type="button" class="btn btn-xs btn-primary ff-sim-btn" data-ff-idx="${idx}" data-tooltip="Simulate this pattern in an interactive 3D popup" aria-label="Simulate ${escapeHtml(ex.label)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
+                  <div class="ff-example-controls">
+                    <button type="button" class="btn btn-xs ff-card-reset-3d-btn" data-ff-card-id="${escapeHtml(ex.id)}" title="Reset 3D viewing angle" aria-label="Reset 3D viewing angle for ${escapeHtml(ex.label)}">${ICON_RESET_ANGLE}</button>
+                    <button type="button" class="btn btn-xs ff-card-start-btn" data-ff-card-id="${escapeHtml(ex.id)}" title="Reset to scramble start" aria-label="Reset to start for ${escapeHtml(ex.label)}" disabled>${ICON_SKIP_START}</button>
+                    <button type="button" class="btn btn-xs btn-primary ff-card-play-btn" data-ff-card-id="${escapeHtml(ex.id)}" title="Play or pause solution" aria-label="Play solution for ${escapeHtml(ex.label)}">${ICON_PLAY}</button>
+                    <button type="button" class="btn btn-xs ff-card-next-btn" data-ff-card-id="${escapeHtml(ex.id)}" title="Step forward 1 move" aria-label="Step forward for ${escapeHtml(ex.label)}">${ICON_STEP_FORWARD}</button>
+                    <button type="button" class="btn btn-xs ff-sim-btn" data-ff-idx="${idx}" data-tooltip="Simulate this pattern in an interactive 3D popup" aria-label="Simulate ${escapeHtml(ex.label)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
+                  </div>
                 </div>
                 <p class="ff-example-note">${escapeHtml(ex.note)}</p>
               </div>
@@ -515,7 +522,230 @@ export function renderFirstFaceStudyHtml() {
   `;
 }
 
-export function bindFirstFaceStudyEvents(container, { onQuickSimSolutions } = {}) {
+const ffCards3d = {
+  cards: new Map(),
+  gen: 0
+};
+
+function teardownFirstFace3d() {
+  ffCards3d.gen++;
+  for (const entry of ffCards3d.cards.values()) {
+    entry.loadGen++;
+    entry.pendingSeek = false;
+    if (entry.displayEl) {
+      try {
+        entry.displayEl.player?.pause?.();
+        entry.displayEl.remove?.();
+      } catch {}
+      entry.displayEl = null;
+    }
+    entry.indexer = null;
+  }
+  ffCards3d.cards.clear();
+}
+
+function updateFirstFaceCardUi(entry, playing) {
+  entry.playing = Boolean(playing);
+  const cardEl = entry.cardEl;
+  if (!cardEl) return;
+  const startBtn = cardEl.querySelector('.ff-card-start-btn');
+  const playBtn = cardEl.querySelector('.ff-card-play-btn');
+  const nextBtn = cardEl.querySelector('.ff-card-next-btn');
+  const total = entry.combinedMoves.length;
+  const algTotal = entry.algMoves.length;
+
+  if (startBtn) startBtn.disabled = entry.moveCount <= entry.setupCount || algTotal === 0;
+  if (nextBtn) nextBtn.disabled = entry.moveCount >= total || algTotal === 0;
+  if (playBtn) {
+    playBtn.disabled = algTotal === 0;
+    playBtn.classList.toggle('is-playing', entry.playing);
+    if (entry.playing) {
+      playBtn.innerHTML = ICON_PAUSE;
+      playBtn.setAttribute('aria-label', 'Pause solution');
+    } else if (algTotal > 0 && entry.moveCount >= total) {
+      playBtn.innerHTML = ICON_REPLAY;
+      playBtn.setAttribute('aria-label', 'Replay solution');
+    } else {
+      playBtn.innerHTML = ICON_PLAY;
+      playBtn.setAttribute('aria-label', 'Play solution');
+    }
+  }
+}
+
+async function seekFirstFaceEntry(entry, targetCount) {
+  const el = entry.displayEl;
+  if (!el?.player) return;
+  const lGen = entry.loadGen;
+  entry.pendingSeek = true;
+  try {
+    el.player.pause();
+    if (!entry.indexer) {
+      entry.indexer = await el.player.experimentalModel.indexer.get();
+    }
+    if (lGen !== entry.loadGen || entry.gen !== ffCards3d.gen || entry.displayEl !== el) return;
+    entry.moveCount = seekPlayerWithIndexer(el, entry.indexer, entry.setupCount, entry.combinedMoves.length, targetCount);
+    updateFirstFaceCardUi(entry, false);
+  } catch {} finally {
+    if (lGen === entry.loadGen) entry.pendingSeek = false;
+  }
+}
+
+async function mountFirstFaceCards3d(container, { getSimSpeed = () => 1, getShowReflection = () => true } = {}) {
+  if (!container || typeof window === 'undefined') return;
+  const wraps = container.querySelectorAll('.ff-example-3d-wrap');
+  if (!wraps.length) return;
+
+  teardownFirstFace3d();
+  const curGen = ffCards3d.gen;
+  const SD = await getFlbScrambleDisplay();
+  if (!SD || curGen !== ffCards3d.gen) return;
+
+  const spd = Number(getSimSpeed ? getSimSpeed() : 1) || 1;
+  const showRefl = getShowReflection ? getShowReflection() : true;
+
+  for (const wrapEl of wraps) {
+    if (!wrapEl.isConnected || curGen !== ffCards3d.gen) continue;
+    const id = wrapEl.dataset.ffCardId;
+    const rawScramble = wrapEl.dataset.ffScramble || '';
+    const rawMoves = wrapEl.dataset.ffMoves || '';
+    if (!id) continue;
+
+    const parsedSetup = parseScrambleInput(rawScramble);
+    const setupMoves = parsedSetup.ok ? parsedSetup.moves : cleanAlg(rawScramble).split(/\s+/).filter(Boolean);
+    const parsedAlg = parseScrambleInput(rawMoves);
+    const algMoves = parsedAlg.ok ? parsedAlg.moves : cleanAlg(rawMoves).split(/\s+/).filter(Boolean);
+    const combinedMoves = [...setupMoves, ...algMoves];
+
+    const entry = {
+      id,
+      wrapEl,
+      cardEl: wrapEl.closest('.ff-example-card'),
+      displayEl: null,
+      indexer: null,
+      setupCount: setupMoves.length,
+      algMoves,
+      combinedMoves,
+      moveCount: setupMoves.length,
+      pendingSeek: false,
+      playing: false,
+      loadGen: 0,
+      gen: curGen
+    };
+    ffCards3d.cards.set(id, entry);
+
+    try {
+      const el = new SD();
+      el.event = '222';
+      el.visualization = '3D';
+      el.scramble = combinedMoves.join(' ');
+      if (el.player) {
+        el.player.hintFacelets = showRefl ? 'floating' : 'none';
+        el.player.tempoScale = spd;
+      }
+      wrapEl.innerHTML = '';
+      wrapEl.appendChild(el);
+      if (el.player) {
+        el.player.hintFacelets = showRefl ? 'floating' : 'none';
+        el.player.tempoScale = spd;
+      }
+      wrapEl.dataset.ffMounted = 'true';
+      entry.displayEl = el;
+      void applyColorsTo3DCube(el);
+
+      if (el.player?.experimentalModel) {
+        el.player.experimentalModel.indexer.addFreshListener((idx) => {
+          if (entry.displayEl === el) entry.indexer = idx;
+        });
+        el.player.experimentalModel.detailedTimelineInfo.addFreshListener((info) => {
+          if (entry.displayEl !== el || entry.pendingSeek || !entry.indexer || entry.gen !== ffCards3d.gen) return;
+          try {
+            if (info.atStart || info.timestamp <= 0) {
+              if (entry.setupCount > 0) void seekFirstFaceEntry(entry, entry.setupCount);
+              else {
+                entry.moveCount = 0;
+                updateFirstFaceCardUi(entry, entry.playing);
+              }
+              return;
+            }
+            if (info.atEnd) {
+              entry.moveCount = entry.combinedMoves.length;
+              updateFirstFaceCardUi(entry, entry.playing);
+              return;
+            }
+            const mIdx = entry.indexer.timestampToIndex(info.timestamp);
+            const nextCount = mIdx + 1;
+            if (nextCount < entry.setupCount) {
+              void seekFirstFaceEntry(entry, entry.setupCount);
+              return;
+            }
+            entry.moveCount = nextCount;
+            updateFirstFaceCardUi(entry, entry.playing);
+          } catch {}
+        });
+        el.player.experimentalModel.coarseTimelineInfo.addFreshListener((info) => {
+          if (entry.displayEl !== el || entry.gen !== ffCards3d.gen) return;
+          updateFirstFaceCardUi(entry, Boolean(info.playing));
+        });
+
+        void el.player.experimentalModel.indexer.get().then((idx) => {
+          if (entry.displayEl === el && entry.gen === ffCards3d.gen) {
+            entry.indexer = idx;
+            entry.moveCount = seekPlayerWithIndexer(el, idx, entry.setupCount, entry.combinedMoves.length, entry.setupCount);
+            updateFirstFaceCardUi(entry, false);
+          }
+        }).catch(() => {});
+      }
+    } catch {}
+  }
+}
+
+export function bindFirstFaceStudyEvents(container, { onQuickSimSolutions, getSimSpeed, getShowReflection } = {}) {
+  void mountFirstFaceCards3d(container, { getSimSpeed, getShowReflection });
+
+  container.querySelectorAll('.ff-card-reset-3d-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const entry = ffCards3d.cards.get(btn.dataset.ffCardId);
+      if (entry?.displayEl) void resetDisplayCamera(entry.displayEl);
+    });
+  });
+
+  container.querySelectorAll('.ff-card-start-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const entry = ffCards3d.cards.get(btn.dataset.ffCardId);
+      if (entry) void seekFirstFaceEntry(entry, entry.setupCount);
+    });
+  });
+
+  container.querySelectorAll('.ff-card-play-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const entry = ffCards3d.cards.get(btn.dataset.ffCardId);
+      if (!entry?.displayEl?.player?.controller || entry.algMoves.length === 0) return;
+      for (const [id, other] of ffCards3d.cards.entries()) {
+        if (id !== entry.id && other.playing && other.displayEl?.player) {
+          try { other.displayEl.player.pause(); } catch {}
+        }
+      }
+      if (entry.moveCount >= entry.combinedMoves.length || entry.moveCount < entry.setupCount) {
+        void seekFirstFaceEntry(entry, entry.setupCount).then(() => {
+          setTimeout(() => { try { entry.displayEl?.player?.play?.(); } catch {} }, 40);
+        });
+        return;
+      }
+      try { entry.displayEl.player.controller.togglePlay(); } catch {}
+    });
+  });
+
+  container.querySelectorAll('.ff-card-next-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const entry = ffCards3d.cards.get(btn.dataset.ffCardId);
+      if (!entry?.displayEl?.player?.controller || entry.moveCount >= entry.combinedMoves.length) return;
+      try {
+        entry.displayEl.player.pause();
+        entry.displayEl.player.controller.animationController.play({ direction: 1, untilBoundary: 'move' });
+      } catch {}
+    });
+  });
+
   container.querySelectorAll('.ff-sim-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = Number(btn.dataset.ffIdx) || 0;
@@ -1290,6 +1520,7 @@ function teardownGrid3d() {
 }
 
 export function teardownFirstLayerExplorer3d() {
+  teardownFirstFace3d();
   teardownGrid3d();
   flbMini.loadGen++;
   flbMini.pendingSeek = false;
@@ -1323,6 +1554,13 @@ export function syncFirstLayerExplorerSpeed(spd) {
     speedBtn.setAttribute('aria-label', `Playback pace ${next}x`);
   }
   for (const entry of flbGrid3d.cards.values()) {
+    if (entry.displayEl?.player) {
+      try {
+        entry.displayEl.player.tempoScale = next;
+      } catch {}
+    }
+  }
+  for (const entry of ffCards3d.cards.values()) {
     if (entry.displayEl?.player) {
       try {
         entry.displayEl.player.tempoScale = next;

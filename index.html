@@ -16,6 +16,14 @@
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <title>Cubing.cc — Ad-Free Offline Speedcube Timer, Trainer &amp; Solver</title>
+    <script>
+      (function () {
+        var p = location.pathname.replace(/\/+$/, "");
+        if (p === "/privacy" || p === "/terms") {
+          location.replace(p + "/index.html" + location.search + location.hash);
+        }
+      })();
+    </script>
 </head>
 <body>
 
@@ -533,9 +541,9 @@
   </div>
   <button type="button" id="aboutModalBtn" class="footer-link-btn">About</button>
   <span aria-hidden="true">&middot;</span>
-  <a href="/privacy">Privacy Policy</a>
+  <a href="/privacy/index.html">Privacy Policy</a>
   <span aria-hidden="true">&middot;</span>
-  <a href="/terms">Terms of Service</a>
+  <a href="/terms/index.html">Terms of Service</a>
   <span aria-hidden="true">&middot;</span>
   <span class="footer-copy">&copy; 2026 Cubing.cc</span>
 </footer>
@@ -872,14 +880,14 @@
     </div>
     <div class="solve-modal-body settings-modal-body settings-shell">
       <nav class="settings-nav" role="tablist" aria-label="Settings Categories">
-        <button type="button" class="settings-nav-btn active" role="tab" data-settings-tab="general" aria-selected="true">🖥️ General &amp; Display</button>
-        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="solve" aria-selected="false">⏱️ Solve &amp; Timer</button>
-        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="events" aria-selected="false">🏆 Events</button>
-        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="event-specific" aria-selected="false">🧩 Event Settings</button>
-        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="colors" aria-selected="false">🎨 Theme &amp; Colors</button>
-        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="devices" aria-selected="false">ᛒ Devices</button>
-        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="sync" aria-selected="false">☁️ Sync</button>
-        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="experimental" aria-selected="false">🧪 Experimental</button>
+        <button type="button" class="settings-nav-btn active" role="tab" data-settings-tab="general" aria-selected="true"><span class="settings-nav-icon" aria-hidden="true">🖥️</span><span class="settings-nav-label">General &amp; Display</span></button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="solve" aria-selected="false"><span class="settings-nav-icon" aria-hidden="true">⏱️</span><span class="settings-nav-label">Solve &amp; Timer</span></button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="events" aria-selected="false"><span class="settings-nav-icon" aria-hidden="true">🏆</span><span class="settings-nav-label">Events</span></button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="event-specific" aria-selected="false"><span class="settings-nav-icon" aria-hidden="true">🧩</span><span class="settings-nav-label">Event Settings</span></button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="colors" aria-selected="false"><span class="settings-nav-icon" aria-hidden="true">🎨</span><span class="settings-nav-label">Theme &amp; Colors</span></button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="devices" aria-selected="false"><span class="settings-nav-icon" aria-hidden="true">ᛒ</span><span class="settings-nav-label">Devices</span></button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="sync" aria-selected="false"><span class="settings-nav-icon" aria-hidden="true">☁️</span><span class="settings-nav-label">Sync</span></button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="experimental" aria-selected="false"><span class="settings-nav-icon" aria-hidden="true">🧪</span><span class="settings-nav-label">Experimental</span></button>
       </nav>
 
       <div class="settings-content">
@@ -950,11 +958,11 @@
 
           <div class="settings-section">
             <div class="settings-section-head">
-              <h4 class="settings-section-title">🧭 Quick Setup &amp; Hotkeys</h4>
-              <span class="settings-section-desc">Run the training plan wizard or customize keyboard shortcuts for navigation and turns</span>
+              <h4 id="settingsQuickSetupTitle" class="settings-section-title">⌨️ Keyboard Shortcuts</h4>
+              <span class="settings-section-desc">Customize keyboard shortcuts for navigation and turns</span>
             </div>
             <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-              <button type="button" id="settingsOpenWizardBtn" class="btn btn-small btn-outline">🧭 Launch Setup Wizard</button>
+              <button type="button" id="settingsOpenWizardBtn" class="btn btn-small btn-outline" hidden>🧭 Launch Setup Wizard<sup class="beta-sup" aria-label="Experimental">β</sup></button>
               <button type="button" id="settingsOpenShortcutsBtn" class="btn btn-small btn-outline">⌨️ Keyboard Shortcuts…</button>
             </div>
           </div>
@@ -1013,9 +1021,9 @@
             </div>
           </div>
 
-          <div class="settings-section">
+          <div id="settingsMetronomeSection" class="settings-section" hidden>
             <div class="settings-section-head">
-              <h4 class="settings-section-title">🥁 Lookahead Metronome &amp; Pause Alerts</h4>
+              <h4 class="settings-section-title">🥁 Lookahead Metronome &amp; Pause Alerts<sup class="beta-sup" aria-label="Experimental">β</sup></h4>
               <span class="settings-section-desc">Audio pacing feedback during Smart Cube and manual solves</span>
             </div>
             <div class="settings-toggles-list">
@@ -1197,9 +1205,9 @@
             </div>
           </div>
 
-          <div class="settings-section">
+          <div id="settingsOhSection" class="settings-section" hidden>
             <div class="settings-section-head">
-              <h4 class="settings-section-title">3x3x3 One-Handed (OH) Settings</h4>
+              <h4 class="settings-section-title">3x3x3 One-Handed (OH) Settings<sup class="beta-sup" aria-label="Experimental">β</sup></h4>
               <span class="settings-section-desc">Choose preferred turning hand and table-abuse / M-slice algorithm sets</span>
             </div>
             <div class="settings-toggles-list">
@@ -1314,7 +1322,7 @@
           <div class="settings-color-subtabs devices-subtabs" role="tablist" aria-label="Device category">
             <button type="button" id="devicesTabCubes" class="settings-color-subtab active" role="tab" aria-selected="true" aria-controls="devicesPanelCubes">🧊 Smart Cubes</button>
             <button type="button" id="devicesTabTimers" class="settings-color-subtab" role="tab" aria-selected="false" aria-controls="devicesPanelTimers">⏱️ Timers</button>
-            <button type="button" id="devicesTabKeyboard" class="settings-color-subtab" role="tab" aria-selected="false" aria-controls="devicesPanelKeyboard">⌨️ Keyboard</button>
+            <button type="button" id="devicesTabKeyboard" class="settings-color-subtab" role="tab" aria-selected="false" aria-controls="devicesPanelKeyboard" hidden>⌨️ Keyboard<sup class="beta-sup" aria-label="Experimental">β</sup></button>
           </div>
 
           <div id="devicesPanelCubes" class="devices-tab-panel" role="tabpanel" aria-labelledby="devicesTabCubes">
@@ -1535,7 +1543,7 @@
             <div class="settings-section-head settings-events-head">
               <div>
                 <h4 class="settings-section-title">🧪 Experimental Features</h4>
-                <span class="settings-section-desc">Turn individual experimental or partially tested features on or off. Enabled items show a <strong><sup class="beta-sup">β</sup></strong> superscript in menus and navigation.</span>
+                <span class="settings-section-desc">Turn individual experimental or partially tested features on or off. Enabled items show a superscript marker in menus and navigation.</span>
               </div>
               <div class="settings-events-actions">
                 <button type="button" id="settingsExpCheckAllBtn" class="btn btn-xs">Check All</button>
@@ -1546,36 +1554,92 @@
               <label class="settings-exp-item">
                 <input type="checkbox" id="settingsExp_eg1" data-experimental-feature="eg1">
                 <div class="settings-exp-copy">
-                  <span class="settings-exp-title">2x2 EG-1<sup class="beta-sup" aria-label="Experimental">β</sup></span>
+                  <span class="settings-exp-title">2x2 EG-1</span>
                   <span class="settings-exp-desc">Unlock all 40 EG-1 cases across Learn, Train, Timed Drills, and Simulate.</span>
                 </div>
               </label>
               <label class="settings-exp-item">
                 <input type="checkbox" id="settingsExp_eg2" data-experimental-feature="eg2">
                 <div class="settings-exp-copy">
-                  <span class="settings-exp-title">2x2 EG-2<sup class="beta-sup" aria-label="Experimental">β</sup></span>
+                  <span class="settings-exp-title">2x2 EG-2</span>
                   <span class="settings-exp-desc">Unlock all 40 EG-2 cases across Learn, Train, Timed Drills, and Simulate.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_twoByTwoFirstLayer" data-experimental-feature="twoByTwoFirstLayer">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">2x2 1st Layer</span>
+                  <span class="settings-exp-desc">Unlock the 75-case 2x2 1st Layer explorer, grid/quiz, 2-look guide, and inspection/timed drills.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_coll" data-experimental-feature="coll">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">3x3 COLL</span>
+                  <span class="settings-exp-desc">Unlock 40 COLL (Corners of Last Layer) cases across Learn, Train, and Timed Drills.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_cmll" data-experimental-feature="cmll">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">3x3 CMLL</span>
+                  <span class="settings-exp-desc">Unlock 42 Roux CMLL cases across Learn, Train, and Timed Drills.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_wv" data-experimental-feature="wv">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">3x3 Winter Variation (WV)</span>
+                  <span class="settings-exp-desc">Unlock 27 Winter Variation cases across Learn, Train, and Timed Drills.</span>
                 </div>
               </label>
               <label class="settings-exp-item">
                 <input type="checkbox" id="settingsExp_extraPuzzles" data-experimental-feature="extraPuzzles">
                 <div class="settings-exp-copy">
-                  <span class="settings-exp-title">Additional WCA &amp; Side Puzzles<sup class="beta-sup" aria-label="Experimental">β</sup></span>
+                  <span class="settings-exp-title">Additional WCA &amp; Side Puzzles</span>
                   <span class="settings-exp-desc">Enable 6x6, 7x7, Pyraminx, Skewb, Megaminx, Square-1, Clock, 3BLD, and FTO.</span>
                 </div>
               </label>
               <label class="settings-exp-item">
                 <input type="checkbox" id="settingsExp_customEvents" data-experimental-feature="customEvents">
                 <div class="settings-exp-copy">
-                  <span class="settings-exp-title">Custom Events<sup class="beta-sup" aria-label="Experimental">β</sup></span>
+                  <span class="settings-exp-title">Custom Events</span>
                   <span class="settings-exp-desc">Create custom timer or scrambled events under Settings &rarr; Events.</span>
                 </div>
               </label>
               <label class="settings-exp-item">
                 <input type="checkbox" id="settingsExp_stackmatG5" data-experimental-feature="stackmatG5">
                 <div class="settings-exp-copy">
-                  <span class="settings-exp-title">Stackmat G5 Audio Timer<sup class="beta-sup" aria-label="Experimental">β</sup></span>
-                  <span class="settings-exp-desc">Experimental 1200-baud Web Audio line-in decoder for SpeedStacks Stackmat G5 / G4 / G3 under Settings &rarr; Devices &rarr; Timers.</span>
+                  <span class="settings-exp-title">Stackmat G5 Audio Timer</span>
+                  <span class="settings-exp-desc">1200-baud Web Audio line-in decoder for SpeedStacks Stackmat G5 / G4 / G3 under Settings &rarr; Devices &rarr; Timers.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_virtualKeyboard" data-experimental-feature="virtualKeyboard">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">Devices: Virtual / Keyboard Cube</span>
+                  <span class="settings-exp-desc">Show the Virtual / Keyboard Cube tab under Settings &rarr; Devices.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_quickSetup" data-experimental-feature="quickSetup">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">Quick Setup Wizard</span>
+                  <span class="settings-exp-desc">Show the guided setup wizard launcher in Settings &rarr; General and the Help dialog.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_metronome" data-experimental-feature="metronome">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">Lookahead Metronome &amp; Pause Alerts</span>
+                  <span class="settings-exp-desc">Enable metronome BPM pacing and Smart Cube hesitation alerts in Settings &rarr; Solve &amp; Timer.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_ohSettings" data-experimental-feature="ohSettings">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">3x3 OH Settings</span>
+                  <span class="settings-exp-desc">Show One-Handed left/right hand and Table Abuse style switchers across Settings, Learn, and Train.</span>
                 </div>
               </label>
             </div>
@@ -1764,7 +1828,7 @@
       </div>
 
       <p class="sync-privacy-note">
-        Stored privately in your Google Drive <strong>App Data</strong> folder (<code>speedcube-trainer-sync.json</code>). Signing in on another machine automatically downloads and merges differences without overwriting your local solves or newer settings. Signing out keeps all local data on this device. Read our <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>.
+        Stored privately in your Google Drive <strong>App Data</strong> folder (<code>speedcube-trainer-sync.json</code>). Signing in on another machine automatically downloads and merges differences without overwriting your local solves or newer settings. Signing out keeps all local data on this device. Read our <a href="/privacy/index.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and <a href="/terms/index.html" target="_blank" rel="noopener noreferrer">Terms of Service</a>.
       </p>
 
       <div class="sync-backup-box">
@@ -1881,7 +1945,7 @@
       </div>
     </div>
     <div class="solve-modal-actions help-modal-actions">
-      <button type="button" id="helpLaunchWizardBtn" class="btn btn-primary btn-small">🧭 Launch Setup Wizard</button>
+      <button type="button" id="helpLaunchWizardBtn" class="btn btn-primary btn-small" hidden>🧭 Launch Setup Wizard<sup class="beta-sup" aria-label="Experimental">β</sup></button>
       <button type="button" id="helpOpenDevicesBtn" class="btn btn-small">ᛒ Connect Devices</button>
       <button type="button" id="helpOpenShortcutsBtn" class="btn btn-small">⌨️ Shortcuts</button>
       <button type="button" id="helpModalDismissBtn" class="btn btn-small">Close</button>

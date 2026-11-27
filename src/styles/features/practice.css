@@ -1648,4 +1648,33 @@
     margin: 2px 0 8px 22px;
 }
 
+.inspection-scramble-box {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    width: 100%;
+    max-width: 520px;
+}
+
+.inspection-scramble-lbl {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.inspection-scramble-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.96rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
 }

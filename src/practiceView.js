@@ -29,12 +29,14 @@ export class PracticeView {
     this.onQuickSimSolutions = options.onQuickSimSolutions || null; // (payload) => void
     this.getCrossTargetFaces = options.getCrossTargetFaces || (() => ['white']);
     this.getLayerTargetFaces = options.getLayerTargetFaces || (() => ['white']);
+    this.onSetLayerTargetFaces = options.onSetLayerTargetFaces || null;
     this.getTrainingBottomFaces = options.getTrainingBottomFaces || (() => ['white']);
     this.onSetTrainingBottomFaces = options.onSetTrainingBottomFaces || null;
     this.getOhHand = options.getOhHand || (() => 'left');
     this.onSetOhHand = options.onSetOhHand || null;
     this.getOhTableAbuse = options.getOhTableAbuse || (() => true);
     this.onSetOhTableAbuse = options.onSetOhTableAbuse || null;
+    this.getOhSettingsEnabled = options.getOhSettingsEnabled || (() => true);
 
     this.currentPuzzle = "222";
     this.currentTrackId = "cll";
@@ -281,6 +283,8 @@ export class PracticeView {
     }
     const isInspectionDrill = this.isInspectionTrack();
     const isOh = this.currentPuzzle === "333oh";
+    const showOhControls = isOh && Boolean(this.getOhSettingsEnabled?.());
+    const show222InspectionBottomPicker = isInspectionDrill && this.currentPuzzle === "222";
     const ohHand = this.getOhHand();
     const ohTableAbuse = this.getOhTableAbuse();
 
@@ -296,15 +300,19 @@ export class PracticeView {
         </div>
 
         <div class="practice-header-controls">
-          ${!isInspectionDrill ? renderBottomLayerPickerHtml(this.getTrainingBottomFaces(), { label: "Bottom:" }) : ''}
-          ${isOh ? `
+          ${!isInspectionDrill
+            ? renderBottomLayerPickerHtml(this.getTrainingBottomFaces(), { label: "Bottom:" })
+            : (show222InspectionBottomPicker
+                ? renderBottomLayerPickerHtml(this.getLayerTargetFaces(), { label: "Bottom:" })
+                : '')}
+          ${showOhControls ? `
             <div class="oh-hand-switcher oh-hand-switcher-compact" role="group" aria-label="One-Handed Solving Hand">
-              <button type="button" class="oh-hand-btn ${ohHand === 'left' ? 'active' : ''}" data-oh-hand="left" aria-pressed="${ohHand === 'left'}" data-tooltip="Left-Handed OH (standard <R, U>)">🤚 Left OH</button>
-              <button type="button" class="oh-hand-btn ${ohHand === 'right' ? 'active' : ''}" data-oh-hand="right" aria-pressed="${ohHand === 'right'}" data-tooltip="Right-Handed OH (mirror <L, U> / z')">✋ Right OH</button>
+              <button type="button" class="oh-hand-btn ${ohHand === 'left' ? 'active' : ''}" data-oh-hand="left" aria-pressed="${ohHand === 'left'}" data-tooltip="Left-Handed OH (standard <R, U>)">🤚 Left OH<sup class="beta-sup" aria-label="Experimental">β</sup></button>
+              <button type="button" class="oh-hand-btn ${ohHand === 'right' ? 'active' : ''}" data-oh-hand="right" aria-pressed="${ohHand === 'right'}" data-tooltip="Right-Handed OH (mirror <L, U> / z')">✋ Right OH<sup class="beta-sup" aria-label="Experimental">β</sup></button>
             </div>
             <div class="oh-hand-switcher oh-hand-switcher-compact" role="group" aria-label="One-Handed Table Abuse Style">
-              <button type="button" class="oh-table-btn ${ohTableAbuse ? 'active' : ''}" data-oh-table="table" aria-pressed="${ohTableAbuse}" data-tooltip="Allow table-assisted M/S/E slice moves">Table Abuse</button>
-              <button type="button" class="oh-table-btn ${!ohTableAbuse ? 'active' : ''}" data-oh-table="no-table" aria-pressed="${!ohTableAbuse}" data-tooltip="In-air OH: L, R, U with occasional F/D, no M moves, B via x' + U">No Table</button>
+              <button type="button" class="oh-table-btn ${ohTableAbuse ? 'active' : ''}" data-oh-table="table" aria-pressed="${ohTableAbuse}" data-tooltip="Allow table-assisted M/S/E slice moves">Table Abuse<sup class="beta-sup" aria-label="Experimental">β</sup></button>
+              <button type="button" class="oh-table-btn ${!ohTableAbuse ? 'active' : ''}" data-oh-table="no-table" aria-pressed="${!ohTableAbuse}" data-tooltip="In-air OH: L, R, U with occasional F/D, no M moves, B via x' + U">No Table<sup class="beta-sup" aria-label="Experimental">β</sup></button>
             </div>
           ` : ''}
           <div class="practice-subnav" role="group" aria-label="Practice Mode">
@@ -324,6 +332,16 @@ export class PracticeView {
     this.bindEvents(isInspectionDrill);
   }
 
+  renderInspectionScrambleBox() {
+    if (!this.inspectionScramble) return '';
+    return `
+      <div class="inspection-scramble-box">
+        <span class="inspection-scramble-lbl">Scramble:</span>
+        <code class="inspection-scramble-code">${escapeHtmlAttr(this.inspectionScramble)}</code>
+      </div>
+    `;
+  }
+
   // ---------------------------------------------------------------------------
   // Casual Inspection Drill (White Cross / 1st Layer)
   // ---------------------------------------------------------------------------
@@ -338,13 +356,15 @@ export class PracticeView {
           <span class="inspection-clock-label">${this.inspectionRunning ? 'Inspection time remaining' : 'Ready'}</span>
         </div>
 
+        ${this.renderInspectionScrambleBox()}
+
         <div class="inspection-actions-row">
           <button type="button" id="startInspectionBtn" class="btn btn-primary" ${this.inspectionRunning ? 'disabled' : ''}>
             ${this.inspectionRunning ? 'Inspecting...' : 'Start 15s Inspection'}
           </button>
           <button type="button" id="newDrillScrambleBtn" class="btn btn-small">New Scramble</button>
-          <button type="button" id="revealSolutionsBtn" class="btn btn-small" ${!this.solutionRevealed ? '' : 'disabled'}>
-            ${this.solutionRevealed ? 'Solutions Revealed' : 'Reveal Optimal Solutions'}
+          <button type="button" id="revealSolutionsBtn" class="btn btn-small ${this.solutionRevealed ? 'active' : ''}" aria-pressed="${Boolean(this.solutionRevealed)}">
+            ${this.solutionRevealed ? 'Hide Solutions' : 'Reveal Optimal Solutions'}
           </button>
         </div>
 
@@ -367,12 +387,15 @@ export class PracticeView {
           <span class="inspection-clock-label">${this.inspectionRunning ? 'WCA Inspection in progress' : 'Ready for next inspection'}</span>
         </div>
 
+        ${this.renderInspectionScrambleBox()}
+
         <div class="inspection-actions-row">
           <button type="button" id="startInspectionBtn" class="btn btn-primary" ${this.inspectionRunning ? 'disabled' : ''}>
             ${this.inspectionRunning ? 'Inspecting...' : 'Start 15s Timer'}
           </button>
-          <button type="button" id="revealSolutionsBtn" class="btn btn-small">
-            ${this.solutionRevealed ? 'Next Scramble' : 'Done & Reveal Solutions'}
+          <button type="button" id="newDrillScrambleBtn" class="btn btn-small">Next Scramble</button>
+          <button type="button" id="revealSolutionsBtn" class="btn btn-small ${this.solutionRevealed ? 'active' : ''}" aria-pressed="${Boolean(this.solutionRevealed)}">
+            ${this.solutionRevealed ? 'Hide Solutions' : 'Done & Reveal Solutions'}
           </button>
         </div>
 
@@ -783,11 +806,26 @@ export class PracticeView {
       });
     });
 
-    bindBottomLayerPickerEvents(
-      this.container,
-      () => this.getTrainingBottomFaces(),
-      (nextFaces) => this.onSetTrainingBottomFaces?.(nextFaces)
-    );
+    if (isInspectionDrill && this.currentPuzzle === "222") {
+      bindBottomLayerPickerEvents(
+        this.container,
+        () => this.getLayerTargetFaces(),
+        (nextFaces) => {
+          this.onSetLayerTargetFaces?.(nextFaces);
+          if (this.solutionRevealed) {
+            void this.revealInspectionSolutions();
+          } else {
+            this.render();
+          }
+        }
+      );
+    } else {
+      bindBottomLayerPickerEvents(
+        this.container,
+        () => this.getTrainingBottomFaces(),
+        (nextFaces) => this.onSetTrainingBottomFaces?.(nextFaces)
+      );
+    }
 
     if (isInspectionDrill) {
       const startBtn = this.container.querySelector('#startInspectionBtn');
@@ -801,8 +839,8 @@ export class PracticeView {
           if (!this.solutionRevealed) {
             this.revealInspectionSolutions();
           } else {
-            // Next scramble
-            this.advanceInspectionScramble();
+            this.solutionRevealed = false;
+            this.render();
           }
         });
       }

@@ -5,7 +5,7 @@ import { stackmatTimer } from '../../stackmatTimer.js';
 import { smartCube } from '../../smartCube.js';
 import { ensureSolveCfop } from '../../cfopAnalyzer.js';
 import { ensureSolveTwoByTwo } from '../../twoByTwoAnalyzer.js';
-import { MAX_SOLVES, isTimerViewMode } from '../../state/appStore.js';
+import { MAX_SOLVES, isTimerViewMode, isExperimentalEnabled } from '../../state/appStore.js';
 import { playInspectionBeep, playInspectionCallout, cancelInspectionCallout, startMetronome, stopMetronome, playPauseAlert } from '../../services/audioService.js';
 import { formatSolveTime, formatSolveDisplay } from '../../services/htmlUtils.js';
 import { getSolveFingerprint } from '../../services/syncMerge.js';
@@ -250,7 +250,7 @@ export function createTimerController({
     }
 
     getSmartCubeUi()?.calibrateGyro?.();
-    if (appStore.state.metronomeEnabled) {
+    if (appStore.state.metronomeEnabled && isExperimentalEnabled(appStore.state, "metronome")) {
       startMetronome(appStore.state.metronomeBpm);
     }
 
@@ -708,7 +708,7 @@ export function createTimerController({
     const prevT = trackedSolveMoves.length > 0 ? trackedSolveMoves[trackedSolveMoves.length - 1].t : 0;
     const split = trackedSolveMoves.length > 0 ? Math.max(10, elapsed - prevT) : 0;
     trackedSolveMoves.push({ move, t: elapsed, split, isRotation: Boolean(isRotation) });
-    if (appStore.state.pauseAlertEnabled && !isRotation && split >= 400) {
+    if (appStore.state.pauseAlertEnabled && isExperimentalEnabled(appStore.state, "metronome") && !isRotation && split >= 400) {
       playPauseAlert();
     }
     const faceTurnCount = trackedSolveMoves.filter(m => !m.isRotation).length;

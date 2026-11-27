@@ -39,7 +39,7 @@ test('Privacy Policy page exists at public/privacy/index.html with accurate disc
   assert.match(html, /do <strong>not<\/strong> sell/i);
   assert.match(html, /do not sell, rent, lease, or trade any user data/i);
   assert.match(html, /third-party analytics scripts, or cross-site tracking cookies/i);
-  assert.match(html, /href="\/terms"/);
+  assert.match(html, /href="\/terms\/index\.html"/);
   assert.match(html, /href="\/"/);
 });
 
@@ -49,29 +49,32 @@ test('Terms of Service page exists at public/terms/index.html with free-use and 
   assert.match(html, /cubing\.cc/);
   assert.match(html, /free, non-commercial/i);
   assert.match(html, /"as is"/i);
-  assert.match(html, /href="\/privacy"/);
+  assert.match(html, /href="\/privacy\/index\.html"/);
   assert.match(html, /href="\/"/);
 });
 
 test('index.html links Privacy Policy and Terms of Service in homepage footer and Cloud Sync modal', () => {
   const indexHtml = readText('index.html');
 
+  assert.match(indexHtml, /p === "\/privacy" \|\| p === "\/terms"/);
+
   const footerMatch = indexHtml.match(/<footer class="app-legal-footer"[\s\S]*?<\/footer>/);
   assert.ok(footerMatch, 'index.html must include .app-legal-footer');
-  assert.match(footerMatch[0], /href="\/privacy"/);
-  assert.match(footerMatch[0], /href="\/terms"/);
+  assert.match(footerMatch[0], /href="\/privacy\/index\.html"/);
+  assert.match(footerMatch[0], /href="\/terms\/index\.html"/);
 
   const cloudSyncStart = indexHtml.indexOf('id="cloudSyncModal"');
   const cloudSyncEnd = indexHtml.indexOf('<!-- Google Drive', cloudSyncStart + 1);
   assert.ok(cloudSyncStart !== -1, 'index.html must include #cloudSyncModal');
   const cloudSyncSlice = indexHtml.slice(cloudSyncStart, cloudSyncEnd > cloudSyncStart ? cloudSyncEnd : cloudSyncStart + 4500);
-  assert.match(cloudSyncSlice, /href="\/privacy"/);
-  assert.match(cloudSyncSlice, /href="\/terms"/);
+  assert.match(cloudSyncSlice, /href="\/privacy\/index\.html"/);
+  assert.match(cloudSyncSlice, /href="\/terms\/index\.html"/);
 });
 
-test('vite.config.js excludes /privacy and /terms from PWA navigateFallback', () => {
+test('vite.config.js excludes /privacy and /terms from PWA navigateFallback and rewrites clean URLs', () => {
   const viteConfig = readText('vite.config.js');
   assert.match(viteConfig, /navigateFallbackDenylist\s*:\s*\[[^\]]*\\\/privacy[^\]]*\\\/terms/);
+  assert.match(viteConfig, /legal-clean-urls/);
 });
 
 test('App branding uses Cubing.cc across index.html, PWA manifest, and legal pages', () => {

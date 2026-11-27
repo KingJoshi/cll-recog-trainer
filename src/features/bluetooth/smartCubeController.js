@@ -8,7 +8,7 @@ import { GyroOrientationTracker } from '../../cube/gyroTracker.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
 import { playScrambleCompleteChime, playDisconnectAlertSound } from '../../services/audioService.js';
 import { showToast } from '../../ui/toastService.js';
-import { isTimerViewMode } from '../../state/appStore.js';
+import { isTimerViewMode, isExperimentalEnabled } from '../../state/appStore.js';
 import { normalize2x2ScrambleToURF } from '../../services/scrambleService.js';
 
 const SCRAMBLE_CORRECTION_DELAY_MS = 180;
@@ -402,7 +402,9 @@ export function createSmartCubeController({
   }
 
   function setDevicesTab(tab = "cubes") {
-    const normalized = ["timers", "keyboard"].includes(tab) ? tab : "cubes";
+    const allowVirtualKeyboard = isExperimentalEnabled(appStore.state, "virtualKeyboard");
+    let normalized = ["timers", "keyboard"].includes(tab) ? tab : "cubes";
+    if (normalized === "keyboard" && !allowVirtualKeyboard) normalized = "cubes";
     devicesTabCubes?.classList.toggle("active", normalized === "cubes");
     devicesTabCubes?.setAttribute("aria-selected", String(normalized === "cubes"));
     devicesTabTimers?.classList.toggle("active", normalized === "timers");
@@ -411,7 +413,20 @@ export function createSmartCubeController({
     devicesTabKeyboard?.setAttribute("aria-selected", String(normalized === "keyboard"));
     if (devicesPanelCubes) devicesPanelCubes.hidden = normalized !== "cubes";
     if (devicesPanelTimers) devicesPanelTimers.hidden = normalized !== "timers";
-    if (devicesPanelKeyboard) devicesPanelKeyboard.hidden = normalized !== "keyboard";
+    if (devicesPanelKeyboard) devicesPanelKeyboard.hidden = !allowVirtualKeyboard || normalized !== "keyboard";
+  }
+
+  function syncExperimentalDevicesUI() {
+    const allowVirtualKeyboard = isExperimentalEnabled(appStore.state, "virtualKeyboard");
+    if (devicesTabKeyboard) {
+      devicesTabKeyboard.hidden = !allowVirtualKeyboard;
+      if (!allowVirtualKeyboard && devicesTabKeyboard.classList.contains("active")) {
+        setDevicesTab("cubes");
+      }
+    }
+    if (!allowVirtualKeyboard && smartCube.getStatus().connected && smartCube.isVirtual) {
+      smartCube.disconnect();
+    }
   }
 
   function updateBluetoothUI() {
@@ -494,12 +509,14 @@ export function createSmartCubeController({
 
   function prepareDevicesView(opts = {}) {
     if (btErrorAlert) btErrorAlert.hidden = true;
+    syncExperimentalDevicesUI();
     const st = smartCube.getStatus();
-    if (opts?.tab === "timers" || opts?.tab === "keyboard" || opts?.tab === "cubes") {
+    const allowVirtualKeyboard = isExperimentalEnabled(appStore.state, "virtualKeyboard");
+    if (opts?.tab === "timers" || opts?.tab === "cubes" || (opts?.tab === "keyboard" && allowVirtualKeyboard)) {
       setDevicesTab(opts.tab);
     } else if (!st.connected && (ganTimer.isConnected() || stackmatTimer.isConnected())) {
       setDevicesTab("timers");
-    } else if (st.connected && st.isVirtual) {
+    } else if (st.connected && st.isVirtual && allowVirtualKeyboard) {
       setDevicesTab("keyboard");
     } else {
       setDevicesTab("cubes");
@@ -701,6 +718,10 @@ export function createSmartCubeController({
   }
 
   btVirtualBtn?.addEventListener("click", async () => {
+    if (!isExperimentalEnabled(appStore.state, "virtualKeyboard")) {
+      showToast("Enable Devices: Virtual / Keyboard Cube in Settings → Experimental to use it.", "info");
+      return;
+    }
     if (btErrorAlert) btErrorAlert.hidden = true;
     try {
       await smartCube.connectVirtual(document.body, appStore.state.currentPuzzle);
@@ -933,6 +954,7 @@ export function createSmartCubeController({
     openBluetoothModal,
     closeBluetoothModal,
     showBluetoothError,
-    handleBluetoothReset
+    handleBluetoothReset,
+    syncExperimentalDevicesUI
   };
 }

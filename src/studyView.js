@@ -100,6 +100,7 @@ export class StudyView {
     this.onSetOhHand = options.onSetOhHand || null;
     this.getOhTableAbuse = options.getOhTableAbuse || (() => true);
     this.onSetOhTableAbuse = options.onSetOhTableAbuse || null;
+    this.getOhSettingsEnabled = options.getOhSettingsEnabled || (() => true);
     this.getOllMode = options.getOllMode || (() => "full");
     this.onSetOllMode = options.onSetOllMode || null;
     this.getPllMode = options.getPllMode || (() => "full");
@@ -469,6 +470,7 @@ export class StudyView {
     const ohTableAbuse = this.getOhTableAbuse();
     const llStudy = this.getActiveLlStudyMode();
     const f2lMode = this.getActiveF2lStudyMode();
+    const showOhControls = isOh && Boolean(this.getOhSettingsEnabled?.());
     const baseCases = this.getTrackBaseCases(track);
 
     this.container.innerHTML = `
@@ -477,7 +479,7 @@ export class StudyView {
           <h2 class="study-track-title">${track.name}</h2>
           <span class="study-track-desc">${track.description}</span>
         </div>
-        ${(isOh || llStudy || f2lMode) ? `
+        ${(showOhControls || llStudy || f2lMode) ? `
           <div class="oh-controls-group">
             ${f2lMode ? `
               <div class="oh-hand-switcher study-ll-mode-switcher study-f2l-mode-switcher" role="group" aria-label="F2L Curriculum Level">
@@ -495,9 +497,9 @@ export class StudyView {
                 <button type="button" class="study-ll-mode-btn ${llStudy.mode === '2look' ? 'active' : ''}" data-study-${llStudy.kind}-mode="2look" aria-pressed="${llStudy.mode === '2look'}" data-tooltip="${llStudy.kind === 'oll' ? 'Show 10 essential 2-Look OLL cases (3 EO + 7 OCLL) — shared with Stats &amp; Settings' : 'Show 6 essential 2-Look PLL cases (2 Corner + 4 Edge) — shared with Stats &amp; Settings'}">${llStudy.kind === 'oll' ? '2-Look OLL (10)' : '2-Look PLL (6)'}</button>
               </div>
             ` : ''}
-            ${isOh ? `
+            ${showOhControls ? `
               <div class="oh-hand-switcher" role="group" aria-label="3x3 OH Solving Hand">
-                <span class="oh-hand-label">Solving Hand:</span>
+                <span class="oh-hand-label">Solving Hand<sup class="beta-sup" aria-label="Experimental">β</sup>:</span>
                 <button type="button" class="oh-hand-btn ${ohHand === 'left' ? 'active' : ''}" data-oh-hand="left" aria-pressed="${ohHand === 'left'}" data-tooltip="Cube held in left hand (standard <R, U> algorithms)">&#x1F91A; Left Hand (RU)</button>
                 <button type="button" class="oh-hand-btn ${ohHand === 'right' ? 'active' : ''}" data-oh-hand="right" aria-pressed="${ohHand === 'right'}" data-tooltip="Cube held in right hand (verified <L, U> mirrors & z' <U, L> variants)">&#x270B; Right Hand (Mirror / z')</button>
               </div>
@@ -1419,7 +1421,9 @@ export class StudyView {
     if (is222FaceOrLayer) {
       if (this.currentTrackId === 'face') {
         bindFirstFaceStudyEvents(this.container, {
-          onQuickSimSolutions: this.onQuickSimSolutions
+          onQuickSimSolutions: this.onQuickSimSolutions,
+          getSimSpeed: this.getSimSpeed,
+          getShowReflection: this.getShowReflection
         });
       } else {
         bindFirstLayerStudyEvents(this.container, this.firstLayerExplorerState, {

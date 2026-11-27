@@ -8,7 +8,8 @@ import { AlgDrillView } from './features/practice/algDrillView.js';
 import { solveReplayViewer } from './replayView.js';
 import { clearSvgCache, applyColorsTo3DCube } from './caseVisualizer.js';
 import { smartCube } from './smartCube.js';
-import { appStore, isTimerViewMode, isSimulateViewMode, ALL_BUILTIN_EVENT_IDS, isPuzzleEnabled, isTrackEnabled } from './state/appStore.js';
+import { appStore, isTimerViewMode, isSimulateViewMode, ALL_BUILTIN_EVENT_IDS, isPuzzleEnabled, isTrackEnabled, isExperimentalEnabled, getFallbackTrackForPuzzle } from './state/appStore.js';
+import { stopMetronome } from './services/audioService.js';
 import { modalManager } from './ui/modalManager.js';
 import { showToast } from './ui/toastService.js';
 import { initSyncTracking } from './services/syncStorage.js';
@@ -408,6 +409,7 @@ studyView = new StudyView({
   onSetOhHand: (hand) => appStore.setOhHand(hand),
   getOhTableAbuse: () => appStore.state.ohTableAbuse !== false,
   onSetOhTableAbuse: (enabled) => appStore.setOhTableAbuse(enabled),
+  getOhSettingsEnabled: () => appStore.isExperimentalEnabled("ohSettings"),
   getOllMode: () => appStore.state.ollMode || appStore.state.llAnalyticsMode || "full",
   onSetOllMode: (mode) => appStore.setOllMode(mode),
   getPllMode: () => appStore.state.pllMode || appStore.state.llAnalyticsMode || "full",
@@ -446,12 +448,14 @@ practiceView = new PracticeView({
   onQuickSimSolutions: openQuickSim,
   getCrossTargetFaces: () => appStore.state.crossTargetFaces,
   getLayerTargetFaces: () => appStore.state.layerTargetFaces,
+  onSetLayerTargetFaces: (faces) => solverWidgets.setTargetFaces(faces),
   getTrainingBottomFaces: () => appStore.state.trainingBottomFaces,
   onSetTrainingBottomFaces: (faces) => appStore.setTrainingBottomFaces(faces),
   getOhHand: () => appStore.state.ohHand || "left",
   onSetOhHand: (hand) => appStore.setOhHand(hand),
   getOhTableAbuse: () => appStore.state.ohTableAbuse !== false,
-  onSetOhTableAbuse: (enabled) => appStore.setOhTableAbuse(enabled)
+  onSetOhTableAbuse: (enabled) => appStore.setOhTableAbuse(enabled),
+  getOhSettingsEnabled: () => appStore.isExperimentalEnabled("ohSettings")
 });
 
 algDrillView = new AlgDrillView({
@@ -559,15 +563,23 @@ appStore.subscribe((evt) => {
     settingsModal?.renderToggles?.();
     simulatorCtrl?.populateSimCaseSelect?.();
     stackmatTimerCtrl?.syncBetaVisibility?.();
+    smartCubeCtrl?.syncExperimentalDevicesUI?.();
+    if (!isExperimentalEnabled(s, "metronome")) stopMetronome();
+    const helpWizBtn = document.getElementById("helpLaunchWizardBtn");
+    if (helpWizBtn) helpWizBtn.hidden = !isExperimentalEnabled(s, "quickSetup");
     if (!isPuzzleEnabled(s, s.currentPuzzle)) {
       navCtrl?.setPuzzle?.("333");
       return;
     }
     if (!isTrackEnabled(s, s.currentPuzzle, s.currentTrackId)) {
-      navCtrl?.setTrack?.("cll");
+      navCtrl?.setTrack?.(getFallbackTrackForPuzzle(s.currentPuzzle));
     }
     if (!isTrackEnabled(s, s.currentPuzzle, s.solveTarget)) {
-      navCtrl?.setSolveTarget?.(s.mode === "solve" ? "full" : "cll");
+      navCtrl?.setSolveTarget?.(s.mode === "solve" ? "full" : getFallbackTrackForPuzzle(s.currentPuzzle));
+    }
+    if (s.currentPuzzle === "333oh") {
+      if (s.mode === "study") studyView?.render?.();
+      else if (s.mode === "practice" && !isTimerViewMode(s) && !isSimulateViewMode(s)) practiceView?.render?.();
     }
     navCtrl?.renderPuzzleButtons?.();
     navCtrl?.renderTrackBar?.();
@@ -811,9 +823,14 @@ freeMovesCtrl.updateUI();
 navCtrl.updateSolveOrientationLabel();
 navCtrl.renderTrackBar();
 navCtrl.renderStage();
+smartCubeCtrl.syncExperimentalDevicesUI();
 smartCubeCtrl.updateBluetoothUI();
 ganTimerCtrl.updateGanTimerUI();
 stackmatTimerCtrl.syncBetaVisibility();
+{
+  const helpWizBtn = document.getElementById("helpLaunchWizardBtn");
+  if (helpWizBtn) helpWizBtn.hidden = !appStore.isExperimentalEnabled("quickSetup");
+}
 solvePanelView.renderSolvePanel();
 statsCtrl.updateStatsTable();
 
@@ -873,10 +890,15 @@ function refreshAllViewsAfterHydrate() {
   navCtrl?.updateSolveOrientationLabel?.();
   navCtrl?.renderTrackBar?.();
   navCtrl?.renderStage?.();
+  smartCubeCtrl?.syncExperimentalDevicesUI?.();
   smartCubeCtrl?.updateBluetoothUI?.();
   smartCube.dispatchEvent(new CustomEvent("savedcubeschange"));
   ganTimerCtrl?.updateGanTimerUI?.();
   stackmatTimerCtrl?.syncBetaVisibility?.();
+  {
+    const helpWizBtn = document.getElementById("helpLaunchWizardBtn");
+    if (helpWizBtn) helpWizBtn.hidden = !appStore.isExperimentalEnabled("quickSetup");
+  }
   solvePanelView?.renderSolvePanel?.();
   statsCtrl?.updateStatsTable?.();
   if (!s.showTooltips) tooltipCtrl?.hide?.();

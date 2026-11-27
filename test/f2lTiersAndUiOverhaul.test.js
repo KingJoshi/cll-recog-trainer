@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { puzzles } from 'cubing/puzzles';
 
 import { StudyView } from '../src/studyView.js';
+import { PracticeView } from '../src/practiceView.js';
+import { renderFirstFaceStudyHtml } from '../src/features/study/firstLayerExplorer.js';
 import { f2lCases } from '../src/data/f2lData.js';
 import {
   ESSENTIAL_F2L_IDS,
@@ -26,6 +28,8 @@ import {
   isExperimentalEnabled,
   isTrackEnabled,
   isPuzzleEnabled,
+  getTrackExperimentalFeature,
+  getFallbackTrackForPuzzle,
   sanitizeExperimentalFeatures,
   EXPERIMENTAL_FEATURE_IDS,
   VALID_TRAIN_SUBMODES,
@@ -132,9 +136,23 @@ test('index.html has 3-slot mode bar, icon-only header, 3-tab Devices modal, spl
   assert.ok(expPanelSlice.includes('Check All'));
   assert.ok(expPanelSlice.includes('id="settingsExpRemoveAllBtn"'));
   assert.ok(expPanelSlice.includes('Remove All'));
-  for (const fid of ['eg1', 'eg2', 'extraPuzzles', 'customEvents', 'stackmatG5']) {
-    assert.ok(expPanelSlice.includes(`data-experimental-feature="${fid}"`));
+  for (const fid of [
+    'eg1', 'eg2', 'twoByTwoFirstLayer', 'coll', 'cmll', 'wv',
+    'extraPuzzles', 'customEvents', 'stackmatG5', 'virtualKeyboard',
+    'quickSetup', 'metronome', 'ohSettings'
+  ]) {
+    assert.ok(expPanelSlice.includes(`data-experimental-feature="${fid}"`), `Missing experimental checkbox ${fid}`);
   }
+  assert.ok(!expPanelSlice.includes('beta-sup'), 'Experimental tab omits β superscript');
+  const settingsNavMatches = html.match(/class="settings-nav-btn[\s\S]*?<\/button>/g) || [];
+  assert.strictEqual(settingsNavMatches.length, 8);
+  for (const btnHtml of settingsNavMatches) {
+    assert.ok(btnHtml.includes('class="settings-nav-icon"'));
+    assert.ok(btnHtml.includes('class="settings-nav-label"'));
+  }
+  assert.ok(html.includes('id="settingsMetronomeSection" class="settings-section" hidden'));
+  assert.ok(html.includes('id="settingsOhSection" class="settings-section" hidden'));
+  assert.ok(html.includes('id="devicesTabKeyboard"') && html.includes('aria-controls="devicesPanelKeyboard" hidden'));
   for (const pid of ['pyram', 'skewb', 'minx', 'sq1', 'clock', '333bf', '666', '777', 'fto']) {
     assert.match(html, new RegExp(`data-puzzle="${pid}"[^>]*>[^<]*<sup class="beta-sup"[^>]*>β</sup>`));
   }
@@ -346,4 +364,72 @@ test('StudyView renders 4 F2L tiers, White bottom default in Learn, and Essentia
   sv.setTrack('333', 'pll');
   sv.setView('hybrid');
   assert.ok(container.innerHTML.includes('id="studyDetailDiagram"'));
+});
+
+test('Newly experimental tracks/sections, 1st Face 3D cards, and 2x2 Inspection bottom picker & reveal toggle work', async () => {
+  assert.strictEqual(getTrackExperimentalFeature('222', 'layer'), 'twoByTwoFirstLayer');
+  assert.strictEqual(getTrackExperimentalFeature('333', 'coll'), 'coll');
+  assert.strictEqual(getTrackExperimentalFeature('333', 'cmll'), 'cmll');
+  assert.strictEqual(getTrackExperimentalFeature('333', 'wv'), 'wv');
+  assert.strictEqual(getFallbackTrackForPuzzle('222'), 'cll');
+  assert.strictEqual(getFallbackTrackForPuzzle('333'), 'pll');
+  assert.strictEqual(getFallbackTrackForPuzzle('333oh'), 'pll');
+
+  assert.strictEqual(isTrackEnabled(appStore.state, '333', 'coll'), false);
+  appStore.setExperimentalFeature('coll', true);
+  assert.strictEqual(isTrackEnabled(appStore.state, '333', 'coll'), true);
+  assert.strictEqual(isTrackEnabled(appStore.state, '333', 'cmll'), false);
+  appStore.setExperimentalFeature('coll', false);
+
+  const ffHtml = renderFirstFaceStudyHtml();
+  assert.strictEqual((ffHtml.match(/class="ff-example-3d-wrap"/g) || []).length, 6);
+  assert.strictEqual((ffHtml.match(/class="btn btn-xs btn-primary ff-card-play-btn"/g) || []).length, 6);
+
+  // PracticeView 2x2 1st Face / 1st Layer shows bottom color picker, scramble, and reveal/hide toggle
+  const listenersBySelector = new Map();
+  const pvContainer = {
+    innerHTML: '',
+    querySelector(sel) {
+      if (!sel.startsWith('#')) return null;
+      const id = sel.slice(1);
+      if (!this.innerHTML.includes(`id="${id}"`)) return null;
+      const btn = listenersBySelector.get(sel) || {
+        dataset: {},
+        addEventListener(evt, fn) {
+          this._handlers = this._handlers || {};
+          this._handlers[evt] = fn;
+        },
+        click() {
+          this._handlers?.click?.({ stopPropagation() {}, preventDefault() {} });
+        }
+      };
+      listenersBySelector.set(sel, btn);
+      return btn;
+    },
+    querySelectorAll() {
+      return [];
+    }
+  };
+
+  let layerFaces = ['white'];
+  const pv = new PracticeView({
+    container: pvContainer,
+    onGenerateScramble: async () => "R U' F2",
+    getLayerTargetFaces: () => layerFaces,
+    onSetLayerTargetFaces: (next) => { layerFaces = next; }
+  });
+
+  await pv.setTrack('222', 'face');
+  assert.ok(pvContainer.innerHTML.includes('data-bottom-face="white"'));
+  assert.ok(pvContainer.innerHTML.includes(`class="inspection-scramble-code">R U' F2</code>`));
+  assert.ok(pvContainer.innerHTML.includes('Reveal Optimal Solutions'));
+
+  await pv.revealInspectionSolutions();
+  assert.strictEqual(pv.solutionRevealed, true);
+  assert.ok(pvContainer.innerHTML.includes('Hide Solutions'));
+  assert.ok(!pvContainer.innerHTML.includes('id="revealSolutionsBtn" class="btn btn-small active" disabled'));
+
+  pvContainer.querySelector('#revealSolutionsBtn').click();
+  assert.strictEqual(pv.solutionRevealed, false);
+  assert.ok(pvContainer.innerHTML.includes('Reveal Optimal Solutions'));
 });
