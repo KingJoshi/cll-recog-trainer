@@ -217,8 +217,22 @@ test('Tutorial views render dynamic 3D step widgets, scramble controls, and 2x2 
 
 test('Standalone NxN Notation view renders large 3D cube, always-visible Free Face Turns, 2x2-5x5 switcher, and puzzle-specific sections', () => {
   const container = createInteractiveMockContainer();
-  const view = createNotationTutorialView({ container });
+  let wizardCalls = 0;
+  let helpCalls = 0;
+  const view = createNotationTutorialView({
+    container,
+    onOpenWizard: () => { wizardCalls++; },
+    onOpenHelpModal: () => { helpCalls++; }
+  });
   view.render();
+
+  assert.ok(container.innerHTML.includes('id="notQuickSetupSection"'));
+  assert.ok(container.querySelector('#notLaunchWizardBtn'));
+  assert.ok(container.querySelector('#notOpenHelpBtn'));
+  container.querySelector('#notLaunchWizardBtn').click();
+  container.querySelector('#notOpenHelpBtn').click();
+  assert.strictEqual(wizardCalls, 1);
+  assert.strictEqual(helpCalls, 1);
 
   const countCards = () => (container.innerHTML.match(/class="[^"]*\btut-3d-card\b/g) || []).length;
 
@@ -335,4 +349,9 @@ test('Notation mode, 2x2 tutorial, and 3x3 tutorial are beta experimental featur
   assert.ok(html.includes('id="notationViewContainer"'));
   assert.ok(html.includes('id="settingsExp_notationTutorial"'));
   assert.ok(html.includes('id="settingsExp_threeByThreeTutorial"'));
+  assert.ok(!html.includes('id="helpOpenDevicesBtn"'), 'Help modal must not include redundant Devices button');
+  assert.ok(!html.includes('id="helpOpenShortcutsBtn"'), 'Help modal must not include redundant Shortcuts button');
+
+  const mainJs = fs.readFileSync(new URL('../src/main.js', import.meta.url).pathname, 'utf8');
+  assert.match(mainJs, /document\.getElementById\("onboardingBtn"\)\?\.addEventListener\("click",\s*\(\)\s*=>\s*\{\s*navCtrl\?\.setMode\?\.\("notation"\)/);
 });

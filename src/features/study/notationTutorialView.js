@@ -412,7 +412,9 @@ export function createNotationTutorialView({
   getSimSpeed = () => 1,
   getShowReflection = () => true,
   onQuickSimSolutions = null,
-  onSimulateCase = null
+  onSimulateCase = null,
+  onOpenWizard = null,
+  onOpenHelpModal = null
 } = {}) {
   let sandboxPuzzle = '333';
   let sandboxMoves = [];
@@ -787,6 +789,17 @@ export function createNotationTutorialView({
         </section>
 
         ${renderGlossarySection(sandboxPuzzle, renderTurnCardControls)}
+
+        <section id="notQuickSetupSection" class="guide-card guide-card-full">
+          <h3 class="guide-card-title">&#x1F9ED; Quick Setup Wizard</h3>
+          <p class="hint" style="margin: 0 0 10px;">
+            New to Cubing.cc or switching methods? Run the 3-step Quick Setup Guide to configure your puzzle, training track, and preferred layout in seconds.
+          </p>
+          <div class="tut-alg-actions">
+            <button type="button" id="notLaunchWizardBtn" class="btn btn-primary btn-small">&#x1F9ED; Launch Quick Setup Wizard</button>
+            <button type="button" id="notOpenHelpBtn" class="btn btn-small">? How to Use Cubing.cc</button>
+          </div>
+        </section>
       </div>
     `;
 
@@ -875,6 +888,14 @@ export function createNotationTutorialView({
           { id: `${tr.id}-alg`, alg: tr.alg, note: tr.desc }
         );
       });
+    });
+
+    container.querySelector('#notLaunchWizardBtn')?.addEventListener('click', () => {
+      onOpenWizard?.();
+    });
+
+    container.querySelector('#notOpenHelpBtn')?.addEventListener('click', () => {
+      onOpenHelpModal?.();
     });
   }
 

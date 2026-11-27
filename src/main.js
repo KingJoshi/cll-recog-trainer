@@ -379,22 +379,13 @@ const helpModal = document.getElementById("helpModal");
 const aboutModal = document.getElementById("aboutModal");
 
 document.getElementById("onboardingBtn")?.addEventListener("click", () => {
-  if (helpModal) modalManager.open(helpModal);
-  else onboardingWizard.open();
+  navCtrl?.setMode?.("notation");
 });
 document.getElementById("helpModalCloseBtn")?.addEventListener("click", () => helpModal && modalManager.close(helpModal));
 document.getElementById("helpModalDismissBtn")?.addEventListener("click", () => helpModal && modalManager.close(helpModal));
 document.getElementById("helpLaunchWizardBtn")?.addEventListener("click", () => {
   if (helpModal) modalManager.close(helpModal);
   onboardingWizard.open();
-});
-document.getElementById("helpOpenShortcutsBtn")?.addEventListener("click", () => {
-  if (helpModal) modalManager.close(helpModal);
-  shortcutsModal.open();
-});
-document.getElementById("helpOpenDevicesBtn")?.addEventListener("click", () => {
-  if (helpModal) modalManager.close(helpModal);
-  smartCubeCtrl?.openBluetoothModal?.();
 });
 
 document.getElementById("aboutModalBtn")?.addEventListener("click", () => {
@@ -438,7 +429,9 @@ notationView = createNotationTutorialView({
   getSimSpeed: () => appStore.state.simSpeed ?? 1,
   getShowReflection: () => appStore.state.showReflection,
   onQuickSimSolutions: openQuickSim,
-  onSimulateCase: (caseObj, algObj) => simulatorCtrl.loadStudyCase(caseObj, algObj)
+  onSimulateCase: (caseObj, algObj) => simulatorCtrl.loadStudyCase(caseObj, algObj),
+  onOpenWizard: () => onboardingWizard?.open?.(),
+  onOpenHelpModal: () => helpModal && modalManager.open(helpModal)
 });
 
 practiceView = new PracticeView({
@@ -589,9 +582,6 @@ appStore.subscribe((evt) => {
     }
     if (!isTrackEnabled(s, s.currentPuzzle, s.solveTarget)) {
       navCtrl?.setSolveTarget?.(s.mode === "solve" ? "full" : getFallbackTrackForPuzzle(s.currentPuzzle));
-    }
-    if (s.mode === "notation" && !isExperimentalEnabled(s, "notationTutorial")) {
-      navCtrl?.setMode?.("study");
     }
     if (s.currentPuzzle === "333oh") {
       if (s.mode === "study") studyView?.render?.();

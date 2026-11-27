@@ -405,9 +405,6 @@ export class AppStore {
       if (PUZZLES[currentPuzzle]?.hideSimulate && mode === "simulate") {
         mode = "solve";
       }
-      if (mode === "notation" && !isExperimentalEnabled({ experimentalFeatures, betaFeatures }, "notationTutorial")) {
-        mode = "study";
-      }
       if (!isTrackEnabled({ experimentalFeatures, betaFeatures }, currentPuzzle, currentTrackId)) {
         currentTrackId = getFallbackTrackForPuzzle(currentPuzzle);
       }

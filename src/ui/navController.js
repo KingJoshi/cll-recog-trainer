@@ -109,6 +109,7 @@ export function createNavController({
   const statsPanel = typeof document !== "undefined" ? document.getElementById("statsPanel") : null;
   const freeMovesWrap = typeof document !== "undefined" ? document.querySelector(".free-moves-wrap") : null;
   const puzzleSwitcher = typeof document !== "undefined" ? document.getElementById("puzzleSwitcher") : null;
+  const onboardingBtn = typeof document !== "undefined" ? document.getElementById("onboardingBtn") : null;
   const modeButtons = typeof document !== "undefined" ? Array.from(document.querySelectorAll(".mode-btn")) : [];
   const puzzleButtons = typeof document !== "undefined" ? Array.from(document.querySelectorAll(".puzzle-btn")) : [];
 
@@ -291,7 +292,7 @@ export function createNavController({
     const s = appStore.state;
     const isSolveOnly = Boolean(PUZZLES[s.currentPuzzle]?.solveOnly);
     const isHideSimulate = Boolean(PUZZLES[s.currentPuzzle]?.hideSimulate);
-    if (isSolveOnly && s.mode !== "solve") {
+    if (isSolveOnly && s.mode !== "solve" && s.mode !== "notation") {
       s.mode = "solve";
       s.solveTarget = "full";
     } else if (isHideSimulate && isSimulateViewMode(s)) {
@@ -302,9 +303,6 @@ export function createNavController({
     const hasCases = s.selectedCases.size > 0;
 
     const notationEnabled = isExperimentalEnabled(s, "notationTutorial");
-    if (s.mode === "notation" && !notationEnabled) {
-      s.mode = "study";
-    }
 
     modeButtons.forEach(btn => {
       const m = btn.dataset.mode;
@@ -386,6 +384,10 @@ export function createNavController({
     }
 
     const sidebarEmpty = Boolean((!cubeCard || cubeCard.hidden) && (!solveTimes || solveTimes.hidden));
+    if (onboardingBtn) {
+      onboardingBtn.classList.toggle("active", notationMode);
+      onboardingBtn.setAttribute("aria-pressed", String(notationMode));
+    }
     if (stage) {
       stage.classList.toggle("mode-solve", solving);
       stage.classList.toggle("mode-study", studying);
