@@ -15,6 +15,7 @@ import { showToast } from '../../ui/toastService.js';
 const PARTIAL_CUBE_TARGETS = new Set(["layer", "face", "cross", "f2l", "oll"]);
 export const TOUCH_HOLD_MS = 200;
 const TOUCH_MOVE_CANCEL_PX = 10;
+export const TOUCH_CANCEL_SLIDE_PX = 50;
 
 export function createTimerController({
   appStore,
@@ -52,7 +53,16 @@ export function createTimerController({
   let solveWarning12Played = false;
   let overlayHideOnPointerUp = false;
   let swallowNextClick = false;
+  let swallowClickTimeout = 0;
   let pendingTouchHold = null; // { pointerId, startX, startY, timerId, forInspection }
+  let activeOverlayPointer = null; // { pointerId, startX, startY }
+  let lastInputType = "keyboard"; // "keyboard" | "mouse" | "touch"
+
+  function armSwallowNextClick() {
+    swallowNextClick = true;
+    clearTimeout(swallowClickTimeout);
+    swallowClickTimeout = setTimeout(() => { swallowNextClick = false; }, 350);
+  }
 
   function clearPendingTouchHold() {
     if (pendingTouchHold) {
@@ -83,8 +93,15 @@ export function createTimerController({
 
   function getOverlayExternalPrompt(prefix = "") {
     const extName = getConnectedExternalTimerName();
-    if (!extName) return `${prefix}Hold Space when ready`;
+    if (!extName) {
+      return lastInputType === "touch" ? `${prefix}Hold to arm` : `${prefix}Hold Space when ready`;
+    }
     return `${prefix}Start the ${extName} when ready`;
+  }
+
+  function getInspectCancelHint() {
+    const suffix = lastInputType === "touch" ? "Swipe or tap Cancel" : "Esc to cancel";
+    return `${getOverlayExternalPrompt()} · ${suffix}`;
   }
   let solveFirstMoveTs = 0;
   let solveCubeSolvedTs = 0;
@@ -120,9 +137,11 @@ export function createTimerController({
       if (solvePenalty === "DNF") return `Running (DNF) · ${base}`;
       return base;
     }
-    const stopHint = isVirtualCube
-      ? "Press Space, tap, or solve cube to stop"
-      : "Any key, tap, or solve cube to stop";
+    const stopHint = lastInputType === "touch"
+      ? "Tap anywhere to stop · × Cancel"
+      : (isVirtualCube
+        ? "Press Space, tap, or solve cube to stop"
+        : "Any key, tap, or solve cube to stop");
     return solvePenalty === "+2"
       ? `Running (+2 penalty) · ${stopHint}`
       : (solvePenalty === "DNF" ? `Running (DNF) · ${stopHint}` : stopHint);
@@ -158,7 +177,7 @@ export function createTimerController({
     if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = false;
     if (solveOverlayTime) solveOverlayTime.textContent = "15";
     if (solveOverlayHint) {
-      solveOverlayHint.textContent = `${getOverlayExternalPrompt()} · Esc to cancel`;
+      solveOverlayHint.textContent = getInspectCancelHint();
     }
     getDisconnectAlertView()?.renderAlerts?.();
 
@@ -220,7 +239,11 @@ export function createTimerController({
     if (solveOverlayTime) {
       solveOverlayTime.textContent = solvePenalty === "+2" ? "+2" : (solvePenalty === "DNF" ? "DNF" : "0.00");
     }
-    if (solveOverlayHint) solveOverlayHint.textContent = "Release to start";
+    if (solveOverlayHint) {
+      solveOverlayHint.textContent = lastInputType === "touch"
+        ? "Release to start · Slide away to cancel"
+        : "Release to start · Esc to cancel";
+    }
     getDisconnectAlertView()?.renderAlerts?.();
   }
 
@@ -230,6 +253,7 @@ export function createTimerController({
     if (autoStart && solveState !== "inspecting" && solveState !== "idle" && solveState !== "armed") return;
 
     solveState = "running";
+    activeOverlayPointer = null;
     cancelInspectionCallout();
     clearInterval(solveInspectionInterval);
     clearTimeout(solveArmTimeout);
@@ -258,7 +282,7 @@ export function createTimerController({
       solveOverlay.className = "solve-overlay";
       solveOverlay.hidden = false;
     }
-    if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = !timerDriven;
+    if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = false;
     if (solveOverlayHint) solveOverlayHint.textContent = getRunningOverlayHint();
     if (solveLiveStats) solveLiveStats.hidden = false;
     if (solveLiveMovesCount) solveLiveMovesCount.textContent = `${trackedSolveMoves.length} moves`;
@@ -422,6 +446,7 @@ export function createTimerController({
 
   function cancelSolve() {
     clearPendingTouchHold();
+    activeOverlayPointer = null;
     solveState = "idle";
     stopMetronome();
     const scUi = getSmartCubeUi();
@@ -508,7 +533,7 @@ export function createTimerController({
     if (solveState === "idle") {
       hideSolveOverlay();
     } else if (solveState === "inspecting" && solveOverlayHint) {
-      solveOverlayHint.textContent = `${getOverlayExternalPrompt()} · Esc to cancel`;
+      solveOverlayHint.textContent = getInspectCancelHint();
     }
   }
 
@@ -610,6 +635,7 @@ export function createTimerController({
     if (e.code === "Space") {
       e.preventDefault();
       if (e.repeat) return true;
+      lastInputType = "keyboard";
       if (solveState === "idle") {
         if (smartCube.getStatus().connected && getSmartCubeUi()?.getSmartCubeStage?.() === "needs_reset") {
           showToast("Solve & reset your smart cube first (or click ↺ Cube Solved / Reset).", "warning", 3000);
@@ -748,6 +774,8 @@ export function createTimerController({
       return;
     }
 
+    lastInputType = e.pointerType === "mouse" ? "mouse" : "touch";
+
     if (e.pointerType === "mouse") {
       e.preventDefault();
       if (appStore.state.solveInspection) startSolveInspection();
@@ -770,6 +798,7 @@ export function createTimerController({
       if (!pendingTouchHold || pendingTouchHold.pointerId !== pointerId) return;
       clearPendingTouchHold();
       if (!isTimerViewMode(appStore.state) || solveState !== "idle") return;
+      activeOverlayPointer = { pointerId, startX, startY };
       armSolve();
     }, TOUCH_HOLD_MS);
     pendingTouchHold = { pointerId, startX, startY, timerId, forInspection: false };
@@ -777,10 +806,14 @@ export function createTimerController({
 
   solveOverlay?.addEventListener("pointerdown", e => {
     if (e.target.closest("#solveOverlayCancelBtn")) {
+      e.preventDefault();
+      e.stopPropagation();
       cancelSolve();
+      armSwallowNextClick();
       return;
     }
     e.preventDefault();
+    lastInputType = e.pointerType === "mouse" ? "mouse" : "touch";
     if (!isTimerViewMode(appStore.state)) return;
     if (solveState === "running") {
       if (solveTimerDriven && isHardwareTimerSource(solveTimerSource)) return;
@@ -788,6 +821,9 @@ export function createTimerController({
       return;
     }
     if (solveState === "inspecting") {
+      if (e.pointerType !== "mouse") {
+        activeOverlayPointer = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY };
+      }
       clearTimeout(solveArmTimeout);
       solveArmTimeout = setTimeout(() => {
         if (solveState === "inspecting") armSolve();
@@ -797,15 +833,30 @@ export function createTimerController({
 
   if (typeof document !== "undefined") {
     document.addEventListener("pointermove", e => {
-      if (!pendingTouchHold || e.pointerId !== pendingTouchHold.pointerId) return;
-      if (Math.hypot(e.clientX - pendingTouchHold.startX, e.clientY - pendingTouchHold.startY) > TOUCH_MOVE_CANCEL_PX) {
-        clearPendingTouchHold();
+      if (pendingTouchHold && e.pointerId === pendingTouchHold.pointerId) {
+        if (Math.hypot(e.clientX - pendingTouchHold.startX, e.clientY - pendingTouchHold.startY) > TOUCH_MOVE_CANCEL_PX) {
+          clearPendingTouchHold();
+        }
+      }
+      if (activeOverlayPointer && (e?.pointerId == null || e.pointerId === activeOverlayPointer.pointerId)) {
+        const dist = Math.hypot(e.clientX - activeOverlayPointer.startX, e.clientY - activeOverlayPointer.startY);
+        if (solveState === "inspecting" && dist > TOUCH_MOVE_CANCEL_PX) {
+          clearTimeout(solveArmTimeout);
+        }
+        if ((solveState === "inspecting" || solveState === "armed") && dist >= TOUCH_CANCEL_SLIDE_PX) {
+          activeOverlayPointer = null;
+          cancelSolve();
+          armSwallowNextClick();
+        }
       }
     }, { passive: true });
     document.addEventListener("pointerup", e => {
       const pending = pendingTouchHold;
       const matchesPending = Boolean(pending && (e?.pointerId == null || e.pointerId === pending.pointerId));
       if (matchesPending) clearPendingTouchHold();
+      if (activeOverlayPointer && (e?.pointerId == null || e.pointerId === activeOverlayPointer.pointerId)) {
+        activeOverlayPointer = null;
+      }
       if (!isTimerViewMode(appStore.state)) return;
       clearTimeout(solveArmTimeout);
       if (matchesPending && pending.forInspection && solveState === "idle") {
@@ -814,8 +865,7 @@ export function createTimerController({
           : 0;
         if (moved <= TOUCH_MOVE_CANCEL_PX) {
           startSolveInspection();
-          swallowNextClick = true;
-          setTimeout(() => { swallowNextClick = false; }, 300);
+          armSwallowNextClick();
         }
         return;
       }
@@ -823,12 +873,12 @@ export function createTimerController({
         startManualArmedSolve("Touch");
       } else if (overlayHideOnPointerUp) {
         hideSolveOverlay();
-        swallowNextClick = true;
-        setTimeout(() => { swallowNextClick = false; }, 300);
+        armSwallowNextClick();
       }
     });
     document.addEventListener("pointercancel", () => {
       clearPendingTouchHold();
+      activeOverlayPointer = null;
       if (isTimerViewMode(appStore.state) && (solveState === "armed" || solveState === "inspecting")) {
         cancelSolve();
       }
