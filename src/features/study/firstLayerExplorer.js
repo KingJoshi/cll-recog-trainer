@@ -23,7 +23,6 @@ import {
   ICON_RESET_ANGLE,
   ICON_POPUP_SIM,
   ICON_DIAGRAM,
-  ICON_LEGEND,
   renderIconLegendHtml
 } from '../../ui/transportIcons.js';
 
@@ -776,7 +775,7 @@ export function bindFirstFaceStudyEvents(container, { onQuickSimSolutions, getSi
 }
 
 // ============================================================================
-// 2. 1st Layer (Cases Grid & Quiz, 3D + 2D Explorer, Recognition & 2-Look Guide)
+// 2. 1st Layer (Cases Grid, 3D + 2D Explorer, Recognition & 2-Look Guide)
 // ============================================================================
 export function createFirstLayerExplorerState() {
   return {
@@ -787,11 +786,7 @@ export function createFirstLayerExplorerState() {
     explorerAlgMode: 'primary', // 'primary' | 'trigger'
     quizGroup: 'two-bar', // 'one-bottom' | 'two-bar' | 'two-diag' | 'three-bottom'
     quizBucket: 'all',
-    quizMoves: 'all',
-    quizLayout: 'grid', // 'grid' | 'list'
-    quizHideAlgs: false,
-    quizShowLegend: null, // null = auto (desktop only), true/false = explicit toggle
-    revealedQuizIds: new Set()
+    quizMoves: 'all'
   };
 }
 
@@ -914,7 +909,7 @@ export function renderFirstLayerStudyHtml(state, currentSpeed = 1) {
   return `
     <div class="flb-wrap">
       <div class="flb-subtabs" role="tablist" aria-label="1st Layer Study Tools">
-        <button type="button" class="flb-subtab-btn ${activeTab === 'quiz' ? 'active' : ''}" data-flb-tab="quiz" role="tab" aria-selected="${activeTab === 'quiz'}" data-tooltip="Browse interactive 3D cards or compact list grouped by bottom pieces, plus Hide-Alg quiz mode">&#x1F4CB; Cases Grid &amp; Quiz (${TOTAL_LAYER_CASES})</button>
+        <button type="button" class="flb-subtab-btn ${activeTab === 'quiz' ? 'active' : ''}" data-flb-tab="quiz" role="tab" aria-selected="${activeTab === 'quiz'}" data-tooltip="Browse interactive 3D case cards grouped by bottom pieces">&#x1F4CB; Cases Grid (${TOTAL_LAYER_CASES})</button>
         <button type="button" class="flb-subtab-btn ${activeTab === 'explorer' ? 'active' : ''}" data-flb-tab="explorer" role="tab" aria-selected="${activeTab === 'explorer'}" data-tooltip="Inspect 3D model alongside Top/Bottom and R-Face 2D recognition diagrams">&#x1F9ED; Case Explorer (3D + 2D)</button>
         <button type="button" class="flb-subtab-btn ${activeTab === 'guide' ? 'active' : ''}" data-flb-tab="guide" role="tab" aria-selected="${activeTab === 'guide'}" data-tooltip="Rim Bar recognition cues, group breakdown chart, and 2-Look fallback triggers">&#x1F4D6; Recognition &amp; 2-Look Guide</button>
       </div>
@@ -1226,9 +1221,6 @@ function renderQuizTab(state) {
   const filtered = getFilteredQuizCases(state);
   const buckets = getGroupBuckets(activeGroup, baseList);
   const moveValues = Array.from(new Set(baseList.map(getCaseMoveCount))).sort((a, b) => a - b);
-  const layout = state.quizLayout === 'list' ? 'list' : 'grid';
-  const legendMode = state.quizShowLegend; // null = auto (desktop), true = shown, false = hidden
-  const legendVisibleClass = legendMode === true ? 'is-shown' : legendMode === false ? 'is-hidden' : 'is-auto';
 
   return `
     <div class="flb-quiz-wrap">
@@ -1267,112 +1259,52 @@ function renderQuizTab(state) {
             }).join('')}
           </div>
         </div>
-
-        <div class="flb-quiz-actions">
-          <div class="flb-layout-toggle" role="group" aria-label="Layout mode">
-            <button type="button" class="btn btn-xs ${layout === 'grid' ? 'btn-primary' : ''}" data-quiz-layout="grid" aria-pressed="${layout === 'grid'}">&#x229E; Grid</button>
-            <button type="button" class="btn btn-xs ${layout === 'list' ? 'btn-primary' : ''}" data-quiz-layout="list" aria-pressed="${layout === 'list'}">&#x2630; List</button>
-          </div>
-          <button type="button" id="flbIconLegendBtn" class="btn btn-xs ${legendMode === true ? 'btn-primary' : ''}" aria-pressed="${legendMode !== false}" data-tooltip="Toggle control icon legend">
-            ${ICON_LEGEND}<span>Legend</span>
-          </button>
-          <button type="button" id="flbQuizHideToggleBtn" class="btn btn-xs ${state.quizHideAlgs ? 'btn-primary' : ''}" aria-pressed="${state.quizHideAlgs}">
-            &#x1F648; Quiz Mode (Hide Algs): ${state.quizHideAlgs ? 'ON' : 'OFF'}
-          </button>
-          <span class="flb-quiz-count">${filtered.length} cases</span>
-        </div>
       </div>
 
-      ${layout === 'grid' ? `
-        <div class="flb-icon-legend-wrap ${legendVisibleClass}">
-          ${renderIconLegendHtml({ includeStepBack: false, includeEnd: false })}
-        </div>
+      <div class="flb-icon-legend-wrap">
+        ${renderIconLegendHtml({ includeStepBack: false, includeEnd: false })}
+      </div>
 
-        <div class="flb-case-grid">
-          ${filtered.map((c, idx) => {
-            const hiddenAlg = state.quizHideAlgs && !state.revealedQuizIds.has(c.id);
-            const mv = getCaseMoveCount(c);
-            const primaryAlg = getCasePrimaryMoves(c);
-            const overlay = getCaseCornerOverlay(c);
-            const canStep = mv > 0;
-            return `
-              <article class="flb-case-card ${c.isRimBar ? 'is-rim' : ''}" data-quiz-case-id="${c.id}">
-                <div class="flb-card-head">
-                  <span class="flb-quiz-num">${escapeHtml(getCaseCodeBadge(c))}</span>
-                  <span class="badge ${getMoveBadgeClass(mv)}">${mv}m</span>
-                  <span class="flb-card-shape">${escapeHtml(c.subShape)}</span>
-                  <button type="button" class="btn btn-xs btn-icon-only flb-card-diag-btn flb-open-in-exp-btn" data-exp-case="${c.id}" data-exp-group="${c.group || 'two-bar'}" data-tooltip="Open 2D diagrams in Explorer" aria-label="Open 2D diagrams in Explorer">${ICON_DIAGRAM}</button>
-                </div>
-                <div class="flb-card-3d-wrap flb-card-3d-live" data-card-id="${c.id}" data-card-setup="${escapeHtml(c.setup)}" data-card-alg="${escapeHtml(primaryAlg)}">
-                  ${renderFirstLayer3dSvg(c)}
-                </div>
-                <div class="flb-card-corners">
-                  ${overlay.pieceA ? `<span class="flb-tag-a">${escapeHtml(overlay.pieceA.tagText)}</span>` : ''}
-                  ${overlay.pieceB ? `<span class="flb-tag-b">${escapeHtml(overlay.pieceB.tagText)}</span>` : ''}
-                </div>
-                <div class="flb-card-alg-box">
-                  ${hiddenAlg
-                    ? `<button type="button" class="btn btn-xs flb-reveal-alg-btn" data-reveal-id="${c.id}">Tap to Reveal Solution</button>`
-                    : c.triggerDisplay && c.fullTriggerAlg
-                      ? `<button type="button" class="flb-card-alg-opt is-active" data-card-id="${c.id}" data-alg-mode="primary" aria-pressed="true" data-tooltip="Simulate optimal &lt;R, U&gt; solution"><span class="flb-sol-alg">${escapeHtml(primaryAlg)}</span></button>
-                         <button type="button" class="flb-card-alg-opt is-alt" data-card-id="${c.id}" data-alg-mode="trigger" aria-pressed="false" data-tooltip="Simulate Alt (${escapeHtml(c.triggerDisplay)}): ${escapeHtml(c.fullTriggerAlg)}"><span class="flb-trig-mini">Alt: ${escapeHtml(c.triggerDisplay)}</span><span class="flb-trig-expanded-mini">${escapeHtml(c.fullTriggerAlg)}</span></button>`
-                      : `<span class="flb-sol-alg">${escapeHtml(primaryAlg)}</span>
-                         ${c.barAlg && c.finishAlg ? `<span class="flb-step-hint-mini">Bar: ${escapeHtml(c.barAlg)} &rarr; + ${escapeHtml(c.finishAlg)}</span>` : ''}`
-                  }
-                </div>
-                <div class="flb-card-actions" role="group" aria-label="3D controls for ${escapeHtml(getCaseCodeBadge(c))}">
-                  <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-reset-3d-btn" data-card-id="${c.id}" data-tooltip="Reset 3D orientation" aria-label="Reset 3D orientation">${ICON_RESET_ANGLE}</button>
-                  <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-start-btn" data-card-id="${c.id}" data-tooltip="Reset to case start" aria-label="Reset to case start" disabled>${ICON_SKIP_START}</button>
-                  <button type="button" class="btn btn-xs btn-icon-only btn-primary flb-card-icon-btn flb-card-play-btn" data-card-id="${c.id}" data-play-state="play" data-tooltip="Play / Pause solution" aria-label="Play solution" ${canStep ? '' : 'disabled'}>${ICON_PLAY}</button>
-                  <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-next-btn" data-card-id="${c.id}" data-tooltip="Step forward 1 move" aria-label="Step forward 1 move" ${canStep ? '' : 'disabled'}>${ICON_STEP_FORWARD}</button>
-                  <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-quiz-sim-btn" data-quiz-idx="${idx}" data-tooltip="Open popup simulator" aria-label="Open popup simulator">${ICON_POPUP_SIM}</button>
-                </div>
-              </article>
-            `;
-          }).join('')}
-        </div>
-      ` : `
-        <div class="flb-quiz-table-wrap">
-          <div class="flb-quiz-list">
-            ${filtered.map((c, idx) => {
-              const hiddenAlg = state.quizHideAlgs && !state.revealedQuizIds.has(c.id);
-              const mv = getCaseMoveCount(c);
-              const primaryAlg = getCasePrimaryMoves(c);
-              const overlay = getCaseCornerOverlay(c);
-              return `
-                <div class="flb-quiz-row ${c.isRimBar ? 'is-rim' : ''}" data-quiz-case-id="${c.id}">
-                  <div class="flb-quiz-thumb">
-                    ${renderFirstLayer3dSvg(c, { compact: true })}
-                  </div>
-                  <div class="flb-quiz-meta">
-                    <span class="flb-quiz-num">${escapeHtml(getCaseCodeBadge(c))}</span>
-                    <span class="badge ${getMoveBadgeClass(mv)}">${mv}m</span>
-                    <span class="flb-quiz-shape">${escapeHtml(c.subShape)}</span>
-                  </div>
-                  <div class="flb-quiz-corners">
-                    ${overlay.pieceA ? `<span class="flb-tag-a">${escapeHtml(overlay.pieceA.tagText)}</span>` : ''}
-                    ${overlay.pieceB ? `<span class="flb-tag-b">${escapeHtml(overlay.pieceB.tagText)}</span>` : ''}
-                  </div>
-                  <div class="flb-quiz-alg-col">
-                    ${hiddenAlg
-                      ? `<button type="button" class="btn btn-xs flb-reveal-alg-btn" data-reveal-id="${c.id}">Tap to Reveal Solution</button>`
-                      : `<span class="flb-sol-alg">${escapeHtml(primaryAlg)}</span>
-                         ${c.barAlg && c.finishAlg ? `<span class="flb-step-hint-mini">Bar: ${escapeHtml(c.barAlg)} &rarr; + ${escapeHtml(c.finishAlg)}</span>` : ''}
-                         ${c.triggerDisplay && c.fullTriggerAlg
-                           ? `<button type="button" class="flb-list-alt-btn flb-quiz-sim-btn" data-quiz-idx="${idx}" data-sim-mode="trigger" data-tooltip="Simulate Alt (${escapeHtml(c.triggerDisplay)}): ${escapeHtml(c.fullTriggerAlg)}">${ICON_POPUP_SIM}<span>Alt: ${escapeHtml(c.triggerDisplay)}</span></button>`
-                           : (c.triggerDisplay ? `<span class="flb-trig-mini">Alt: ${escapeHtml(c.triggerDisplay)}</span>` : '')}`
-                    }
-                  </div>
-                  <div class="flb-quiz-btns">
-                    <button type="button" class="btn btn-xs flb-open-in-exp-btn" data-exp-case="${c.id}" data-exp-group="${c.group || 'two-bar'}" data-tooltip="Open 2D diagrams in Explorer" aria-label="Open 2D diagrams in Explorer">${ICON_DIAGRAM}<span>2D</span></button>
-                    <button type="button" class="btn btn-xs btn-primary flb-quiz-sim-btn" data-quiz-idx="${idx}" data-tooltip="Preview in 3D popup" aria-label="Open popup simulator">${ICON_POPUP_SIM}<span>Sim</span></button>
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      `}
+      <div class="flb-case-grid">
+        ${filtered.map((c, idx) => {
+          const mv = getCaseMoveCount(c);
+          const primaryAlg = getCasePrimaryMoves(c);
+          const overlay = getCaseCornerOverlay(c);
+          const canStep = mv > 0;
+          return `
+            <article class="flb-case-card ${c.isRimBar ? 'is-rim' : ''}" data-quiz-case-id="${c.id}">
+              <div class="flb-card-head">
+                <span class="flb-quiz-num">${escapeHtml(getCaseCodeBadge(c))}</span>
+                <span class="badge ${getMoveBadgeClass(mv)}">${mv}m</span>
+                <span class="flb-card-shape">${escapeHtml(c.subShape)}</span>
+                <button type="button" class="btn btn-xs btn-icon-only flb-card-diag-btn flb-open-in-exp-btn" data-exp-case="${c.id}" data-exp-group="${c.group || 'two-bar'}" data-tooltip="Open 2D diagrams in Explorer" aria-label="Open 2D diagrams in Explorer">${ICON_DIAGRAM}</button>
+              </div>
+              <div class="flb-card-3d-wrap flb-card-3d-live" data-card-id="${c.id}" data-card-setup="${escapeHtml(c.setup)}" data-card-alg="${escapeHtml(primaryAlg)}">
+                ${renderFirstLayer3dSvg(c)}
+              </div>
+              <div class="flb-card-corners">
+                ${overlay.pieceA ? `<span class="flb-tag-a">${escapeHtml(overlay.pieceA.tagText)}</span>` : ''}
+                ${overlay.pieceB ? `<span class="flb-tag-b">${escapeHtml(overlay.pieceB.tagText)}</span>` : ''}
+              </div>
+              <div class="flb-card-alg-box">
+                ${c.triggerDisplay && c.fullTriggerAlg
+                  ? `<button type="button" class="flb-card-alg-opt is-active" data-card-id="${c.id}" data-alg-mode="primary" aria-pressed="true" data-tooltip="Simulate optimal &lt;R, U&gt; solution"><span class="flb-sol-alg">${escapeHtml(primaryAlg)}</span></button>
+                     <button type="button" class="flb-card-alg-opt is-alt" data-card-id="${c.id}" data-alg-mode="trigger" aria-pressed="false" data-tooltip="Simulate Alt (${escapeHtml(c.triggerDisplay)}): ${escapeHtml(c.fullTriggerAlg)}"><span class="flb-trig-mini">Alt: ${escapeHtml(c.triggerDisplay)}</span><span class="flb-trig-expanded-mini">${escapeHtml(c.fullTriggerAlg)}</span></button>`
+                  : `<span class="flb-sol-alg">${escapeHtml(primaryAlg)}</span>
+                     ${c.barAlg && c.finishAlg ? `<span class="flb-step-hint-mini">Bar: ${escapeHtml(c.barAlg)} &rarr; + ${escapeHtml(c.finishAlg)}</span>` : ''}`
+                }
+              </div>
+              <div class="flb-card-actions" role="group" aria-label="3D controls for ${escapeHtml(getCaseCodeBadge(c))}">
+                <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-reset-3d-btn" data-card-id="${c.id}" data-tooltip="Reset 3D orientation" aria-label="Reset 3D orientation">${ICON_RESET_ANGLE}</button>
+                <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-start-btn" data-card-id="${c.id}" data-tooltip="Reset to case start" aria-label="Reset to case start" disabled>${ICON_SKIP_START}</button>
+                <button type="button" class="btn btn-xs btn-icon-only btn-primary flb-card-icon-btn flb-card-play-btn" data-card-id="${c.id}" data-play-state="play" data-tooltip="Play / Pause solution" aria-label="Play solution" ${canStep ? '' : 'disabled'}>${ICON_PLAY}</button>
+                <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-next-btn" data-card-id="${c.id}" data-tooltip="Step forward 1 move" aria-label="Step forward 1 move" ${canStep ? '' : 'disabled'}>${ICON_STEP_FORWARD}</button>
+                <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-quiz-sim-btn" data-quiz-idx="${idx}" data-tooltip="Open popup simulator" aria-label="Open popup simulator">${ICON_POPUP_SIM}</button>
+              </div>
+            </article>
+          `;
+        }).join('')}
+      </div>
     </div>
   `;
 }
@@ -2323,7 +2255,7 @@ export function bindFirstLayerStudyEvents(container, state, {
   if (activeSubTab === 'explorer') {
     teardownGrid3d();
     void mountFirstLayerExplorer3d(container, state, { getSimSpeed, onSetSimSpeed, getShowReflection });
-  } else if (activeSubTab === 'quiz' && state.quizLayout !== 'list') {
+  } else if (activeSubTab === 'quiz') {
     void mountFirstLayerGrid3d(container, getFilteredQuizCases(state), { getSimSpeed, getShowReflection });
   } else {
     teardownGrid3d();
@@ -2390,13 +2322,12 @@ export function bindFirstLayerStudyEvents(container, state, {
     });
   });
 
-  // Grid & Quiz bindings
+  // Grid filter bindings
   container.querySelectorAll('[data-quiz-group]').forEach(btn => {
     btn.addEventListener('click', () => {
       state.quizGroup = normalizeGroupId(btn.dataset.quizGroup || 'two-bar');
       state.quizBucket = 'all';
       state.quizMoves = 'all';
-      state.revealedQuizIds.clear();
       onRerender?.();
     });
   });
@@ -2411,44 +2342,6 @@ export function bindFirstLayerStudyEvents(container, state, {
   container.querySelectorAll('[data-quiz-moves]').forEach(btn => {
     btn.addEventListener('click', () => {
       state.quizMoves = btn.dataset.quizMoves || 'all';
-      onRerender?.();
-    });
-  });
-
-  container.querySelectorAll('[data-quiz-layout]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.quizLayout = btn.dataset.quizLayout === 'list' ? 'list' : 'grid';
-      onRerender?.();
-    });
-  });
-
-  const legendBtn = container.querySelector('#flbIconLegendBtn');
-  legendBtn?.addEventListener('click', () => {
-    const isCurrentlyVisible = state.quizShowLegend === true ||
-      (state.quizShowLegend === null && typeof window !== 'undefined' && window.innerWidth >= 860);
-    const nextVisible = !isCurrentlyVisible;
-    state.quizShowLegend = nextVisible;
-    const legendWrap = container.querySelector('.flb-icon-legend-wrap');
-    if (legendWrap) {
-      legendWrap.classList.remove('is-auto', 'is-shown', 'is-hidden');
-      legendWrap.classList.add(nextVisible ? 'is-shown' : 'is-hidden');
-    } else {
-      onRerender?.();
-      return;
-    }
-    legendBtn.classList.toggle('btn-primary', nextVisible);
-    legendBtn.setAttribute('aria-pressed', String(nextVisible));
-  });
-
-  container.querySelector('#flbQuizHideToggleBtn')?.addEventListener('click', () => {
-    state.quizHideAlgs = !state.quizHideAlgs;
-    state.revealedQuizIds.clear();
-    onRerender?.();
-  });
-
-  container.querySelectorAll('.flb-reveal-alg-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.revealedQuizIds.add(btn.dataset.revealId);
       onRerender?.();
     });
   });

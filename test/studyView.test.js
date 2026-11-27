@@ -105,10 +105,10 @@ test('StudyView renders dedicated 2x2 1st Face, 1st Layer Bottom-Piece Case Grou
   assert.ok(container.innerHTML.includes('1st Face vs. 1st Layer'));
   assert.ok(container.innerHTML.includes('ff-sim-btn'));
 
-  // 2. 2x2 1st Layer: default Cases Grid & Quiz (123) across the 4 disjoint bottom-piece groups
+  // 2. 2x2 1st Layer: default Cases Grid (123) across the 4 disjoint bottom-piece groups
   sv.setTrack('222', 'layer');
   assert.ok(container.innerHTML.includes('1st Layer (123 Cases by Bottom Pieces)'));
-  assert.ok(container.innerHTML.includes('Cases Grid &amp; Quiz (123)'));
+  assert.ok(container.innerHTML.includes('Cases Grid (123)'));
   assert.ok(container.innerHTML.includes('Case Explorer (3D + 2D)'));
   assert.ok(container.innerHTML.includes('Recognition &amp; 2-Look Guide'));
   assert.ok(!container.innerHTML.includes('All Bar System (75)'));
@@ -130,23 +130,20 @@ test('StudyView renders dedicated 2x2 1st Face, 1st Layer Bottom-Piece Case Grou
   assert.ok(container.innerHTML.includes('flb-card-next-btn'));
   assert.ok(container.innerHTML.includes('flb-icon-legend'));
   assert.ok(!container.innerHTML.includes('Explore 3D'));
-  assert.ok(container.innerHTML.includes('Quiz Mode (Hide Algs)'));
-
-  sv.firstLayerExplorerState.quizLayout = 'list';
-  sv.render();
-  assert.ok(container.innerHTML.includes('flb-list-alt-btn'));
-  assert.ok(container.innerHTML.includes('data-sim-mode="trigger"'));
-  sv.firstLayerExplorerState.quizLayout = 'grid';
+  assert.ok(!container.innerHTML.includes('Quiz Mode (Hide Algs)'));
+  assert.ok(!container.innerHTML.includes('data-quiz-layout'));
+  assert.ok(!container.innerHTML.includes('flbIconLegendBtn'));
+  assert.ok(!container.innerHTML.includes('flb-quiz-actions'));
 
   sv.firstLayerExplorerState.quizGroup = 'one-bottom';
   sv.render();
-  assert.ok(container.innerHTML.includes('9 cases'));
+  assert.ok(container.innerHTML.includes('All (9)'));
   assert.ok(container.innerHTML.includes('1B-1'));
   assert.ok(container.innerHTML.includes('flb-step-hint-mini'));
 
   sv.firstLayerExplorerState.quizGroup = 'two-diag';
   sv.render();
-  assert.ok(container.innerHTML.includes('39 cases'));
+  assert.ok(container.innerHTML.includes('All (39)'));
   assert.ok(container.innerHTML.includes('D-1'));
   assert.ok(container.innerHTML.includes('All 4 solved &rarr; CLL'));
 

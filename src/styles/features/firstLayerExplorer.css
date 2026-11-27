@@ -694,25 +694,6 @@
     white-space: nowrap;
   }
 
-  .flb-layout-toggle {
-    display: inline-flex;
-    gap: 3px;
-  }
-
-  .flb-icon-legend-wrap.is-hidden {
-    display: none;
-  }
-
-  .flb-icon-legend-wrap.is-auto {
-    display: none;
-  }
-
-  @media (min-width: 860px) {
-    .flb-icon-legend-wrap.is-auto {
-      display: block;
-    }
-  }
-
   .flb-icon-legend {
     display: flex;
     flex-wrap: wrap;
