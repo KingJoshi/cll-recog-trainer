@@ -9,7 +9,9 @@ import {
   chooseWeightedCaseId,
   buildCaseScramble,
   applyTrainingBottomOrientation,
-  describeTrainingBottomOrientation
+  describeTrainingBottomOrientation,
+  hasSolveCubeRotation,
+  stripSolveCubeRotations
 } from '../services/scrambleService.js';
 
 export const TIMER_DRILL_PRESETS = {
@@ -152,13 +154,14 @@ export function createNavController({
 
   function updateSolveOrientationLabel(label = null) {
     if (!solveScrambleOrient) return;
-    if (label) {
-      solveScrambleOrient.textContent = label;
+    if (appStore.state.mode === "solve") {
+      solveScrambleOrient.textContent = "";
+      solveScrambleOrient.hidden = true;
       return;
     }
-    solveScrambleOrient.textContent = appStore.state.currentPuzzle === "222"
-      ? "(white on bottom)"
-      : "(white on top, green on front)";
+    const text = String(label || "").trim();
+    solveScrambleOrient.textContent = text;
+    solveScrambleOrient.hidden = !text;
   }
 
   function ensureTimedDrillTargetAndSession() {
@@ -397,6 +400,25 @@ export function createNavController({
     const s = appStore.state;
     const solvePanel = getSolvePanelView();
     const widgets = getSolverWidgets();
+    if (s.mode === "solve") {
+      s.solveTarget = "full";
+      if (!s.currentSolveScramble || s.currentCaseId != null || hasSolveCubeRotation(s.currentSolveScramble, s.currentPuzzle)) {
+        regenerateScramble();
+        return;
+      }
+      const displayScr = stripSolveCubeRotations(s.currentSolveScramble, s.currentPuzzle);
+      s.currentSolveScramble = displayScr;
+      solvePanel?.updateSolveScrambleDisplay?.(displayScr);
+      updateSolveOrientationLabel();
+      cubeStage?.applyScrambleToDisplay?.(displayScr);
+      cubeStage?.applyReflection?.();
+      if (s.currentPuzzle === "333" || s.currentPuzzle === "333oh") {
+        widgets?.updateCrossSolutions?.(s.scrambleMoves || displayScr);
+      } else if (s.currentPuzzle === "222") {
+        widgets?.updateLayerSolutions?.(s.scrambleMoves || displayScr);
+      }
+      return;
+    }
     if (!s.currentSolveScramble) {
       regenerateScramble();
       return;
@@ -626,12 +648,20 @@ export function createNavController({
       getSimulatorCtrl()?.simTeardown?.();
     }
 
+    const prevTarget = s.solveTarget;
     s.mode = next;
     appStore.resetCaseAppearances();
 
     if (s.mode === "solve") {
       s.statsType = "log";
       s.solveTarget = "full";
+      if (prevTarget !== "full" || s.currentCaseId != null || hasSolveCubeRotation(s.currentSolveScramble, s.currentPuzzle)) {
+        s.currentSolveScramble = "";
+        s.scramble = "";
+        s.scrambleMoves = "";
+        s.currentCaseId = null;
+        s.currentCaseScramble = null;
+      }
       const activeSess = appStore.getActiveSession?.();
       if (activeSess && (activeSess.target || "full") !== "full") {
         appStore.selectOrCreateSessionForTarget("full");
@@ -846,14 +876,16 @@ export function createNavController({
         appStore.state.mode !== expectedMode ||
         appStore.state.trainSubMode !== expectedSubMode
       ) return;
-      cubeStage?.applyScrambleToDisplay?.(wcaScr);
+      const finalScr = expectedMode === "solve" ? stripSolveCubeRotations(wcaScr, expectedPuzzle) : wcaScr;
+      cubeStage?.applyScrambleToDisplay?.(finalScr);
       if (expectedTimerActive) {
-        solvePanel?.updateSolveScrambleDisplay?.(wcaScr);
-        onExtraUpdate?.(wcaScr);
+        solvePanel?.updateSolveScrambleDisplay?.(finalScr);
+        updateSolveOrientationLabel();
+        onExtraUpdate?.(finalScr);
       } else {
-        s.scramble = wcaScr;
-        s.scrambleMoves = wcaScr;
-        s.currentSolveScramble = wcaScr;
+        s.scramble = finalScr;
+        s.scrambleMoves = finalScr;
+        s.currentSolveScramble = finalScr;
         s.currentCaseId = null;
       }
     });
@@ -867,6 +899,12 @@ export function createNavController({
     const solvePanel = getSolvePanelView();
     const widgets = getSolverWidgets();
     const hasCases = s.selectedCases.size > 0;
+
+    if (s.mode === "solve") {
+      s.solveTarget = "full";
+      s.currentCaseId = null;
+      s.currentCaseScramble = null;
+    }
 
     if (solveScrambleSubtext) {
       solveScrambleSubtext.hidden = true;
@@ -953,7 +991,7 @@ export function createNavController({
         solvePanel?.updateSolveScrambleDisplay?.("No scramble (Timer only)");
         updateSolveOrientationLabel("");
       } else {
-        updateSolveOrientationLabel("(WCA orientation)");
+        updateSolveOrientationLabel(s.mode === "solve" ? "" : "(WCA orientation)");
         requestAsyncWcaScramble(token, expectedPuzzle, timerActive);
       }
       getStatsCtrl()?.updateStatsTable?.();

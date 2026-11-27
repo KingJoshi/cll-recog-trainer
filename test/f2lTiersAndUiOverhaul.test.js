@@ -84,10 +84,11 @@ test('index.html has 3-slot mode bar, icon-only header, 3-tab Devices modal, spl
   assert.ok(trainBarMatch);
   assert.ok(trainBarMatch[0].includes('data-train-submode="simulate"'));
 
-  // Header actions have no #bluetoothBtn (Devices lives in Settings) and all 4 header actions are compact icon buttons
+  // Header actions include compact icon-only Devices button (#bluetoothBtn + LED) that opens Settings -> Devices directly
   const headerActionsMatch = html.match(/<div class="header-actions">[\s\S]*?<\/div>/);
   assert.ok(headerActionsMatch, 'Expected .header-actions');
-  assert.ok(!headerActionsMatch[0].includes('id="bluetoothBtn"'), 'Devices button removed from main header');
+  assert.ok(headerActionsMatch[0].includes('id="bluetoothBtn"'), 'Devices icon button present in main header');
+  assert.ok(headerActionsMatch[0].includes('id="bluetoothHeaderDot"'), 'Devices LED dot present in main header');
   assert.ok(!headerActionsMatch[0].includes('id="bluetoothHeaderLabel"'));
   assert.ok(!headerActionsMatch[0].includes('id="cloudSyncHeaderLabel"'));
   assert.ok(!headerActionsMatch[0].includes('id="ganTimerBtn"'));

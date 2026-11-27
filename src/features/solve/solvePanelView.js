@@ -12,7 +12,7 @@ import { caseById, isTimerViewMode } from '../../state/appStore.js';
 import { escapeHtml, formatSolveTime, formatSolveDisplay, formatCfopSplitMs } from '../../services/htmlUtils.js';
 import { showToast } from '../../ui/toastService.js';
 import { TIMER_DRILL_PRESETS, resolveTimerDrillPreset } from '../../ui/navController.js';
-import { describeTrainingBottomOrientation } from '../../services/scrambleService.js';
+import { describeTrainingBottomOrientation, stripSolveCubeRotations } from '../../services/scrambleService.js';
 import { renderLastSolveCfopInline, renderSolvePhaseInline } from './cfopBreakdownRenderer.js';
 
 export function renderSolveStatsBar(container, solvesList, { sessionName = "", compact = false, stepBreakdownHtml = "", onSelectSolve = null } = {}) {
@@ -322,7 +322,16 @@ export function createSolvePanelView({
     scUi?.updateSmartCubeIndicator?.();
 
     if (solveScrambleOrient) {
-      solveScrambleOrient.textContent = describeTrainingBottomOrientation(currentScr, s.solveTarget);
+      if (s.mode === "solve") {
+        solveScrambleOrient.textContent = "";
+        solveScrambleOrient.hidden = true;
+      } else {
+        const orientLabel = s.solveTarget === "timer-drill"
+          ? "(4-move scramble → reverse to solve)"
+          : describeTrainingBottomOrientation(currentScr, s.solveTarget);
+        solveScrambleOrient.textContent = orientLabel;
+        solveScrambleOrient.hidden = !orientLabel;
+      }
     }
 
     if (solveScrambleSubtext) {
@@ -518,20 +527,21 @@ export function createSolvePanelView({
   function reattemptScramble(scrambleStr, label = "") {
     if (!scrambleStr) return;
     getNavCtrl()?.setMode?.("solve");
+    const cleanScr = stripSolveCubeRotations(scrambleStr, appStore.state.currentPuzzle) || scrambleStr;
     appStore.state.currentCaseId = null;
     solveScrambleSource = `Loaded scramble from <strong>${escapeHtml(label || "previous solve")}</strong> · Ready to inspect &amp; start`;
-    updateSolveScrambleDisplay(scrambleStr);
+    updateSolveScrambleDisplay(cleanScr);
     if (solveScrambleSubtext) {
       solveScrambleSubtext.innerHTML = solveScrambleSource;
       solveScrambleSubtext.hidden = false;
     }
-    cubeStage?.applyScrambleToDisplay?.(scrambleStr);
+    cubeStage?.applyScrambleToDisplay?.(cleanScr);
     cubeStage?.applyReflection?.();
     cubeStage?.resetCubeOrientation?.();
     if (appStore.state.currentPuzzle === "222") {
-      solverWidgets?.updateLayerSolutions?.(scrambleStr);
+      solverWidgets?.updateLayerSolutions?.(cleanScr);
     } else if (appStore.state.currentPuzzle === "333" || appStore.state.currentPuzzle === "333oh") {
-      solverWidgets?.updateCrossSolutions?.(scrambleStr);
+      solverWidgets?.updateCrossSolutions?.(cleanScr);
     }
     const timerCtrl = getTimerCtrl();
     if (timerCtrl?.getSolveState?.() !== "idle") {
@@ -568,13 +578,14 @@ export function createSolvePanelView({
       return;
     }
     try {
-      const normalized = new Alg(raw).toString().trim();
+      const parsed = new Alg(raw).toString().trim();
+      const s = appStore.state;
+      const normalized = s.mode === "solve" ? stripSolveCubeRotations(parsed, s.currentPuzzle) : parsed;
       if (!normalized) {
         showToast("Please enter a valid scramble.", "warning");
         return;
       }
       solveScrambleSource = `Custom scramble loaded · Ready to inspect &amp; start`;
-      const s = appStore.state;
       s.currentSolveScramble = normalized;
       s.scrambleMoves = normalized;
       s.scramble = normalized;

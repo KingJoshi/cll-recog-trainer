@@ -48,6 +48,10 @@
     </div>
   </div>
   <div class="header-actions">
+    <button type="button" id="bluetoothBtn" class="header-btn header-icon-btn bt-header-btn" aria-label="Devices: Connect Smart Cube, Timer, or Keyboard" data-tooltip="Devices: Connect Bluetooth Smart Cubes, GAN Smart Timer, or Keyboard Cube">
+      <span class="bt-dot disconnected" id="bluetoothHeaderDot" aria-hidden="true"></span>
+      <span class="bt-icon" aria-hidden="true">ᛒ</span>
+    </button>
     <button type="button" id="cloudSyncBtn" class="header-btn header-icon-btn cloud-sync-header-btn" aria-label="Google Drive Cloud Sync" data-tooltip="Cloud Sync: Sign in with Google Drive to save and merge settings &amp; solve logs">
       <span class="sync-dot signed-out" id="cloudSyncHeaderDot" aria-hidden="true"></span>
       <img id="cloudSyncHeaderAvatar" class="sync-header-avatar" alt="" hidden referrerpolicy="no-referrer">
@@ -321,7 +325,7 @@
       <div class="solve-header-row">
         <div class="solve-title-group">
           <p class="solve-label">Solve Scramble</p>
-          <span class="solve-orient" id="solveScrambleOrient">(white on bottom)</span>
+          <span class="solve-orient" id="solveScrambleOrient" hidden></span>
         </div>
         <div class="solve-session-control">
           <label for="solveSessionSelect" class="session-label">Session:</label>

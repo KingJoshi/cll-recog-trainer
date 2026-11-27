@@ -182,22 +182,45 @@ export function generateWca5x5Scramble() {
 
 const EXTRA_WCA_SCRAMBLES = new Set(["pyram", "skewb", "minx", "sq1", "clock", "333bf", "666", "777", "fto"]);
 
-export function generateWcaScrambleForPuzzle(puzzleId) {
+function isClockPuzzle(puzzleId) {
+  if (puzzleId === "clock") return true;
+  const customDef = PUZZLES[puzzleId];
+  return Boolean(customDef?.isCustomEvent && customDef.wcaEvent === "clock");
+}
+
+export function hasSolveCubeRotation(scrambleStr = "", puzzleId = "333") {
+  if (isClockPuzzle(puzzleId)) return false;
+  return /\b[xyz](?:2'|2|')?\b/i.test(String(scrambleStr || ""));
+}
+
+export function stripSolveCubeRotations(scrambleStr = "", puzzleId = "333") {
+  const trimmed = String(scrambleStr || "").trim();
+  if (!trimmed || isClockPuzzle(puzzleId)) return trimmed;
+  return trimmed
+    .split(/\s+/)
+    .filter(tok => !/^[xyz](?:2'|2|')?$/i.test(tok))
+    .join(" ");
+}
+
+export async function generateWcaScrambleForPuzzle(puzzleId) {
   const customDef = PUZZLES[puzzleId];
   if (customDef?.isCustomEvent) {
     if (!customDef.wcaEvent || customDef.wcaEvent === "none") {
-      return Promise.resolve("");
+      return "";
     }
     return generateWcaScrambleForPuzzle(customDef.wcaEvent);
   }
-  if (puzzleId === "222") return generateWca2x2Scramble();
-  if (puzzleId === "333oh") return generateWca3x3OhScramble();
-  if (puzzleId === "444") return generateWca4x4Scramble();
-  if (puzzleId === "555") return generateWca5x5Scramble();
-  if (EXTRA_WCA_SCRAMBLES.has(puzzleId)) {
-    return generateWcaScrambleWithTimeout(puzzleId, 2000, puzzleId);
+  let raw = "";
+  if (puzzleId === "222") raw = await generateWca2x2Scramble();
+  else if (puzzleId === "333oh") raw = await generateWca3x3OhScramble();
+  else if (puzzleId === "444") raw = await generateWca4x4Scramble();
+  else if (puzzleId === "555") raw = await generateWca5x5Scramble();
+  else if (EXTRA_WCA_SCRAMBLES.has(puzzleId)) {
+    raw = await generateWcaScrambleWithTimeout(puzzleId, 2000, puzzleId);
+  } else {
+    raw = await generateWca3x3Scramble();
   }
-  return generateWca3x3Scramble();
+  return stripSolveCubeRotations(raw, puzzleId);
 }
 
 export function randomU() {

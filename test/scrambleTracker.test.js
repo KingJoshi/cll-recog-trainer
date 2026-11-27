@@ -3,7 +3,15 @@ import assert from 'node:assert';
 import { puzzles } from 'cubing/puzzles';
 import { Alg } from 'cubing/alg';
 import { ScrambleTracker, parseMoveToken, formatMove, invertMove, conjugateTokensToHardwareMoves } from '../src/scrambleTracker.js';
-import { normalize2x2ScrambleToURF, generateWca2x2Scramble, describeTrainingBottomOrientation, buildCaseScramble } from '../src/services/scrambleService.js';
+import {
+  normalize2x2ScrambleToURF,
+  generateWca2x2Scramble,
+  generateWcaScrambleForPuzzle,
+  describeTrainingBottomOrientation,
+  buildCaseScramble,
+  hasSolveCubeRotation,
+  stripSolveCubeRotations
+} from '../src/services/scrambleService.js';
 
 test('parseMoveToken and formatMove integrity', () => {
   assert.deepStrictEqual(parseMoveToken('R'), { face: 'R', amount: 1, raw: 'R' });
@@ -353,6 +361,19 @@ test('ScrambleTracker conjugates leading orientation rotations (e.g. z2, y) for 
   assert.strictEqual(describeTrainingBottomOrientation("y2 R U R'", "cll"), "(Yellow bottom · y2)");
   assert.strictEqual(describeTrainingBottomOrientation("R U R'", "cll"), "(Yellow bottom · WCA)");
   assert.strictEqual(describeTrainingBottomOrientation("R U R'", "full"), "(WCA orientation)");
+
+  // Solve mode cube rotation stripping (keeps WCA Clock y2 intact)
+  assert.strictEqual(hasSolveCubeRotation("z2 R U R'", "222"), true);
+  assert.strictEqual(hasSolveCubeRotation("x2 y' R U F2", "333"), true);
+  assert.strictEqual(hasSolveCubeRotation("R U F2 R'", "333"), false);
+  assert.strictEqual(hasSolveCubeRotation("UR3+ y2 U2-", "clock"), false);
+  assert.strictEqual(stripSolveCubeRotations("z2 y' R U' F2 x2 R'", "333"), "R U' F2 R'");
+  assert.strictEqual(stripSolveCubeRotations("UR3+ y2 U2-", "clock"), "UR3+ y2 U2-");
+
+  const wca222 = await generateWcaScrambleForPuzzle("222");
+  const wca333 = await generateWcaScrambleForPuzzle("333");
+  assert.strictEqual(hasSolveCubeRotation(wca222, "222"), false);
+  assert.strictEqual(hasSolveCubeRotation(wca333, "333"), false);
 });
 
 test('ScrambleTracker reports user-grip nextRequired and undo corrections across rotated 2x2 and 3x3 scrambles', () => {
