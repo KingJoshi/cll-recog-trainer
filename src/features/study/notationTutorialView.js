@@ -123,8 +123,273 @@ export const NOTATION_TRIGGERS = [
     setup: "R' F R F'",
     hand: 'Inverse Sledge',
     desc: 'Exact reverse of Sledgehammer.'
+  },
+  {
+    id: 'trig-lefty-sledge',
+    name: 'Lefty Sledgehammer',
+    alg: "L F' L' F",
+    setup: "F' L F L'",
+    hand: 'Left + Front',
+    desc: 'Left-hand mirror of Sledgehammer — inserts or orients front-left pieces cleanly.'
+  },
+  {
+    id: 'trig-lefty-hedge',
+    name: 'Lefty Hedgeslammer',
+    alg: "F' L F L'",
+    setup: "L F' L' F",
+    hand: 'Inverse Lefty Sledge',
+    desc: 'Exact reverse of Lefty Sledgehammer (left-hand mirror of Hedgeslammer).'
   }
 ];
+
+const WCA_STICKER_HEX = {
+  W: '#f8fafc',
+  Y: '#facc15',
+  G: '#22c55e',
+  B: '#3b82f6',
+  R: '#ef4444',
+  O: '#f97316',
+  X: '#64748b'
+};
+
+function renderTopRingSvg({
+  size = 2,
+  topColors = [],
+  front = [],
+  right = [],
+  back = [],
+  left = [],
+  highlights = [],
+  ariaLabel = 'Cube top and side sticker diagram'
+}) {
+  const fx = 22;
+  const fy = 22;
+  const faceSize = 76;
+  const cell = faceSize / size;
+  const pad = 2;
+  const rim = 11;
+  const hex = code => WCA_STICKER_HEX[code] || code || '#94a3b8';
+
+  const topRects = [];
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const code = topColors[r * size + c] || 'Y';
+      topRects.push(
+        `<rect x="${(fx + c * cell + pad / 2).toFixed(1)}" y="${(fy + r * cell + pad / 2).toFixed(1)}" width="${(cell - pad).toFixed(1)}" height="${(cell - pad).toFixed(1)}" rx="3" fill="${hex(code)}" stroke="#0f172a" stroke-width="1.4"/>`
+      );
+    }
+  }
+
+  const sideRects = [];
+  const hlRects = [];
+  const isHighlighted = (side, idx) => highlights.some(h => h.side === side && h.indices.includes(idx));
+  const addSide = (side, idx, x, y, w, h, code) => {
+    sideRects.push(
+      `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="2.5" fill="${hex(code)}" stroke="#0f172a" stroke-width="1.2"/>`
+    );
+    if (isHighlighted(side, idx)) {
+      hlRects.push(
+        `<rect x="${(x - 2).toFixed(1)}" y="${(y - 2).toFixed(1)}" width="${(w + 4).toFixed(1)}" height="${(h + 4).toFixed(1)}" rx="4" fill="none" stroke="#ffffff" stroke-width="3"/>` +
+        `<rect x="${(x - 2).toFixed(1)}" y="${(y - 2).toFixed(1)}" width="${(w + 4).toFixed(1)}" height="${(h + 4).toFixed(1)}" rx="4" fill="none" stroke="#0284c7" stroke-width="1.8"/>`
+      );
+    }
+  };
+
+  for (let i = 0; i < size; i++) {
+    const segLen = cell - pad;
+    if (back[i]) addSide('back', i, fx + i * cell + pad / 2, fy - rim - 2, segLen, rim, back[i]);
+    if (front[i]) addSide('front', i, fx + i * cell + pad / 2, fy + faceSize + 2, segLen, rim, front[i]);
+    if (left[i]) addSide('left', i, fx - rim - 2, fy + i * cell + pad / 2, rim, segLen, left[i]);
+    if (right[i]) addSide('right', i, fx + faceSize + 2, fy + i * cell + pad / 2, rim, segLen, right[i]);
+  }
+
+  return `
+    <svg class="not-glossary-svg" viewBox="0 0 120 120" role="img" aria-label="${escapeHtml(ariaLabel)}">
+      <rect x="${fx - 1}" y="${fy - 1}" width="${faceSize + 2}" height="${faceSize + 2}" rx="5" fill="#0f172a"/>
+      ${topRects.join('')}
+      ${sideRects.join('')}
+      ${hlRects.join('')}
+    </svg>
+  `;
+}
+
+function renderGlossarySection(sandboxPuzzle, renderTurnCardControls) {
+  const faceOnlySvg = renderTopRingSvg({
+    size: 2,
+    topColors: ['W', 'W', 'W', 'W'],
+    front: ['G', 'O'],
+    right: ['B', 'R'],
+    back: ['O', 'G'],
+    left: ['R', 'B'],
+    ariaLabel: 'Face only: all 4 white stickers on top but side colors do not match'
+  });
+  const fullLayerSvg = renderTopRingSvg({
+    size: 2,
+    topColors: ['W', 'W', 'W', 'W'],
+    front: ['G', 'G'],
+    right: ['R', 'R'],
+    back: ['B', 'B'],
+    left: ['O', 'O'],
+    highlights: [
+      { side: 'front', indices: [0, 1] },
+      { side: 'right', indices: [0, 1] },
+      { side: 'back', indices: [0, 1] },
+      { side: 'left', indices: [0, 1] }
+    ],
+    ariaLabel: 'Full layer: white face solved plus all four matching side color bars'
+  });
+
+  const bar222Svg = renderTopRingSvg({
+    size: 2,
+    topColors: ['Y', 'Y', 'Y', 'Y'],
+    front: ['G', 'G'],
+    right: ['R', 'B'],
+    back: ['O', 'R'],
+    left: ['B', 'O'],
+    highlights: [{ side: 'front', indices: [0, 1] }],
+    ariaLabel: '2x2 Bar: two adjacent front stickers share the same green color'
+  });
+  const bar333Svg = renderTopRingSvg({
+    size: 3,
+    topColors: ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    front: ['G', 'G', 'G'],
+    right: ['B', 'R', 'O'],
+    back: ['O', 'O', 'R'],
+    left: ['R', 'B', 'B'],
+    highlights: [{ side: 'front', indices: [0, 1, 2] }],
+    ariaLabel: '3x3 Bar: entire three-sticker front row shares the same green color'
+  });
+
+  const hl222Svg = renderTopRingSvg({
+    size: 2,
+    topColors: ['Y', 'Y', 'Y', 'Y'],
+    front: ['R', 'R'],
+    right: ['G', 'O'],
+    back: ['G', 'B'],
+    left: ['B', 'O'],
+    highlights: [{ side: 'front', indices: [0, 1] }],
+    ariaLabel: '2x2 Headlights: both front corners show matching red side stickers'
+  });
+  const hl333Svg = renderTopRingSvg({
+    size: 3,
+    topColors: ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    front: ['R', 'B', 'R'],
+    right: ['G', 'O', 'B'],
+    back: ['G', 'G', 'O'],
+    left: ['B', 'R', 'O'],
+    highlights: [{ side: 'front', indices: [0, 2] }],
+    ariaLabel: '3x3 Headlights: both outer front corners match in red around a different blue middle edge'
+  });
+
+  return `
+    <section id="notGlossarySection" class="guide-card guide-card-full">
+      <h3 class="guide-card-title">&#x1F4D6; Plain-English Speedcubing Glossary</h3>
+      <div class="tut-glossary-grid">
+        <article id="notGlossaryFaceVsLayer" class="tut-glossary-item">
+          <div class="tut-notation-top">
+            <strong>Face vs. Layer</strong>
+            <span class="badge">Visual Compare</span>
+          </div>
+          <div class="not-glossary-pair">
+            <figure class="not-glossary-fig">
+              ${faceOnlySvg}
+              <figcaption class="not-glossary-caption is-warn">Face Only (sides mixed)</figcaption>
+            </figure>
+            <figure class="not-glossary-fig">
+              ${fullLayerSvg}
+              <figcaption class="not-glossary-caption is-good">Full Layer (sides match)</figcaption>
+            </figure>
+          </div>
+          <p>A <strong>Face</strong> only matches stickers on one side. A <strong>Layer</strong> matches that face <em>and</em> pairs every side color cleanly around the ring.</p>
+        </article>
+
+        <article id="notGlossaryBar" class="tut-glossary-item">
+          <div class="tut-notation-top">
+            <strong>Bar (2x2 &amp; 3x3)</strong>
+            <span class="badge">Solved Side Block</span>
+          </div>
+          <div class="not-glossary-pair">
+            <figure class="not-glossary-fig">
+              ${bar222Svg}
+              <figcaption class="not-glossary-caption is-good">2x2 Bar (2 matching)</figcaption>
+            </figure>
+            <figure class="not-glossary-fig">
+              ${bar333Svg}
+              <figcaption class="not-glossary-caption is-good">3x3 Bar (all 3 match)</figcaption>
+            </figure>
+          </div>
+          <p>A continuous <strong>Bar</strong> of identical side stickers along one face — on 2x2 that is 2 touching corners, and on 3x3 it is a full 3-sticker edge + corner block (e.g. hold Bar on Left for T-Perm or Back for Ua/Ub).</p>
+        </article>
+
+        <article id="notGlossaryHeadlights" class="tut-glossary-item">
+          <div class="tut-notation-top">
+            <strong>Headlights (2x2 &amp; 3x3)</strong>
+            <span class="badge">Matching Corners</span>
+          </div>
+          <div class="not-glossary-pair">
+            <figure class="not-glossary-fig">
+              ${hl222Svg}
+              <figcaption class="not-glossary-caption">2x2 Headlights</figcaption>
+            </figure>
+            <figure class="not-glossary-fig">
+              ${hl333Svg}
+              <figcaption class="not-glossary-caption">3x3 Headlights (corners match)</figcaption>
+            </figure>
+          </div>
+          <p>Two corners on the same side showing the <strong>same color</strong> like car headlights. On 2x2 they sit right next to each other; on 3x3 the two matching corners flank a different middle edge (look for them on Left before T-Perm).</p>
+        </article>
+
+        <article id="notGlossarySune" class="tut-glossary-item">
+          <div class="tut-notation-top">
+            <strong>Sune &amp; Antisune</strong>
+            <span class="badge">3D Preview</span>
+          </div>
+          <div class="not-glossary-pair">
+            <div class="not-glossary-mini-3d tut-3d-card">
+              <div class="not-glossary-mini-head">
+                <strong>Sune</strong>
+                <code>R U R' U R U2 R'</code>
+              </div>
+              <div class="tut-3d-wrap" data-cube-id="not-gloss-sune" data-cube-puzzle="333" data-cube-setup="z2 R U2 R' U' R U' R'" data-cube-moves="R U R' U R U2 R'">
+                <span class="study-visual-loading">3D Cube</span>
+              </div>
+              ${renderTurnCardControls('not-gloss-sune')}
+            </div>
+            <div class="not-glossary-mini-3d tut-3d-card">
+              <div class="not-glossary-mini-head">
+                <strong>Antisune (Reverse)</strong>
+                <code>R U2 R' U' R U' R'</code>
+              </div>
+              <div class="tut-3d-wrap" data-cube-id="not-gloss-antisune" data-cube-puzzle="333" data-cube-setup="z2 R U R' U R U2 R'" data-cube-moves="R U2 R' U' R U' R'">
+                <span class="study-visual-loading">3D Cube</span>
+              </div>
+              ${renderTurnCardControls('not-gloss-antisune')}
+            </div>
+          </div>
+          <p><strong>Antisune</strong> is simply <strong>Sune</strong> performed backwards — together they solve any top-corner twist without learning dozens of OLL cases.</p>
+        </article>
+
+        <article id="notGlossaryAuf" class="tut-glossary-item">
+          <div class="tut-notation-top">
+            <strong>AUF (Adjust U Face)</strong>
+            <span class="badge">3D Preview</span>
+          </div>
+          <div class="not-glossary-mini-3d tut-3d-card">
+            <div class="not-glossary-mini-head">
+              <strong>Final Top Alignment</strong>
+              <code>U / U' / U2</code>
+            </div>
+            <div class="tut-3d-wrap" data-cube-id="not-gloss-auf" data-cube-puzzle="${sandboxPuzzle}" data-cube-setup="z2 U'" data-cube-moves="U">
+              <span class="study-visual-loading">3D Cube</span>
+            </div>
+            ${renderTurnCardControls('not-gloss-auf')}
+          </div>
+          <p>Turning the top layer (<code>U</code>, <code>U'</code>, or <code>U2</code>) before or right after an algorithm so the solved sides snap into alignment.</p>
+        </article>
+      </div>
+    </section>
+  `;
+}
 
 export const SANDBOX_PUZZLES = [
   { id: '222', label: '2x2' },
@@ -521,27 +786,7 @@ export function createNotationTutorialView({
           </div>
         </section>
 
-        <section class="guide-card guide-card-full">
-          <h3 class="guide-card-title">&#x1F4D6; Plain-English Speedcubing Glossary</h3>
-          <div class="tut-glossary-grid">
-            <div class="tut-glossary-item">
-              <strong>Face vs. Layer</strong>
-              <p>A <strong>Face</strong> only matches stickers on one side. A <strong>Layer</strong> matches both that face and all side colors around it.</p>
-            </div>
-            <div class="tut-glossary-item">
-              <strong>Bar / Headlights</strong>
-              <p>Two matching stickers on the side of a corner pair (touching = Bar; corner headlights = two corners on a face showing the same side color).</p>
-            </div>
-            <div class="tut-glossary-item">
-              <strong>Sune &amp; Antisune</strong>
-              <p><strong>Sune</strong> (<code>R U R' U R U2 R'</code>) and <strong>Antisune</strong> (its exact reverse: <code>R U2 R' U' R U' R'</code>) twist top corners without memorizing dozens of cases.</p>
-            </div>
-            <div class="tut-glossary-item">
-              <strong>AUF (Adjust U Face)</strong>
-              <p>Turning the top layer (<code>U</code>, <code>U'</code>, or <code>U2</code>) before or after an algorithm so colors line up.</p>
-            </div>
-          </div>
-        </section>
+        ${renderGlossarySection(sandboxPuzzle, renderTurnCardControls)}
       </div>
     `;
 

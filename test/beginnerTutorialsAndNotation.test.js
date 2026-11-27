@@ -228,6 +228,24 @@ test('Standalone NxN Notation view renders large 3D cube, always-visible Free Fa
   assert.strictEqual(container.querySelectorAll('[data-not-puzzle]').length, 4, '2x2 / 3x3 / 4x4 / 5x5 switcher must render');
   assert.ok(!container.innerHTML.includes('R (No Symbol)'), 'Redundant R (No Symbol) modifier card must be removed');
 
+  assert.strictEqual(NOTATION_TRIGGERS.length, 8, 'Triggers must include Lefty Sledgehammer & Lefty Hedgeslammer');
+  assert.ok(container.innerHTML.includes('Lefty Sledgehammer'));
+  assert.ok(container.innerHTML.includes('Lefty Hedgeslammer'));
+
+  // Visual Glossary: Face vs Layer, separate Bar card, separate Headlights card (2x2 & 3x3), Sune/Antisune 3D, AUF 3D
+  assert.ok(container.innerHTML.includes('id="notGlossaryFaceVsLayer"'));
+  assert.ok(container.innerHTML.includes('id="notGlossaryBar"'));
+  assert.ok(container.innerHTML.includes('id="notGlossaryHeadlights"'));
+  assert.ok(container.innerHTML.includes('2x2 Headlights'));
+  assert.ok(container.innerHTML.includes('3x3 Headlights'));
+  assert.ok(container.innerHTML.includes('class="not-glossary-svg"'));
+  assert.ok(container.innerHTML.includes('id="notGlossarySune"'));
+  assert.ok(container.innerHTML.includes('id="notGlossaryAuf"'));
+  assert.ok(container.innerHTML.includes('data-cube-id="not-gloss-sune"'));
+  assert.ok(container.innerHTML.includes('data-cube-id="not-gloss-antisune"'));
+  assert.ok(container.innerHTML.includes('data-cube-id="not-gloss-auf"'));
+  const gloss3dCards = 3;
+
   // Default 3x3: Slice (M/E/S) & Wide (Rw/r) sections & rows, NO Inner slices row, NO 3-Wide row
   assert.strictEqual(view.getSandboxPuzzle(), '333');
   assert.ok(container.querySelector('#notSandboxSliceRow'));
@@ -240,7 +258,7 @@ test('Standalone NxN Notation view renders large 3D cube, always-visible Free Fa
   assert.ok(container.innerHTML.includes('lowercase letters'));
   assert.strictEqual(
     countCards(),
-    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_SLICE_MOVES.length + NOTATION_WIDE_MOVES.length + NOTATION_TRIGGERS.length
+    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_SLICE_MOVES.length + NOTATION_WIDE_MOVES.length + NOTATION_TRIGGERS.length + gloss3dCards
   );
   assert.ok(!/\bsexy\b/i.test(container.innerHTML));
 
@@ -261,7 +279,7 @@ test('Standalone NxN Notation view renders large 3D cube, always-visible Free Fa
   assert.strictEqual(container.querySelector('#notWideSection'), null);
   assert.strictEqual(
     countCards(),
-    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_TRIGGERS.length
+    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_TRIGGERS.length + gloss3dCards
   );
 
   // 4x4: Inner slices (2R-2B) + Wide moves, no M/E/S row
@@ -274,7 +292,7 @@ test('Standalone NxN Notation view renders large 3D cube, always-visible Free Fa
   assert.ok(container.innerHTML.includes('id="notWideSection"'));
   assert.strictEqual(
     countCards(),
-    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_INNER_SLICE_MOVES.length + NOTATION_WIDE_MOVES.length + NOTATION_TRIGGERS.length
+    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_INNER_SLICE_MOVES.length + NOTATION_WIDE_MOVES.length + NOTATION_TRIGGERS.length + gloss3dCards
   );
   const btn2R = container.querySelectorAll('.not-turn-btn').find(b => b.dataset.notMove === '2R');
   assert.ok(btn2R, '2R inner slice button must be rendered on 4x4');
@@ -290,7 +308,7 @@ test('Standalone NxN Notation view renders large 3D cube, always-visible Free Fa
   assert.ok(container.querySelector('#notSandboxWide3Row'));
   assert.strictEqual(
     countCards(),
-    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_SLICE_MOVES.length + NOTATION_INNER_SLICE_MOVES.length + NOTATION_WIDE_MOVES.length + NOTATION_WIDE_3_MOVES.length + NOTATION_TRIGGERS.length
+    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_SLICE_MOVES.length + NOTATION_INNER_SLICE_MOVES.length + NOTATION_WIDE_MOVES.length + NOTATION_WIDE_3_MOVES.length + NOTATION_TRIGGERS.length + gloss3dCards
   );
 
   view.teardown();

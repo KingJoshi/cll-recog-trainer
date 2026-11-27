@@ -67,11 +67,13 @@ test('2x2 Tutorial steps, notation moves, triggers, and flb-68 verify mathematic
     const out = solved.applyAlg(new Alg(`${tr.setup} ${tr.alg}`));
     assert.ok(out.isIdentical(solved), `Trigger/move ${tr.id} setup+alg should return to solved`);
   }
+  assert.ok(NOTATION_TRIGGERS.some(t => t.id === 'trig-lefty-sledge' && t.alg === "L F' L' F"));
+  assert.ok(NOTATION_TRIGGERS.some(t => t.id === 'trig-lefty-hedge' && t.alg === "F' L F L'"));
 
-  // Verify 3x3 Middle Slices (M, E, S) and Wide moves (including r === Rw)
+  // Verify 3x3 Middle Slices (M, E, S), Triggers (including Lefty Sledge/Hedge), and Wide moves (including r === Rw)
   const kp3 = await cube3x3x3.kpuzzle();
   const s3 = kp3.defaultPattern();
-  for (const tr of [...NOTATION_SLICE_MOVES, ...NOTATION_WIDE_MOVES]) {
+  for (const tr of [...NOTATION_SLICE_MOVES, ...NOTATION_WIDE_MOVES, ...NOTATION_TRIGGERS.map(t => ({ letter: t.name, demoAlg: t.alg, demoSetup: t.setup }))]) {
     const moved = s3.applyAlg(new Alg(tr.demoAlg));
     assert.ok(!moved.isIdentical(s3), `3x3 move ${tr.letter} must change state`);
     assert.ok(moved.applyAlg(new Alg(tr.demoSetup)).isIdentical(s3), `3x3 ${tr.demoSetup} + ${tr.demoAlg} must cancel`);
