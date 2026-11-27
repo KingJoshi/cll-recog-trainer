@@ -21,21 +21,25 @@
     line-height: 0;
     vertical-align: super;
     margin-left: 2px;
-    color: #d97706;
+    color: #dc2626;
   }
 
   [data-theme="dark"] .beta-sup {
-    color: #fbbf24;
+    color: #f87171;
   }
 
-  .app-header .puzzle-btn:not(.active) .beta-sup {
-    color: #fde047;
-  }
-
-  .puzzle-btn.active .beta-sup,
+  .app-header .puzzle-btn:not(.active) .beta-sup,
   .track-btn.active .beta-sup,
   .btn-primary .beta-sup {
-    color: inherit;
-    opacity: 0.88;
+    color: #ff6b6b;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+
+  .puzzle-btn.active .beta-sup {
+    color: #dc2626;
+  }
+
+  [data-theme="dark"] .puzzle-btn.active .beta-sup {
+    color: #f87171;
   }
 }
