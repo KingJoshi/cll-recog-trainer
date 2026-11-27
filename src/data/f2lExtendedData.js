@@ -25,6 +25,37 @@ export const ESSENTIAL_F2L_IDS = new Set([
   "f2l-41"  // Both in Slot - Inverted Pair (paired w/ f2l-40)
 ]);
 
+export const ESSENTIAL_F2L_MIRROR_MAP = {
+  "f2l-01": "f2l-02",
+  "f2l-04": "f2l-03",
+  "f2l-05": "f2l-06",
+  "f2l-07": "f2l-08",
+  "f2l-10": "f2l-09",
+  "f2l-11": "f2l-12",
+  "f2l-14": "f2l-13",
+  "f2l-16": "f2l-15",
+  "f2l-17": "f2l-18",
+  "f2l-19": "f2l-20",
+  "f2l-21": "f2l-22",
+  "f2l-23": "f2l-24",
+  "f2l-25": "f2l-26",
+  "f2l-27": "f2l-30",
+  "f2l-28": "f2l-29",
+  "f2l-31": "f2l-32",
+  "f2l-33": "f2l-34",
+  "f2l-35": "f2l-36",
+  "f2l-38": "f2l-39",
+  "f2l-41": "f2l-40"
+};
+
+const REVERSE_ESSENTIAL_MIRROR_MAP = Object.fromEntries(
+  Object.entries(ESSENTIAL_F2L_MIRROR_MAP).map(([baseId, mirrorId]) => [mirrorId, baseId])
+);
+
+export function getEssentialMirrorPartnerId(caseId) {
+  return ESSENTIAL_F2L_MIRROR_MAP[caseId] || REVERSE_ESSENTIAL_MIRROR_MAP[caseId] || null;
+}
+
 export const F2L_INTERMEDIATE_GROUPS = [
   "Back-Right (BR) Inserts",
   "Back-Left (BL) Inserts",

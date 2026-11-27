@@ -84,6 +84,9 @@ export function createSettingsModalController({
   const previewLightThemeBtn = typeof document !== "undefined" ? document.getElementById("previewLightThemeBtn") : null;
   const previewDarkThemeBtn = typeof document !== "undefined" ? document.getElementById("previewDarkThemeBtn") : null;
   const resetBtBtn = typeof document !== "undefined" ? document.getElementById("settingsResetBtBtn") : null;
+  const openCubesBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenCubesBtn") : null;
+  const openTimersBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenTimersBtn") : null;
+  const openKeyboardBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenKeyboardBtn") : null;
   const openWizardBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenWizardBtn") : null;
   const openShortcutsBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenShortcutsBtn") : null;
 
@@ -704,6 +707,19 @@ export function createSettingsModalController({
 
   resetBtBtn?.addEventListener("click", () => {
     getSmartCubeCtrl()?.handleBluetoothReset?.();
+  });
+
+  openCubesBtn?.addEventListener("click", () => {
+    close();
+    getSmartCubeCtrl()?.openBluetoothModal?.({ tab: "cubes" });
+  });
+  openTimersBtn?.addEventListener("click", () => {
+    close();
+    getSmartCubeCtrl()?.openBluetoothModal?.({ tab: "timers" });
+  });
+  openKeyboardBtn?.addEventListener("click", () => {
+    close();
+    getSmartCubeCtrl()?.openBluetoothModal?.({ tab: "keyboard" });
   });
 
   openWizardBtn?.addEventListener("click", () => {

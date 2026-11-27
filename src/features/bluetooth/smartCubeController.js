@@ -81,7 +81,8 @@ export function createSmartCubeController({
   getGanTimerCtrl = () => null,
   getDisconnectAlertView = () => null,
   getNavCtrl = () => null,
-  getAlgDrillView = () => null
+  getAlgDrillView = () => null,
+  onOpenShortcuts = null
 } = {}) {
   const bluetoothBtn = typeof document !== "undefined" ? document.getElementById("bluetoothBtn") : null;
   const bluetoothHeaderDot = typeof document !== "undefined" ? document.getElementById("bluetoothHeaderDot") : null;
@@ -91,8 +92,12 @@ export function createSmartCubeController({
   const btModalDismissBtn = typeof document !== "undefined" ? document.getElementById("btModalDismissBtn") : null;
   const devicesTabCubes = typeof document !== "undefined" ? document.getElementById("devicesTabCubes") : null;
   const devicesTabTimers = typeof document !== "undefined" ? document.getElementById("devicesTabTimers") : null;
+  const devicesTabKeyboard = typeof document !== "undefined" ? document.getElementById("devicesTabKeyboard") : null;
   const devicesPanelCubes = typeof document !== "undefined" ? document.getElementById("devicesPanelCubes") : null;
   const devicesPanelTimers = typeof document !== "undefined" ? document.getElementById("devicesPanelTimers") : null;
+  const devicesPanelKeyboard = typeof document !== "undefined" ? document.getElementById("devicesPanelKeyboard") : null;
+  const btOpenShortcutsBtn = typeof document !== "undefined" ? document.getElementById("btOpenShortcutsBtn") : null;
+  const btVirtualStatusText = typeof document !== "undefined" ? document.getElementById("btVirtualStatusText") : null;
   const bluetoothModalStatusBadge = typeof document !== "undefined" ? document.getElementById("bluetoothModalStatusBadge") : null;
   const btStatusCard = typeof document !== "undefined" ? document.getElementById("btStatusCard") : null;
   const btDeviceName = typeof document !== "undefined" ? document.getElementById("btDeviceName") : null;
@@ -380,13 +385,16 @@ export function createSmartCubeController({
   }
 
   function setDevicesTab(tab = "cubes") {
-    const isTimers = tab === "timers";
-    devicesTabCubes?.classList.toggle("active", !isTimers);
-    devicesTabCubes?.setAttribute("aria-selected", String(!isTimers));
-    devicesTabTimers?.classList.toggle("active", isTimers);
-    devicesTabTimers?.setAttribute("aria-selected", String(isTimers));
-    if (devicesPanelCubes) devicesPanelCubes.hidden = isTimers;
-    if (devicesPanelTimers) devicesPanelTimers.hidden = !isTimers;
+    const normalized = ["timers", "keyboard"].includes(tab) ? tab : "cubes";
+    devicesTabCubes?.classList.toggle("active", normalized === "cubes");
+    devicesTabCubes?.setAttribute("aria-selected", String(normalized === "cubes"));
+    devicesTabTimers?.classList.toggle("active", normalized === "timers");
+    devicesTabTimers?.setAttribute("aria-selected", String(normalized === "timers"));
+    devicesTabKeyboard?.classList.toggle("active", normalized === "keyboard");
+    devicesTabKeyboard?.setAttribute("aria-selected", String(normalized === "keyboard"));
+    if (devicesPanelCubes) devicesPanelCubes.hidden = normalized !== "cubes";
+    if (devicesPanelTimers) devicesPanelTimers.hidden = normalized !== "timers";
+    if (devicesPanelKeyboard) devicesPanelKeyboard.hidden = normalized !== "keyboard";
   }
 
   function updateBluetoothUI() {
@@ -408,7 +416,21 @@ export function createSmartCubeController({
       else if (gt.connected) bluetoothHeaderLabel.textContent = "GAN Timer ✓";
       else bluetoothHeaderLabel.textContent = "Devices";
     }
+    if (bluetoothBtn) {
+      let devDesc = "Devices: Connect Bluetooth Smart Cubes, GAN Smart Timer, or Keyboard Cube";
+      if (hasCubeAlert || hasTimerAlert) devDesc = "Devices: Bluetooth disconnected — click to reconnect";
+      else if (st.connected && gt.connected) devDesc = `Devices: ${st.deviceName || "Smart Cube"} & GAN Timer connected`;
+      else if (st.connected) devDesc = `Devices: ${st.isVirtual ? "Virtual Keyboard Cube active" : `${st.deviceName || "Smart Cube"} connected`}`;
+      else if (gt.connected) devDesc = "Devices: GAN Smart Timer connected";
+      bluetoothBtn.setAttribute("data-tooltip", devDesc);
+      bluetoothBtn.setAttribute("aria-label", devDesc);
+    }
     bluetoothBtn?.classList.toggle("is-disconnected-alert", hasCubeAlert || hasTimerAlert);
+    if (btVirtualStatusText) {
+      btVirtualStatusText.textContent = st.connected && st.isVirtual
+        ? "Virtual keyboard cube active! Press mapped keys or click turns below to drive the cube."
+        : "Turn the cube directly from your keyboard (e.g. I, K, J, F, U, R) without physical Bluetooth hardware, or load a sample replay solve.";
+    }
 
     if (bluetoothModalStatusBadge) {
       const badgeClass = st.status === "connected" ? "badge-success" : (st.status === "connecting" ? "badge-warning" : "badge-disconnected");
@@ -453,9 +475,14 @@ export function createSmartCubeController({
     if (!bluetoothModal) return;
     void preloadSmartCube();
     if (btErrorAlert) btErrorAlert.hidden = true;
-    if (opts?.tab === "timers" || (!smartCube.getStatus().connected && ganTimer.isConnected() && opts?.tab !== "cubes")) {
+    const st = smartCube.getStatus();
+    if (opts?.tab === "timers" || opts?.tab === "keyboard" || opts?.tab === "cubes") {
+      setDevicesTab(opts.tab);
+    } else if (!st.connected && ganTimer.isConnected()) {
       setDevicesTab("timers");
-    } else if (opts?.tab === "cubes" || !opts?.tab) {
+    } else if (st.connected && st.isVirtual) {
+      setDevicesTab("keyboard");
+    } else {
       setDevicesTab("cubes");
     }
     if (btCustomMacInput) {
@@ -574,6 +601,11 @@ export function createSmartCubeController({
   bluetoothBtn?.addEventListener("click", () => openBluetoothModal());
   devicesTabCubes?.addEventListener("click", () => setDevicesTab("cubes"));
   devicesTabTimers?.addEventListener("click", () => setDevicesTab("timers"));
+  devicesTabKeyboard?.addEventListener("click", () => setDevicesTab("keyboard"));
+  btOpenShortcutsBtn?.addEventListener("click", () => {
+    closeBluetoothModal();
+    onOpenShortcuts?.();
+  });
   bluetoothModalCloseBtn?.addEventListener("click", closeBluetoothModal);
   btModalDismissBtn?.addEventListener("click", closeBluetoothModal);
   btResetBtn?.addEventListener("click", handleBluetoothReset);
@@ -622,6 +654,7 @@ export function createSmartCubeController({
     if (btErrorAlert) btErrorAlert.hidden = true;
     try {
       await smartCube.connectVirtual(document.body, appStore.state.currentPuzzle);
+      setDevicesTab("keyboard");
     } catch (err) {
       showBluetoothError("Failed to activate virtual smart cube: " + err.message);
     }

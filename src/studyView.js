@@ -20,6 +20,8 @@ import { parseScrambleInput, cleanAlg } from './algParser.js';
 import { SIM_SPEED_OPTIONS, sanitizeF2lMode } from './state/appStore.js';
 import {
   ESSENTIAL_F2L_IDS,
+  ESSENTIAL_F2L_MIRROR_MAP,
+  getEssentialMirrorPartnerId,
   F2L_INTERMEDIATE_GROUPS,
   F2L_ADVANCED_GROUPS,
   f2lIntermediateCases,
@@ -112,6 +114,7 @@ export class StudyView {
     this.currentView = "grid"; // "grid" | "hybrid" | "detail" | "twosided" | "guide"
     this.activeGroupFilters = new Set(); // empty = All groups
     this.onlySelectedFilter = false;
+    this.flippedEssentialIds = new Set();
     this.selectedCaseId = null;
     this.previewAlgId = null;
     this.activeDisplay3d = null;
@@ -169,8 +172,7 @@ export class StudyView {
       ? resolvedAlgs
       : (fallbackAlg ? [{ id: `${c.id}-default`, alg: fallbackAlg, note: '' }] : []);
 
-    const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
-    const needsZ2 = whiteBottom && ["lbl", "cll", "ortega", "eg1", "eg2", "f2l", "oll", "pll", "coll", "cmll", "wv", "parity"].includes(this.currentTrackId);
+    const needsZ2 = ["lbl", "cll", "ortega", "eg1", "eg2", "f2l", "oll", "pll", "coll", "cmll", "wv", "parity"].includes(this.currentTrackId);
     const displayId = formatCaseDisplayId(c.id);
     const distinctName = getDistinctCaseName(c);
     const baseTitle = `${displayId}${distinctName ? ` — ${distinctName}` : ''}`;
@@ -416,6 +418,7 @@ export class StudyView {
     this.currentPuzzle = puzzleId;
     this.currentTrackId = trackId;
     this.activeGroupFilters.clear();
+    this.flippedEssentialIds.clear();
     this.previewAlgId = null;
     const track = getTrack(puzzleId, trackId);
     if (track && track.cases.length > 0) {
@@ -438,7 +441,8 @@ export class StudyView {
       if (track) {
         const nav = this.getNavigableCases(track);
         const baseIds = new Set(this.getTrackBaseCases(track).map(c => c.id));
-        const hasValidSelected = this.selectedCaseId && baseIds.has(this.selectedCaseId);
+        const mirrorOk = this.getActiveF2lStudyMode() === 'essential' && Boolean(this.selectedCaseId && baseIds.has(getEssentialMirrorPartnerId(this.selectedCaseId)));
+        const hasValidSelected = Boolean(this.selectedCaseId && (baseIds.has(this.selectedCaseId) || mirrorOk));
         if (!keepSelected && nav.length > 0 && (!hasValidSelected || !nav.some(c => c.id === this.selectedCaseId))) {
           this.selectedCaseId = nav[0].id;
           this.previewAlgId = null;
@@ -581,17 +585,20 @@ export class StudyView {
     const showGroupHeaders = sections.length > 1;
     const f2lMode = this.getActiveF2lStudyMode();
     const use3dF2lCards = this.isF2lStudyTrack();
-    const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
+    const whiteBottom = true;
 
     const f2lBannerHtml = f2lMode === "essential"
-      ? `<div class="study-f2l-tier-note" role="note"><strong>Essential 21 F2L:</strong> Master these 21 foundational shapes first &mdash; the other 20 cases in <strong>Basic (41)</strong> are left/right mirrors and intuitive variations.</div>`
+      ? `<div class="study-f2l-tier-note" role="note"><strong>Essential 21 F2L:</strong> Master these 21 foundational shapes first &mdash; click <strong>⇄ Flip</strong> on any card to view its mirrored left/right case from <strong>Basic (41)</strong>.</div>`
       : f2lMode === "intermediate"
         ? `<div class="study-f2l-tier-note" role="note"><strong>Intermediate 16 F2L:</strong> Rotationless Back-Right (BR), Back-Left (BL), Left-Front (FL), and Keyhole inserts &mdash; drag any 3D cube or click ↻ to reset its slot angle.</div>`
         : f2lMode === "advanced"
           ? `<div class="study-f2l-tier-note" role="note"><strong>Advanced 14 F2L:</strong> Multi-slot techniques where a piece sits in another slot (BR/FL/BL &rarr; target slot), plus Sledge/Wide inserts to force a Yellow Cross before OLL.</div>`
           : '';
 
-    const renderCard = (c) => {
+    const renderCard = (baseCase) => {
+      const mirrorId = f2lMode === "essential" ? (ESSENTIAL_F2L_MIRROR_MAP[baseCase.id] || null) : null;
+      const isFlipped = Boolean(mirrorId && this.flippedEssentialIds.has(baseCase.id));
+      const c = (isFlipped ? track.caseById?.get(mirrorId) : null) || baseCase;
       const { algs, preferredAlg: activeAlg } = this.getPreferredAlgObj(track, c);
       const displayId = formatCaseDisplayId(c.id);
       const distinctName = getDistinctCaseName(c);
@@ -613,6 +620,7 @@ export class StudyView {
           <div class="study-card-head">
             <span class="study-card-id">${displayId}${oppBadge}</span>
             <div class="study-card-head-meta">
+              ${isFlipped ? '<span class="study-card-mirror-pill" data-tooltip="Viewing mirrored left/right counterpart">Mirrored</span>' : ''}
               ${activeAlg?.ohBadge ? `<span class="oh-alg-badge">${escapeHtml(activeAlg.ohBadge)}</span>` : ''}
               ${algs.length > 1 ? `<span class="study-card-algs-pill" data-tooltip="${algs.length} algorithm variants available">${algs.length} algs</span>` : ''}
               ${!activeAlg?.ohBadge && !showGroupHeaders ? `<span class="study-card-group">${escapeHtml(c.group)}</span>` : ''}
@@ -627,6 +635,7 @@ export class StudyView {
 
           <div class="study-card-actions">
             ${use3dF2lCards ? `<button type="button" class="btn btn-xs btn-icon-only btn-twosided-reset-3d" data-twosided-case-id="${escapeHtml(c.id)}" data-tooltip="Reset 3D angle" aria-label="Reset 3D angle for ${escapeHtml(displayId)}">${ICON_RESET_ANGLE}</button>` : ''}
+            ${mirrorId ? `<button type="button" class="btn btn-xs btn-f2l-flip ${isFlipped ? 'active' : ''}" data-essential-base-id="${escapeHtml(baseCase.id)}" data-tooltip="Flip between ${escapeHtml(formatCaseDisplayId(baseCase.id))} and its mirror (${escapeHtml(formatCaseDisplayId(mirrorId))})" aria-label="Flip between ${escapeHtml(baseCase.id)} and ${escapeHtml(mirrorId)}" aria-pressed="${isFlipped}">⇄ Flip</button>` : ''}
             <button type="button" class="btn btn-xs btn-study-view" data-case-id="${c.id}" data-tooltip="Open Grid + 3D to compare all algorithms, starting angles &amp; labels" aria-label="View algorithms for ${escapeHtml(displayId)}">${ICON_DIAGRAM}<span>Algs</span></button>
             <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${c.id}" data-tooltip="Simulate in an interactive 3D popup (switch across all ${algs.length} alg variant${algs.length === 1 ? '' : 's'})" aria-label="Simulate ${escapeHtml(displayId)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
           </div>
@@ -659,7 +668,9 @@ export class StudyView {
     const isSingleGroup = sections.length === 1;
     const showGroupHeaders = sections.length > 1;
     const navCases = this.getNavigableCases(track);
-    if (navCases.length > 0 && !navCases.some(nc => nc.id === this.selectedCaseId)) {
+    const navIds = new Set(navCases.map(nc => nc.id));
+    const isMirrorInNav = this.getActiveF2lStudyMode() === 'essential' && Boolean(this.selectedCaseId && navIds.has(getEssentialMirrorPartnerId(this.selectedCaseId)));
+    if (navCases.length > 0 && !navIds.has(this.selectedCaseId) && !isMirrorInNav) {
       this.selectedCaseId = navCases[0].id;
       this.previewAlgId = null;
     }
@@ -715,6 +726,9 @@ export class StudyView {
       || track.cases[0];
     if (!c) return `<p class="empty-state">No case selected</p>`;
     const isF2lTrack = this.isF2lStudyTrack();
+    const f2lMode = this.getActiveF2lStudyMode();
+    const mirrorPartnerId = f2lMode === "essential" ? getEssentialMirrorPartnerId(c.id) : null;
+    const isFlippedMirror = Boolean(mirrorPartnerId && !ESSENTIAL_F2L_IDS.has(c.id));
     const isPracticeableCase = Boolean(track.caseById.has(c.id));
 
     const navIdx = navCases.findIndex(nc => nc.id === c.id);
@@ -738,11 +752,13 @@ export class StudyView {
           <div class="study-detail-header">
             <div class="study-detail-title-group">
               <span class="study-detail-id">${displayId}</span>
+              ${isFlippedMirror ? '<span class="study-card-mirror-pill">Mirrored</span>' : ''}
               ${c.opposite ? `<span class="study-detail-opp" data-tooltip="Opposite / inverse CLL case: ${escapeHtml(c.opposite)}">(Opp ${escapeHtml(c.opposite)})</span>` : ''}
               ${distinctName ? `<h3 class="study-detail-name">${distinctName}</h3>` : ''}
               <span class="study-detail-group">${c.group}</span>
             </div>
             <div class="study-detail-nav-btns">
+              ${mirrorPartnerId ? `<button type="button" id="studyFlipMirrorBtn" class="btn btn-xs btn-f2l-flip ${isFlippedMirror ? 'active' : ''}" data-mirror-partner-id="${escapeHtml(mirrorPartnerId)}" data-tooltip="Flip to mirrored counterpart (${escapeHtml(formatCaseDisplayId(mirrorPartnerId))})" aria-pressed="${isFlippedMirror}">⇄ Flip Mirror</button>` : ''}
               <button type="button" id="studyPrevCaseBtn" class="btn btn-xs">&larr; Prev</button>
               ${navCountText ? `<span class="study-nav-count" data-tooltip="Cycling through selected/filtered cases">${navCountText}</span>` : ''}
               <button type="button" id="studyNextCaseBtn" class="btn btn-xs">Next &rarr;</button>
@@ -1160,7 +1176,7 @@ export class StudyView {
     const is222 = this.currentPuzzle === "222";
     const isPll = (this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && this.currentTrackId === "pll";
     const isOll = (this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && this.currentTrackId === "oll";
-    const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
+    const whiteBottom = true;
 
     const getCardSetup = (c) => {
       const rawSetup = c?.setup || c?.scramble || "";
@@ -1449,6 +1465,32 @@ export class StudyView {
         this.render();
       });
     });
+
+    // Essential F2L card flip buttons (base <-> left/right mirror)
+    this.container.querySelectorAll('.btn-f2l-flip[data-essential-base-id]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const baseId = btn.dataset.essentialBaseId;
+        if (!baseId) return;
+        if (this.flippedEssentialIds.has(baseId)) {
+          this.flippedEssentialIds.delete(baseId);
+        } else {
+          this.flippedEssentialIds.add(baseId);
+        }
+        this.render();
+      });
+    });
+
+    const flipDetailBtn = this.container.querySelector('#studyFlipMirrorBtn');
+    if (flipDetailBtn) {
+      flipDetailBtn.addEventListener('click', () => {
+        const partnerId = flipDetailBtn.dataset.mirrorPartnerId;
+        if (!partnerId) return;
+        this.selectedCaseId = partnerId;
+        this.previewAlgId = null;
+        this.render();
+      });
+    }
 
     // Card click in hybrid view (stays in hybrid, updates right detail pane)
     this.container.querySelectorAll('.study-hybrid-card').forEach(card => {
@@ -1937,8 +1979,7 @@ export class StudyView {
     const wrapEl = this.container?.querySelector?.('#studyDetail3dWrap');
     if (wrapEl) {
       const normEvent = puzzle === "333oh" ? "333" : puzzle;
-      const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
-      const needsZ2 = whiteBottom && ["lbl", "cll", "ortega", "eg1", "eg2", "f2l", "oll", "pll", "coll", "cmll", "wv", "parity"].includes(trackId);
+      const needsZ2 = ["lbl", "cll", "ortega", "eg1", "eg2", "f2l", "oll", "pll", "coll", "cmll", "wv", "parity"].includes(trackId);
       const rawSetup = (needsZ2 && setupWithAuf && !/^z2\b/i.test(setupWithAuf) ? `z2 ${setupWithAuf}` : setupWithAuf).trim();
       const parsedSetup = rawSetup ? parseScrambleInput(rawSetup) : { ok: false };
       const setupMoves = parsedSetup.ok ? parsedSetup.moves : (cleanAlg(rawSetup) ? cleanAlg(rawSetup).split(/\s+/).filter(Boolean) : []);

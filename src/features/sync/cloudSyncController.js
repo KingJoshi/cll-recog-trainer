@@ -130,6 +130,20 @@ export function createCloudSyncController({
       else headerLabel.textContent = "Synced";
     }
 
+    if (headerBtn) {
+      let statusDesc = "Sign in with Google to sync settings & solve logs privately in Google Drive";
+      if (state.signedIn) {
+        if (state.status === "syncing" || busy) statusDesc = "Cloud Sync: Syncing…";
+        else if (state.status === "needs_reauth") statusDesc = "Cloud Sync: Reconnect needed";
+        else if (state.status === "offline") statusDesc = "Cloud Sync: Offline";
+        else if (state.status === "error") statusDesc = "Cloud Sync: Sync Error";
+        else if (state.pendingChanges) statusDesc = "Cloud Sync: Changes pending upload";
+        else statusDesc = `Cloud Sync: Synced${state.account?.email ? ` (${state.account.email})` : ""}`;
+      }
+      headerBtn.setAttribute("data-tooltip", statusDesc);
+      headerBtn.setAttribute("aria-label", statusDesc);
+    }
+
     if (settingsStatusEl) {
       if (!state.signedIn) {
         settingsStatusEl.textContent = "Not signed in";

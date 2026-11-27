@@ -272,7 +272,8 @@ smartCubeCtrl = createSmartCubeController({
   getGanTimerCtrl: () => ganTimerCtrl,
   getDisconnectAlertView: () => disconnectAlertView,
   getNavCtrl: () => navCtrl,
-  getAlgDrillView: () => algDrillView
+  getAlgDrillView: () => algDrillView,
+  onOpenShortcuts: () => shortcutsModal?.open?.()
 });
 
 ganTimerCtrl = createGanTimerController({

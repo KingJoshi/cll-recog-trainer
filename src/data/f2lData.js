@@ -13,6 +13,11 @@ export const f2lCases = [
         "alg": "U R U' R'",
         "note": "Standard 3-move insert",
         "isDefault": true
+      },
+      {
+        "id": "f2l-01-sledge",
+        "alg": "R' F R F'",
+        "note": "Sledgehammer insert (orients U edges)"
       }
     ],
     "setup": "R U R' U'"
@@ -33,6 +38,11 @@ export const f2lCases = [
         "id": "f2l-02-2",
         "alg": "U' F' U F",
         "note": "Front-face variant"
+      },
+      {
+        "id": "f2l-02-hedge",
+        "alg": "F R' F' R",
+        "note": "Hedgeslammer insert (rotationless, orients U edges)"
       }
     ],
     "setup": "R' U' R U y"
@@ -83,6 +93,11 @@ export const f2lCases = [
         "alg": "U' R U R' U2 R U' R'",
         "note": "Standard",
         "isDefault": true
+      },
+      {
+        "id": "f2l-05-sledge",
+        "alg": "U' R U R' U R' F R F'",
+        "note": "Sledgehammer finish (edge control)"
       }
     ],
     "setup": "R U R' U2' R U' R' U"
@@ -128,6 +143,11 @@ export const f2lCases = [
         "alg": "d R' U2 R U' R' U' R",
         "note": "Standard with rotation",
         "isDefault": true
+      },
+      {
+        "id": "f2l-08-sledge",
+        "alg": "U' R U' R' U R' F R F'",
+        "note": "Rotationless Sledgehammer finish"
       }
     ],
     "setup": "R' U R U R' U2' R d'"
@@ -248,6 +268,11 @@ export const f2lCases = [
         "alg": "R U' R' U2 R U' R'",
         "note": "Standard",
         "isDefault": true
+      },
+      {
+        "id": "f2l-16-sledge",
+        "alg": "R U' R' U R' F R F'",
+        "note": "Sledgehammer finish (edge control)"
       }
     ],
     "setup": "R U R' U2' R U R'"
@@ -383,6 +408,11 @@ export const f2lCases = [
         "alg": "R U' R' d R' U R",
         "note": "Standard",
         "isDefault": true
+      },
+      {
+        "id": "f2l-25-sledge",
+        "alg": "U' R' F R F' R U' R'",
+        "note": "Rotationless Sledgehammer extract & insert"
       }
     ],
     "setup": "R' U' R d' R U R'"
@@ -458,6 +488,11 @@ export const f2lCases = [
         "alg": "R U R' U R U' R'",
         "note": "Standard",
         "isDefault": true
+      },
+      {
+        "id": "f2l-30-sledge",
+        "alg": "U' R' F R F' U2 R U' R'",
+        "note": "Sledgehammer edge-control variant"
       }
     ],
     "setup": "R U R' U' R U' R'"
@@ -518,6 +553,11 @@ export const f2lCases = [
         "alg": "U R U' R' d R' U R",
         "note": "Standard",
         "isDefault": true
+      },
+      {
+        "id": "f2l-34-sledge",
+        "alg": "R' F R F' R U' R'",
+        "note": "Rotationless Sledgehammer insert"
       }
     ],
     "setup": "R' U' R d' R U R' U'"
@@ -548,6 +588,11 @@ export const f2lCases = [
         "alg": "R U' R' d R' U R",
         "note": "Standard",
         "isDefault": true
+      },
+      {
+        "id": "f2l-36-hedge",
+        "alg": "R U' R' U2 F R' F' R",
+        "note": "Rotationless Hedgeslammer finish"
       }
     ],
     "setup": "R' U' R d' R U R'"
