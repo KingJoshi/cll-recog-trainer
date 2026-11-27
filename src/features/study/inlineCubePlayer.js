@@ -219,13 +219,18 @@ export function createInlineCubeManager({ maxLive = 10 } = {}) {
         if (el.player) {
           el.player.hintFacelets = showRefl ? 'floating' : 'none';
           el.player.tempoScale = spd;
+          if (entry.stickeringMask) {
+            try { el.player.experimentalStickeringMaskOrbits = entry.stickeringMask; } catch {}
+          }
         }
 
         entry.wrapEl.innerHTML = '';
         entry.wrapEl.appendChild(el);
         entry.displayEl = el;
         touchLru(entry.id);
-        applyColorsTo3DCube(el);
+        if (!entry.stickeringMask) {
+          applyColorsTo3DCube(el);
+        }
 
         if (el.player?.experimentalModel) {
           el.player.experimentalModel.indexer.addFreshListener(idx => {
@@ -390,6 +395,7 @@ export function createInlineCubeManager({ maxLive = 10 } = {}) {
       const puzzle = wrapEl.dataset.cubePuzzle || '222';
       const setup = wrapEl.dataset.cubeSetup || '';
       const moves = wrapEl.dataset.cubeMoves || '';
+      const stickeringMask = wrapEl.dataset.cubeMask || '';
       const cardEl = wrapEl.closest('.tut-3d-card');
       const { setupMoves, algMoves, combinedMoves } = parseCombinedMoves(setup, moves);
 
@@ -404,6 +410,7 @@ export function createInlineCubeManager({ maxLive = 10 } = {}) {
         setupCount: setupMoves.length,
         algMoves,
         combinedMoves,
+        stickeringMask,
         moveCount: setupMoves.length,
         playing: false,
         pendingSeek: false,
@@ -456,6 +463,28 @@ export function createInlineCubeManager({ maxLive = 10 } = {}) {
   };
 }
 
+const HIGHLIGHT_DOT_COLORS = {
+  W: '#f8fafc',
+  Y: '#facc15',
+  G: '#22c55e',
+  B: '#3b82f6',
+  R: '#ef4444',
+  O: '#f97316'
+};
+
+function renderHighlightPiecePill(highlightPiece) {
+  if (!highlightPiece || !Array.isArray(highlightPiece.colors)) return '';
+  const dots = highlightPiece.colors
+    .map(c => `<span class="tut-piece-dot" style="background:${HIGHLIGHT_DOT_COLORS[c] || '#94a3b8'}" aria-hidden="true"></span>`)
+    .join('');
+  return `
+    <div class="tut-highlight-piece-pill" aria-label="Target corner: ${escapeHtml(highlightPiece.label || '')}">
+      <span class="tut-piece-dots">${dots}</span>
+      <span>Focus: ${escapeHtml(highlightPiece.label || '')}</span>
+    </div>
+  `;
+}
+
 /**
  * Render stage-grouped tutorial step widgets with inline 3D cubes + transport controls.
  */
@@ -484,6 +513,7 @@ export function renderTutorialStepSectionsHtml(steps = [], puzzle = '222') {
               ${grp.items.map(({ step, idx }) => {
                 const moveCount = step.moves ? step.moves.split(/\s+/).filter(Boolean).length : 0;
                 const algTotal = moveCount;
+                const maskAttr = step.stickeringMask ? ` data-cube-mask="${escapeHtml(step.stickeringMask)}"` : '';
                 return `
                   <article class="guide-card tut-step-card tut-3d-card" data-tut-step-id="${escapeHtml(step.id)}">
                     <div class="tut-step-head">
@@ -494,7 +524,9 @@ export function renderTutorialStepSectionsHtml(steps = [], puzzle = '222') {
                       <span class="badge ${moveCount === 0 ? 'badge-solved' : 'badge-case'}">${escapeHtml(step.algName || (moveCount ? `${moveCount}m` : 'Done'))}</span>
                     </div>
 
-                    <div class="tut-3d-wrap tut-step-3d-wrap" data-cube-id="${escapeHtml(step.id)}" data-cube-puzzle="${escapeHtml(puzzle)}" data-cube-setup="${escapeHtml(step.setupBefore || '')}" data-cube-moves="${escapeHtml(step.moves || '')}">
+                    ${renderHighlightPiecePill(step.highlightPiece)}
+
+                    <div class="tut-3d-wrap tut-step-3d-wrap" data-cube-id="${escapeHtml(step.id)}" data-cube-puzzle="${escapeHtml(puzzle)}" data-cube-setup="${escapeHtml(step.setupBefore || '')}" data-cube-moves="${escapeHtml(step.moves || '')}"${maskAttr}>
                       <span class="study-visual-loading">3D Cube</span>
                     </div>
 

@@ -168,6 +168,18 @@ test('solveTwoByTwoBeginner dynamically solves any 2x2 scramble from every White
         assert.ok(typeof st.title === 'string' && st.title.length > 0);
         assert.ok(!/ortega|1st\s*face|\bsexy\b/i.test(`${st.title} ${st.description || ''}`), `Forbidden text in 2x2 step: ${st.title}`);
       }
+      const whiteSteps = plan.steps.filter(st => st.stage === 'white-layer');
+      assert.strictEqual(whiteSteps.length, 4, 'White layer must have 4 step widgets');
+      whiteSteps.forEach((st, idx) => {
+        assert.match(st.stickeringMask || '', /^CORNERS:[DI-]{8}$/, 'White step must carry valid CORNERS stickeringMask');
+        const body = st.stickeringMask.slice('CORNERS:'.length);
+        assert.strictEqual((body.match(/-/g) || []).length, 1, 'Exactly one target piece must be highlighted');
+        assert.strictEqual((body.match(/D/g) || []).length, idx, `Step ${idx + 1} must dim ${idx} previously placed corners`);
+        assert.ok(st.highlightPiece && Array.isArray(st.highlightPiece.colors) && st.highlightPiece.colors.length === 3);
+      });
+      for (const st of plan.steps.filter(s => s.stage !== 'white-layer')) {
+        assert.strictEqual(st.stickeringMask, undefined, 'OLL/PLL steps must render full unmasked colors');
+      }
       assert.ok(goals.some(g => cur.isIdentical(g)), `Final state after 2x2 steps not solved for "${scr}" (${anchor.id})`);
     }
   }
@@ -200,6 +212,11 @@ test('Tutorial views render dynamic 3D step widgets, scramble controls, and 2x2 
   const html222Wgr = renderTwoByTwoTutorialHtml(s222);
   assert.ok(html222Wgr.includes('tut-3d-wrap'), '2x2 tutorial must render 3D widgets for steps');
   assert.ok(html222Wgr.includes('data-tut-anchor="wgr"'));
+  assert.ok(html222Wgr.includes('data-cube-id="tut222-scramble-preview"'), 'Must render 2x2 scramble preview 3D cube');
+  assert.ok(html222Wgr.includes('White Top · Green Front'));
+  assert.ok(html222Wgr.includes('data-cube-id="tut222-scramble-preview" data-cube-puzzle="222" data-cube-setup=""'), 'Scramble preview must animate scramble from solved White Top · Green Front');
+  assert.ok(html222Wgr.includes('data-cube-mask="CORNERS:'), 'White-layer step cards must expose data-cube-mask');
+  assert.ok(html222Wgr.includes('tut-highlight-piece-pill'), 'White-layer step cards must show target piece badge');
   assert.ok(!/Ortega|1st Face|\bsexy\b/i.test(html222Wgr));
 
   s222.anchorId = 'wbo';

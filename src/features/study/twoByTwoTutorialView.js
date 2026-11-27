@@ -16,10 +16,17 @@ import {
   renderTutorialStepSectionsHtml,
   bindTutorialStepSimButtons
 } from './inlineCubePlayer.js';
+import {
+  ICON_PLAY,
+  ICON_SKIP_START,
+  ICON_STEP_BACK,
+  ICON_STEP_FORWARD,
+  ICON_RESET_ANGLE
+} from '../../ui/transportIcons.js';
 
 export const DEFAULT_222_TUTORIAL_SCRAMBLE = "R U' F2 U2 R' F U R2";
 
-const cubeManager222 = createInlineCubeManager({ maxLive: 10 });
+const cubeManager222 = createInlineCubeManager({ maxLive: 12 });
 
 export function createTwoByTwoTutorialState() {
   return {
@@ -55,6 +62,7 @@ export async function ensureTwoByTwoTutorialPlan(state) {
 export function renderTwoByTwoTutorialHtml(state) {
   const key = `${state.scramble}|${state.anchorId}`;
   const hasReadyPlan = Boolean(state.plan && state.planKey === key);
+  const scrMoveCount = String(state.scramble || '').trim().split(/\s+/).filter(Boolean).length;
 
   return `
     <div class="flb-wrap">
@@ -84,31 +92,53 @@ export function renderTwoByTwoTutorialHtml(state) {
       </section>
 
       <section class="guide-card guide-card-full tut-controls-card">
-        <div class="tut-scramble-row">
-          <label for="tut222ScrambleInput" class="tut-control-label">2x2 Scramble:</label>
-          <input type="text" id="tut222ScrambleInput" class="sim-input tut-scramble-input" value="${escapeHtml(state.scramble)}" spellcheck="false" autocomplete="off" aria-label="2x2 scramble sequence">
-          <button type="button" class="btn btn-small btn-primary" id="tut222SolveBtn">Solve Steps</button>
-          <button type="button" class="btn btn-small" id="tut222NewScrambleBtn">&#x1F3B2; New Scramble</button>
-        </div>
+        <div class="tut-scramble-card-layout">
+          <div class="tut-scramble-3d-box tut-3d-card">
+            <div class="tut-scramble-3d-head">
+              <strong>Scramble Preview</strong>
+              <span class="badge">White Top · Green Front</span>
+            </div>
+            <div class="tut-3d-wrap tut-scramble-3d-wrap" data-cube-id="tut222-scramble-preview" data-cube-puzzle="222" data-cube-setup="" data-cube-moves="${escapeHtml(state.scramble)}">
+              <span class="study-visual-loading">3D Cube</span>
+            </div>
+            <div class="tut-3d-controls" role="group" aria-label="2x2 scramble preview controls">
+              <button type="button" class="btn btn-xs btn-icon-only tut-3d-reset-btn" data-cube-id="tut222-scramble-preview" title="Reset 3D angle" aria-label="Reset 3D angle">${ICON_RESET_ANGLE}</button>
+              <button type="button" class="btn btn-xs btn-icon-only tut-3d-start-btn" data-cube-id="tut222-scramble-preview" title="Jump to solved state" aria-label="Jump to solved state" disabled>${ICON_SKIP_START}</button>
+              <button type="button" class="btn btn-xs btn-icon-only tut-3d-prev-btn" data-cube-id="tut222-scramble-preview" title="Step back 1 scramble move" aria-label="Step back 1 scramble move" disabled>${ICON_STEP_BACK}</button>
+              <button type="button" class="btn btn-xs btn-icon-only btn-primary tut-3d-play-btn" data-cube-id="tut222-scramble-preview" title="Play / Pause scramble" aria-label="Play / Pause scramble" ${scrMoveCount === 0 ? 'disabled' : ''}>${ICON_PLAY}</button>
+              <button type="button" class="btn btn-xs btn-icon-only tut-3d-next-btn" data-cube-id="tut222-scramble-preview" title="Step forward 1 scramble move" aria-label="Step forward 1 scramble move" ${scrMoveCount === 0 ? 'disabled' : ''}>${ICON_STEP_FORWARD}</button>
+              <span class="tut-3d-status">${scrMoveCount > 0 ? `0/${scrMoveCount}` : 'Solved'}</span>
+            </div>
+          </div>
 
-        <div class="tut-anchor-row" role="group" aria-label="Choose starting White bottom-left anchor corner">
-          <span class="tut-control-label">Bottom-Left White Anchor:</span>
-          <div class="tut-anchor-pills">
-            ${TWO_BY_TWO_ANCHORS.map(a => `
-              <button type="button" class="tut-anchor-btn ${state.anchorId === a.id ? 'active' : ''}" data-tut-anchor="${a.id}" aria-pressed="${state.anchorId === a.id}">
-                ${escapeHtml(a.label)}
-              </button>
-            `).join('')}
+          <div class="tut-scramble-controls-col">
+            <div class="tut-scramble-row">
+              <label for="tut222ScrambleInput" class="tut-control-label">2x2 Scramble:</label>
+              <input type="text" id="tut222ScrambleInput" class="sim-input tut-scramble-input" value="${escapeHtml(state.scramble)}" spellcheck="false" autocomplete="off" aria-label="2x2 scramble sequence">
+              <button type="button" class="btn btn-small btn-primary" id="tut222SolveBtn">Solve Steps</button>
+              <button type="button" class="btn btn-small" id="tut222NewScrambleBtn">&#x1F3B2; New Scramble</button>
+            </div>
+
+            <div class="tut-anchor-row" role="group" aria-label="Choose starting White bottom-left anchor corner">
+              <span class="tut-control-label">Bottom-Left White Anchor:</span>
+              <div class="tut-anchor-pills">
+                ${TWO_BY_TWO_ANCHORS.map(a => `
+                  <button type="button" class="tut-anchor-btn ${state.anchorId === a.id ? 'active' : ''}" data-tut-anchor="${a.id}" aria-pressed="${state.anchorId === a.id}">
+                    ${escapeHtml(a.label)}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+
+            ${hasReadyPlan ? `
+              <div class="tut-plan-summary">
+                <span class="badge badge-solved">${state.plan.steps.length} steps</span>
+                <span class="badge">${state.plan.totalMoves} total moves</span>
+                <span class="hint">Anchor: <strong>${escapeHtml(state.plan.anchor.label)}</strong> in Bottom-Front-Left &rarr; clockwise around White.</span>
+              </div>
+            ` : ''}
           </div>
         </div>
-
-        ${hasReadyPlan ? `
-          <div class="tut-plan-summary">
-            <span class="badge badge-solved">${state.plan.steps.length} steps</span>
-            <span class="badge">${state.plan.totalMoves} total moves</span>
-            <span class="hint">Anchor: <strong>${escapeHtml(state.plan.anchor.label)}</strong> in Bottom-Front-Left &rarr; clockwise around White.</span>
-          </div>
-        ` : ''}
       </section>
 
       ${state.error ? `<div class="guide-card guide-card-full tut-error-card">${escapeHtml(state.error)}</div>` : ''}
