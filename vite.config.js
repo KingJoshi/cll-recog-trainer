@@ -58,7 +58,7 @@ export default defineConfig({
       manifest: {
         name: 'Cubing.cc',
         short_name: 'Cubing.cc',
-        description: 'Multi-puzzle 2x2-5x5 speedcube recognition, algorithm study, smart cube timer & 3D replay trainer',
+        description: 'Ad-free, offline-ready speedcube timer, algorithm learner, smart cube analyzer & 3D drill trainer (2x2–7x7, OH, BLD & WCA events)',
         theme_color: '#007bff',
         background_color: '#ffffff',
         display: 'standalone',
@@ -79,20 +79,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        navigateFallbackDenylist: [/^\/privacy/, /^\/terms/],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/unpkg\.com\//,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'npm-modules',
-              expiration: {
-                maxEntries: 30,
-                maxAgeSeconds: 60 * 60 * 24 * 30
-              }
-            }
-          }
-        ]
+        navigateFallbackDenylist: [/^\/privacy/, /^\/terms/]
       }
     })
   ]

@@ -629,14 +629,25 @@
     color: var(--muted);
   }
 
-  .app-legal-footer a {
+  .app-legal-footer a,
+  .app-legal-footer .footer-link-btn {
     color: var(--muted);
     text-decoration: none;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
   }
 
-  .app-legal-footer a:hover {
+  .app-legal-footer a:hover,
+  .app-legal-footer .footer-link-btn:hover {
     color: var(--primary);
     text-decoration: underline;
+  }
+
+  .app-legal-footer .footer-copy {
+    color: var(--muted);
   }
 
   .pwa-install-pill {

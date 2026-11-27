@@ -17,7 +17,15 @@ import { PLL_TWO_SIDED_GUIDE, OLL_TWO_SIDED_GUIDE } from './data/twoSidedRecogDa
 import { escapeHtml } from './services/htmlUtils.js';
 import { getEffectiveAlgsForCase } from './cube/algMirror.js';
 import { parseScrambleInput, cleanAlg } from './algParser.js';
-import { SIM_SPEED_OPTIONS } from './state/appStore.js';
+import { SIM_SPEED_OPTIONS, sanitizeF2lMode } from './state/appStore.js';
+import {
+  ESSENTIAL_F2L_IDS,
+  F2L_INTERMEDIATE_GROUPS,
+  F2L_ADVANCED_GROUPS,
+  f2lIntermediateCases,
+  f2lAdvancedCases,
+  f2lExtendedById
+} from './data/f2lExtendedData.js';
 import {
   ICON_SKIP_START,
   ICON_STEP_BACK,
@@ -94,6 +102,8 @@ export class StudyView {
     this.onSetOllMode = options.onSetOllMode || null;
     this.getPllMode = options.getPllMode || (() => "full");
     this.onSetPllMode = options.onSetPllMode || null;
+    this.getF2lMode = options.getF2lMode || (() => "basic");
+    this.onSetF2lMode = options.onSetF2lMode || null;
     this.getSimSpeed = options.getSimSpeed || (() => 1);
     this.onSetSimSpeed = options.onSetSimSpeed || null;
 
@@ -310,6 +320,20 @@ export class StudyView {
     return puzzleId === "222" && track.id !== "face" && track.id !== "layer" && (track.cases || []).length > 0;
   }
 
+  isF2lStudyTrack() {
+    return (this.currentPuzzle === "333" || this.currentPuzzle === "333oh") && this.currentTrackId === "f2l";
+  }
+
+  getActiveF2lStudyMode() {
+    if (!this.isF2lStudyTrack()) return null;
+    return sanitizeF2lMode(this.getF2lMode?.());
+  }
+
+  getCaseById(track, caseId) {
+    if (!caseId) return null;
+    return track?.caseById?.get(caseId) || (this.isF2lStudyTrack() ? f2lExtendedById.get(caseId) : null) || null;
+  }
+
   getActiveLlStudyMode() {
     if (this.currentPuzzle !== "333" && this.currentPuzzle !== "333oh") return null;
     if (this.currentTrackId === "oll") {
@@ -322,6 +346,9 @@ export class StudyView {
   }
 
   getTrackOrderedGroups(track) {
+    const f2lMode = this.getActiveF2lStudyMode();
+    if (f2lMode === "intermediate") return F2L_INTERMEDIATE_GROUPS;
+    if (f2lMode === "advanced") return F2L_ADVANCED_GROUPS;
     const llStudy = this.getActiveLlStudyMode();
     if (llStudy?.kind === "oll" && llStudy.mode === "2look") {
       return TWO_LOOK_OLL_GROUP_ORDER;
@@ -331,6 +358,16 @@ export class StudyView {
 
   getTrackBaseCases(track) {
     const all = track?.cases || [];
+    const f2lMode = this.getActiveF2lStudyMode();
+    if (f2lMode === "essential") {
+      return all.filter(c => ESSENTIAL_F2L_IDS.has(c.id));
+    }
+    if (f2lMode === "intermediate") {
+      return f2lIntermediateCases;
+    }
+    if (f2lMode === "advanced") {
+      return f2lAdvancedCases;
+    }
     const llStudy = this.getActiveLlStudyMode();
     if (llStudy?.kind === "oll" && llStudy.mode === "2look") {
       return all
@@ -427,6 +464,7 @@ export class StudyView {
     const ohHand = this.getOhHand();
     const ohTableAbuse = this.getOhTableAbuse();
     const llStudy = this.getActiveLlStudyMode();
+    const f2lMode = this.getActiveF2lStudyMode();
     const baseCases = this.getTrackBaseCases(track);
 
     this.container.innerHTML = `
@@ -435,8 +473,17 @@ export class StudyView {
           <h2 class="study-track-title">${track.name}</h2>
           <span class="study-track-desc">${track.description}</span>
         </div>
-        ${(isOh || llStudy) ? `
+        ${(isOh || llStudy || f2lMode) ? `
           <div class="oh-controls-group">
+            ${f2lMode ? `
+              <div class="oh-hand-switcher study-ll-mode-switcher study-f2l-mode-switcher" role="group" aria-label="F2L Curriculum Level">
+                <span class="oh-hand-label">F2L Level:</span>
+                <button type="button" class="study-ll-mode-btn ${f2lMode === 'essential' ? 'active' : ''}" data-study-f2l-mode="essential" aria-pressed="${f2lMode === 'essential'}" data-tooltip="Show 21 core F2L shapes (the remaining 20 Basic cases are left/right mirrors)">Essential (21)</button>
+                <button type="button" class="study-ll-mode-btn ${f2lMode === 'basic' ? 'active' : ''}" data-study-f2l-mode="basic" aria-pressed="${f2lMode === 'basic'}" data-tooltip="Show all 41 standard front-right &amp; mirror F2L cases">Basic (41)</button>
+                <button type="button" class="study-ll-mode-btn ${f2lMode === 'intermediate' ? 'active' : ''}" data-study-f2l-mode="intermediate" aria-pressed="${f2lMode === 'intermediate'}" data-tooltip="Rotationless Back-Right (BR), Back-Left (BL), Left-Front (FL), and Keyhole F2L inserts">Intermediate (16)</button>
+                <button type="button" class="study-ll-mode-btn ${f2lMode === 'advanced' ? 'active' : ''}" data-study-f2l-mode="advanced" aria-pressed="${f2lMode === 'advanced'}" data-tooltip="Multi-slot cross-slot swaps (piece in another slot &rarr; target slot) &amp; Force Yellow Cross edge control">Advanced (14)</button>
+              </div>
+            ` : ''}
             ${llStudy ? `
               <div class="oh-hand-switcher study-ll-mode-switcher" role="group" aria-label="${llStudy.kind === 'oll' ? 'OLL Case Set (Full vs 2-Look)' : 'PLL Case Set (Full vs 2-Look)'}">
                 <span class="oh-hand-label">${llStudy.kind === 'oll' ? 'OLL Set:' : 'PLL Set:'}</span>
@@ -532,6 +579,17 @@ export class StudyView {
   renderGridView(track) {
     const sections = this.getGroupedSections(track);
     const showGroupHeaders = sections.length > 1;
+    const f2lMode = this.getActiveF2lStudyMode();
+    const use3dF2lCards = this.isF2lStudyTrack();
+    const whiteBottom = this.getAlwaysWhiteBottom ? this.getAlwaysWhiteBottom() : true;
+
+    const f2lBannerHtml = f2lMode === "essential"
+      ? `<div class="study-f2l-tier-note" role="note"><strong>Essential 21 F2L:</strong> Master these 21 foundational shapes first &mdash; the other 20 cases in <strong>Basic (41)</strong> are left/right mirrors and intuitive variations.</div>`
+      : f2lMode === "intermediate"
+        ? `<div class="study-f2l-tier-note" role="note"><strong>Intermediate 16 F2L:</strong> Rotationless Back-Right (BR), Back-Left (BL), Left-Front (FL), and Keyhole inserts &mdash; drag any 3D cube or click ↻ to reset its slot angle.</div>`
+        : f2lMode === "advanced"
+          ? `<div class="study-f2l-tier-note" role="note"><strong>Advanced 14 F2L:</strong> Multi-slot techniques where a piece sits in another slot (BR/FL/BL &rarr; target slot), plus Sledge/Wide inserts to force a Yellow Cross before OLL.</div>`
+          : '';
 
     const renderCard = (c) => {
       const { algs, preferredAlg: activeAlg } = this.getPreferredAlgObj(track, c);
@@ -543,6 +601,13 @@ export class StudyView {
         ? ` <span class="study-card-opp" data-tooltip="Opposite / inverse CLL case: ${escapeHtml(c.opposite)}">(Opp ${escapeHtml(c.opposite)})</span>`
         : '';
 
+      const rawSetup = activeAlg?.mirroredSetup || c.setup || c.scramble || "";
+      const setupStr = (whiteBottom && rawSetup && !/^z2\b/i.test(rawSetup) ? `z2 ${rawSetup}` : rawSetup).trim();
+      const camLng = Number.isFinite(c.cameraLongitude) ? c.cameraLongitude : 30;
+      const visualHtml = use3dF2lCards
+        ? `<div class="twosided-card-3d-wrap study-f2l-card-3d" data-twosided-case-id="${escapeHtml(c.id)}" data-twosided-setup="${escapeHtml(setupStr)}" data-camera-longitude="${camLng}"><span class="study-visual-loading">Loading 3D...</span></div>`
+        : `<div class="study-card-visual" id="studyCardVisual_${c.id}" data-case-id="${c.id}"><span class="study-visual-loading">Loading diagram...</span></div>`;
+
       return `
         <div class="study-card ${this.selectedCaseId === c.id ? 'selected' : ''}" data-case-id="${c.id}">
           <div class="study-card-head">
@@ -553,9 +618,7 @@ export class StudyView {
               ${!activeAlg?.ohBadge && !showGroupHeaders ? `<span class="study-card-group">${escapeHtml(c.group)}</span>` : ''}
             </div>
           </div>
-          <div class="study-card-visual" id="studyCardVisual_${c.id}" data-case-id="${c.id}">
-            <span class="study-visual-loading">Loading diagram...</span>
-          </div>
+          ${visualHtml}
           ${distinctName ? `<div class="study-card-name" data-tooltip="${escapeHtml(distinctName)}">${escapeHtml(distinctName)}</div>` : ''}
           <div class="study-card-alg-box">
             <div class="study-card-alg-primary">${activeAlg ? escapeHtml(activeAlg.alg) : 'No alg'}</div>
@@ -563,6 +626,7 @@ export class StudyView {
           </div>
 
           <div class="study-card-actions">
+            ${use3dF2lCards ? `<button type="button" class="btn btn-xs btn-icon-only btn-twosided-reset-3d" data-twosided-case-id="${escapeHtml(c.id)}" data-tooltip="Reset 3D angle" aria-label="Reset 3D angle for ${escapeHtml(displayId)}">${ICON_RESET_ANGLE}</button>` : ''}
             <button type="button" class="btn btn-xs btn-study-view" data-case-id="${c.id}" data-tooltip="Open Grid + 3D to compare all algorithms, starting angles &amp; labels" aria-label="View algorithms for ${escapeHtml(displayId)}">${ICON_DIAGRAM}<span>Algs</span></button>
             <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${c.id}" data-tooltip="Simulate in an interactive 3D popup (switch across all ${algs.length} alg variant${algs.length === 1 ? '' : 's'})" aria-label="Simulate ${escapeHtml(displayId)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
           </div>
@@ -573,6 +637,7 @@ export class StudyView {
     return `
       <div class="study-grid-wrap">
         ${this.renderGroupFilterBar(track)}
+        ${f2lBannerHtml}
         ${sections.length === 0
           ? `<p class="empty-state" style="padding: 20px;">No cases match the active filter.</p>`
           : `<div class="study-groups-flow ${showGroupHeaders ? 'is-grouped' : 'is-flat'}">
@@ -644,10 +709,13 @@ export class StudyView {
     const baseCases = this.getTrackBaseCases(track);
     const navCases = this.getNavigableCases(track);
     const c = (this.selectedCaseId ? baseCases.find(bc => bc.id === this.selectedCaseId) : null)
+      || this.getCaseById(track, this.selectedCaseId)
       || navCases[0]
       || baseCases[0]
       || track.cases[0];
     if (!c) return `<p class="empty-state">No case selected</p>`;
+    const isF2lTrack = this.isF2lStudyTrack();
+    const isPracticeableCase = Boolean(track.caseById.has(c.id));
 
     const navIdx = navCases.findIndex(nc => nc.id === c.id);
     const navCountText = navCases.length > 0
@@ -684,9 +752,9 @@ export class StudyView {
           <div class="study-detail-grid">
             <div class="study-visual-box">
               <div class="study-visual-top-strip">
-                <div class="study-visual-diagram" id="studyDetailDiagram">
+                ${isF2lTrack ? '' : `<div class="study-visual-diagram" id="studyDetailDiagram">
                   <span class="study-visual-loading">Loading diagram...</span>
-                </div>
+                </div>`}
                 <div class="study-start-angle-meta" id="studyStartAngleMeta">
                   <span class="study-auf-pill ${activePreviewAlg?.startAuf ? 'has-auf' : ''}">${formatAufBadge(activePreviewAlg?.startAuf)}</span>
                   <span class="study-auf-alg">${activePreviewAlg ? activePreviewAlg.alg : ''}</span>
@@ -756,11 +824,11 @@ export class StudyView {
                 </div>
               </div>
 
-              <div class="study-detail-footer">
+              ${isPracticeableCase ? `<div class="study-detail-footer">
                 <button type="button" id="studyPracticeThisBtn" class="btn btn-primary btn-small" data-case-id="${c.id}">
                   Practice this case &rarr;
                 </button>
-              </div>
+              </div>` : ''}
             </div>
           </div>
         </div>
@@ -1265,6 +1333,23 @@ export class StudyView {
   }
 
   bindEvents(track, is222FaceOrLayer = false) {
+    // 4-Tier 3x3 F2L Curriculum switcher
+    this.container.querySelectorAll('[data-study-f2l-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nextMode = sanitizeF2lMode(btn.dataset.studyF2lMode);
+        this.activeGroupFilters.clear();
+        this.previewAlgId = null;
+        this.selectedCaseId = null;
+        if (this.onSetF2lMode) {
+          const prevMode = sanitizeF2lMode(this.getF2lMode ? this.getF2lMode() : 'basic');
+          this.onSetF2lMode(nextMode);
+          if (prevMode === nextMode) this.render();
+        } else {
+          this.render();
+        }
+      });
+    });
+
     // 2-Look vs Full OLL / PLL switcher (synced with Stats & Settings)
     this.container.querySelectorAll('[data-study-oll-mode]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1398,7 +1483,7 @@ export class StudyView {
     this.container.querySelectorAll('.btn-study-sim').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const c = track.caseById.get(btn.dataset.caseId);
+        const c = this.getCaseById(track, btn.dataset.caseId);
         if (c) this.openCaseQuickSim(track, c);
       });
     });
@@ -1406,7 +1491,7 @@ export class StudyView {
     this.container.querySelectorAll('.btn-alg-label').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const c = track.caseById.get(btn.dataset.caseId);
+        const c = this.getCaseById(track, btn.dataset.caseId);
         if (c && this.onEditLabel) {
           const algs = this.getCaseAlgs(track, c);
           const algObj = algs.find(a => a.id === btn.dataset.algId) || algs[0];
@@ -1418,7 +1503,7 @@ export class StudyView {
     this.container.querySelectorAll('.btn-alg-sim').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const c = track.caseById.get(btn.dataset.caseId);
+        const c = this.getCaseById(track, btn.dataset.caseId);
         if (c) this.openCaseQuickSim(track, c, btn.dataset.algId);
       });
     });
@@ -1428,7 +1513,7 @@ export class StudyView {
       const selectPreview = () => {
         const caseId = row.dataset.caseId;
         const algId = row.dataset.algId;
-        const c = track.caseById.get(caseId);
+        const c = this.getCaseById(track, caseId);
         if (!c || !algId) return;
         this.previewAlgId = algId;
         this.container.querySelectorAll('.study-alg-row').forEach(r => {
@@ -1474,7 +1559,7 @@ export class StudyView {
         e.stopPropagation();
         const caseId = btn.dataset.caseId;
         const algId = btn.dataset.algId;
-        const c = track.caseById.get(caseId);
+        const c = this.getCaseById(track, caseId);
         removeCustomAlgForCase(this.currentPuzzle, caseId, algId);
         if (this.previewAlgId === algId) {
           this.previewAlgId = null;
@@ -1500,7 +1585,7 @@ export class StudyView {
     if (customAddBtn && customAlgInput) {
       const submitCustomAlg = async () => {
         const caseId = customAddBtn.dataset.caseId;
-        const c = track.caseById.get(caseId);
+        const c = this.getCaseById(track, caseId);
         if (!c) return;
         const rawAlg = customAlgInput.value;
         const triggerNote = customNoteInput?.value || '';
@@ -1583,7 +1668,7 @@ export class StudyView {
     const practiceBtn = this.container.querySelector('#studyPracticeThisBtn');
     if (practiceBtn) {
       practiceBtn.addEventListener('click', () => {
-        const c = track.caseById.get(practiceBtn.dataset.caseId);
+        const c = this.getCaseById(track, practiceBtn.dataset.caseId);
         if (c && this.onPracticeCase) {
           this.onPracticeCase(c);
         }
@@ -1594,7 +1679,7 @@ export class StudyView {
     const simBtn = this.container.querySelector('#studySimulateThisBtn');
     if (simBtn) {
       simBtn.addEventListener('click', () => {
-        const c = track.caseById.get(simBtn.dataset.caseId);
+        const c = this.getCaseById(track, simBtn.dataset.caseId);
         if (c) this.openCaseQuickSim(track, c, this.previewAlgId || null);
       });
     }
@@ -1602,17 +1687,23 @@ export class StudyView {
     // Populate visual representations
     const token = this._renderToken;
     if (this.currentView === 'grid') {
-      this.populateGridVisuals(track, token);
+      if (this.isF2lStudyTrack()) {
+        this.populateTwoSided3d(track, token);
+      } else {
+        this.populateGridVisuals(track, token);
+      }
     } else if (this.currentView === 'hybrid') {
-      this.populateGridVisuals(track, token);
+      if (!this.isF2lStudyTrack()) {
+        this.populateGridVisuals(track, token);
+      }
       const fallbackCase = this.getNavigableCases(track)[0] || this.getTrackBaseCases(track)[0] || track.cases[0];
-      const c = track.caseById.get(this.selectedCaseId) || fallbackCase;
+      const c = this.getCaseById(track, this.selectedCaseId) || fallbackCase;
       if (c) {
         this.populateDetailVisuals(track, c, token);
       }
     } else if (this.currentView === 'detail') {
       const fallbackCase = this.getNavigableCases(track)[0] || this.getTrackBaseCases(track)[0] || track.cases[0];
-      const c = track.caseById.get(this.selectedCaseId) || fallbackCase;
+      const c = this.getCaseById(track, this.selectedCaseId) || fallbackCase;
       if (c) {
         this.populateDetailVisuals(track, c, token);
       }
@@ -1667,7 +1758,7 @@ export class StudyView {
       } catch {}
       try {
         el.player.cameraLatitude = 32;
-        el.player.cameraLongitude = 30;
+        el.player.cameraLongitude = Number.isFinite(entry.cameraLongitude) ? entry.cameraLongitude : 30;
         el.player.experimentalModel?.twistySceneModel?.orbitCoordinatesRequest?.set?.('auto');
       } catch {}
     };
@@ -1684,19 +1775,20 @@ export class StudyView {
         try {
           const SD = await getScrambleDisplay();
           if (!SD || gen !== state.gen || token !== this._renderToken || !entry.wrapEl?.isConnected) return null;
+          const camLng = Number.isFinite(entry.cameraLongitude) ? entry.cameraLongitude : 30;
           const el = new SD();
           el.event = puzzle === '333oh' ? '333' : puzzle;
           el.visualization = '3D';
           el.scramble = entry.setup;
           el.hintFacelets = 'none';
           el.cameraLatitude = 32;
-          el.cameraLongitude = 30;
+          el.cameraLongitude = camLng;
           entry.wrapEl.innerHTML = '';
           entry.wrapEl.appendChild(el);
           if (el.player) {
             el.player.hintFacelets = 'none';
             el.player.cameraLatitude = 32;
-            el.player.cameraLongitude = 30;
+            el.player.cameraLongitude = camLng;
           }
           entry.displayEl = el;
           touchLru(entry.caseId);
@@ -1715,12 +1807,16 @@ export class StudyView {
     wraps.forEach((wrapEl) => {
       const caseId = wrapEl.getAttribute('data-twosided-case-id') || wrapEl.dataset?.twosidedCaseId;
       const setup = wrapEl.getAttribute('data-twosided-setup') || wrapEl.dataset?.twosidedSetup || '';
-      const caseObj = caseId ? track?.caseById?.get(caseId) : null;
+      const camLngAttr = wrapEl.getAttribute('data-camera-longitude') ?? wrapEl.dataset?.cameraLongitude;
+      const parsedCamLng = camLngAttr !== null && camLngAttr !== undefined && camLngAttr !== '' ? Number(camLngAttr) : 30;
+      const cameraLongitude = Number.isFinite(parsedCamLng) ? parsedCamLng : 30;
+      const caseObj = this.getCaseById(track, caseId);
       if (!caseId) return;
       state.cards.set(caseId, {
         caseId,
         caseObj,
         setup,
+        cameraLongitude,
         wrapEl,
         displayEl: null,
         mountPromise: null,
@@ -1859,6 +1955,7 @@ export class StudyView {
       this._updateMiniProgress(setupMoves.length);
       this._updateMiniPlayingUi(false);
 
+      const camLng = Number.isFinite(c?.cameraLongitude) ? c.cameraLongitude : 30;
       const canReuse = Boolean(
         this.activeDisplay3d &&
         wrapEl.contains(this.activeDisplay3d) &&
@@ -1877,8 +1974,14 @@ export class StudyView {
           el.visualization = "3D";
           const showRefl = this.getShowReflection ? this.getShowReflection() : true;
           el.hintFacelets = showRefl ? "floating" : "none";
+          el.cameraLatitude = 35;
+          el.cameraLongitude = camLng;
           el.scramble = combinedMoves.join(' ');
-          if (el.player) el.player.tempoScale = spd;
+          if (el.player) {
+            el.player.tempoScale = spd;
+            el.player.cameraLatitude = 35;
+            el.player.cameraLongitude = camLng;
+          }
           wrapEl.appendChild(el);
           this.activeDisplay3d = el;
           this._miniMountedPuzzle = normEvent;
@@ -1887,7 +1990,11 @@ export class StudyView {
           el.player?.pause?.();
           this._miniIndexer = null;
           el.scramble = combinedMoves.join(' ');
-          if (el.player) el.player.tempoScale = spd;
+          if (el.player) {
+            el.player.tempoScale = spd;
+            el.player.cameraLatitude = 35;
+            el.player.cameraLongitude = camLng;
+          }
         }
 
         this.applyReflection();
@@ -1910,7 +2017,7 @@ export class StudyView {
             } catch (e) {}
             try {
               this.activeDisplay3d.player.cameraLatitude = 35;
-              this.activeDisplay3d.player.cameraLongitude = 30;
+              this.activeDisplay3d.player.cameraLongitude = camLng;
               this.activeDisplay3d.player.cameraDistance = 6;
             } catch (e) {}
             try {

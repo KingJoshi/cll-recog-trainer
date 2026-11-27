@@ -1,6 +1,8 @@
-# Cubing.cc (2x2 · 3x3 · OH · 4x4 · 5x5) — PWA
+# Cubing.cc — Ad-Free Offline Speedcube Timer, Trainer & Solver
 
-An offline-ready Progressive Web App for multi-puzzle algorithm study, recognition drills, smart cube solve tracking, CFOP analytics, optimal first-layer/cross analysis, and 3D move-by-move replay across **2x2, 3x3, 3x3 One-Handed (OH), 4x4, and 5x5**.
+An open-source, ad-free, offline-ready Progressive Web App for WCA timing, algorithm learning, recognition & execution drills, Bluetooth smart cube solve tracking, CFOP analytics, optimal first-layer/cross analysis, and 3D move-by-move replay across **2x2–7x7, 3x3 OH, 3BLD, and WCA puzzles**.
+
+> Inspired by learning with jperm.net and csTimer, built without ads or tracking — works completely offline as an installable PWA, with optional private Google Drive `appDataFolder` sync.
 
 Built with vanilla ES modules, Vite, [`cubing`](https://github.com/cubing/cubing.js), [`scramble-display`](https://github.com/cubing/scramble-display), and [`smartcube-web-bluetooth`](https://github.com/poliva/smartcube-web-bluetooth).
 
@@ -78,4 +80,4 @@ npm run preview
 
 ## License
 
-MIT
+[GNU General Public License v3.0 (GPL-3.0)](LICENSE) — free to fork, study, and modify; derivative works must also be distributed under GPL-3.0.

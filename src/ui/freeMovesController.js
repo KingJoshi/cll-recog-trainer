@@ -2,7 +2,7 @@
 
 import { escapeHtml } from '../services/htmlUtils.js';
 import { applyColorsTo3DCube } from '../caseVisualizer.js';
-import { isTimerViewMode } from '../state/appStore.js';
+import { isTimerViewMode, isSimulateViewMode } from '../state/appStore.js';
 
 export function invertMove(m) {
   if (!m) return "";
@@ -83,7 +83,7 @@ export function createFreeMovesController({
     updateUI();
     applyCurrentSequenceToCube();
 
-    if (appStore.state.mode === "simulate") {
+    if (isSimulateViewMode(appStore.state)) {
       onSimulateFreeTurn?.(userFreeMoves.length);
       onUpdateSimulateSolutions?.(getSequence());
     }
@@ -99,7 +99,7 @@ export function createFreeMovesController({
     applyCurrentSequenceToCube();
     updateUI();
 
-    if (appStore.state.mode === "simulate") {
+    if (isSimulateViewMode(appStore.state)) {
       onSimulateFreeTurn?.(userFreeMoves.length);
       onUpdateSimulateSolutions?.(getSequence());
     }
@@ -113,7 +113,7 @@ export function createFreeMovesController({
   function resetFreeMovesToScramble() {
     userFreeMoves = [];
     updateUI();
-    if (appStore.state.mode === "simulate" && onResetSimulate?.("scramble")) {
+    if (isSimulateViewMode(appStore.state) && onResetSimulate?.("scramble")) {
       onUpdateSimulateSolutions?.(getSequence());
       return;
     }
@@ -142,7 +142,7 @@ export function createFreeMovesController({
       applyColorsTo3DCube(el);
     }
 
-    if (appStore.state.mode === "simulate") {
+    if (isSimulateViewMode(appStore.state)) {
       onResetSimulate?.("solved");
       onUpdateSimulateSolutions?.("");
     }
@@ -153,7 +153,7 @@ export function createFreeMovesController({
   }
 
   function handleKeyDown(e) {
-    if (appStore.state.mode === "study" || (appStore.state.mode === "practice" && !isTimerViewMode(appStore.state))) return false;
+    if (appStore.state.mode === "study" || (appStore.state.mode === "practice" && !isTimerViewMode(appStore.state) && !isSimulateViewMode(appStore.state))) return false;
     const key = String(e.key || "").toUpperCase();
     if (["U", "D", "L", "R", "F", "B"].includes(key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
       const move = e.shiftKey ? `${key}'` : key;

@@ -1,7 +1,7 @@
 // Top-level navigation controller: Puzzle switcher, Mode tabs, Track/Focus bar, Stage visibility, and Scramble coordination
 
 import { PUZZLES, getTrack, getDefaultTrack, getSolveTargetsForPuzzle, getSolveTargetInfo, getSolveTargetLabel } from '../data/algRegistry.js';
-import { MODES, VALID_PUZZLES, caseById, isTimerViewMode, DEFAULT_VISIBLE_EVENTS } from '../state/appStore.js';
+import { MODES, VALID_PUZZLES, caseById, isTimerViewMode, isSimulateViewMode, DEFAULT_VISIBLE_EVENTS } from '../state/appStore.js';
 import { escapeHtml } from '../services/htmlUtils.js';
 import { showToast } from './toastService.js';
 import {
@@ -194,7 +194,7 @@ export function createNavController({
     }
 
     if (!trackBar) return;
-    if (s.mode === "simulate" || s.mode === "solve") {
+    if (isSimulateViewMode(s) || s.mode === "solve") {
       if (s.mode === "solve" && s.solveTarget !== "full") {
         s.solveTarget = "full";
       }
@@ -273,8 +273,9 @@ export function createNavController({
     if (isSolveOnly && s.mode !== "solve") {
       s.mode = "solve";
       s.solveTarget = "full";
-    } else if (isHideSimulate && s.mode === "simulate") {
+    } else if (isHideSimulate && isSimulateViewMode(s)) {
       s.mode = "solve";
+      if (s.trainSubMode === "simulate") s.trainSubMode = "recog";
       s.solveTarget = "full";
     }
     const hasCases = s.selectedCases.size > 0;
@@ -288,11 +289,11 @@ export function createNavController({
       btn.setAttribute("aria-pressed", String(m === s.mode));
     });
 
-    const simulating = s.mode === "simulate";
+    const simulating = isSimulateViewMode(s);
     const studying = s.mode === "study";
     const solving = isTimerViewMode(s);
     const algDrilling = s.mode === "practice" && s.trainSubMode === "alg-drill";
-    const practicing = s.mode === "practice" && !solving && !algDrilling;
+    const practicing = s.mode === "practice" && !solving && !algDrilling && !simulating;
 
     if (studyViewContainer) studyViewContainer.hidden = !studying;
     if (practiceViewContainer) practiceViewContainer.hidden = !practicing;
@@ -399,10 +400,10 @@ export function createNavController({
     }
   }
 
-  function setTrainSubMode(subMode) {
+  function setTrainSubMode(subMode, { skipSimInit = false } = {}) {
     const s = appStore.state;
     if (PUZZLES[s.currentPuzzle]?.solveOnly || PUZZLES[s.currentPuzzle]?.hideSimulate) return false;
-    const next = ["timed-drill", "alg-drill"].includes(subMode) ? subMode : "recog";
+    const next = ["timed-drill", "alg-drill", "simulate"].includes(subMode) ? subMode : "recog";
     if (s.mode === "practice" && s.trainSubMode === next) return false;
     ++scrambleGenToken;
 
@@ -412,6 +413,9 @@ export function createNavController({
     }
     cubeStage?.setTwoSidedCameraLock?.(false);
 
+    if (s.trainSubMode === "simulate" && next !== "simulate") {
+      getSimulatorCtrl()?.simTeardown?.();
+    }
     if (next !== "recog") {
       getPracticeView()?.deactivate?.();
     }
@@ -453,7 +457,14 @@ export function createNavController({
     getSmartCubeCtrl()?.updateBluetoothUI?.();
 
     if (s.mode === "practice") {
-      if (next === "timed-drill") {
+      if (next === "simulate") {
+        if (!skipSimInit) {
+          getSimulatorCtrl()?.simInit?.();
+        } else {
+          getSimulatorCtrl()?.populateSimCaseSelect?.();
+          getSimulatorCtrl()?.attachSimPlayerListeners?.();
+        }
+      } else if (next === "timed-drill") {
         regenerateScramble();
       } else if (next === "alg-drill") {
         getAlgDrillView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
@@ -481,7 +492,7 @@ export function createNavController({
       ++scrambleGenToken;
       if (s.mode === "study") getStudyView()?.deactivate?.();
       if (s.mode === "practice" && !isTimerViewMode(s)) getPracticeView()?.deactivate?.();
-      if (s.mode === "simulate") getSimulatorCtrl()?.simTeardown?.();
+      if (isSimulateViewMode(s)) getSimulatorCtrl()?.simTeardown?.();
       cubeStage?.setTwoSidedCameraLock?.(false);
       s.mode = wantMode;
       s.trainSubMode = wantSubMode;
@@ -556,7 +567,14 @@ export function createNavController({
     if (PUZZLES[s.currentPuzzle]?.hideSimulate && next === "simulate") {
       return;
     }
-    if (next === "timed") {
+    if (next === "simulate") {
+      if (s.mode === "practice") {
+        setTrainSubMode("simulate", { skipSimInit });
+        return;
+      }
+      s.trainSubMode = "simulate";
+      next = "practice";
+    } else if (next === "timed") {
       next = "practice";
       getPracticeView()?.setPracticeMode?.("timed");
     }
@@ -569,6 +587,7 @@ export function createNavController({
     }
 
     const prevMode = s.mode;
+    const prevSimulating = isSimulateViewMode(s);
     if (prevMode === "study" && next !== "study") {
       getStudyView()?.deactivate?.();
     }
@@ -579,7 +598,7 @@ export function createNavController({
     if (prevMode === "practice" && next !== "practice" && s.trainSubMode === "alg-drill") {
       getAlgDrillView()?.deactivate?.();
     }
-    if (prevMode === "simulate" && next !== "simulate") {
+    if (prevSimulating && (next !== "practice" || s.trainSubMode !== "simulate")) {
       getSimulatorCtrl()?.simTeardown?.();
     }
 
@@ -603,12 +622,14 @@ export function createNavController({
         ensureTimedDrillTargetAndSession();
       } else {
         s.statsType = "recog";
-        const curTrack = getTrack(s.currentPuzzle, s.currentTrackId);
-        if (!curTrack || curTrack.studyOnly) {
-          const practiceTracks = (PUZZLES[s.currentPuzzle]?.tracks || []).filter(t => !t.studyOnly);
-          const defTrack = practiceTracks.find(t => t.id === PUZZLES[s.currentPuzzle]?.defaultTrack);
-          s.currentTrackId = defTrack?.id || practiceTracks[0]?.id || getDefaultTrack(s.currentPuzzle)?.id || s.currentTrackId;
-          appStore.loadTrackSelection(s.currentPuzzle, s.currentTrackId);
+        if (s.trainSubMode !== "simulate") {
+          const curTrack = getTrack(s.currentPuzzle, s.currentTrackId);
+          if (!curTrack || curTrack.studyOnly) {
+            const practiceTracks = (PUZZLES[s.currentPuzzle]?.tracks || []).filter(t => !t.studyOnly);
+            const defTrack = practiceTracks.find(t => t.id === PUZZLES[s.currentPuzzle]?.defaultTrack);
+            s.currentTrackId = defTrack?.id || practiceTracks[0]?.id || getDefaultTrack(s.currentPuzzle)?.id || s.currentTrackId;
+            appStore.loadTrackSelection(s.currentPuzzle, s.currentTrackId);
+          }
         }
       }
     } else if (s.mode === "study") {
@@ -629,7 +650,7 @@ export function createNavController({
     getSolvePanelView()?.renderSolvePanel?.();
     getSmartCubeCtrl()?.updateBluetoothUI?.();
 
-    if (s.mode === "simulate") {
+    if (isSimulateViewMode(s)) {
       if (!skipSimInit) {
         getSimulatorCtrl()?.simInit?.();
       } else {
@@ -677,7 +698,10 @@ export function createNavController({
     if (pDef?.solveOnly) {
       s.mode = "solve";
     } else if (pDef?.hideSimulate) {
-      if (s.mode === "simulate") s.mode = "solve";
+      if (isSimulateViewMode(s)) {
+        s.mode = "solve";
+        if (s.trainSubMode === "simulate") s.trainSubMode = "recog";
+      }
       if (s.mode === "practice") {
         s.trainSubMode = "recog";
         const practiceTrack = pDef.tracks?.find(t => !t.studyOnly);
@@ -740,14 +764,12 @@ export function createNavController({
       getStudyView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     } else if (isTimerViewMode(s)) {
       regenerateScramble();
-    } else if (s.mode === "practice" && s.trainSubMode === "alg-drill") {
-      getAlgDrillView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
+    } else if (isSimulateViewMode(s)) {
+      getSimulatorCtrl()?.simInit?.();
     } else if (s.mode === "practice" && s.trainSubMode === "alg-drill") {
       getAlgDrillView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     } else if (s.mode === "practice") {
       getPracticeView()?.setTrack?.(s.currentPuzzle, s.currentTrackId);
-    } else if (s.mode === "simulate") {
-      getSimulatorCtrl()?.simInit?.();
     } else {
       regenerateScramble();
     }

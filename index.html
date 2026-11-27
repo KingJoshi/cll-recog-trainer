@@ -3,14 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="Multi-puzzle 2x2-5x5 speedcube recognition, algorithm study, smart cube timer, CFOP analyzer & 3D replay trainer.">
+    <meta name="description" content="Ad-free, offline-ready speedcube timer, algorithm learner, smart cube analyzer & 3D drill trainer (2x2–7x7, OH, BLD & WCA events).">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Cubing.cc — Ad-Free Offline Speedcube Timer, Trainer & Solver">
+    <meta property="og:description" content="Zero-ad, offline PWA for speedcube WCA timing, algorithm sets, 3D case drills, smart cube splits, and private Google Drive sync.">
+    <meta property="og:url" content="https://cubing.cc/">
+    <meta property="og:image" content="https://cubing.cc/pwa-512x512.png">
     <meta name="theme-color" content="#007bff">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <title>Cubing.cc — 2x2 · 3x3 · OH · 4x4 · 5x5</title>
+    <title>Cubing.cc — Ad-Free Offline Speedcube Timer, Trainer &amp; Solver</title>
 </head>
 <body>
 
@@ -35,43 +40,38 @@
     </div>
   </div>
   <div class="header-actions">
-    <button type="button" id="bluetoothBtn" class="header-btn bluetooth-header-btn" data-tooltip="Connect a Bluetooth smart cube (GAN, MoYu, QiYi, GoCube, GiiKER) or use the virtual keyboard cube">
+    <button type="button" id="bluetoothBtn" class="header-btn bluetooth-header-btn" data-tooltip="Connect Bluetooth Smart Cubes (GAN, MoYu, QiYi, GoCube, GiiKER) or GAN Smart Timer">
       <span class="bt-dot disconnected" id="bluetoothHeaderDot" aria-hidden="true"></span>
       <span class="bt-icon" aria-hidden="true">ᛒ</span>
-      <span class="bt-label">Smart Cube</span>
+      <span class="bt-label" id="bluetoothHeaderLabel">Devices</span>
     </button>
-    <button type="button" id="ganTimerBtn" class="header-btn bluetooth-header-btn" data-tooltip="Connect a GAN Smart Timer via Bluetooth to measure pickup, cube solve, and putdown splits">
-      <span class="bt-dot disconnected" id="ganTimerHeaderDot" aria-hidden="true"></span>
-      <span class="bt-icon" aria-hidden="true">⏱</span>
-      <span class="bt-label" id="ganTimerLabel">GAN Timer</span>
-    </button>
-    <button type="button" id="onboardingBtn" class="header-btn" data-tooltip="Open the quick setup wizard (cube size, skill stage, and training goal)">🧭 Guide</button>
     <button type="button" id="cloudSyncBtn" class="header-btn cloud-sync-header-btn" data-tooltip="Sign in with Google to save, reload, and merge settings &amp; solve logs via Google Drive">
       <span class="sync-dot signed-out" id="cloudSyncHeaderDot" aria-hidden="true"></span>
       <img id="cloudSyncHeaderAvatar" class="sync-header-avatar" alt="" hidden referrerpolicy="no-referrer">
       <span class="sync-icon" id="cloudSyncHeaderIcon" aria-hidden="true">☁️</span>
       <span class="sync-label" id="cloudSyncHeaderLabel">Cloud Sync</span>
     </button>
-    <button type="button" id="themeToggleBtn" class="header-btn" data-tooltip="Toggle Dark or Light theme">🌙 Dark</button>
+    <button type="button" id="onboardingBtn" class="header-btn header-icon-btn" aria-label="Help &amp; Setup Guide" data-tooltip="How to use Cubing.cc &amp; quick setup wizard">?</button>
+    <button type="button" id="themeToggleBtn" class="header-btn header-icon-btn" aria-label="Toggle Dark or Light theme" data-tooltip="Toggle Dark or Light theme">🌙</button>
     <button type="button" id="settingsBtn" class="header-btn" data-tooltip="Configure trainer preferences, solver target colors, and cube palette">⚙️ Settings</button>
   </div>
 </header>
 
 <main class="app">
 
-  <!-- Stage: mode progression (Study -> Practice -> Solve -> Simulate), track/focus bar, Active Cases, cube, drills, timer -->
+  <!-- Stage: mode progression (Learn -> Train -> Solve), track/focus bar, Active Cases, cube, drills, timer -->
   <section class="stage">
     <div class="seg mode-seg" role="group" aria-label="Mode">
       <button type="button" class="mode-btn" data-mode="study" aria-pressed="false" data-tooltip="Browse algorithm cards, 2D/3D patterns, 2-sided recognition rules, and reference guides">📚 Learn</button>
-      <button type="button" class="mode-btn" data-mode="practice" aria-pressed="false" data-tooltip="Drill case recognition speed, 15s inspection planning, or timed sub-step drills">🎯 Train</button>
+      <button type="button" class="mode-btn" data-mode="practice" aria-pressed="false" data-tooltip="Drill case recognition speed, 15s inspection planning, alg execution, timed sub-step drills, or 3D move-by-move simulation">🎯 Train</button>
       <button type="button" class="mode-btn" data-mode="solve" aria-pressed="true" data-tooltip="Time full solves with Spacebar, Bluetooth smart cube, or GAN Timer">⏱️ Solve</button>
-      <button type="button" class="mode-btn" data-mode="simulate" aria-pressed="false" data-tooltip="Step through scrambles and algorithms move-by-move on the 3D cube">🎬 Simulate</button>
     </div>
 
     <div id="trainSubmodeBar" class="track-bar train-submode-bar" role="group" aria-label="Training Submode" hidden>
       <button type="button" class="track-btn active" data-train-submode="recog" aria-pressed="true" data-tooltip="Drill case identification &amp; 15s inspection planning without a physical solve">🎯 Recognition &amp; Inspection</button>
       <button type="button" class="track-btn" data-train-submode="alg-drill" aria-pressed="false" data-tooltip="Execute algorithms repeatedly with live Smart Cube move tracking, mistake hints, and execution TPS">⚡ Alg Drill</button>
       <button type="button" class="track-btn" data-train-submode="timed-drill" aria-pressed="false" data-tooltip="Time targeted sub-step solves (Timer Drill, 1st Face, 1st Layer, CLL, OLL, PLL, COLL, CMLL, WV, Parity)">⏱️ Timed Drills</button>
+      <button type="button" class="track-btn" data-train-submode="simulate" aria-pressed="false" data-tooltip="Step through scrambles and algorithms move-by-move on the 3D cube">🎬 Simulate</button>
     </div>
 
     <div id="trackBar" class="track-bar" role="group" aria-label="Algorithm Track or Timed Drill"></div>
@@ -238,7 +238,7 @@
             <select id="simScrambleSelect" class="sim-select" aria-label="Select preset scramble">
             </select>
           </div>
-          <button type="button" id="simAppendSolutionBtn" class="btn btn-small" title="Append CLL solution to verify solve">Append Solution</button>
+          <button type="button" id="simAppendSolutionBtn" class="btn btn-small" title="Append case solution to verify solve">Append Solution</button>
         </div>
 
         <div id="simCaseDetails" class="sim-case-details" hidden>
@@ -532,14 +532,20 @@
 
 </main>
 
-<footer class="app-legal-footer" aria-label="Legal">
+<footer class="app-legal-footer" aria-label="Footer and Legal">
   <div id="pwaInstallBanner" class="pwa-install-pill" hidden>
     <button type="button" id="pwaInstallPillBtn" class="pwa-install-pill-btn">📲 Install Offline App</button>
     <button type="button" id="pwaInstallDismissBtn" class="pwa-install-dismiss-btn" aria-label="Dismiss install suggestion" title="Dismiss">&times;</button>
   </div>
+  <button type="button" id="aboutModalBtn" class="footer-link-btn">About</button>
+  <span aria-hidden="true">&middot;</span>
   <a href="/privacy">Privacy Policy</a>
   <span aria-hidden="true">&middot;</span>
   <a href="/terms">Terms of Service</a>
+  <span aria-hidden="true">&middot;</span>
+  <a href="https://github.com/KingJoshi/cll-recog-trainer" target="_blank" rel="noopener noreferrer">GitHub (GPL-3.0)</a>
+  <span aria-hidden="true">&middot;</span>
+  <span class="footer-copy">&copy; 2026 Cubing.cc</span>
 </footer>
 
 <!-- Solve mode: full-screen timer while armed / running -->
@@ -626,18 +632,24 @@
   </div>
 </div>
 
-<!-- Smart Cube (Bluetooth) Modal -->
+<!-- Devices (Bluetooth Smart Cubes & Timers) Modal -->
 <div id="bluetoothModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bluetoothModalTitle" hidden>
   <div class="solve-modal-card bluetooth-modal-card">
     <div class="solve-modal-header">
       <div class="solve-modal-title-wrap">
-        <h3 id="bluetoothModalTitle" class="solve-modal-title">ᛒ Smart Cube (Bluetooth)</h3>
+        <h3 id="bluetoothModalTitle" class="solve-modal-title">ᛒ Devices</h3>
         <span id="bluetoothModalStatusBadge" class="badge badge-disconnected">Disconnected</span>
       </div>
       <button type="button" id="bluetoothModalCloseBtn" class="solve-modal-close" aria-label="Close dialog">&times;</button>
     </div>
 
     <div class="solve-modal-body">
+      <div class="settings-color-subtabs devices-subtabs" role="tablist" aria-label="Device category">
+        <button type="button" id="devicesTabCubes" class="settings-color-subtab active" role="tab" aria-selected="true" aria-controls="devicesPanelCubes">🧊 Smart Cubes</button>
+        <button type="button" id="devicesTabTimers" class="settings-color-subtab" role="tab" aria-selected="false" aria-controls="devicesPanelTimers">⏱️ Timers</button>
+      </div>
+
+      <div id="devicesPanelCubes" class="devices-tab-panel" role="tabpanel" aria-labelledby="devicesTabCubes">
       <!-- Status Card -->
       <div class="bt-status-card" id="btStatusCard">
         <div class="bt-status-icon-wrap">
@@ -779,6 +791,38 @@
           <strong>Browser support:</strong> Web Bluetooth is supported in Google Chrome, Microsoft Edge, Opera, and Bluefy (iOS).
         </p>
       </div>
+      </div><!-- /devicesPanelCubes -->
+
+      <div id="devicesPanelTimers" class="devices-tab-panel" role="tabpanel" aria-labelledby="devicesTabTimers" hidden>
+        <div class="bt-status-card disconnected" id="ganTimerStatusCard">
+          <div class="bt-status-icon-wrap">
+            <span class="bt-large-icon" aria-hidden="true">⏱</span>
+          </div>
+          <div class="bt-status-info">
+            <div class="devices-timer-title-row">
+              <span class="bt-dot disconnected" id="ganTimerHeaderDot" aria-hidden="true"></span>
+              <h4 id="ganTimerLabel" class="bt-device-name">No Timer Connected</h4>
+              <span id="ganTimerModalStatusBadge" class="badge badge-disconnected">Disconnected</span>
+            </div>
+            <p id="ganTimerDesc" class="bt-status-desc">Connect a Bluetooth GAN Smart Timer to measure pickup, cube solve, and putdown splits automatically.</p>
+          </div>
+        </div>
+
+        <div class="bt-actions-row">
+          <button type="button" id="ganTimerBtn" class="btn btn-primary" data-tooltip="Connect or disconnect a GAN Smart Timer via Bluetooth">⏱ Connect GAN Smart Timer</button>
+        </div>
+
+        <div class="bt-info-section">
+          <h4 class="bt-info-title">Supported External Timers</h4>
+          <div class="bt-cubes-grid">
+            <span class="bt-cube-pill">GAN Smart Timer (Web Bluetooth · pickup / cube / putdown splits)</span>
+            <span class="bt-cube-pill">SpeedStacks Stackmat G5 (Planned · USB/TRRS audio line-in FSK decoder)</span>
+          </div>
+          <p class="bt-browser-note">
+            <strong>Tip:</strong> When connected alongside a Bluetooth Smart Cube, your GAN Smart Timer automatically records hardware solve time while the smart cube tracks turn splits, CFOP phases, and 3D replay.
+          </p>
+        </div>
+      </div><!-- /devicesPanelTimers -->
     </div>
 
     <div class="solve-modal-actions">
@@ -1661,6 +1705,72 @@
     <div class="solve-modal-actions">
       <button type="button" id="resetStatsCancelBtn" class="btn btn-small">Cancel</button>
       <button type="button" id="resetStatsConfirmBtn" class="btn btn-small btn-danger-fill">Reset Selected</button>
+    </div>
+  </div>
+</div>
+
+<!-- Help & Site Explainer Modal -->
+<div id="helpModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle" hidden>
+  <div class="solve-modal-card help-modal-card">
+    <div class="solve-modal-header">
+      <h3 id="helpModalTitle" class="solve-modal-title">? How to Use Cubing.cc</h3>
+      <button type="button" id="helpModalCloseBtn" class="solve-modal-close" aria-label="Close help dialog">&times;</button>
+    </div>
+    <div class="solve-modal-body help-modal-body">
+      <p class="help-modal-lead">Everything lives cleanly inside three top-level spaces — switch puzzle sizes anytime from the top bar:</p>
+      <div class="help-mode-cards">
+        <div class="help-mode-card">
+          <h4>📚 Learn</h4>
+          <p>Study algorithm sets (F2L, OLL, PLL, CLL, Ortega, COLL, CMLL, Parity, 3BLD) with interactive 2D &amp; 3D models, custom trigger labels, starring preferred algs per puzzle, and step-by-step guides.</p>
+        </div>
+        <div class="help-mode-card">
+          <h4>🎯 Train</h4>
+          <p>Practice what you learned across four focused submodes: <strong>Recognition &amp; Inspection</strong> drills, Smart Cube <strong>Alg Drill</strong> (repetition &amp; TPS), <strong>Timed Drills</strong> for single phases, and the interactive <strong>Simulate</strong> timeline.</p>
+        </div>
+        <div class="help-mode-card">
+          <h4>⏱️ Solve</h4>
+          <p>Ad-free WCA timer supporting Spacebar / touch hold-to-arm, optional 15s inspection, session time alerts, 2x2 Layer &amp; 3x3 Cross solvers, CFOP splits, and full Stats &amp; Ao5/Ao12/Ao100 charts.</p>
+        </div>
+      </div>
+      <div class="help-tips-list">
+        <p><strong>ᛒ Devices:</strong> Pair Bluetooth smart cubes (GAN, MoYu, QiYi, GoCube, GiiKER), keyboard virtual cube, or a GAN Smart Timer in one place.</p>
+        <p><strong>☁️ Offline &amp; Optional Sync:</strong> Install Cubing.cc from the footer or browser menu for 100% offline use, or optionally sign in with Google Drive to sync settings &amp; solves strictly inside your own private Drive app folder.</p>
+      </div>
+    </div>
+    <div class="solve-modal-actions help-modal-actions">
+      <button type="button" id="helpLaunchWizardBtn" class="btn btn-primary btn-small">🧭 Launch Setup Wizard</button>
+      <button type="button" id="helpOpenDevicesBtn" class="btn btn-small">ᛒ Connect Devices</button>
+      <button type="button" id="helpOpenShortcutsBtn" class="btn btn-small">⌨️ Shortcuts</button>
+      <button type="button" id="helpModalDismissBtn" class="btn btn-small">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- About & Open Source Mission Modal -->
+<div id="aboutModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="aboutModalTitle" hidden>
+  <div class="solve-modal-card about-modal-card">
+    <div class="solve-modal-header">
+      <h3 id="aboutModalTitle" class="solve-modal-title">About Cubing.cc</h3>
+      <button type="button" id="aboutModalCloseBtn" class="solve-modal-close" aria-label="Close about dialog">&times;</button>
+    </div>
+    <div class="solve-modal-body about-modal-body">
+      <p class="about-mission-statement">
+        <strong>Cubing.cc</strong> is an open-source, ad-free speedcubing timer, algorithm trainer, and scramble analyzer. Built for cubers who loved learning with classic community tools like <em>jperm.net</em> and <em>csTimer</em>, without intrusive ads, clutter, or tracking.
+      </p>
+      <ul class="about-pillars">
+        <li><strong>Offline-First PWA:</strong> Installable on desktop and mobile; works cleanly with zero internet connection.</li>
+        <li><strong>Privacy by Default:</strong> No analytics, no ad scripts, no third-party tracking cookies, and no external backend server. Your solve history stays locally on your device.</li>
+        <li><strong>Optional Private Cloud Sync:</strong> Google Drive sync is completely opt-in and stores backup data exclusively in your own Google Drive <code>appDataFolder</code> — nothing is ever sent to any other server.</li>
+        <li><strong>Free &amp; Open Source (GNU GPL v3.0):</strong> You are welcome to inspect, fork, modify, and share improvements under the terms of the <a href="https://github.com/KingJoshi/cll-recog-trainer/blob/master/LICENSE" target="_blank" rel="noopener noreferrer">GNU General Public License v3.0</a> (derivative works must remain open-source under GPL-3.0).</li>
+      </ul>
+      <div class="about-links-row">
+        <a href="https://github.com/KingJoshi/cll-recog-trainer" target="_blank" rel="noopener noreferrer" class="btn btn-small btn-primary">View Source on GitHub</a>
+        <a href="/privacy" class="btn btn-small">Privacy Policy</a>
+        <a href="/terms" class="btn btn-small">Terms of Service</a>
+      </div>
+    </div>
+    <div class="solve-modal-actions">
+      <button type="button" id="aboutModalDismissBtn" class="btn btn-small">Close</button>
     </div>
   </div>
 </div>

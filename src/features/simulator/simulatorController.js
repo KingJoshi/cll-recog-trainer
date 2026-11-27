@@ -6,7 +6,7 @@ import { getEffectiveAlgsForCase } from '../../cube/algMirror.js';
 import { pblCases, pblCaseById } from '../../data/ortegaData.js';
 import { cleanAlg, normalizeAlgForCompare, parseScrambleInput } from '../../algParser.js';
 import { applyColorsTo3DCube } from '../../caseVisualizer.js';
-import { GROUP_DISPLAY_ORDER, caseById, casesByGroup } from '../../state/appStore.js';
+import { GROUP_DISPLAY_ORDER, caseById, casesByGroup, isSimulateViewMode } from '../../state/appStore.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
 import { showToast } from '../../ui/toastService.js';
 import { ICON_PLAY, ICON_PAUSE, ICON_REPLAY } from '../../ui/transportIcons.js';
@@ -82,7 +82,7 @@ export function createSimulatorController({
   }
 
   function updateSimulateSolutions() {
-    if (appStore.state.mode !== "simulate") return;
+    if (!isSimulateViewMode(appStore.state)) return;
     const seq = freeMovesCtrl?.getSequence?.() || simOriginalScramble || simScrambleText;
     const puz = appStore.state.currentPuzzle;
     if (puz === "222") solverWidgets?.updateLayerSolutions?.(seq);
@@ -647,7 +647,7 @@ export function createSimulatorController({
     const sol = cleanAlg(activeAlg.alg);
     const combined = `${invScramble} ${sol}`.trim();
 
-    if (appStore.state.mode !== "simulate") {
+    if (!isSimulateViewMode(appStore.state)) {
       getNavCtrl()?.setMode?.("simulate", { skipSimInit: true });
     }
     if (simScrambleInput) simScrambleInput.value = combined;
@@ -828,7 +828,7 @@ export function createSimulatorController({
     try {
       el.player.experimentalModel.indexer.addFreshListener((indexer) => { simIndexer = indexer; });
       el.player.experimentalModel.detailedTimelineInfo.addFreshListener((info) => {
-        if (appStore.state.mode !== "simulate" || simMoves.length === 0 || simPendingStartAtSolution || !simIndexer) return;
+        if (!isSimulateViewMode(appStore.state) || simMoves.length === 0 || simPendingStartAtSolution || !simIndexer) return;
         if (freeMovesCtrl?.getUserMoves?.().length > 0) return;
         try {
           if (info.atStart || info.timestamp <= 0) { updateSimProgress(0, true, false); return; }
@@ -838,7 +838,7 @@ export function createSimulatorController({
         } catch {}
       });
       el.player.experimentalModel.coarseTimelineInfo.addFreshListener((info) => {
-        if (appStore.state.mode !== "simulate") return;
+        if (!isSimulateViewMode(appStore.state)) return;
         if (freeMovesCtrl?.getUserMoves?.().length > 0) return;
         updateSimPlayingState(info.playing, info.atStart, info.atEnd);
       });
@@ -953,7 +953,7 @@ export function createSimulatorController({
   }
 
   function onSimulateKeyDown(e) {
-    if (appStore.state.mode !== "simulate") return false;
+    if (!isSimulateViewMode(appStore.state)) return false;
     if (e.code === "Space") { e.preventDefault(); simTogglePlay(); return true; }
     if (e.key === "ArrowRight") { e.preventDefault(); simStepForward(); return true; }
     if (e.key === "ArrowLeft") { e.preventDefault(); simStepBackward(); return true; }

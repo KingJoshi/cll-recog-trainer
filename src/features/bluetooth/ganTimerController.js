@@ -17,28 +17,50 @@ export function createGanTimerController({
   const ganTimerBtn = typeof document !== "undefined" ? document.getElementById("ganTimerBtn") : null;
   const ganTimerHeaderDot = typeof document !== "undefined" ? document.getElementById("ganTimerHeaderDot") : null;
   const ganTimerLabel = typeof document !== "undefined" ? document.getElementById("ganTimerLabel") : null;
+  const ganTimerStatusCard = typeof document !== "undefined" ? document.getElementById("ganTimerStatusCard") : null;
+  const ganTimerModalStatusBadge = typeof document !== "undefined" ? document.getElementById("ganTimerModalStatusBadge") : null;
+  const ganTimerDesc = typeof document !== "undefined" ? document.getElementById("ganTimerDesc") : null;
 
   function updateGanTimerUI() {
     const st = ganTimer.getStatus();
     const alertView = getDisconnectAlertView();
     const hasTimerAlert = Boolean(alertView?.getTimerAlert?.() && !st.connected);
     if (ganTimerHeaderDot) ganTimerHeaderDot.className = `bt-dot ${st.status}`;
+    if (ganTimerStatusCard) ganTimerStatusCard.className = `bt-status-card ${st.status}`;
+    if (ganTimerModalStatusBadge) {
+      const badgeClass = st.status === "connected" ? "badge-success" : (st.status === "connecting" ? "badge-warning" : "badge-disconnected");
+      ganTimerModalStatusBadge.className = `badge ${badgeClass}`;
+      ganTimerModalStatusBadge.textContent = st.status === "connected" ? "Connected" : (st.status === "connecting" ? "Connecting..." : "Disconnected");
+    }
     if (ganTimerLabel) {
       ganTimerLabel.textContent = st.status === "connected"
-        ? "GAN Timer ✓"
+        ? "GAN Smart Timer Connected ✓"
         : (st.status === "connecting"
-          ? "Connecting…"
-          : (hasTimerAlert ? "⚠️ Timer Lost!" : "GAN Timer"));
+          ? "Connecting GAN Smart Timer…"
+          : (hasTimerAlert ? "⚠️ GAN Timer Disconnected" : "No Timer Connected"));
+    }
+    if (ganTimerDesc) {
+      ganTimerDesc.textContent = st.connected
+        ? "GAN Smart Timer connected via Web Bluetooth. Pickup, cube solve, and putdown splits are active."
+        : "Connect a Bluetooth GAN Smart Timer to measure pickup, cube solve, and putdown splits automatically.";
     }
     if (ganTimerBtn) {
+      ganTimerBtn.innerHTML = st.connected
+        ? "Disconnect GAN Timer"
+        : (st.status === "connecting"
+          ? "Connecting…"
+          : (hasTimerAlert ? "🔌 Reconnect GAN Timer" : "⏱ Connect GAN Smart Timer"));
       ganTimerBtn.title = st.status === "connected"
         ? "GAN Smart Timer connected · Click to disconnect"
         : (hasTimerAlert
           ? "GAN Smart Timer disconnected! Click to reconnect"
           : "Connect GAN Smart Timer (Bluetooth)");
       ganTimerBtn.classList.toggle("is-connected", st.connected);
+      ganTimerBtn.classList.toggle("btn-danger", st.connected);
+      ganTimerBtn.classList.toggle("btn-primary", !st.connected);
       ganTimerBtn.classList.toggle("is-disconnected-alert", hasTimerAlert);
     }
+    getSmartCubeCtrl()?.updateBluetoothUI?.();
   }
 
   ganTimer.addEventListener("connected", () => {

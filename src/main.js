@@ -8,7 +8,7 @@ import { AlgDrillView } from './features/practice/algDrillView.js';
 import { solveReplayViewer } from './replayView.js';
 import { clearSvgCache, applyColorsTo3DCube } from './caseVisualizer.js';
 import { smartCube } from './smartCube.js';
-import { appStore, isTimerViewMode, ALL_BUILTIN_EVENT_IDS } from './state/appStore.js';
+import { appStore, isTimerViewMode, isSimulateViewMode, ALL_BUILTIN_EVENT_IDS } from './state/appStore.js';
 import { modalManager } from './ui/modalManager.js';
 import { showToast } from './ui/toastService.js';
 import { initSyncTracking } from './services/syncStorage.js';
@@ -159,7 +159,7 @@ const cubeStage = createCubeStageController({
   themeToggleBtn: document.getElementById("themeToggleBtn"),
   onScrambleApplied: (scr) => {
     freeMovesCtrl?.setBaseScramble(scr);
-    if (appStore.state.mode === "simulate") simulatorCtrl?.updateSimulateSolutions?.();
+    if (isSimulateViewMode(appStore.state)) simulatorCtrl?.updateSimulateSolutions?.();
   },
   getStudyView: () => studyView
 });
@@ -357,9 +357,33 @@ tooltipCtrl = createTooltipController({
   isEnabled: () => Boolean(appStore.state.showTooltips)
 });
 
+const helpModal = document.getElementById("helpModal");
+const aboutModal = document.getElementById("aboutModal");
+
 document.getElementById("onboardingBtn")?.addEventListener("click", () => {
+  if (helpModal) modalManager.open(helpModal);
+  else onboardingWizard.open();
+});
+document.getElementById("helpModalCloseBtn")?.addEventListener("click", () => helpModal && modalManager.close(helpModal));
+document.getElementById("helpModalDismissBtn")?.addEventListener("click", () => helpModal && modalManager.close(helpModal));
+document.getElementById("helpLaunchWizardBtn")?.addEventListener("click", () => {
+  if (helpModal) modalManager.close(helpModal);
   onboardingWizard.open();
 });
+document.getElementById("helpOpenShortcutsBtn")?.addEventListener("click", () => {
+  if (helpModal) modalManager.close(helpModal);
+  shortcutsModal.open();
+});
+document.getElementById("helpOpenDevicesBtn")?.addEventListener("click", () => {
+  if (helpModal) modalManager.close(helpModal);
+  smartCubeCtrl?.openBluetoothModal?.();
+});
+
+document.getElementById("aboutModalBtn")?.addEventListener("click", () => {
+  if (aboutModal) modalManager.open(aboutModal);
+});
+document.getElementById("aboutModalCloseBtn")?.addEventListener("click", () => aboutModal && modalManager.close(aboutModal));
+document.getElementById("aboutModalDismissBtn")?.addEventListener("click", () => aboutModal && modalManager.close(aboutModal));
 
 studyView = new StudyView({
   container: document.getElementById("studyViewContainer"),
@@ -374,6 +398,8 @@ studyView = new StudyView({
   onSetOllMode: (mode) => appStore.setOllMode(mode),
   getPllMode: () => appStore.state.pllMode || appStore.state.llAnalyticsMode || "full",
   onSetPllMode: (mode) => appStore.setPllMode(mode),
+  getF2lMode: () => appStore.state.f2lMode || "basic",
+  onSetF2lMode: (mode) => appStore.setF2lMode(mode),
   getSimSpeed: () => appStore.state.simSpeed ?? 1,
   onSetSimSpeed: (spd) => appStore.setSimSpeed(spd),
   getAlgCustomLabel,
@@ -480,6 +506,8 @@ appStore.subscribe((evt) => {
   } else if (evt === "llAnalyticsMode") {
     settingsModal?.renderToggles?.();
     statsCtrl?.updateStatsTable?.();
+    if (appStore.state.mode === "study") studyView?.render?.();
+  } else if (evt === "f2lMode") {
     if (appStore.state.mode === "study") studyView?.render?.();
   } else if (evt === "twoByTwoMethod") {
     settingsModal?.renderToggles?.();
@@ -693,7 +721,7 @@ function handleCustomShortcutKeyDown(e) {
       timerCtrl.toggleLastSolvePenalty("DNF");
       return true;
     case "action:undoFreeMove":
-      if ((s.mode === "study" || (s.mode === "practice" && !timerActive)) && !(actionId in overrides)) return false;
+      if ((s.mode === "study" || (s.mode === "practice" && !timerActive && !isSimulateViewMode(s))) && !(actionId in overrides)) return false;
       if (freeMovesCtrl.getUserMoves().length === 0) return false;
       e.preventDefault();
       freeMovesCtrl.undoLastFreeMove();
@@ -715,6 +743,7 @@ createKeyboardRouter({
   modalManager,
   getMode: () => appStore.state.mode,
   isTimerActive: () => isTimerViewMode(appStore.state),
+  isSimulateActive: () => isSimulateViewMode(appStore.state),
   isReplayOpen: () => solveReplayViewer.isOpen(),
   onReplayKey: (e) => solveReplayViewer.handleKeyDown(e),
   isQuickSimOpen: () => quickSimModal.isOpen(),
@@ -763,12 +792,12 @@ if (appStore.state.mode === "study") {
     solverWidgets.setLayerSolutionMode("face");
   }
   navCtrl.regenerateScramble();
+} else if (isSimulateViewMode(appStore.state)) {
+  simulatorCtrl.simInit();
 } else if (appStore.state.mode === "practice" && appStore.state.trainSubMode === "alg-drill") {
   algDrillView.setTrack(appStore.state.currentPuzzle, appStore.state.currentTrackId);
 } else if (appStore.state.mode === "practice") {
   practiceView.setTrack(appStore.state.currentPuzzle, appStore.state.currentTrackId);
-} else if (appStore.state.mode === "simulate") {
-  simulatorCtrl.simInit();
 }
 
 function refreshAllViewsAfterHydrate() {
@@ -792,11 +821,11 @@ function refreshAllViewsAfterHydrate() {
   navCtrl?.renderPuzzleButtons?.();
 
   if (s.mode !== "study") studyView?.deactivate?.();
-  if (s.mode !== "practice" || isTimerViewMode(s)) {
+  if (s.mode !== "practice" || isTimerViewMode(s) || isSimulateViewMode(s)) {
     practiceView?.deactivate?.();
     cubeStage.setTwoSidedCameraLock(false);
   }
-  if (s.mode !== "simulate") simulatorCtrl?.simTeardown?.();
+  if (!isSimulateViewMode(s)) simulatorCtrl?.simTeardown?.();
 
   settingsModal?.renderToggles?.();
   solverWidgets?.updateFaceChipsUI?.();
@@ -833,6 +862,10 @@ function refreshAllViewsAfterHydrate() {
     if ((!s.currentSolveScramble || modeChanged || puzzleChanged || targetChanged) && timerCtrl?.getSolveState?.() === "idle") {
       navCtrl?.regenerateScramble?.();
     }
+  } else if (isSimulateViewMode(s)) {
+    if (modeChanged || puzzleChanged || trackChanged) {
+      simulatorCtrl?.simInit?.();
+    }
   } else if (s.mode === "practice" && s.trainSubMode === "alg-drill") {
     if (modeChanged || puzzleChanged || trackChanged) {
       algDrillView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
@@ -844,10 +877,6 @@ function refreshAllViewsAfterHydrate() {
       practiceView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     } else {
       practiceView?.render?.();
-    }
-  } else if (s.mode === "simulate") {
-    if (modeChanged || puzzleChanged || trackChanged) {
-      simulatorCtrl?.simInit?.();
     }
   }
 }

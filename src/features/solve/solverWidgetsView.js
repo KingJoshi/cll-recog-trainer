@@ -2,7 +2,7 @@
 
 import { findLayerSolutions, findFaceSolutions } from '../../layerSolver.js';
 import { findCrossSolutions } from '../../crossSolver.js';
-import { caseById, isTimerViewMode } from '../../state/appStore.js';
+import { caseById, isTimerViewMode, isSimulateViewMode } from '../../state/appStore.js';
 import { escapeHtml, capitalize } from '../../services/htmlUtils.js';
 import { copyTextWithButtonFeedback } from '../../services/clipboard.js';
 import { ICON_POPUP_SIM } from '../../ui/transportIcons.js';
@@ -112,7 +112,7 @@ export function createSolverWidgetsView({
       layerModeFaceBtn.setAttribute("aria-pressed", String(layerSolutionMode === "face"));
     }
     updateFaceChipsUI();
-    const scr = appStore.state.mode === "simulate"
+    const scr = isSimulateViewMode(appStore.state)
       ? (freeMovesCtrl?.getSequence?.() || currentLayerScramble)
       : (appStore.state.currentSolveScramble || currentLayerScramble);
     updateLayerSolutions(scr);
@@ -184,10 +184,10 @@ export function createSolverWidgetsView({
         const idx = Number(btn.dataset.idx);
         const sol = displayed[idx];
         if (!sol) return;
-        const base = appStore.state.mode === "simulate"
+        const base = isSimulateViewMode(appStore.state)
           ? (freeMovesCtrl?.getSequence?.() || currentLayerScramble)
           : (appStore.state.currentSolveScramble || appStore.state.scrambleMoves || appStore.state.scramble);
-        if (onQuickSimSolutions && appStore.state.mode !== "simulate") {
+        if (onQuickSimSolutions && !isSimulateViewMode(appStore.state)) {
           const isFace = layerSolutionMode === "face";
           onQuickSimSolutions({
             puzzle: "222",
@@ -388,7 +388,7 @@ export function createSolverWidgetsView({
         const sol = sols[idx];
         if (!sol) return;
         const base = appStore.state.currentSolveScramble || appStore.state.scrambleMoves || appStore.state.scramble;
-        if (onQuickSimSolutions && appStore.state.mode !== "simulate") {
+        if (onQuickSimSolutions && !isSimulateViewMode(appStore.state)) {
           onQuickSimSolutions({
             puzzle: appStore.state.currentPuzzle === "333oh" ? "333oh" : "333",
             scramble: base,

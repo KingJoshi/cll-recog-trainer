@@ -11,6 +11,7 @@ export function createKeyboardRouter({
   modalManager = null,
   getMode = () => "solve",
   isTimerActive = null,
+  isSimulateActive = null,
   isReplayOpen = () => false,
   onReplayKey = () => false,
   isQuickSimOpen = () => false,
@@ -52,11 +53,12 @@ export function createKeyboardRouter({
 
     const mode = getMode();
     const timerActive = typeof isTimerActive === "function" ? Boolean(isTimerActive()) : mode === "solve";
+    const simActive = typeof isSimulateActive === "function" ? Boolean(isSimulateActive()) : mode === "simulate";
 
     // 4. Mode-specific handlers (e.g. Solve / Timed Drill timer Space hold/stop, Simulate transport, Recognition Practice)
     if (timerActive && onSolveKeyDown(e)) return true;
-    if (mode === "simulate" && onSimulateKeyDown(e)) return true;
-    if (mode === "practice" && !timerActive && onPracticeKeyDown(e)) return true;
+    if (simActive && onSimulateKeyDown(e)) return true;
+    if (mode === "practice" && !timerActive && !simActive && onPracticeKeyDown(e)) return true;
 
     // 5. Customizable global & virtual-cube keyboard shortcuts
     if (onCustomShortcutKeyDown(e)) return true;

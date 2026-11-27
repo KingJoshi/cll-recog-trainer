@@ -964,4 +964,105 @@
     border-color: #334155;
     color: #cbd5e1;
   }
+
+  .devices-subtabs {
+    margin-bottom: 12px;
+  }
+
+  .devices-tab-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .devices-tab-panel[hidden] {
+    display: none;
+  }
+
+  .devices-timer-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+
+  .devices-timer-title-row .bt-device-name {
+    margin: 0;
+  }
+
+  .help-modal-card,
+  .about-modal-card {
+    max-width: 620px;
+  }
+
+  .help-modal-body,
+  .about-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .help-modal-lead,
+  .about-mission-statement {
+    margin: 0;
+    line-height: 1.5;
+    font-size: 0.94rem;
+  }
+
+  .help-mode-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+  }
+
+  .help-mode-card {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+  }
+
+  .help-mode-card h4 {
+    margin: 0 0 4px;
+    font-size: 0.92rem;
+  }
+
+  .help-mode-card p {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+
+  .help-tips-list p {
+    margin: 0 0 6px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+
+  .help-tips-list p:last-child {
+    margin-bottom: 0;
+  }
+
+  .help-modal-actions {
+    flex-wrap: wrap;
+  }
+
+  .about-pillars {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+
+  .about-links-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 2px;
+  }
 }

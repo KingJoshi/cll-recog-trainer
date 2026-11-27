@@ -36,7 +36,7 @@ export function createDisconnectAlertView({
     const anyAlert = hasTimerAlert || hasCubeAlert;
 
     ganTimerBtn?.classList.toggle("is-disconnected-alert", hasTimerAlert);
-    bluetoothBtn?.classList.toggle("is-disconnected-alert", hasCubeAlert);
+    bluetoothBtn?.classList.toggle("is-disconnected-alert", hasCubeAlert || hasTimerAlert);
     solveSurface?.classList.toggle("has-bt-disconnect-alert", anyAlert);
 
     if (!anyAlert) {

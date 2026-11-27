@@ -65,10 +65,14 @@ export function sanitizeVisibleEvents(rawList, fallbackShowExtra = false) {
   return fallbackShowExtra ? [...ALL_BUILTIN_EVENT_IDS] : [...DEFAULT_VISIBLE_EVENTS];
 }
 export const MODES = ["study", "practice", "solve", "simulate"];
-export const VALID_TRAIN_SUBMODES = ["recog", "alg-drill", "timed-drill"];
+export const VALID_TRAIN_SUBMODES = ["recog", "alg-drill", "timed-drill", "simulate"];
+export const VALID_F2L_MODES = ["essential", "basic", "intermediate", "advanced"];
 
 export function sanitizeTrainSubMode(val) {
   return VALID_TRAIN_SUBMODES.includes(val) ? val : "recog";
+}
+export function sanitizeF2lMode(val) {
+  return VALID_F2L_MODES.includes(val) ? val : "basic";
 }
 export const LOG_PAGE_SIZE_OPTIONS = [5, 12, 25, 50, 100];
 export const SIM_SPEED_OPTIONS = [0.25, 0.5, 1, 1.5, 2];
@@ -92,6 +96,15 @@ export function sanitizeSolveLimitMinutes(val, fallback = 15) {
 export function isTimerViewMode(state) {
   if (!state) return false;
   return state.mode === "solve" || (state.mode === "practice" && state.trainSubMode === "timed-drill");
+}
+
+/**
+ * Returns true when the current view renders the interactive 3D Simulator
+ * (Train -> Simulate, or legacy top-level mode === "simulate").
+ */
+export function isSimulateViewMode(state) {
+  if (!state) return false;
+  return state.mode === "simulate" || (state.mode === "practice" && state.trainSubMode === "simulate");
 }
 
 export const normalizedCllList = cllCases.map(c => {
@@ -248,7 +261,10 @@ export class AppStore {
 
     const hasSavedTrainSubMode = savedSettings.trainSubMode !== undefined || cookiePrefs.trainSubMode !== undefined;
     let trainSubMode = sanitizeTrainSubMode(savedSettings.trainSubMode ?? cookiePrefs.trainSubMode);
-    if (!hasSavedTrainSubMode && savedSettings.mode === "solve" && solveTarget && solveTarget !== "full" && !PUZZLES[currentPuzzle]?.solveOnly) {
+    if (mode === "simulate" && !PUZZLES[currentPuzzle]?.solveOnly && !PUZZLES[currentPuzzle]?.hideSimulate) {
+      mode = "practice";
+      trainSubMode = "simulate";
+    } else if (!hasSavedTrainSubMode && savedSettings.mode === "solve" && solveTarget && solveTarget !== "full" && !PUZZLES[currentPuzzle]?.solveOnly) {
       mode = "practice";
       trainSubMode = "timed-drill";
     }
@@ -362,6 +378,7 @@ export class AppStore {
           llAnalyticsMode: (ollMode === "2look" && pllMode === "2look") ? "2look" : "full"
         };
       })(),
+      f2lMode: sanitizeF2lMode(savedSettings.f2lMode ?? cookiePrefs.f2lMode),
       twoByTwoMethod: (() => {
         const rawMethod = savedSettings.twoByTwoMethod ?? cookiePrefs.twoByTwoMethod;
         return ["cll", "auto", "ortega"].includes(rawMethod) ? rawMethod : "cll";
@@ -913,6 +930,14 @@ export class AppStore {
     });
   }
 
+  setF2lMode(mode) {
+    const next = sanitizeF2lMode(mode);
+    if (this.state.f2lMode === next) return;
+    this.state.f2lMode = next;
+    this.saveSettings();
+    this.notify("f2lMode", { f2lMode: next });
+  }
+
   setTwoByTwoMethod(method) {
     const next = ["cll", "auto", "ortega"].includes(method) ? method : "cll";
     if (this.state.twoByTwoMethod === next) return;
@@ -1069,6 +1094,7 @@ export class AppStore {
       ollMode: s.ollMode === "2look" ? "2look" : "full",
       pllMode: s.pllMode === "2look" ? "2look" : "full",
       llAnalyticsMode: (s.ollMode === "2look" && s.pllMode === "2look") ? "2look" : "full",
+      f2lMode: sanitizeF2lMode(s.f2lMode),
       twoByTwoMethod: ["cll", "auto", "ortega"].includes(s.twoByTwoMethod) ? s.twoByTwoMethod : "cll",
       trainSubMode: sanitizeTrainSubMode(s.trainSubMode),
       desktopMultiPane: s.desktopMultiPane !== false,
@@ -1136,6 +1162,7 @@ export class AppStore {
       ollMode: s.ollMode === "2look" ? "2look" : "full",
       pllMode: s.pllMode === "2look" ? "2look" : "full",
       llAnalyticsMode: (s.ollMode === "2look" && s.pllMode === "2look") ? "2look" : "full",
+      f2lMode: sanitizeF2lMode(s.f2lMode),
       twoByTwoMethod: ["cll", "auto", "ortega"].includes(s.twoByTwoMethod) ? s.twoByTwoMethod : "cll",
       trainSubMode: sanitizeTrainSubMode(s.trainSubMode),
       desktopMultiPane: s.desktopMultiPane !== false,
@@ -1287,9 +1314,17 @@ export class AppStore {
       s.ollMode = savedSettings.ollMode === "2look" ? "2look" : (savedSettings.ollMode === "full" ? "full" : legacyLlMode);
       s.pllMode = savedSettings.pllMode === "2look" ? "2look" : (savedSettings.pllMode === "full" ? "full" : legacyLlMode);
       s.llAnalyticsMode = (s.ollMode === "2look" && s.pllMode === "2look") ? "2look" : "full";
+      s.f2lMode = sanitizeF2lMode(savedSettings.f2lMode ?? s.f2lMode);
       const rawSynced222Method = savedSettings.twoByTwoMethod ?? s.twoByTwoMethod;
       s.twoByTwoMethod = ["cll", "auto", "ortega"].includes(rawSynced222Method) ? rawSynced222Method : "cll";
       s.trainSubMode = sanitizeTrainSubMode(savedSettings.trainSubMode);
+      if (s.mode === "simulate" && !PUZZLES[currentPuzzle]?.solveOnly && !PUZZLES[currentPuzzle]?.hideSimulate) {
+        s.mode = "practice";
+        s.trainSubMode = "simulate";
+      }
+      if (PUZZLES[currentPuzzle]?.hideSimulate && s.trainSubMode === "simulate") {
+        s.trainSubMode = "recog";
+      }
       s.desktopMultiPane = savedSettings.desktopMultiPane ?? s.desktopMultiPane ?? true;
       s.customEvents = hydratedCustomEvents;
       s.timerDrillPreset = savedSettings.timerDrillPreset || "righty";

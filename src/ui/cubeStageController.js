@@ -87,7 +87,8 @@ export function createCubeStageController({
     }
 
     if (themeToggleBtn) {
-      themeToggleBtn.innerHTML = dark ? "☀️ Light" : "🌙 Dark";
+      themeToggleBtn.innerHTML = dark ? "☀️" : "🌙";
+      themeToggleBtn.setAttribute("aria-label", dark ? "Switch to Light Theme" : "Switch to Dark Theme");
       themeToggleBtn.setAttribute("data-tooltip", dark ? "Switch to Light Theme" : "Switch to Dark Theme");
       themeToggleBtn.removeAttribute("title");
     }

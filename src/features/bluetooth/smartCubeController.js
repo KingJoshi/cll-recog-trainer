@@ -85,9 +85,14 @@ export function createSmartCubeController({
 } = {}) {
   const bluetoothBtn = typeof document !== "undefined" ? document.getElementById("bluetoothBtn") : null;
   const bluetoothHeaderDot = typeof document !== "undefined" ? document.getElementById("bluetoothHeaderDot") : null;
+  const bluetoothHeaderLabel = typeof document !== "undefined" ? document.getElementById("bluetoothHeaderLabel") : null;
   const bluetoothModal = typeof document !== "undefined" ? document.getElementById("bluetoothModal") : null;
   const bluetoothModalCloseBtn = typeof document !== "undefined" ? document.getElementById("bluetoothModalCloseBtn") : null;
   const btModalDismissBtn = typeof document !== "undefined" ? document.getElementById("btModalDismissBtn") : null;
+  const devicesTabCubes = typeof document !== "undefined" ? document.getElementById("devicesTabCubes") : null;
+  const devicesTabTimers = typeof document !== "undefined" ? document.getElementById("devicesTabTimers") : null;
+  const devicesPanelCubes = typeof document !== "undefined" ? document.getElementById("devicesPanelCubes") : null;
+  const devicesPanelTimers = typeof document !== "undefined" ? document.getElementById("devicesPanelTimers") : null;
   const bluetoothModalStatusBadge = typeof document !== "undefined" ? document.getElementById("bluetoothModalStatusBadge") : null;
   const btStatusCard = typeof document !== "undefined" ? document.getElementById("btStatusCard") : null;
   const btDeviceName = typeof document !== "undefined" ? document.getElementById("btDeviceName") : null;
@@ -374,15 +379,36 @@ export function createSmartCubeController({
     });
   }
 
+  function setDevicesTab(tab = "cubes") {
+    const isTimers = tab === "timers";
+    devicesTabCubes?.classList.toggle("active", !isTimers);
+    devicesTabCubes?.setAttribute("aria-selected", String(!isTimers));
+    devicesTabTimers?.classList.toggle("active", isTimers);
+    devicesTabTimers?.setAttribute("aria-selected", String(isTimers));
+    if (devicesPanelCubes) devicesPanelCubes.hidden = isTimers;
+    if (devicesPanelTimers) devicesPanelTimers.hidden = !isTimers;
+  }
+
   function updateBluetoothUI() {
     const st = smartCube.getStatus();
+    const gt = ganTimer.getStatus();
     const s = appStore.state;
     const alertView = getDisconnectAlertView();
     const hasCubeAlert = Boolean(alertView?.getCubeAlert?.() && !st.connected);
+    const hasTimerAlert = Boolean(alertView?.getTimerAlert?.() && !gt.connected);
 
     renderSavedCubesList();
-    if (bluetoothHeaderDot) bluetoothHeaderDot.className = `bt-dot ${st.status}`;
-    bluetoothBtn?.classList.toggle("is-disconnected-alert", hasCubeAlert);
+    const combinedStatus = (st.connected || gt.connected)
+      ? "connected"
+      : ((st.status === "connecting" || gt.status === "connecting") ? "connecting" : "disconnected");
+    if (bluetoothHeaderDot) bluetoothHeaderDot.className = `bt-dot ${combinedStatus}`;
+    if (bluetoothHeaderLabel) {
+      if (st.connected && gt.connected) bluetoothHeaderLabel.textContent = "Devices (2)";
+      else if (st.connected) bluetoothHeaderLabel.textContent = st.isVirtual ? "Virtual Cube" : "Smart Cube ✓";
+      else if (gt.connected) bluetoothHeaderLabel.textContent = "GAN Timer ✓";
+      else bluetoothHeaderLabel.textContent = "Devices";
+    }
+    bluetoothBtn?.classList.toggle("is-disconnected-alert", hasCubeAlert || hasTimerAlert);
 
     if (bluetoothModalStatusBadge) {
       const badgeClass = st.status === "connected" ? "badge-success" : (st.status === "connecting" ? "badge-warning" : "badge-disconnected");
@@ -423,16 +449,22 @@ export function createSmartCubeController({
     }
   }
 
-  function openBluetoothModal() {
+  function openBluetoothModal(opts = {}) {
     if (!bluetoothModal) return;
     void preloadSmartCube();
     if (btErrorAlert) btErrorAlert.hidden = true;
+    if (opts?.tab === "timers" || (!smartCube.getStatus().connected && ganTimer.isConnected() && opts?.tab !== "cubes")) {
+      setDevicesTab("timers");
+    } else if (opts?.tab === "cubes" || !opts?.tab) {
+      setDevicesTab("cubes");
+    }
     if (btCustomMacInput) {
       try {
         btCustomMacInput.value = smartCube.manualMac || localStorage.getItem("cll_smartcube_last_mac") || "";
       } catch {}
     }
     updateBluetoothUI();
+    getGanTimerCtrl()?.updateGanTimerUI?.();
     modalManager.open(bluetoothModal);
   }
 
@@ -539,7 +571,9 @@ export function createSmartCubeController({
   }
 
   // Event listeners
-  bluetoothBtn?.addEventListener("click", openBluetoothModal);
+  bluetoothBtn?.addEventListener("click", () => openBluetoothModal());
+  devicesTabCubes?.addEventListener("click", () => setDevicesTab("cubes"));
+  devicesTabTimers?.addEventListener("click", () => setDevicesTab("timers"));
   bluetoothModalCloseBtn?.addEventListener("click", closeBluetoothModal);
   btModalDismissBtn?.addEventListener("click", closeBluetoothModal);
   btResetBtn?.addEventListener("click", handleBluetoothReset);
