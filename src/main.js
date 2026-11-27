@@ -555,6 +555,8 @@ appStore.subscribe((evt) => {
       navCtrl?.renderPuzzleButtons?.();
     }
     settingsModal?.renderToggles?.();
+  } else if (evt === "storageError") {
+    showToast("Browser storage is full or blocked — settings may not be saved. Export a backup and free space (Settings → Sync).", "error", 6000);
   } else if (evt === "betaFeatures") {
     const s = appStore.state;
     settingsModal?.renderToggles?.();

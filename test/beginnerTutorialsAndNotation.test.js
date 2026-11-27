@@ -353,28 +353,29 @@ test('Standalone Help / NxN Notation view renders top Quick Setup Wizard, 2x2-5x
   view.teardown();
 });
 
-test('Notation mode is non-beta via ? icon while 2x2 and 3x3 tutorials remain beta experimental features', () => {
+test('Notation mode and both beginner tutorials are non-beta (not experimental features)', () => {
   assert.ok(MODES.includes('notation'), 'AppStore MODES must include "notation"');
-  assert.ok(!EXPERIMENTAL_FEATURE_IDS.includes('notationTutorial'), 'notationTutorial must NOT be an experimental feature');
+  for (const fid of ['notationTutorial', 'twoByTwoTutorial', 'threeByThreeTutorial', 'twoByTwoFirstFace']) {
+    assert.ok(!EXPERIMENTAL_FEATURE_IDS.includes(fid), `${fid} must NOT be an experimental feature`);
+  }
   assert.strictEqual(PUZZLES['333'].tracks[0].id, 'tutorial');
-  assert.strictEqual(getTrackExperimentalFeature('333', 'tutorial'), 'threeByThreeTutorial');
-  assert.strictEqual(getTrackExperimentalFeature('222', 'tutorial'), 'twoByTwoTutorial');
+  assert.strictEqual(getTrackExperimentalFeature('333', 'tutorial'), null);
+  assert.strictEqual(getTrackExperimentalFeature('222', 'tutorial'), null);
+  assert.strictEqual(getTrackExperimentalFeature('222', 'face'), null);
 
   const store = new AppStore();
-  assert.strictEqual(isExperimentalEnabled(store.state, 'twoByTwoTutorial'), false);
-  assert.strictEqual(isExperimentalEnabled(store.state, 'threeByThreeTutorial'), false);
-  assert.strictEqual(isTrackEnabled(store.state, '333', 'tutorial'), false);
-
-  store.setExperimentalFeature('threeByThreeTutorial', true);
-  assert.strictEqual(isExperimentalEnabled(store.state, 'threeByThreeTutorial'), true);
   assert.strictEqual(isTrackEnabled(store.state, '333', 'tutorial'), true);
+  assert.strictEqual(isTrackEnabled(store.state, '222', 'tutorial'), true);
+  assert.strictEqual(isTrackEnabled(store.state, '222', 'face'), true);
 
   const html = fs.readFileSync(new URL('../index.html', import.meta.url).pathname, 'utf8');
   assert.ok(!html.includes('id="modeNotationBtn"'), 'Top mode bar stays 3-slot without beta Notation mode button');
   assert.ok(html.includes('id="notationViewContainer"'));
   assert.ok(!html.includes('id="helpModal"'), 'Redundant How to Use modal must be removed');
   assert.ok(!html.includes('id="settingsExp_notationTutorial"'), 'Experimental settings must not list Notations');
-  assert.ok(html.includes('id="settingsExp_threeByThreeTutorial"'));
+  assert.ok(!html.includes('id="settingsExp_threeByThreeTutorial"'));
+  assert.ok(!html.includes('id="settingsExp_twoByTwoTutorial"'));
+  assert.ok(!html.includes('id="settingsExp_twoByTwoFirstFace"'));
 
   const mainJs = fs.readFileSync(new URL('../src/main.js', import.meta.url).pathname, 'utf8');
   assert.match(mainJs, /document\.getElementById\("onboardingBtn"\)\?\.addEventListener\("click",\s*\(\)\s*=>\s*\{\s*navCtrl\?\.setMode\?\.\("notation"\)/);

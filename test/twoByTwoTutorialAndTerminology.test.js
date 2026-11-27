@@ -42,19 +42,19 @@ test('zero occurrences of deprecated trigger term remain across src/ and index.h
   assert.deepStrictEqual(offenders, [], `Found deprecated term in: ${offenders.join(', ')}`);
 });
 
-test('2x2 Beginner Tutorial precedes 1st Face and both are beta experimental features', () => {
+test('2x2 Beginner Tutorial precedes 1st Face and neither is a beta experimental feature', () => {
   const trackIds = PUZZLES['222'].tracks.map(t => t.id);
   const tutIdx = trackIds.indexOf('tutorial');
   const faceIdx = trackIds.indexOf('face');
   assert.ok(tutIdx >= 0 && faceIdx > tutIdx, 'tutorial track must precede face track');
 
-  assert.strictEqual(getTrackExperimentalFeature('222', 'tutorial'), 'twoByTwoTutorial');
-  assert.strictEqual(getTrackExperimentalFeature('222', 'face'), 'twoByTwoFirstFace');
+  assert.strictEqual(getTrackExperimentalFeature('222', 'tutorial'), null);
+  assert.strictEqual(getTrackExperimentalFeature('222', 'face'), null);
   assert.strictEqual(getTrackExperimentalFeature('222', 'layer'), 'twoByTwoFirstLayer');
 
   const store = new AppStore();
-  assert.strictEqual(isTrackEnabled(store.state, '222', 'tutorial'), false);
-  assert.strictEqual(isTrackEnabled(store.state, '222', 'face'), false);
+  assert.strictEqual(isTrackEnabled(store.state, '222', 'tutorial'), true);
+  assert.strictEqual(isTrackEnabled(store.state, '222', 'face'), true);
   assert.strictEqual(isTrackEnabled(store.state, '222', 'layer'), false);
 });
 

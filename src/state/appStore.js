@@ -49,7 +49,8 @@ export const STORAGE_KEYS = {
   CUSTOM_LABELS: "cllTrainerCustomLabels",
   PBL_SETTINGS: "cllTrainerPblSettings",
   SESSIONS: "cllTrainerSessions",
-  UI_COOKIE: "cll_ui_prefs"
+  UI_COOKIE: "cll_ui_prefs",
+  EXPERIMENTAL_PREFS: "cll_experimental_prefs"
 };
 
 export const VALID_PUZZLES = ["222", "333", "333oh", "444", "555", "666", "777", "fto", "pyram", "skewb", "minx", "sq1", "clock", "333bf"];
@@ -59,21 +60,6 @@ export const BETA_TRACK_IDS_222 = new Set(["tutorial", "face", "eg1", "eg2", "la
 export const BETA_TRACK_IDS_333 = new Set(["tutorial", "coll", "cmll", "wv"]);
 
 export const EXPERIMENTAL_FEATURES = Object.freeze([
-  {
-    id: "twoByTwoTutorial",
-    label: "2x2 Beginner Tutorial",
-    description: "Dynamic step-by-step 3D beginner 2x2 guide using Righty, Sune/Antisune, and T-Perm"
-  },
-  {
-    id: "threeByThreeTutorial",
-    label: "3x3 Beginner Tutorial",
-    description: "Dynamic step-by-step 3D beginner 3x3 guide: Daisy, Cross, Corners, Middle Edges, Sune/Antisune OLL, T-Perm & Ua/Ub PLL"
-  },
-  {
-    id: "twoByTwoFirstFace",
-    label: "2x2 1st Face",
-    description: "2x2 1st Face study guide, inspection drills, and timed drills for Ortega & EG"
-  },
   {
     id: "eg1",
     label: "2x2 EG-1",
@@ -155,13 +141,10 @@ export const EXPERIMENTAL_FEATURE_IDS = EXPERIMENTAL_FEATURES.map(f => f.id);
 export function getTrackExperimentalFeature(puzzleId, trackId) {
   if (!trackId) return null;
   if (puzzleId === "222") {
-    if (trackId === "tutorial") return "twoByTwoTutorial";
-    if (trackId === "face") return "twoByTwoFirstFace";
     if (trackId === "eg1") return "eg1";
     if (trackId === "eg2") return "eg2";
     if (trackId === "layer") return "twoByTwoFirstLayer";
   } else if (puzzleId === "333" || puzzleId === "333oh") {
-    if (trackId === "tutorial" && puzzleId === "333") return "threeByThreeTutorial";
     if (trackId === "coll") return "coll";
     if (trackId === "cmll") return "cmll";
     if (trackId === "wv") return "wv";
@@ -360,6 +343,12 @@ export class AppStore {
     const rawSettings = readStorageJSON(STORAGE_KEYS.SETTINGS, null);
     const hasExistingSettings = Boolean(rawSettings && typeof rawSettings === "object" && Object.keys(rawSettings).length > 0);
     const savedSettings = { ...cookiePrefs, ...(rawSettings || {}) };
+    // Dedicated tiny key survives when the large settings blob cannot be written (e.g. storage quota nearly full)
+    const expPrefs = readStorageJSON(STORAGE_KEYS.EXPERIMENTAL_PREFS, null);
+    if (expPrefs && typeof expPrefs === "object" && expPrefs.experimentalFeatures && typeof expPrefs.experimentalFeatures === "object") {
+      savedSettings.experimentalFeatures = expPrefs.experimentalFeatures;
+      if (typeof expPrefs.experimentalAllEnabled === "boolean") savedSettings.experimentalAllEnabled = expPrefs.experimentalAllEnabled;
+    }
 
     // Colors
     if (savedSettings.customColors && typeof savedSettings.customColors === "object") {
@@ -1424,7 +1413,15 @@ export class AppStore {
   saveSettings() {
     const s = this.state;
     const payload = this.getSettingsPayload();
-    writeStorageJSON(STORAGE_KEYS.SETTINGS, payload);
+    const settingsSaved = writeStorageJSON(STORAGE_KEYS.SETTINGS, payload);
+    const expSaved = writeStorageJSON(STORAGE_KEYS.EXPERIMENTAL_PREFS, {
+      experimentalFeatures: payload.experimentalFeatures,
+      experimentalAllEnabled: payload.experimentalAllEnabled,
+      updatedAt: Date.now()
+    });
+    if (!settingsSaved || !expSaved) {
+      this.notify("storageError", { section: "settings", settingsSaved, expSaved });
+    }
     writeCookieJSON(STORAGE_KEYS.UI_COOKIE, {
       currentPuzzle: s.currentPuzzle,
       currentTrackId: s.currentTrackId,
