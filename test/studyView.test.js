@@ -578,3 +578,73 @@ test('333bf 3BLD guide covers all 24 Speffz letters for Corners & Edges, dual ne
   assert.ok(html.includes("R U' R' U' R U R D R' U' R D' R' U2 R' U'"));
   assert.ok(html.includes('OP Buffer sticker'));
 });
+
+test('Case Grid group filter pills switch cleanly on 2-group tracks (LBL) and keep multi-select on 3+ groups (CLL)', () => {
+  function createGroupFilterContainer() {
+    const pillListeners = new Map();
+    return {
+      innerHTML: '',
+      querySelector() { return null; },
+      querySelectorAll(sel) {
+        if (sel !== '.study-group-pill') return [];
+        pillListeners.clear();
+        const matches = [...this.innerHTML.matchAll(/class="study-group-pill([^"]*)"([^>]*)>/g)];
+        return matches.map((m, idx) => {
+          const attrs = m[2];
+          const grpMatch = attrs.match(/data-group="([^"]+)"/);
+          const onlyMatch = attrs.match(/data-only-selected="([^"]+)"/);
+          const key = grpMatch ? grpMatch[1] : `only:${idx}`;
+          const btn = {
+            dataset: {
+              ...(grpMatch ? { group: grpMatch[1] } : {}),
+              ...(onlyMatch ? { onlySelected: onlyMatch[1] } : {})
+            },
+            addEventListener(evt, fn) {
+              if (evt === 'click') pillListeners.set(key, fn);
+            }
+          };
+          return btn;
+        });
+      },
+      clickGroup(group) {
+        const fn = pillListeners.get(group);
+        assert.ok(fn, `Expected group pill listener for ${group}`);
+        fn();
+      }
+    };
+  }
+
+  // 2x2 LBL (2 groups: OLL, PLL): selecting PLL then OLL switches to OLL (not All); clicking OLL again returns to All
+  const lblContainer = createGroupFilterContainer();
+  const svLbl = new StudyView({ container: lblContainer });
+  svLbl.setTrack('222', 'lbl');
+  svLbl.setView('grid');
+  assert.deepStrictEqual([...svLbl.activeGroupFilters], []);
+
+  lblContainer.clickGroup('PLL (Permute Last Layer)');
+  assert.deepStrictEqual([...svLbl.activeGroupFilters], ['PLL (Permute Last Layer)']);
+
+  lblContainer.clickGroup('OLL (Orient Last Layer)');
+  assert.deepStrictEqual([...svLbl.activeGroupFilters], ['OLL (Orient Last Layer)']);
+
+  lblContainer.clickGroup('OLL (Orient Last Layer)');
+  assert.deepStrictEqual([...svLbl.activeGroupFilters], []);
+
+  // 2x2 CLL (7 groups): selecting multiple groups preserves multi-select even when all 7 are chosen until All is clicked
+  const cllContainer = createGroupFilterContainer();
+  const svCll = new StudyView({ container: cllContainer });
+  svCll.setTrack('222', 'cll');
+  svCll.setView('grid');
+
+  cllContainer.clickGroup('L-Group');
+  cllContainer.clickGroup('H-Group');
+  assert.deepStrictEqual([...svCll.activeGroupFilters], ['L-Group', 'H-Group']);
+
+  for (const grp of ['P-Group', 'U-Group', 'T-Group', 'S-Group', 'A-Group']) {
+    cllContainer.clickGroup(grp);
+  }
+  assert.strictEqual(svCll.activeGroupFilters.size, 7);
+
+  cllContainer.clickGroup('all');
+  assert.strictEqual(svCll.activeGroupFilters.size, 0);
+});

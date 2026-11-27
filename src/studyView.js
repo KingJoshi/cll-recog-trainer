@@ -550,7 +550,7 @@ export class StudyView {
     const activeMatchingCount = [...this.activeGroupFilters].filter(g => availableGroups.includes(g)).length;
     const isAll = activeMatchingCount === 0;
     return `
-      <div class="study-group-filter-bar" role="group" aria-label="Filter cases by group (multi-select)">
+      <div class="study-group-filter-bar" role="group" aria-label="${availableGroups.length > 2 ? 'Filter cases by group (multi-select)' : 'Filter cases by group'}">
         <span class="study-filter-label">Group:</span>
         <button type="button" class="study-group-pill ${isAll ? 'active' : ''}" data-group="all" aria-pressed="${isAll}">All (${cases.length})</button>
         ${selectedInTrack.length > 0 && selectedInTrack.length < cases.length ? `
@@ -1444,7 +1444,7 @@ export class StudyView {
       });
     });
 
-    // Group filter pills (multi-select) + Selected Only pill
+    // Group filter pills: single-select switch on 2-group tracks (e.g. LBL OLL/PLL), multi-select on 3+ groups
     this.container.querySelectorAll('.study-group-pill').forEach(btn => {
       btn.addEventListener('click', () => {
         if (btn.dataset.onlySelected) {
@@ -1454,15 +1454,19 @@ export class StudyView {
           if (grp === "all") {
             this.activeGroupFilters.clear();
           } else {
-            if (this.activeGroupFilters.has(grp)) {
+            const baseCases = this.getTrackBaseCases(track);
+            const totalGroups = this.getTrackOrderedGroups(track).filter(g => baseCases.some(c => c.group === g)).length;
+            if (totalGroups <= 2) {
+              if (this.activeGroupFilters.has(grp)) {
+                this.activeGroupFilters.clear();
+              } else {
+                this.activeGroupFilters.clear();
+                this.activeGroupFilters.add(grp);
+              }
+            } else if (this.activeGroupFilters.has(grp)) {
               this.activeGroupFilters.delete(grp);
             } else {
               this.activeGroupFilters.add(grp);
-            }
-            const baseCases = this.getTrackBaseCases(track);
-            const totalGroups = this.getTrackOrderedGroups(track).filter(g => baseCases.some(c => c.group === g)).length;
-            if (totalGroups > 0 && this.activeGroupFilters.size >= totalGroups) {
-              this.activeGroupFilters.clear();
             }
           }
         }
