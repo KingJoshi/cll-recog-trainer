@@ -259,6 +259,68 @@ test('AppStore & syncMerge handle Train->Simulate and 4-tier F2L modes', () => {
   assert.strictEqual(betaMerged.settings.experimentalFeatures.eg1, true);
   assert.strictEqual(betaMerged.settings.experimentalFeatures.stackmatG5, true);
   assert.strictEqual(betaMerged.settings.experimentalFeatures.eg2, false);
+
+  // Per-key merge & Check All persistence: older remote missing recent keys must NOT clear them
+  const { merged: olderRemoteMerged } = mergeSyncPayloads(
+    {
+      schemaVersion: 2,
+      settings: {
+        betaFeatures: true,
+        experimentalAllEnabled: true,
+        experimentalFeatures: { eg1: true, eg2: true, twoByTwoTutorial: true, threeByThreeTutorial: true }
+      },
+      timestamps: { settings: { experimentalFeatures: 1000, experimentalAllEnabled: 1000 } },
+      updatedAt: 1000,
+      sessions: []
+    },
+    {
+      schemaVersion: 2,
+      settings: {
+        betaFeatures: true,
+        experimentalFeatures: { eg1: true, eg2: true }
+      },
+      timestamps: { settings: { experimentalFeatures: 5000 } },
+      updatedAt: 5000,
+      sessions: []
+    }
+  );
+  assert.strictEqual(olderRemoteMerged.settings.experimentalFeatures.twoByTwoTutorial, true);
+  assert.strictEqual(olderRemoteMerged.settings.experimentalFeatures.threeByThreeTutorial, true);
+  assert.strictEqual(olderRemoteMerged.settings.experimentalAllEnabled, true);
+
+  // Explicit false in both clients still syncs via LWW
+  const { merged: explicitDisableMerged } = mergeSyncPayloads(
+    {
+      schemaVersion: 2,
+      settings: { experimentalFeatures: { eg1: true, threeByThreeTutorial: true } },
+      timestamps: { settings: { experimentalFeatures: 1000 } },
+      updatedAt: 1000,
+      sessions: []
+    },
+    {
+      schemaVersion: 2,
+      settings: { experimentalFeatures: { eg1: true, threeByThreeTutorial: false } },
+      timestamps: { settings: { experimentalFeatures: 2000 } },
+      updatedAt: 2000,
+      sessions: []
+    }
+  );
+  assert.strictEqual(explicitDisableMerged.settings.experimentalFeatures.threeByThreeTutorial, false);
+
+  // Check All inference & unknown future key preservation in sanitizeExperimentalFeatures
+  const preservedFuture = sanitizeExperimentalFeatures({ eg1: true, futureFeatureX: true }, false, false);
+  assert.strictEqual(preservedFuture.futureFeatureX, true);
+  assert.strictEqual(preservedFuture.threeByThreeTutorial, false);
+
+  const inferredAll = sanitizeExperimentalFeatures({ eg1: true, eg2: true, stackmatG5: true, coll: true }, true);
+  assert.strictEqual(inferredAll.threeByThreeTutorial, true);
+  assert.strictEqual(inferredAll.twoByTwoTutorial, true);
+
+  appStore.setAllExperimentalFeatures(true);
+  assert.strictEqual(appStore.state.experimentalAllEnabled, true);
+  appStore.setExperimentalFeature('coll', false);
+  assert.strictEqual(appStore.state.experimentalAllEnabled, false);
+
   appStore.setBetaFeatures(false);
 });
 

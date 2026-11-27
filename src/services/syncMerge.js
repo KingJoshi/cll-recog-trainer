@@ -30,6 +30,7 @@ const SETTINGS_SCALAR_FIELDS = [
   "statsDisplayMode",
   "betaFeatures",
   "experimentalFeatures",
+  "experimentalAllEnabled",
   "showTooltips",
   "onboardingCompleted",
   "onboardingProfile",
@@ -269,6 +270,28 @@ function mergeSettings(local, remote) {
       continue;
     }
 
+    if (field === "experimentalFeatures" && isPlainObject(lVal) && isPlainObject(rVal)) {
+      const mergedMap = {};
+      for (const key of new Set([...Object.keys(lVal), ...Object.keys(rVal)])) {
+        const hasL = Object.prototype.hasOwnProperty.call(lVal, key);
+        const hasR = Object.prototype.hasOwnProperty.call(rVal, key);
+        if (hasL && !hasR) {
+          mergedMap[key] = Boolean(lVal[key]);
+        } else if (!hasL && hasR) {
+          mergedMap[key] = Boolean(rVal[key]);
+        } else {
+          if (lt > rt) mergedMap[key] = Boolean(lVal[key]);
+          else if (rt > lt) mergedMap[key] = Boolean(rVal[key]);
+          else if (lt === 0 && rt === 0) mergedMap[key] = Boolean(rUpdated > lUpdated ? rVal[key] : lVal[key]);
+          else mergedMap[key] = Boolean(lVal[key]);
+        }
+      }
+      mergedSettings.experimentalFeatures = mergedMap;
+      const maxExpTs = Math.max(lt, rt);
+      if (maxExpTs > 0) mergedSettingsTs.experimentalFeatures = maxExpTs;
+      continue;
+    }
+
     if (lt > rt) {
       mergedSettings[field] = deepClone(lVal);
       mergedSettingsTs[field] = lt;
@@ -309,6 +332,14 @@ function mergeSettings(local, remote) {
     if (maxCollapseTs > 0) {
       mergedSettingsTs.settingsCollapsed = maxCollapseTs;
       mergedSettingsTs.casesCollapsed = maxCollapseTs;
+    }
+  }
+
+  if (isPlainObject(mergedSettings.experimentalFeatures)) {
+    const expValues = Object.values(mergedSettings.experimentalFeatures);
+    mergedSettings.betaFeatures = expValues.some(Boolean);
+    if (expValues.length > 0 && mergedSettings.experimentalAllEnabled !== undefined) {
+      mergedSettings.experimentalAllEnabled = expValues.every(Boolean);
     }
   }
 

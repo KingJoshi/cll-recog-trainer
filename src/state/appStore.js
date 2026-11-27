@@ -176,12 +176,29 @@ export function getFallbackTrackForPuzzle(puzzleId) {
   return "oll";
 }
 
-export function sanitizeExperimentalFeatures(rawObj, legacyBetaFlag = false) {
+export function sanitizeExperimentalFeatures(rawObj, legacyBetaFlag = false, allEnabled = undefined) {
   const hasMap = Boolean(rawObj && typeof rawObj === "object" && !Array.isArray(rawObj));
-  const fallback = hasMap ? false : Boolean(legacyBetaFlag);
   const out = {};
+  if (hasMap) {
+    for (const [k, v] of Object.entries(rawObj)) {
+      if (typeof v === "boolean") out[k] = v;
+    }
+  }
+  let effectiveAllEnabled;
+  if (typeof allEnabled === "boolean") {
+    effectiveAllEnabled = allEnabled;
+  } else if (hasMap) {
+    const boolValues = Object.values(out);
+    effectiveAllEnabled = boolValues.length >= 3 && boolValues.every(Boolean);
+  } else {
+    effectiveAllEnabled = Boolean(legacyBetaFlag);
+  }
   for (const id of EXPERIMENTAL_FEATURE_IDS) {
-    out[id] = hasMap ? Boolean(rawObj[id]) : fallback;
+    if (hasMap && Object.prototype.hasOwnProperty.call(rawObj, id)) {
+      out[id] = Boolean(rawObj[id]);
+    } else {
+      out[id] = effectiveAllEnabled;
+    }
   }
   return out;
 }
@@ -365,11 +382,16 @@ export class AppStore {
     syncCustomEventsToRegistry(customEvents);
     const isKnownPuzzle = (pid) => VALID_PUZZLES.includes(pid) || Boolean(PUZZLES[pid]);
 
+    const rawAllExpFlag = savedSettings.experimentalAllEnabled !== undefined
+      ? Boolean(savedSettings.experimentalAllEnabled)
+      : (cookiePrefs.experimentalAllEnabled !== undefined ? Boolean(cookiePrefs.experimentalAllEnabled) : undefined);
     const experimentalFeatures = sanitizeExperimentalFeatures(
       savedSettings.experimentalFeatures ?? cookiePrefs.experimentalFeatures,
-      Boolean(savedSettings.betaFeatures ?? cookiePrefs.betaFeatures ?? false)
+      Boolean(savedSettings.betaFeatures ?? cookiePrefs.betaFeatures ?? false),
+      rawAllExpFlag
     );
-    const betaFeatures = EXPERIMENTAL_FEATURE_IDS.some(id => experimentalFeatures[id]);
+    const experimentalAllEnabled = EXPERIMENTAL_FEATURE_IDS.every(id => Boolean(experimentalFeatures[id]));
+    const betaFeatures = EXPERIMENTAL_FEATURE_IDS.some(id => Boolean(experimentalFeatures[id]));
 
     // Navigation & puzzle/track
     let currentPuzzle = isKnownPuzzle(savedSettings.currentPuzzle) ? savedSettings.currentPuzzle : "333";
@@ -521,6 +543,7 @@ export class AppStore {
       statsPanelVisibility,
       focusMode: false,
       betaFeatures,
+      experimentalAllEnabled,
       experimentalFeatures,
       showTooltips: savedSettings.showTooltips ?? cookiePrefs.showTooltips ?? true,
       onboardingCompleted: savedSettings.onboardingCompleted ?? cookiePrefs.onboardingCompleted ?? (hasExistingSettings || hasRecordedSolves),
@@ -1177,14 +1200,16 @@ export class AppStore {
   setExperimentalFeature(featureId, enabled) {
     if (!EXPERIMENTAL_FEATURE_IDS.includes(featureId)) return false;
     const next = Boolean(enabled);
-    const currentMap = sanitizeExperimentalFeatures(this.state.experimentalFeatures, this.state.betaFeatures);
+    const currentMap = sanitizeExperimentalFeatures(this.state.experimentalFeatures, this.state.betaFeatures, this.state.experimentalAllEnabled);
     if (Boolean(currentMap[featureId]) === next) return false;
     currentMap[featureId] = next;
     this.state.experimentalFeatures = currentMap;
-    this.state.betaFeatures = EXPERIMENTAL_FEATURE_IDS.some(id => currentMap[id]);
+    this.state.experimentalAllEnabled = EXPERIMENTAL_FEATURE_IDS.every(id => Boolean(currentMap[id]));
+    this.state.betaFeatures = EXPERIMENTAL_FEATURE_IDS.some(id => Boolean(currentMap[id]));
     this.saveSettings();
     this.notify("betaFeatures", {
       betaFeatures: this.state.betaFeatures,
+      experimentalAllEnabled: this.state.experimentalAllEnabled,
       experimentalFeatures: { ...currentMap }
     });
     return true;
@@ -1192,19 +1217,25 @@ export class AppStore {
 
   setAllExperimentalFeatures(enabled) {
     const next = Boolean(enabled);
-    const currentMap = sanitizeExperimentalFeatures(this.state.experimentalFeatures, this.state.betaFeatures);
+    const currentMap = sanitizeExperimentalFeatures(this.state.experimentalFeatures, this.state.betaFeatures, this.state.experimentalAllEnabled);
     const changed = EXPERIMENTAL_FEATURE_IDS.some(id => Boolean(currentMap[id]) !== next) ||
+      Boolean(this.state.experimentalAllEnabled) !== next ||
       Boolean(this.state.betaFeatures) !== next;
     if (!changed) return false;
-    const nextMap = {};
+    const nextMap = { ...currentMap };
+    for (const id of Object.keys(nextMap)) {
+      nextMap[id] = next;
+    }
     for (const id of EXPERIMENTAL_FEATURE_IDS) {
       nextMap[id] = next;
     }
     this.state.experimentalFeatures = nextMap;
+    this.state.experimentalAllEnabled = next;
     this.state.betaFeatures = next;
     this.saveSettings();
     this.notify("betaFeatures", {
       betaFeatures: next,
+      experimentalAllEnabled: next,
       experimentalFeatures: { ...nextMap }
     });
     return true;
@@ -1332,7 +1363,8 @@ export class AppStore {
       advancedMode: Boolean(s.advancedMode),
       statsDisplayMode: ["none", "basic", "advanced"].includes(s.statsDisplayMode) ? s.statsDisplayMode : (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic")),
       betaFeatures: Boolean(s.betaFeatures),
-      experimentalFeatures: sanitizeExperimentalFeatures(s.experimentalFeatures, s.betaFeatures),
+      experimentalAllEnabled: Boolean(s.experimentalAllEnabled),
+      experimentalFeatures: sanitizeExperimentalFeatures(s.experimentalFeatures, s.betaFeatures, s.experimentalAllEnabled),
       showTooltips: s.showTooltips,
       onboardingCompleted: s.onboardingCompleted,
       onboardingProfile: s.onboardingProfile,
@@ -1404,7 +1436,8 @@ export class AppStore {
       advancedMode: Boolean(s.advancedMode),
       statsDisplayMode: ["none", "basic", "advanced"].includes(s.statsDisplayMode) ? s.statsDisplayMode : (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic")),
       betaFeatures: Boolean(s.betaFeatures),
-      experimentalFeatures: sanitizeExperimentalFeatures(s.experimentalFeatures, s.betaFeatures),
+      experimentalAllEnabled: Boolean(s.experimentalAllEnabled),
+      experimentalFeatures: sanitizeExperimentalFeatures(s.experimentalFeatures, s.betaFeatures, s.experimentalAllEnabled),
       showTooltips: s.showTooltips,
       onboardingCompleted: s.onboardingCompleted,
       alwaysWhiteBottom: s.alwaysWhiteBottom,
@@ -1519,13 +1552,17 @@ export class AppStore {
       const simSpeed = SIM_SPEED_OPTIONS.includes(rawSimSpeed) ? rawSimSpeed : 1;
 
       const s = this.state;
+      const rawAllFlag = typeof savedSettings.experimentalAllEnabled === "boolean"
+        ? savedSettings.experimentalAllEnabled
+        : undefined;
       const incomingExp = savedSettings.experimentalFeatures !== undefined
-        ? sanitizeExperimentalFeatures(savedSettings.experimentalFeatures, Boolean(savedSettings.betaFeatures))
+        ? sanitizeExperimentalFeatures(savedSettings.experimentalFeatures, Boolean(savedSettings.betaFeatures), rawAllFlag)
         : (savedSettings.betaFeatures !== undefined
-            ? sanitizeExperimentalFeatures(null, Boolean(savedSettings.betaFeatures))
-            : sanitizeExperimentalFeatures(s.experimentalFeatures, Boolean(s.betaFeatures)));
+            ? sanitizeExperimentalFeatures(null, Boolean(savedSettings.betaFeatures), rawAllFlag)
+            : sanitizeExperimentalFeatures(s.experimentalFeatures, Boolean(s.betaFeatures), typeof rawAllFlag === "boolean" ? rawAllFlag : s.experimentalAllEnabled));
       s.experimentalFeatures = incomingExp;
-      s.betaFeatures = EXPERIMENTAL_FEATURE_IDS.some(id => incomingExp[id]);
+      s.experimentalAllEnabled = EXPERIMENTAL_FEATURE_IDS.every(id => Boolean(incomingExp[id]));
+      s.betaFeatures = EXPERIMENTAL_FEATURE_IDS.some(id => Boolean(incomingExp[id]));
       s.currentPuzzle = (!isPuzzleEnabled(s, currentPuzzle)) ? "333" : currentPuzzle;
       s.currentTrackId = (!isTrackEnabled(s, s.currentPuzzle, currentTrackId)) ? getFallbackTrackForPuzzle(s.currentPuzzle) : (s.currentPuzzle !== currentPuzzle ? (getDefaultTrack(s.currentPuzzle)?.id || "oll") : currentTrackId);
       s.mode = mode;
