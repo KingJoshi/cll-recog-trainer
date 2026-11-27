@@ -70,6 +70,9 @@ const SETTINGS_SCALAR_FIELDS = [
   "crossTargetFaces",
   "activeSessionId",
   "solveTarget",
+  "allowSessionOverrides",
+  "globalSolveShowCube",
+  "globalSolveInspection",
   "solveShowCube",
   "solveInspection",
   "inspectionAudioMode",
@@ -996,8 +999,17 @@ export function mergeSyncPayloads(local, remote, base = null, now = Date.now(), 
     const fallbackSession = puzzleMatch || mergedSessions[0];
     mergedSettings.activeSessionId = fallbackSession.id;
     mergedSettings.solveTarget = fallbackSession.target || "full";
-    mergedSettings.solveShowCube = fallbackSession.showCube !== false;
-    mergedSettings.solveInspection = fallbackSession.inspection !== false;
+    if (mergedSettings.allowSessionOverrides === true) {
+      mergedSettings.solveShowCube = fallbackSession.showCube !== false;
+      mergedSettings.solveInspection = fallbackSession.inspection !== false;
+    } else {
+      mergedSettings.solveShowCube = mergedSettings.globalSolveShowCube !== undefined
+        ? Boolean(mergedSettings.globalSolveShowCube)
+        : (mergedSettings.solveShowCube !== false);
+      mergedSettings.solveInspection = mergedSettings.globalSolveInspection !== undefined
+        ? Boolean(mergedSettings.globalSolveInspection)
+        : (mergedSettings.solveInspection !== false);
+    }
   }
 
   const statsMergeMode = options?.statsMergeMode === "max" ? "max" : "additive";

@@ -562,8 +562,15 @@ export class AppStore {
       sessions,
       activeSessionId,
       solveTarget,
-      solveShowCube: activeSession.showCube ?? true,
-      solveInspection: activeSession.inspection ?? true,
+      allowSessionOverrides: Boolean(savedSettings.allowSessionOverrides === true),
+      globalSolveShowCube: savedSettings.globalSolveShowCube !== undefined
+        ? Boolean(savedSettings.globalSolveShowCube)
+        : (savedSettings.solveShowCube !== undefined ? Boolean(savedSettings.solveShowCube) : true),
+      globalSolveInspection: savedSettings.globalSolveInspection !== undefined
+        ? Boolean(savedSettings.globalSolveInspection)
+        : (savedSettings.solveInspection !== undefined ? Boolean(savedSettings.solveInspection) : true),
+      solveShowCube: true,
+      solveInspection: true,
       keyboardShortcuts: sanitizeShortcutOverrides(savedSettings.keyboardShortcuts),
       stats: sanitizeStoredStats(readStorageJSON(STORAGE_KEYS.STATS, {}) || {}),
       caseTags: readStorageJSON(STORAGE_KEYS.CASE_TAGS, {}) || {},
@@ -579,6 +586,7 @@ export class AppStore {
       lastSolve: activeSession.solves?.length ? activeSession.solves[activeSession.solves.length - 1] : null
     };
 
+    this.syncEffectiveSolveOptions();
     this.loadTrackSelection(currentPuzzle, currentTrackId);
   }
 
@@ -639,8 +647,7 @@ export class AppStore {
     const sess = result.session;
     s.activeSessionId = sess.id;
     s.solveTarget = target;
-    s.solveShowCube = sess.showCube ?? true;
-    s.solveInspection = sess.inspection ?? true;
+    this.syncEffectiveSolveOptions();
     s.sessionLogPage = 1;
     const solves = Array.isArray(sess.solves) ? sess.solves : [];
     s.lastSolve = solves.length ? solves[solves.length - 1] : null;
@@ -1021,13 +1028,42 @@ export class AppStore {
     this.notify("widgetVisibility", { key, enabled: next });
   }
 
+  syncEffectiveSolveOptions() {
+    const s = this.state;
+    const sess = this.getActiveSession?.();
+    if (s.allowSessionOverrides && sess) {
+      s.solveShowCube = sess.showCube !== undefined ? Boolean(sess.showCube) : Boolean(s.globalSolveShowCube);
+      s.solveInspection = sess.inspection !== undefined ? Boolean(sess.inspection) : Boolean(s.globalSolveInspection);
+    } else {
+      s.solveShowCube = Boolean(s.globalSolveShowCube);
+      s.solveInspection = Boolean(s.globalSolveInspection);
+    }
+  }
+
+  setAllowSessionOverrides(enabled) {
+    const next = Boolean(enabled);
+    this.state.allowSessionOverrides = next;
+    this.syncEffectiveSolveOptions();
+    this.saveSettings();
+    this.notify("solveOptions", {
+      allowSessionOverrides: next,
+      solveShowCube: this.state.solveShowCube,
+      solveInspection: this.state.solveInspection
+    });
+  }
+
   setSolveShowCube(enabled) {
     const next = Boolean(enabled);
     this.state.solveShowCube = next;
-    const sess = this.getActiveSession?.();
-    if (sess) {
-      sess.showCube = next;
-      this.saveSessions();
+    if (this.state.allowSessionOverrides) {
+      const sess = this.getActiveSession?.();
+      if (sess) {
+        sess.showCube = next;
+        sess.updatedAt = Date.now();
+        this.saveSessions();
+      }
+    } else {
+      this.state.globalSolveShowCube = next;
     }
     this.saveSettings();
     this.notify("solveOptions", { solveShowCube: next });
@@ -1036,10 +1072,15 @@ export class AppStore {
   setSolveInspection(enabled) {
     const next = Boolean(enabled);
     this.state.solveInspection = next;
-    const sess = this.getActiveSession?.();
-    if (sess) {
-      sess.inspection = next;
-      this.saveSessions();
+    if (this.state.allowSessionOverrides) {
+      const sess = this.getActiveSession?.();
+      if (sess) {
+        sess.inspection = next;
+        sess.updatedAt = Date.now();
+        this.saveSessions();
+      }
+    } else {
+      this.state.globalSolveInspection = next;
     }
     this.saveSettings();
     this.notify("solveOptions", { solveInspection: next });
@@ -1306,6 +1347,9 @@ export class AppStore {
       crossTargetFaces: s.crossTargetFaces,
       activeSessionId: s.activeSessionId,
       solveTarget: s.solveTarget,
+      allowSessionOverrides: Boolean(s.allowSessionOverrides),
+      globalSolveShowCube: Boolean(s.globalSolveShowCube),
+      globalSolveInspection: Boolean(s.globalSolveInspection),
       solveShowCube: s.solveShowCube,
       solveInspection: s.solveInspection,
       solveLimitMinutes: sanitizeSolveLimitMinutes(s.solveLimitMinutes, 15),
@@ -1558,8 +1602,14 @@ export class AppStore {
       if (!isTrackEnabled(s, s.currentPuzzle, s.solveTarget)) {
         s.solveTarget = s.mode === "solve" ? "full" : getFallbackTrackForPuzzle(s.currentPuzzle);
       }
-      s.solveShowCube = activeSession.showCube ?? savedSettings.solveShowCube ?? true;
-      s.solveInspection = activeSession.inspection ?? savedSettings.solveInspection ?? true;
+      s.allowSessionOverrides = Boolean(savedSettings.allowSessionOverrides === true);
+      s.globalSolveShowCube = savedSettings.globalSolveShowCube !== undefined
+        ? Boolean(savedSettings.globalSolveShowCube)
+        : (savedSettings.solveShowCube !== undefined ? Boolean(savedSettings.solveShowCube) : true);
+      s.globalSolveInspection = savedSettings.globalSolveInspection !== undefined
+        ? Boolean(savedSettings.globalSolveInspection)
+        : (savedSettings.solveInspection !== undefined ? Boolean(savedSettings.solveInspection) : true);
+      this.syncEffectiveSolveOptions();
       s.solveLimitMinutes = sanitizeSolveLimitMinutes(savedSettings.solveLimitMinutes, s.solveLimitMinutes || 15);
       s.solveLimitSound = savedSettings.solveLimitSound !== undefined ? savedSettings.solveLimitSound !== false : (s.solveLimitSound !== false);
       s.stats = sanitizeStoredStats(mergedPayload.stats || {});

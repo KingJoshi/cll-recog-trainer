@@ -109,6 +109,8 @@ export function createSettingsModalController({
   const settingsShowCrossWidget = typeof document !== "undefined" ? document.getElementById("settingsShowCrossWidget") : null;
   const settingsSolveShowCube = typeof document !== "undefined" ? document.getElementById("settingsSolveShowCube") : null;
   const settingsSolveInspection = typeof document !== "undefined" ? document.getElementById("settingsSolveInspection") : null;
+  const settingsAllowSessionOverrides = typeof document !== "undefined" ? document.getElementById("settingsAllowSessionOverrides") : null;
+  const settingsSolveScopeHint = typeof document !== "undefined" ? document.getElementById("settingsSolveScopeHint") : null;
   const settingsInspectionAudioBtns = typeof document !== "undefined" ? document.querySelectorAll("[data-inspection-audio]") : [];
   const settingsShowFreeFaceTurns = typeof document !== "undefined" ? document.getElementById("settingsShowFreeFaceTurns") : null;
   const settingsDarkTheme = typeof document !== "undefined" ? document.getElementById("settingsDarkTheme") : null;
@@ -252,6 +254,13 @@ export function createSettingsModalController({
     if (settingsShowCrossWidget) settingsShowCrossWidget.checked = s.showCrossSolutionsWidget !== false;
     if (settingsSolveShowCube) settingsSolveShowCube.checked = Boolean(s.solveShowCube);
     if (settingsSolveInspection) settingsSolveInspection.checked = Boolean(s.solveInspection);
+    if (settingsAllowSessionOverrides) settingsAllowSessionOverrides.checked = Boolean(s.allowSessionOverrides);
+    if (settingsSolveScopeHint) {
+      const sessName = appStore.getActiveSession?.()?.name || "Current Session";
+      settingsSolveScopeHint.textContent = s.allowSessionOverrides
+        ? `Per-session mode active — toggles above apply to "${sessName}".`
+        : "Global mode — 3D Cube & Inspection apply across all Solve sessions and Timed Drills.";
+    }
     const inspectionAudioMode = s.inspectionAudioMode || "voice";
     settingsInspectionAudioBtns.forEach(btn => {
       const isMatch = btn.dataset.inspectionAudio === inspectionAudioMode;
@@ -871,6 +880,9 @@ export function createSettingsModalController({
   });
   settingsSolveInspection?.addEventListener("change", (e) => {
     appStore.setSolveInspection?.(Boolean(e.target.checked));
+  });
+  settingsAllowSessionOverrides?.addEventListener("change", (e) => {
+    appStore.setAllowSessionOverrides?.(Boolean(e.target.checked));
   });
   settingsInspectionAudioBtns.forEach(btn => {
     btn?.addEventListener("click", () => {

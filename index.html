@@ -864,6 +864,7 @@
             <span>15s WCA Inspection</span>
           </label>
         </div>
+        <p id="sessionOptionsScopeHint" class="hint" style="margin: 6px 0 0; font-size: 0.78rem;"></p>
       </div>
     </div>
     <div class="solve-modal-actions">
@@ -989,6 +990,14 @@
                 </label>
                 <button type="button" class="info-tip-btn" data-tooltip="Run a WCA 15-second inspection countdown before starting the solve timer (triggers +2 at 15s and DNF at 17s)" aria-label="Explain 15s Inspection">?</button>
               </div>
+              <div class="toggle-with-tip">
+                <label class="solve-toggle-label">
+                  <input type="checkbox" id="settingsAllowSessionOverrides">
+                  <span>Allow per-session overrides (3D Cube &amp; Inspection)</span>
+                </label>
+                <button type="button" class="info-tip-btn" data-tooltip="Off (default): 3D Cube and 15s Inspection settings apply globally across all Solve sessions and Timed Drills. On: each session stores its own independent 3D Cube and Inspection settings." aria-label="Explain per-session overrides">?</button>
+              </div>
+              <p id="settingsSolveScopeHint" class="hint" style="margin: -2px 0 4px 24px; font-size: 0.78rem;"></p>
               <div class="settings-speed-row">
                 <span class="settings-oh-label"><strong>8s / 12s Inspection Callouts:</strong></span>
                 <div class="settings-speed-group" role="group" aria-label="Inspection 8s and 12s callout mode">

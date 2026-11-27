@@ -189,28 +189,82 @@ test('renderOllPllCasesBreakdownHtml replaces Needs Work with interactive user s
   assert.ok(html.includes('data-case-tag-id="Ua"') && html.includes('Mastered'));
 });
 
-test('AppStore manages showFreeFaceTurns and Settings Solve Cube/Inspection toggles cleanly', () => {
+test('AppStore manages showFreeFaceTurns and hybrid global vs per-session Solve Cube/Inspection toggles cleanly', () => {
   const store = new AppStore();
   assert.strictEqual(store.state.showFreeFaceTurns, false);
+  assert.strictEqual(store.state.allowSessionOverrides, false);
+
+  // Set up two distinct Timed Drill / Solve sessions (e.g., CLL with a solve and LBL)
+  store.selectOrCreateSessionForTarget('cll');
+  const cllSess = store.getActiveSession();
+  cllSess.solves.push({ ms: 1200, at: 1000 });
+  store.selectOrCreateSessionForTarget('lbl');
+  const lblSess = store.getActiveSession();
+  assert.notStrictEqual(cllSess.id, lblSess.id);
 
   const events = [];
   const unsub = store.subscribe((evt, detail) => {
     if (evt === 'widgetVisibility' || evt === 'solveOptions') events.push({ evt, detail });
   });
   try {
+    // 1. Default Global mode: toggling applies globally across all sessions/drills
     store.setWidgetVisibility('showFreeFaceTurns', true);
     store.setSolveShowCube(false);
     store.setSolveInspection(false);
+
+    assert.strictEqual(store.state.showFreeFaceTurns, true);
+    assert.strictEqual(store.state.globalSolveShowCube, false);
+    assert.strictEqual(store.state.globalSolveInspection, false);
+    assert.strictEqual(store.state.solveShowCube, false);
+    assert.strictEqual(store.state.solveInspection, false);
+    assert.strictEqual(events.filter(e => e.evt === 'solveOptions').length, 2);
+
+    // Switching from LBL -> CLL preserves global solveShowCube=false & solveInspection=false
+    store.selectOrCreateSessionForTarget('cll');
+    assert.strictEqual(store.state.solveShowCube, false);
+    assert.strictEqual(store.state.solveInspection, false);
+
+    // 2. Per-session override mode: writes to active session only and restores on switch
+    store.setAllowSessionOverrides(true);
+    // cllSess still had default showCube=true before overrides were turned on
+    assert.strictEqual(store.state.solveShowCube, true);
+    store.setSolveShowCube(false);
+    store.setSolveInspection(false);
+    assert.strictEqual(store.getActiveSession().showCube, false);
+    assert.strictEqual(store.getActiveSession().inspection, false);
+
+    // LBL session still has its own showCube=true / inspection=true override
+    store.selectOrCreateSessionForTarget('lbl');
+    assert.strictEqual(store.state.solveShowCube, true);
+    assert.strictEqual(store.state.solveInspection, true);
+
+    // Returning to Global mode restores preserved global values (globalSolveShowCube=false)
+    store.setSolveShowCube(true); // sets lblSess.showCube=true
+    store.setAllowSessionOverrides(false);
+    assert.strictEqual(store.state.solveShowCube, false);
+    assert.strictEqual(store.state.solveInspection, false);
   } finally {
     unsub();
   }
 
-  assert.strictEqual(store.state.showFreeFaceTurns, true);
-  assert.strictEqual(store.state.solveShowCube, false);
-  assert.strictEqual(store.state.solveInspection, false);
-  assert.strictEqual(store.getActiveSession().showCube, false);
-  assert.strictEqual(store.getActiveSession().inspection, false);
-  assert.strictEqual(events.filter(e => e.evt === 'solveOptions').length, 2);
+  const syncMerged = mergeSyncPayloads(
+    {
+      schemaVersion: 1,
+      hasLocalSettings: true,
+      settings: { allowSessionOverrides: false, globalSolveShowCube: true, activeSessionId: 's1' },
+      timestamps: { settings: { allowSessionOverrides: 1000, globalSolveShowCube: 1000 } },
+      sessions: [{ id: 's1', name: 'Main', puzzle: '333', solves: [{ ms: 10000, at: 1000 }], updatedAt: 1000 }]
+    },
+    {
+      schemaVersion: 1,
+      hasLocalSettings: true,
+      settings: { allowSessionOverrides: true, globalSolveShowCube: false, activeSessionId: 's1' },
+      timestamps: { settings: { allowSessionOverrides: 2000, globalSolveShowCube: 2000 } },
+      sessions: [{ id: 's1', name: 'Main', puzzle: '333', solves: [{ ms: 10000, at: 1000 }], updatedAt: 1000 }]
+    }
+  );
+  assert.strictEqual(syncMerged.merged.settings.allowSessionOverrides, true);
+  assert.strictEqual(syncMerged.merged.settings.globalSolveShowCube, false);
 
   const merged = mergeSyncPayloads(
     {

@@ -19,6 +19,7 @@ export function createSessionModalController({
   const defaultTarget = typeof document !== "undefined" ? document.getElementById("sessionDefaultTarget") : null;
   const showCubeCheckbox = typeof document !== "undefined" ? document.getElementById("sessionShowCubeCheckbox") : null;
   const inspectionCheckbox = typeof document !== "undefined" ? document.getElementById("sessionInspectionCheckbox") : null;
+  const optionsScopeHint = typeof document !== "undefined" ? document.getElementById("sessionOptionsScopeHint") : null;
   const closeBtn = typeof document !== "undefined" ? document.getElementById("sessionModalCloseBtn") : null;
   const cancelBtn = typeof document !== "undefined" ? document.getElementById("sessionModalCancelBtn") : null;
   const saveBtn = typeof document !== "undefined" ? document.getElementById("sessionModalSaveBtn") : null;
@@ -68,18 +69,30 @@ export function createSessionModalController({
     if (targetField) targetField.hidden = false;
     populateTargetOptions(s.currentPuzzle, current.target || s.solveTarget || "full");
 
+    const overridesEnabled = Boolean(s.allowSessionOverrides);
+    const defaultShowCube = Boolean(s.globalSolveShowCube ?? s.solveShowCube ?? true);
+    const defaultInspection = Boolean(s.globalSolveInspection ?? s.solveInspection ?? true);
+
+    if (showCubeCheckbox) showCubeCheckbox.disabled = !overridesEnabled;
+    if (inspectionCheckbox) inspectionCheckbox.disabled = !overridesEnabled;
+    if (optionsScopeHint) {
+      optionsScopeHint.textContent = overridesEnabled
+        ? "Per-session overrides are enabled — changes below apply only to this session."
+        : "Using global Solve & Timer settings. Enable Per-Session Overrides in Settings → Solve & Timer to customize per session.";
+    }
+
     if (mode === "edit" || mode === "rename") {
       if (titleEl) titleEl.textContent = "Edit Session Settings";
       if (nameInput) nameInput.value = current.name;
-      if (showCubeCheckbox) showCubeCheckbox.checked = current.showCube ?? true;
-      if (inspectionCheckbox) inspectionCheckbox.checked = current.inspection ?? true;
+      if (showCubeCheckbox) showCubeCheckbox.checked = overridesEnabled ? (current.showCube ?? defaultShowCube) : defaultShowCube;
+      if (inspectionCheckbox) inspectionCheckbox.checked = overridesEnabled ? (current.inspection ?? defaultInspection) : defaultInspection;
     } else {
       const pName = s.currentPuzzle === "222" ? "2x2" : s.currentPuzzle === "333oh" ? "3x3 OH" : s.currentPuzzle === "333" ? "3x3" : s.currentPuzzle === "444" ? "4x4" : "5x5";
       if (titleEl) titleEl.textContent = `New ${pName} Session`;
       const matching = s.sessions.filter(sess => (sess.puzzle || "222") === s.currentPuzzle);
       if (nameInput) nameInput.value = `${s.currentPuzzle === "222" ? "Session" : `${pName} Session`} ${matching.length + 1}`;
-      if (showCubeCheckbox) showCubeCheckbox.checked = s.solveShowCube ?? true;
-      if (inspectionCheckbox) inspectionCheckbox.checked = s.solveInspection ?? true;
+      if (showCubeCheckbox) showCubeCheckbox.checked = defaultShowCube;
+      if (inspectionCheckbox) inspectionCheckbox.checked = defaultInspection;
     }
 
     modalManager.open(modal, { initialFocus: nameInput });
@@ -96,8 +109,7 @@ export function createSessionModalController({
     s.activeSessionId = sessId;
     const sess = appStore.getActiveSession();
     s.solveTarget = sess.target || "full";
-    s.solveShowCube = sess.showCube ?? true;
-    s.solveInspection = sess.inspection ?? true;
+    appStore.syncEffectiveSolveOptions?.();
     const solves = sess.solves || [];
     s.lastSolve = solves.length ? solves[solves.length - 1] : null;
     if (solveSessionSelect) solveSessionSelect.value = sessId;
@@ -145,15 +157,20 @@ export function createSessionModalController({
     }
     const s = appStore.state;
     const target = defaultTarget?.value || "full";
-    const showCube = showCubeCheckbox ? showCubeCheckbox.checked : true;
-    const inspection = inspectionCheckbox ? inspectionCheckbox.checked : true;
+    const overridesEnabled = Boolean(s.allowSessionOverrides);
+    const defaultShowCube = Boolean(s.globalSolveShowCube ?? s.solveShowCube ?? true);
+    const defaultInspection = Boolean(s.globalSolveInspection ?? s.solveInspection ?? true);
+    const showCube = overridesEnabled && showCubeCheckbox ? showCubeCheckbox.checked : defaultShowCube;
+    const inspection = overridesEnabled && inspectionCheckbox ? inspectionCheckbox.checked : defaultInspection;
 
     if (sessionModalMode === "edit" || sessionModalMode === "rename") {
       const sess = appStore.getActiveSession();
       sess.name = name;
       sess.target = target;
-      sess.showCube = showCube;
-      sess.inspection = inspection;
+      if (overridesEnabled) {
+        sess.showCube = showCube;
+        sess.inspection = inspection;
+      }
       sess.updatedAt = Date.now();
     } else {
       const newId = `session-${Date.now()}`;
@@ -171,8 +188,7 @@ export function createSessionModalController({
     }
 
     s.solveTarget = target;
-    s.solveShowCube = showCube;
-    s.solveInspection = inspection;
+    appStore.syncEffectiveSolveOptions?.();
     appStore.saveSessions();
     appStore.saveSettings();
     close();

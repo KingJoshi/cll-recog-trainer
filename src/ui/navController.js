@@ -746,8 +746,8 @@ export function createNavController({
         puzzle: s.currentPuzzle,
         name: defaultName,
         target: "full",
-        inspection: true,
-        showCube: true,
+        inspection: Boolean(s.globalSolveInspection ?? true),
+        showCube: Boolean(s.globalSolveShowCube ?? true),
         solves: []
       };
       s.sessions.push(newSess);
@@ -767,8 +767,7 @@ export function createNavController({
     const activeSess = appStore.getActiveSession();
     s.lastSolve = activeSess.solves?.length ? activeSess.solves[activeSess.solves.length - 1] : null;
     s.solveTarget = activeSess.target || "full";
-    s.solveShowCube = activeSess.showCube ?? true;
-    s.solveInspection = activeSess.inspection ?? true;
+    appStore.syncEffectiveSolveOptions?.();
 
     if (s.mode === "practice" && s.trainSubMode === "timed-drill") {
       ensureTimedDrillTargetAndSession();
