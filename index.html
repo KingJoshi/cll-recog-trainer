@@ -1458,6 +1458,7 @@
 
               <div class="bt-actions-row">
                 <button type="button" id="stackmatConnectBtn" class="btn btn-primary" data-tooltip="Connect or disconnect a Stackmat G5 timer via audio input (Beta)">🎙 Connect Stackmat G5</button>
+                <button type="button" id="stackmatGuideBtn" class="btn btn-small">? Setup &amp; Test Guide</button>
               </div>
             </div>
           </div><!-- /devicesPanelTimers -->
@@ -1600,6 +1601,50 @@
     </div>
     <div class="solve-modal-actions">
       <button type="button" id="btSupportedModalDismissBtn" class="btn btn-small">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Stackmat G5 Setup & Test Guide Modal (Beta) -->
+<div id="stackmatGuideModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="stackmatGuideModalTitle" hidden>
+  <div class="solve-modal-card bt-info-modal-card">
+    <div class="solve-modal-header">
+      <h3 id="stackmatGuideModalTitle" class="solve-modal-title">🎙️ Stackmat G5 Setup &amp; Test Guide <span class="badge stackmat-beta-badge">BETA</span></h3>
+      <button type="button" id="stackmatGuideModalCloseBtn" class="solve-modal-close" aria-label="Close Stackmat guide dialog">&times;</button>
+    </div>
+    <div class="solve-modal-body stackmat-guide-body">
+      <div class="stackmat-guide-section">
+        <h4>1. Cable &amp; Adapter</h4>
+        <ul class="stackmat-guide-list">
+          <li>Plug a <strong>2.5mm TRS to 3.5mm TRS</strong> data cable into the Stackmat G5 data port.</li>
+          <li>On MacBook Pro, a <strong>USB audio interface with a dedicated 3.5mm Mic / Line-In</strong> is recommended, or use a <strong>TRS-to-TRRS mic splitter</strong> for combo headphone/mic jacks.</li>
+        </ul>
+      </div>
+      <div class="stackmat-guide-section">
+        <h4>2. Connect in App</h4>
+        <ol class="stackmat-guide-list">
+          <li>Enable <strong>Beta Features</strong> in <strong>Settings &rarr; General</strong>.</li>
+          <li>Power on your Stackmat G5 in <strong>2-Pad mode</strong>.</li>
+          <li>In <strong>Settings &rarr; Devices &rarr; Timers</strong>, pick your input under <strong>Audio Input</strong> (click <strong>↻</strong> if newly plugged in), then click <strong>Connect Stackmat G5</strong> and grant microphone permission.</li>
+        </ol>
+      </div>
+      <div class="stackmat-guide-section">
+        <h4>3. Verify &amp; Test</h4>
+        <ol class="stackmat-guide-list">
+          <li>Check that the signal bar turns green with <strong>Signal locked (G4/G5) &middot; State: IDLE</strong>.</li>
+          <li>Switch to <strong>Solve</strong> mode, rest hands until the Stackmat green LED lights up, lift to start, stop on the pads, and confirm the recorded time matches the Stackmat display to the millisecond (plus pickup / cube / putdown splits if a smart cube is paired).</li>
+        </ol>
+      </div>
+      <div class="stackmat-guide-section">
+        <h4>4. Troubleshooting (macOS &amp; Browser)</h4>
+        <ul class="stackmat-guide-list">
+          <li>Open the orange microphone indicator in the macOS menu bar and set <strong>Mic Mode &rarr; Standard</strong> (disable <strong>Voice Isolation</strong>, which filters out 1200-baud FSK data).</li>
+          <li>In <strong>System Settings &rarr; Sound &rarr; Input</strong>, keep input gain around <strong>50&ndash;75%</strong> and make sure the 2.5mm plug is firmly seated.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="solve-modal-actions">
+      <button type="button" id="stackmatGuideModalDismissBtn" class="btn btn-small">Close</button>
     </div>
   </div>
 </div>

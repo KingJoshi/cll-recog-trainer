@@ -1174,4 +1174,31 @@
     font-size: 0.78rem;
     color: var(--muted);
   }
+
+  .stackmat-guide-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .stackmat-guide-section h4 {
+    margin: 0 0 6px;
+    font-size: 0.92rem;
+    color: var(--text);
+  }
+
+  .stackmat-guide-list {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+
+  .stackmat-guide-list strong {
+    color: var(--text);
+  }
 }

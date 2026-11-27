@@ -257,6 +257,11 @@ test('Stackmat G5 UI markup and controller stay hidden and inactive unless Beta 
   const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(html, /id="stackmatBetaSection"[^>]*hidden/);
   assert.match(html, /Stackmat G5 Audio Timer/);
+  assert.match(html, /id="stackmatGuideBtn"/);
+  assert.match(html, /id="stackmatGuideModal"[^>]*hidden/);
+  assert.match(html, /Signal locked/);
+  assert.match(html, /Voice Isolation/);
+  assert.match(html, /2\.5mm/);
 
   const store = new AppStore();
   assert.equal(store.state.betaFeatures, false);

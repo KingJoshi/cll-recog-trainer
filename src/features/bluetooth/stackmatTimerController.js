@@ -26,6 +26,10 @@ export function createStackmatTimerController({
   const stackmatSignalFill = typeof document !== "undefined" ? document.getElementById("stackmatSignalFill") : null;
   const stackmatSignalStatus = typeof document !== "undefined" ? document.getElementById("stackmatSignalStatus") : null;
   const stackmatConnectBtn = typeof document !== "undefined" ? document.getElementById("stackmatConnectBtn") : null;
+  const stackmatGuideBtn = typeof document !== "undefined" ? document.getElementById("stackmatGuideBtn") : null;
+  const stackmatGuideModal = typeof document !== "undefined" ? document.getElementById("stackmatGuideModal") : null;
+  const stackmatGuideModalCloseBtn = typeof document !== "undefined" ? document.getElementById("stackmatGuideModalCloseBtn") : null;
+  const stackmatGuideModalDismissBtn = typeof document !== "undefined" ? document.getElementById("stackmatGuideModalDismissBtn") : null;
 
   let selectedDeviceId = "";
 
@@ -227,6 +231,16 @@ export function createStackmatTimerController({
       console.warn("Stackmat G5 connection error:", err);
       showToast(`Could not open audio input for Stackmat G5: ${err?.message || err}`, "error");
     }
+  });
+
+  stackmatGuideBtn?.addEventListener("click", () => {
+    modalManager?.open?.(stackmatGuideModal);
+  });
+  stackmatGuideModalCloseBtn?.addEventListener("click", () => {
+    modalManager?.close?.(stackmatGuideModal);
+  });
+  stackmatGuideModalDismissBtn?.addEventListener("click", () => {
+    modalManager?.close?.(stackmatGuideModal);
   });
 
   syncBetaVisibility();
