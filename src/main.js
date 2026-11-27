@@ -564,6 +564,7 @@ appStore.subscribe((evt) => {
     simulatorCtrl?.populateSimCaseSelect?.();
     stackmatTimerCtrl?.syncBetaVisibility?.();
     smartCubeCtrl?.syncExperimentalDevicesUI?.();
+    cloudSyncCtrl?.syncBetaVisibility?.();
     if (!isExperimentalEnabled(s, "metronome")) stopMetronome();
     const helpWizBtn = document.getElementById("helpLaunchWizardBtn");
     if (helpWizBtn) helpWizBtn.hidden = !isExperimentalEnabled(s, "quickSetup");
@@ -895,6 +896,7 @@ function refreshAllViewsAfterHydrate() {
   smartCube.dispatchEvent(new CustomEvent("savedcubeschange"));
   ganTimerCtrl?.updateGanTimerUI?.();
   stackmatTimerCtrl?.syncBetaVisibility?.();
+  cloudSyncCtrl?.syncBetaVisibility?.();
   {
     const helpWizBtn = document.getElementById("helpLaunchWizardBtn");
     if (helpWizBtn) helpWizBtn.hidden = !appStore.isExperimentalEnabled("quickSetup");

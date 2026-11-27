@@ -123,6 +123,11 @@ export const EXPERIMENTAL_FEATURES = Object.freeze([
     id: "ohSettings",
     label: "3x3 OH Settings",
     description: "Show 3x3 One-Handed hand and Table Abuse options across Settings, Learn, and Train"
+  },
+  {
+    id: "cstimerImport",
+    label: "csTimer.net Import",
+    description: "Show csTimer.net session and solve log import (.txt, .json, .csv) in Stats & History, Settings → Sync, and Cloud Sync"
   }
 ]);
 export const EXPERIMENTAL_FEATURE_IDS = EXPERIMENTAL_FEATURES.map(f => f.id);

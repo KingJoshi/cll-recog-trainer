@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { AppStore } from '../src/state/appStore.js';
+import {
+  AppStore,
+  EXPERIMENTAL_FEATURE_IDS,
+  isExperimentalEnabled
+} from '../src/state/appStore.js';
 import {
   isCsTimerExport,
   parseCsTimerExport,
@@ -9,6 +13,7 @@ import {
   mapCsTimerScrType,
   importCsTimerSessions
 } from '../src/services/cstimerImport.js';
+import { createCloudSyncController } from '../src/features/sync/cloudSyncController.js';
 
 test('isCsTimerExport detects csTimer JSON and CSV exports while rejecting Cubing.cc backups', () => {
   assert.strictEqual(isCsTimerExport('{"session1":[[[0,10000],"R U R\'","",1700000000]],"properties":{"sessionData":"{}"}}'), true);
@@ -158,10 +163,70 @@ test('importCsTimerSessions merges idempotently into AppStore without duplicatin
   assert.strictEqual(sess.solves[2].ms, 9800);
 });
 
-test('index.html exposes csTimer import buttons in Sync, Cloud Sync modal, and Stats panel', () => {
+test('cstimerImport is registered as an experimental feature and gated in index.html & cloudSyncController', () => {
+  assert.ok(EXPERIMENTAL_FEATURE_IDS.includes('cstimerImport'));
+
   const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.ok(html.includes('id="settingsExp_cstimerImport"'));
+  assert.ok(html.includes('data-experimental-feature="cstimerImport"'));
+  assert.ok(html.includes('id="settingsCsTimerImportSection" hidden'));
   assert.ok(html.includes('id="settingsImportCsTimerBtn"'));
-  assert.ok(html.includes('id="cloudSyncImportCsTimerBtn"'));
+  assert.match(html, /<button[^>]*id="cloudSyncImportCsTimerBtn"[^>]*hidden/);
+  assert.match(html, /<button[^>]*id="statsImportCsTimerBtn"[^>]*hidden/);
   assert.ok(html.includes('id="cloudSyncImportCsTimerInput"'));
-  assert.ok(html.includes('id="statsImportCsTimerBtn"'));
+  assert.ok(html.includes('Import from csTimer.net<sup class="beta-sup"'));
+
+  const store = new AppStore();
+  assert.strictEqual(isExperimentalEnabled(store.state, 'cstimerImport'), false);
+
+  const prevDoc = globalThis.document;
+  const mockElements = new Map([
+    ['settingsCsTimerImportSection', { hidden: false, addEventListener() {} }],
+    ['cloudSyncImportCsTimerBtn', { hidden: false, addEventListener() {} }],
+    ['statsImportCsTimerBtn', { hidden: false, addEventListener() {} }],
+    ['cloudSyncImportInput', { accept: '.json,application/json', addEventListener() {} }]
+  ]);
+  globalThis.document = {
+    activeElement: null,
+    documentElement: { style: { setProperty() {} } },
+    querySelector: () => null,
+    getElementById: id => mockElements.get(id) || null
+  };
+
+  try {
+    const mockSync = {
+      getState: () => ({ status: 'signed_out', signedIn: false }),
+      subscribe: () => () => {}
+    };
+    const ctrl = createCloudSyncController({
+      googleDriveSync: mockSync,
+      appStore: store,
+      modalManager: { open() {}, close() {} }
+    });
+
+    assert.strictEqual(mockElements.get('settingsCsTimerImportSection').hidden, true);
+    assert.strictEqual(mockElements.get('cloudSyncImportCsTimerBtn').hidden, true);
+    assert.strictEqual(mockElements.get('statsImportCsTimerBtn').hidden, true);
+    assert.strictEqual(mockElements.get('cloudSyncImportInput').accept, '.json,application/json');
+
+    store.setExperimentalFeature('cstimerImport', true);
+    ctrl.syncBetaVisibility();
+
+    assert.strictEqual(mockElements.get('settingsCsTimerImportSection').hidden, false);
+    assert.strictEqual(mockElements.get('cloudSyncImportCsTimerBtn').hidden, false);
+    assert.strictEqual(mockElements.get('statsImportCsTimerBtn').hidden, false);
+    assert.strictEqual(
+      mockElements.get('cloudSyncImportInput').accept,
+      '.json,.txt,.csv,application/json,text/plain,text/csv'
+    );
+
+    store.setExperimentalFeature('cstimerImport', false);
+    ctrl.syncBetaVisibility();
+    assert.strictEqual(mockElements.get('settingsCsTimerImportSection').hidden, true);
+    assert.strictEqual(mockElements.get('cloudSyncImportCsTimerBtn').hidden, true);
+    assert.strictEqual(mockElements.get('statsImportCsTimerBtn').hidden, true);
+  } finally {
+    if (prevDoc === undefined) delete globalThis.document;
+    else globalThis.document = prevDoc;
+  }
 });

@@ -11,6 +11,7 @@ import {
   parseCsTimerExport,
   importCsTimerSessions
 } from '../../services/cstimerImport.js';
+import { isExperimentalEnabled } from '../../state/appStore.js';
 
 function formatRelativeTime(ts) {
   if (!ts) return "";
@@ -93,6 +94,7 @@ export function createCloudSyncController({
   const importInput = typeof document !== "undefined" ? document.getElementById("cloudSyncImportInput") : null;
   const importCsTimerBtn = typeof document !== "undefined" ? document.getElementById("cloudSyncImportCsTimerBtn") : null;
   const settingsImportCsTimerBtn = typeof document !== "undefined" ? document.getElementById("settingsImportCsTimerBtn") : null;
+  const settingsCsTimerImportSection = typeof document !== "undefined" ? document.getElementById("settingsCsTimerImportSection") : null;
   const statsImportCsTimerBtn = typeof document !== "undefined" ? document.getElementById("statsImportCsTimerBtn") : null;
   const importCsTimerInput = typeof document !== "undefined" ? document.getElementById("cloudSyncImportCsTimerInput") : null;
 
@@ -100,12 +102,25 @@ export function createCloudSyncController({
   let busy = false;
   let lastManualSummary = null;
 
+  function syncBetaVisibility() {
+    const enabled = isExperimentalEnabled(appStore?.state, "cstimerImport");
+    if (settingsCsTimerImportSection) settingsCsTimerImportSection.hidden = !enabled;
+    if (importCsTimerBtn) importCsTimerBtn.hidden = !enabled;
+    if (statsImportCsTimerBtn) statsImportCsTimerBtn.hidden = !enabled;
+    if (importInput) {
+      importInput.accept = enabled
+        ? ".json,.txt,.csv,application/json,text/plain,text/csv"
+        : ".json,application/json";
+    }
+  }
+
   function setBusy(nextBusy) {
     busy = Boolean(nextBusy);
     render(googleDriveSync.getState());
   }
 
   function render(state = googleDriveSync.getState()) {
+    syncBetaVisibility();
     const statusClass = state.status === "needs_reauth"
       ? "needs-reauth"
       : state.status === "signed_out"
@@ -378,7 +393,7 @@ export function createCloudSyncController({
   }
 
   async function handleImportCsTimerFile(file) {
-    if (!file || !appStore) return;
+    if (!file || !appStore || !isExperimentalEnabled(appStore.state, "cstimerImport")) return;
     try {
       const text = await file.text();
       const parsed = parseCsTimerExport(text, {
@@ -415,7 +430,11 @@ export function createCloudSyncController({
     try {
       const text = await file.text();
       if (isCsTimerExport(text)) {
-        await handleImportCsTimerFile({ name: file.name, text: async () => text });
+        if (isExperimentalEnabled(appStore.state, "cstimerImport")) {
+          await handleImportCsTimerFile({ name: file.name, text: async () => text });
+        } else {
+          showToast("csTimer import is an experimental feature — enable it in Settings → Experimental.", "info", 4200);
+        }
         return;
       }
       const parsed = parseBackupJson(text);
@@ -458,7 +477,10 @@ export function createCloudSyncController({
     if (file) await handleImportFile(file);
     if (importInput) importInput.value = "";
   });
-  const triggerCsTimerPicker = () => importCsTimerInput?.click?.();
+  const triggerCsTimerPicker = () => {
+    if (!isExperimentalEnabled(appStore?.state, "cstimerImport")) return;
+    importCsTimerInput?.click?.();
+  };
   importCsTimerBtn?.addEventListener("click", triggerCsTimerPicker);
   settingsImportCsTimerBtn?.addEventListener("click", triggerCsTimerPicker);
   statsImportCsTimerBtn?.addEventListener("click", triggerCsTimerPicker);
@@ -499,6 +521,7 @@ export function createCloudSyncController({
   return {
     open,
     close,
-    render
+    render,
+    syncBetaVisibility
   };
 }

@@ -524,7 +524,7 @@
         <span class="panel-meta" id="statsScopeBadge">2x2 &bull; CLL</span>
       </button>
       <div class="stats-head-actions">
-        <button type="button" id="statsImportCsTimerBtn" class="btn btn-small" data-tooltip="Import sessions and solve logs from a csTimer.net export (.txt, .json, or .csv)">⬆ Import csTimer</button>
+        <button type="button" id="statsImportCsTimerBtn" class="btn btn-small" data-tooltip="Import sessions and solve logs from a csTimer.net export (.txt, .json, or .csv)" hidden>⬆ Import csTimer<sup class="beta-sup" aria-label="Experimental">β</sup></button>
         <button type="button" id="statsExportCsvBtn" class="btn btn-small" data-tooltip="Export recorded solves from the active session as a CSV spreadsheet">📥 Export CSV</button>
         <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger" data-tooltip="Choose exactly which stats or solves to reset (current track recognition, all recognition stats, case times, or session solves)">Reset&hellip;</button>
       </div>
@@ -1541,9 +1541,9 @@
             </div>
           </div>
 
-          <div class="settings-section">
+          <div class="settings-section" id="settingsCsTimerImportSection" hidden>
             <div class="settings-section-head">
-              <h4 class="settings-section-title">📥 Import from csTimer.net</h4>
+              <h4 class="settings-section-title">📥 Import from csTimer.net<sup class="beta-sup" aria-label="Experimental">β</sup></h4>
               <span class="settings-section-desc">Import sessions, times, penalties (+2/DNF), scrambles, comments, and smart-cube move logs from a csTimer export file (.txt, .json, or .csv)</span>
             </div>
             <div class="settings-sync-row">
@@ -1667,6 +1667,13 @@
                 <div class="settings-exp-copy">
                   <span class="settings-exp-title">3x3 OH Settings</span>
                   <span class="settings-exp-desc">Show One-Handed left/right hand and Table Abuse style switchers across Settings, Learn, and Train.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_cstimerImport" data-experimental-feature="cstimerImport">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">csTimer.net Import</span>
+                  <span class="settings-exp-desc">Import sessions, times, penalties, scrambles, comments, and smart-cube logs from csTimer.net (.txt, .json, or .csv) via Stats &amp; History, Settings &rarr; Sync, and Cloud Sync.</span>
                 </div>
               </label>
             </div>
@@ -1866,8 +1873,8 @@
         <div class="sync-backup-actions">
           <button type="button" id="cloudSyncExportBtn" class="btn btn-small btn-outline">⬇ Export Backup (.json)</button>
           <button type="button" id="cloudSyncImportBtn" class="btn btn-small btn-outline">⬆ Import &amp; Merge (.json)</button>
-          <button type="button" id="cloudSyncImportCsTimerBtn" class="btn btn-small btn-outline">📥 Import csTimer (.txt/.json/.csv)</button>
-          <input type="file" id="cloudSyncImportInput" accept=".json,.txt,.csv,application/json,text/plain,text/csv" hidden>
+          <button type="button" id="cloudSyncImportCsTimerBtn" class="btn btn-small btn-outline" hidden>📥 Import csTimer<sup class="beta-sup" aria-label="Experimental">β</sup> (.txt/.json/.csv)</button>
+          <input type="file" id="cloudSyncImportInput" accept=".json,application/json" hidden>
           <input type="file" id="cloudSyncImportCsTimerInput" accept=".txt,.json,.csv,application/json,text/plain,text/csv" hidden>
         </div>
       </div>
