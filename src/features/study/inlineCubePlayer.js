@@ -101,6 +101,7 @@ export function createInlineCubeManager({ maxLive = 10 } = {}) {
     const startBtn = cardEl.querySelector('.tut-3d-start-btn');
     const prevBtn = cardEl.querySelector('.tut-3d-prev-btn');
     const nextBtn = cardEl.querySelector('.tut-3d-next-btn');
+    const endBtn = cardEl.querySelector('.tut-3d-end-btn');
     const statusEl = cardEl.querySelector('.tut-3d-status');
 
     const total = entry.combinedMoves.length;
@@ -110,6 +111,7 @@ export function createInlineCubeManager({ maxLive = 10 } = {}) {
     if (startBtn) startBtn.disabled = entry.moveCount <= entry.setupCount || algTotal === 0;
     if (prevBtn) prevBtn.disabled = entry.moveCount <= entry.setupCount || algTotal === 0;
     if (nextBtn) nextBtn.disabled = entry.moveCount >= total || algTotal === 0;
+    if (endBtn) endBtn.disabled = entry.moveCount >= total || algTotal === 0;
 
     if (statusEl) {
       statusEl.textContent = algTotal > 0 ? `${doneSteps}/${algTotal}` : 'Solved';
@@ -291,6 +293,7 @@ export function createInlineCubeManager({ maxLive = 10 } = {}) {
     const startBtn = cardEl.querySelector('.tut-3d-start-btn');
     const prevBtn = cardEl.querySelector('.tut-3d-prev-btn');
     const nextBtn = cardEl.querySelector('.tut-3d-next-btn');
+    const endBtn = cardEl.querySelector('.tut-3d-end-btn');
     const resetBtn = cardEl.querySelector('.tut-3d-reset-btn');
 
     if (playBtn) {
@@ -343,6 +346,15 @@ export function createInlineCubeManager({ maxLive = 10 } = {}) {
           el.player.pause();
           el.player.controller.animationController.play({ direction: 1, untilBoundary: 'move' });
         } catch {}
+      };
+    }
+
+    if (endBtn) {
+      endBtn.onclick = async () => {
+        const el = await ensureMounted(entry);
+        if (!el?.player || entry.algMoves.length === 0) return;
+        pauseOthers(entry.id);
+        await seekEntry(entry, entry.combinedMoves.length);
       };
     }
 

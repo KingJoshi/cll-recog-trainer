@@ -21,6 +21,7 @@ import {
   ICON_SKIP_START,
   ICON_STEP_BACK,
   ICON_STEP_FORWARD,
+  ICON_SKIP_END,
   ICON_RESET_ANGLE
 } from '../../ui/transportIcons.js';
 
@@ -107,6 +108,7 @@ export function renderTwoByTwoTutorialHtml(state) {
               <button type="button" class="btn btn-xs btn-icon-only tut-3d-prev-btn" data-cube-id="tut222-scramble-preview" title="Step back 1 scramble move" aria-label="Step back 1 scramble move" disabled>${ICON_STEP_BACK}</button>
               <button type="button" class="btn btn-xs btn-icon-only btn-primary tut-3d-play-btn" data-cube-id="tut222-scramble-preview" title="Play / Pause scramble" aria-label="Play / Pause scramble" ${scrMoveCount === 0 ? 'disabled' : ''}>${ICON_PLAY}</button>
               <button type="button" class="btn btn-xs btn-icon-only tut-3d-next-btn" data-cube-id="tut222-scramble-preview" title="Step forward 1 scramble move" aria-label="Step forward 1 scramble move" ${scrMoveCount === 0 ? 'disabled' : ''}>${ICON_STEP_FORWARD}</button>
+              <button type="button" class="btn btn-xs btn-icon-only tut-3d-end-btn" data-cube-id="tut222-scramble-preview" title="Fast-forward to final scramble state" aria-label="Fast-forward to final scramble state" ${scrMoveCount === 0 ? 'disabled' : ''}>${ICON_SKIP_END}</button>
               <span class="tut-3d-status">${scrMoveCount > 0 ? `0/${scrMoveCount}` : 'Solved'}</span>
             </div>
           </div>

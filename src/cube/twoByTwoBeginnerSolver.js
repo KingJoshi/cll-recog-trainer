@@ -15,21 +15,6 @@ export const WHITE_CORNER_META = Object.freeze({
   3: { label: 'White · Green · Orange', short: 'W·G·O', colors: ['W', 'G', 'O'] }
 });
 
-/**
- * Build a 2x2 stickering mask highlighting `targetPieceIdx` vividly ('-'),
- * dimming already-placed White corners ('D'), and neutralizing remaining pieces ('I').
- */
-export function build222CornerMask(targetPieceIdx, placedPieces = []) {
-  const chars = new Array(8).fill('I');
-  for (const p of placedPieces) {
-    if (Number.isInteger(p) && p >= 0 && p < 8) chars[p] = 'D';
-  }
-  if (Number.isInteger(targetPieceIdx) && targetPieceIdx >= 0 && targetPieceIdx < 8) {
-    chars[targetPieceIdx] = '-';
-  }
-  return `CORNERS:${chars.join('')}`;
-}
-
 export const TWO_BY_TWO_ANCHORS = [
   { id: 'wgr', label: 'White · Green · Red', short: 'W·G·R', goalSlotInZ2: 5 },
   { id: 'wgo', label: 'White · Green · Orange', short: 'W·G·O', goalSlotInZ2: 4 },
@@ -195,7 +180,6 @@ export async function solveTwoByTwoBeginner(scrambleStr, { anchorId = "wgr" } = 
     title: `Place Anchor (${anchor.label}) at Bottom-Left`,
     algName: bestAnchorRot ? `Rotate ${bestAnchorRot}` : 'Already Positioned',
     moves: bestAnchorRot || '',
-    stickeringMask: build222CornerMask(anchorPiece, placedWhitePieces),
     highlightPiece: anchorMeta,
     description: bestAnchorRot
       ? `Rotate the cube (${bestAnchorRot}) so your highlighted ${anchor.label} corner sits at Bottom-Front-Left (DFL) with White facing down.`
@@ -220,7 +204,6 @@ export async function solveTwoByTwoBeginner(scrambleStr, { anchorId = "wgr" } = 
     const previewPat = rotAlgBefore ? curPat.applyAlg(rotAlgBefore) : curPat;
     const targetPiece = goalBasePat.patternData.CORNERS.pieces[4];
     const targetMeta = WHITE_CORNER_META[targetPiece] || null;
-    const stepMask = build222CornerMask(targetPiece, placedWhitePieces);
 
     if (cornerMatchesGoal(previewPat, goalBasePat, 4)) {
       pushStep({
@@ -230,7 +213,6 @@ export async function solveTwoByTwoBeginner(scrambleStr, { anchorId = "wgr" } = 
         title: `${ordinal}: Already in Place`,
         algName: rotBefore ? `Turn Cube ${rotBefore}` : 'Solved',
         moves: rotBefore,
-        stickeringMask: stepMask,
         highlightPiece: targetMeta,
         description: rotBefore
           ? `Turn the whole cube (${rotBefore}) clockwise around White — the highlighted ${targetMeta?.label || 'White'} corner is already solved in place!`
@@ -301,7 +283,6 @@ export async function solveTwoByTwoBeginner(scrambleStr, { anchorId = "wgr" } = 
       title: `${ordinal} (${insertLabel})`,
       algName: insertLabel,
       moves: stepMoves,
-      stickeringMask: stepMask,
       highlightPiece: targetMeta,
       description: `${rotBefore ? `Turn cube (${rotBefore}) to bring the next empty corner to Front-Right. ` : ''}${slotIdx >= 4 || popBack ? `Pop the highlighted ${targetMeta?.label || 'target'} corner up to Top, align above Front-Right, and drop it in with ` : `Align the highlighted ${targetMeta?.label || 'target'} corner above Front-Right with U and drop it in with `}${insertLabel}.`
     });
