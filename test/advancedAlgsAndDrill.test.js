@@ -338,3 +338,40 @@ test('trainingBottomFaces orientation helpers, AppStore persistence, and AlgDril
   assert.ok(container.innerHTML.includes('data-bottom-face="orange"'));
   drill.deactivate();
 });
+
+test('PracticeView refreshBottomOrientation re-renders bottom chips and regenerates scramble on 3x3 F2L recognition drill', async () => {
+  const { PracticeView } = await import('../src/practiceView.js');
+  const store = new AppStore();
+  store.setTrainingBottomFaces(['white']);
+
+  let genCount = 0;
+  const container = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+  const pv = new PracticeView({
+    container,
+    getTrainingBottomFaces: () => store.state.trainingBottomFaces,
+    onSetTrainingBottomFaces: (faces) => {
+      store.setTrainingBottomFaces(faces);
+      pv.refreshBottomOrientation();
+    },
+    onGenerateScramble: async () => {
+      genCount++;
+      return {
+        scramble: "R U R'",
+        fullScramble: applyTrainingBottomOrientation("R U R'", store.state.trainingBottomFaces),
+        caseObj: { id: 'f2l-1', name: 'F2L 1', group: 'Basic Inserts' }
+      };
+    }
+  });
+
+  await pv.setTrack('333', 'f2l');
+  assert.strictEqual(genCount, 1);
+  assert.ok(container.innerHTML.includes('data-bottom-face="white" aria-pressed="true"'));
+  assert.ok(container.innerHTML.includes('data-bottom-face="yellow" aria-pressed="false"'));
+
+  pv.onSetTrainingBottomFaces(['white', 'yellow']);
+  await new Promise(r => setTimeout(r, 10));
+  assert.strictEqual(genCount, 2);
+  assert.ok(container.innerHTML.includes('data-bottom-face="white" aria-pressed="true"'));
+  assert.ok(container.innerHTML.includes('data-bottom-face="yellow" aria-pressed="true"'));
+  pv.deactivate();
+});

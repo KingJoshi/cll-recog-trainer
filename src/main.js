@@ -501,9 +501,9 @@ appStore.subscribe((evt) => {
     if (appStore.state.mode === "practice" && appStore.state.trainSubMode === "alg-drill") {
       algDrillView?.refreshOrientation?.();
     } else if (appStore.state.mode === "practice" && !isTimerViewMode(appStore.state)) {
-      practiceView?.loadNextCase?.();
-    } else if (isTimerViewMode(appStore.state)) {
-      navCtrl?.newScramble?.();
+      practiceView?.refreshBottomOrientation?.();
+    } else if (isTimerViewMode(appStore.state) && appStore.state.mode !== "solve") {
+      navCtrl?.regenerateScramble?.();
     }
   } else if (evt === "ohHand" || evt === "ohTableAbuse") {
     simulatorCtrl?.populateSimCaseSelect?.();

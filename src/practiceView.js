@@ -823,7 +823,9 @@ export class PracticeView {
       bindBottomLayerPickerEvents(
         this.container,
         () => this.getTrainingBottomFaces(),
-        (nextFaces) => this.onSetTrainingBottomFaces?.(nextFaces)
+        (nextFaces) => {
+          this.onSetTrainingBottomFaces?.(nextFaces);
+        }
       );
     }
 
@@ -1234,6 +1236,22 @@ export class PracticeView {
     }
 
     this.render();
+  }
+
+  refreshBottomOrientation() {
+    if (this.isInspectionTrack()) {
+      this.render();
+      return;
+    }
+    if (this.practiceMode === "timed") {
+      if (this.sprintRunning) {
+        void this.advanceSprintScramble();
+      } else {
+        this.render();
+      }
+      return;
+    }
+    void this.advanceCasualScramble();
   }
 
   async advanceCasualScramble() {
