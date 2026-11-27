@@ -22,6 +22,10 @@ import {
   createNotationTutorialView,
   NOTATION_FACE_MOVES,
   NOTATION_MODIFIERS,
+  NOTATION_SLICE_MOVES,
+  NOTATION_INNER_SLICE_MOVES,
+  NOTATION_WIDE_MOVES,
+  NOTATION_WIDE_3_MOVES,
   NOTATION_TRIGGERS
 } from '../src/features/study/notationTutorialView.js';
 import { PUZZLES } from '../src/data/algRegistry.js';
@@ -211,36 +215,83 @@ test('Tutorial views render dynamic 3D step widgets, scramble controls, and 2x2 
   assert.ok(!/\bsexy\b/i.test(html333));
 });
 
-test('Standalone NxN Notation view renders large 3D cube, always-visible Free Face Turns, puzzle switcher, and inline 3D cards', () => {
+test('Standalone NxN Notation view renders large 3D cube, always-visible Free Face Turns, 2x2-5x5 switcher, and puzzle-specific sections', () => {
   const container = createInteractiveMockContainer();
   const view = createNotationTutorialView({ container });
   view.render();
 
+  const countCards = () => (container.innerHTML.match(/class="[^"]*\btut-3d-card\b/g) || []).length;
+
   assert.ok(container.innerHTML.includes('id="notSandboxCubeHost"'), 'Big 3D sandbox cube must be rendered');
   assert.ok(container.innerHTML.includes('not-always-open-keypad'), 'Free Face Turns keypad must be always visible');
   assert.ok(!/<details[\s>]/i.test(container.innerHTML), 'Free Face Turns must NOT be collapsed inside <details>');
-  assert.strictEqual(container.querySelectorAll('[data-not-puzzle]').length, 3, '2x2 / 3x3 / 4x4 switcher must render');
-  assert.strictEqual(view.getSandboxPuzzle(), '333');
+  assert.strictEqual(container.querySelectorAll('[data-not-puzzle]').length, 4, '2x2 / 3x3 / 4x4 / 5x5 switcher must render');
+  assert.ok(!container.innerHTML.includes('R (No Symbol)'), 'Redundant R (No Symbol) modifier card must be removed');
 
-  const cardCount = (container.innerHTML.match(/class="[^"]*\btut-3d-card\b/g) || []).length;
+  // Default 3x3: Slice (M/E/S) & Wide (Rw/r) sections & rows, NO Inner slices row, NO 3-Wide row
+  assert.strictEqual(view.getSandboxPuzzle(), '333');
+  assert.ok(container.querySelector('#notSandboxSliceRow'));
+  assert.ok(container.querySelector('#notSandboxWideRow'));
+  assert.strictEqual(container.querySelector('#notSandboxInnerSliceRow'), null);
+  assert.strictEqual(container.querySelector('#notSandboxWide3Row'), null);
+  assert.ok(container.innerHTML.includes('id="notSliceSection"'));
+  assert.ok(container.innerHTML.includes('id="notWideSection"'));
+  assert.ok(container.innerHTML.includes('Rw / r'));
+  assert.ok(container.innerHTML.includes('lowercase letters'));
   assert.strictEqual(
-    cardCount,
-    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_TRIGGERS.length
+    countCards(),
+    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_SLICE_MOVES.length + NOTATION_WIDE_MOVES.length + NOTATION_TRIGGERS.length
   );
   assert.ok(!/\bsexy\b/i.test(container.innerHTML));
 
-  // Verify Free Face Turns keypad & puzzle switcher interactions
-  const btnR = container.querySelectorAll('.not-turn-btn').find(b => b.dataset.notMove === 'R');
-  assert.ok(btnR, 'R face turn button must be rendered');
-  btnR.click();
-  assert.deepStrictEqual(view.getSandboxMoves(), ['R']);
-  assert.ok(container.querySelector('#notSandboxHistoryList').innerHTML.includes('R'));
+  // Click S on 3x3 Free Face Turns
+  const btnS = container.querySelectorAll('.not-turn-btn').find(b => b.dataset.notMove === 'S');
+  assert.ok(btnS, 'S slice turn button must be rendered on 3x3');
+  btnS.click();
+  assert.deepStrictEqual(view.getSandboxMoves(), ['S']);
+  assert.ok(container.querySelector('#notSandboxHistoryList').innerHTML.includes('S'));
 
-  const btn222 = container.querySelectorAll('[data-not-puzzle]').find(b => b.dataset.notPuzzle === '222');
-  assert.ok(btn222, '2x2 sandbox button must be rendered');
-  btn222.click();
+  // 2x2: hides Slice, Inner, Wide keypad rows and sections
+  container.querySelectorAll('[data-not-puzzle]').find(b => b.dataset.notPuzzle === '222').click();
   assert.strictEqual(view.getSandboxPuzzle(), '222');
-  assert.strictEqual(container.querySelector('#notSandboxSliceWideRow').hidden, true);
+  assert.strictEqual(container.querySelector('#notSandboxSliceRow'), null);
+  assert.strictEqual(container.querySelector('#notSandboxInnerSliceRow'), null);
+  assert.strictEqual(container.querySelector('#notSandboxWideRow'), null);
+  assert.strictEqual(container.querySelector('#notSliceSection'), null);
+  assert.strictEqual(container.querySelector('#notWideSection'), null);
+  assert.strictEqual(
+    countCards(),
+    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_TRIGGERS.length
+  );
+
+  // 4x4: Inner slices (2R-2B) + Wide moves, no M/E/S row
+  container.querySelectorAll('[data-not-puzzle]').find(b => b.dataset.notPuzzle === '444').click();
+  assert.strictEqual(view.getSandboxPuzzle(), '444');
+  assert.strictEqual(container.querySelector('#notSandboxSliceRow'), null);
+  assert.ok(container.querySelector('#notSandboxInnerSliceRow'));
+  assert.ok(container.querySelector('#notSandboxWideRow'));
+  assert.ok(container.innerHTML.includes('id="notSliceSection"'));
+  assert.ok(container.innerHTML.includes('id="notWideSection"'));
+  assert.strictEqual(
+    countCards(),
+    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_INNER_SLICE_MOVES.length + NOTATION_WIDE_MOVES.length + NOTATION_TRIGGERS.length
+  );
+  const btn2R = container.querySelectorAll('.not-turn-btn').find(b => b.dataset.notMove === '2R');
+  assert.ok(btn2R, '2R inner slice button must be rendered on 4x4');
+  btn2R.click();
+  assert.deepStrictEqual(view.getSandboxMoves(), ['2R']);
+
+  // 5x5: Middle Slices + Inner Slices + Wide + 3-Wide
+  container.querySelectorAll('[data-not-puzzle]').find(b => b.dataset.notPuzzle === '555').click();
+  assert.strictEqual(view.getSandboxPuzzle(), '555');
+  assert.ok(container.querySelector('#notSandboxSliceRow'));
+  assert.ok(container.querySelector('#notSandboxInnerSliceRow'));
+  assert.ok(container.querySelector('#notSandboxWideRow'));
+  assert.ok(container.querySelector('#notSandboxWide3Row'));
+  assert.strictEqual(
+    countCards(),
+    NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_SLICE_MOVES.length + NOTATION_INNER_SLICE_MOVES.length + NOTATION_WIDE_MOVES.length + NOTATION_WIDE_3_MOVES.length + NOTATION_TRIGGERS.length
+  );
 
   view.teardown();
 });

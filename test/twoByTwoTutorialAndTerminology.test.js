@@ -2,12 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { cube2x2x2 } from 'cubing/puzzles';
+import { cube2x2x2, cube3x3x3, puzzles } from 'cubing/puzzles';
 import { Alg } from 'cubing/alg';
 import {
   NOTATION_TRIGGERS,
   NOTATION_FACE_MOVES,
-  NOTATION_MODIFIERS
+  NOTATION_MODIFIERS,
+  NOTATION_SLICE_MOVES,
+  NOTATION_INNER_SLICE_MOVES,
+  NOTATION_WIDE_MOVES,
+  NOTATION_WIDE_3_MOVES
 } from '../src/features/study/notationTutorialView.js';
 import { solveTwoByTwoBeginner } from '../src/cube/twoByTwoBeginnerSolver.js';
 import { PUZZLES } from '../src/data/algRegistry.js';
@@ -60,9 +64,36 @@ test('2x2 Tutorial steps, notation moves, triggers, and flb-68 verify mathematic
   const pZ2 = solved.applyAlg(new Alg('z2'));
 
   for (const tr of [...NOTATION_TRIGGERS, ...NOTATION_MODIFIERS.map(m => ({ id: m.id, alg: m.demoAlg, setup: m.demoSetup })), ...NOTATION_FACE_MOVES.map(m => ({ id: m.letter, alg: m.demoAlg, setup: m.demoSetup }))]) {
-    if (tr.id === 'mod-slice' || tr.id === 'mod-wide' || tr.id === 'mod-rot') continue;
     const out = solved.applyAlg(new Alg(`${tr.setup} ${tr.alg}`));
     assert.ok(out.isIdentical(solved), `Trigger/move ${tr.id} setup+alg should return to solved`);
+  }
+
+  // Verify 3x3 Middle Slices (M, E, S) and Wide moves (including r === Rw)
+  const kp3 = await cube3x3x3.kpuzzle();
+  const s3 = kp3.defaultPattern();
+  for (const tr of [...NOTATION_SLICE_MOVES, ...NOTATION_WIDE_MOVES]) {
+    const moved = s3.applyAlg(new Alg(tr.demoAlg));
+    assert.ok(!moved.isIdentical(s3), `3x3 move ${tr.letter} must change state`);
+    assert.ok(moved.applyAlg(new Alg(tr.demoSetup)).isIdentical(s3), `3x3 ${tr.demoSetup} + ${tr.demoAlg} must cancel`);
+  }
+  for (const w of NOTATION_WIDE_MOVES) {
+    assert.ok(s3.applyAlg(new Alg(w.lower)).isIdentical(s3.applyAlg(new Alg(w.demoAlg))), `3x3 lowercase ${w.lower} must match ${w.demoAlg}`);
+  }
+
+  // Verify 4x4 & 5x5 Inner Slices (2R..2B) and 5x5 Middle + 3-Layer Wide moves
+  const kp4 = await puzzles['4x4x4'].kpuzzle();
+  const s4 = kp4.defaultPattern();
+  for (const inner of NOTATION_INNER_SLICE_MOVES) {
+    const moved = s4.applyAlg(new Alg(inner.demoAlg));
+    assert.ok(!moved.isIdentical(s4), `4x4 inner slice ${inner.letter} must change state`);
+    assert.ok(moved.applyAlg(new Alg(inner.demoSetup)).isIdentical(s4), `4x4 ${inner.letter} must cancel`);
+  }
+  const kp5 = await puzzles['5x5x5'].kpuzzle();
+  const s5 = kp5.defaultPattern();
+  for (const mv of [...NOTATION_SLICE_MOVES, ...NOTATION_INNER_SLICE_MOVES, ...NOTATION_WIDE_MOVES, ...NOTATION_WIDE_3_MOVES]) {
+    const moved = s5.applyAlg(new Alg(mv.demoAlg));
+    assert.ok(!moved.isIdentical(s5), `5x5 move ${mv.letter} must change state`);
+    assert.ok(moved.applyAlg(new Alg(mv.demoSetup)).isIdentical(s5), `5x5 ${mv.letter} must cancel`);
   }
 
   const tutPlan = await solveTwoByTwoBeginner("R U' F2 U2 R' F U R2");

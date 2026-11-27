@@ -1,6 +1,6 @@
 // Standalone NxN Notation & Triggers View (Beta Experimental Mode)
 // Features a large interactive 3D sandbox cube with Free Face Turns always visible,
-// puzzle size switcher (2x2 / 3x3 / 4x4), and inline playable 3D cubes on every notation/trigger card.
+// puzzle size switcher (2x2 / 3x3 / 4x4 / 5x5), and inline playable 3D cubes on every notation/trigger card.
 
 import { escapeHtml } from '../../services/htmlUtils.js';
 import { applyColorsTo3DCube } from '../../caseVisualizer.js';
@@ -17,12 +17,62 @@ export const NOTATION_FACE_MOVES = [
 ];
 
 export const NOTATION_MODIFIERS = [
-  { id: 'mod-cw', token: 'R (No Symbol)', meaning: '90° Clockwise', demoAlg: 'R', demoSetup: "R'", desc: 'Quarter turn clockwise when looking straight at that face.' },
   { id: 'mod-ccw', token: "R' (Prime)", meaning: '90° Counter-Clockwise', demoAlg: "R'", demoSetup: 'R', desc: 'Quarter turn in the opposite direction — read as "R prime".' },
   { id: 'mod-2', token: 'R2 (Double)', meaning: '180° Half-Turn', demoAlg: 'R2', demoSetup: 'R2', desc: 'Half turn (two quarter turns in either direction).' },
-  { id: 'mod-slice', token: 'M / M\' (3x3+)', meaning: 'Middle Slice', demoAlg: 'M', demoSetup: "M'", puzzle: '333', desc: 'Middle slice between L & R, following the L direction (used in Ua/Ub edges!).' },
-  { id: 'mod-wide', token: 'Rw / Uw (4x4+)', meaning: '2 Layers Together', demoAlg: 'Rw', demoSetup: "Rw'", puzzle: '444', desc: 'Turns both the outer layer and its inner neighbor layer together.' },
-  { id: 'mod-rot', token: 'x, y, z', meaning: 'Whole-Cube Tilt', demoAlg: 'y', demoSetup: "y'", desc: 'Re-grip without turning a layer: x follows R, y follows U, z follows F.' }
+  { id: 'mod-rot-x', token: 'x', meaning: 'Tilt (follows R)', demoAlg: 'x', demoSetup: "x'", desc: 'Re-grip whole cube upward on the R axis (Front moves to Top).' },
+  { id: 'mod-rot-y', token: 'y', meaning: 'Spin (follows U)', demoAlg: 'y', demoSetup: "y'", desc: 'Re-grip whole cube horizontally on the U axis (Right moves to Front).' },
+  { id: 'mod-rot-z', token: 'z', meaning: 'Roll (follows F)', demoAlg: 'z', demoSetup: "z'", desc: 'Re-grip whole cube sideways clockwise on the F axis (Top moves to Right).' }
+];
+
+export const NOTATION_SLICE_MOVES = [
+  {
+    id: 'slice-m',
+    letter: 'M',
+    face: 'Middle (follows L)',
+    demoAlg: 'M',
+    demoSetup: "M'",
+    desc: 'Vertical middle slice between L & R moving downward in front (follows L, used in Ua/Ub & Roux).'
+  },
+  {
+    id: 'slice-e',
+    letter: 'E',
+    face: 'Equatorial (follows D)',
+    demoAlg: 'E',
+    demoSetup: "E'",
+    desc: 'Horizontal equator slice between U & D moving left-to-right in front (follows D).'
+  },
+  {
+    id: 'slice-s',
+    letter: 'S',
+    face: 'Standing (follows F)',
+    demoAlg: 'S',
+    demoSetup: "S'",
+    desc: 'Vertical standing slice between F & B turning clockwise from the front (follows F — common in modern OLL/F2L algs).'
+  }
+];
+
+export const NOTATION_INNER_SLICE_MOVES = [
+  { id: 'inner-2r', letter: '2R', face: 'Inner Right', demoAlg: '2R', demoSetup: "2R'", desc: 'Single 2nd inner layer from the Right face only (outer R face stays still).' },
+  { id: 'inner-2l', letter: '2L', face: 'Inner Left', demoAlg: '2L', demoSetup: "2L'", desc: 'Single 2nd inner layer from the Left face only (outer L face stays still).' },
+  { id: 'inner-2u', letter: '2U', face: 'Inner Up', demoAlg: '2U', demoSetup: "2U'", desc: 'Single 2nd inner layer from the Top face only (outer U face stays still).' },
+  { id: 'inner-2d', letter: '2D', face: 'Inner Down', demoAlg: '2D', demoSetup: "2D'", desc: 'Single 2nd inner layer from the Bottom face only (outer D face stays still).' },
+  { id: 'inner-2f', letter: '2F', face: 'Inner Front', demoAlg: '2F', demoSetup: "2F'", desc: 'Single 2nd inner layer from the Front face only (outer F face stays still).' },
+  { id: 'inner-2b', letter: '2B', face: 'Inner Back', demoAlg: '2B', demoSetup: "2B'", desc: 'Single 2nd inner layer from the Back face only (outer B face stays still).' }
+];
+
+export const NOTATION_WIDE_MOVES = [
+  { id: 'wide-rw', letter: 'Rw', lower: 'r', face: 'Right Wide', demoAlg: 'Rw', demoSetup: "Rw'", desc: 'Turns both the Right outer layer and its adjacent inner slice together.' },
+  { id: 'wide-lw', letter: 'Lw', lower: 'l', face: 'Left Wide', demoAlg: 'Lw', demoSetup: "Lw'", desc: 'Turns both the Left outer layer and its adjacent inner slice together.' },
+  { id: 'wide-uw', letter: 'Uw', lower: 'u', face: 'Up Wide', demoAlg: 'Uw', demoSetup: "Uw'", desc: 'Turns both the Top outer layer and its adjacent inner slice together.' },
+  { id: 'wide-dw', letter: 'Dw', lower: 'd', face: 'Down Wide', demoAlg: 'Dw', demoSetup: "Dw'", desc: 'Turns both the Bottom outer layer and its adjacent inner slice together.' },
+  { id: 'wide-fw', letter: 'Fw', lower: 'f', face: 'Front Wide', demoAlg: 'Fw', demoSetup: "Fw'", desc: 'Turns both the Front outer layer and its adjacent inner slice together.' },
+  { id: 'wide-bw', letter: 'Bw', lower: 'b', face: 'Back Wide', demoAlg: 'Bw', demoSetup: "Bw'", desc: 'Turns both the Back outer layer and its adjacent inner slice together.' }
+];
+
+export const NOTATION_WIDE_3_MOVES = [
+  { id: 'wide-3rw', letter: '3Rw', face: '3-Layer Right Wide', demoAlg: '3Rw', demoSetup: "3Rw'", desc: 'Turns the Right face plus both inner layers to the center (3 layers on 5x5).' },
+  { id: 'wide-3uw', letter: '3Uw', face: '3-Layer Up Wide', demoAlg: '3Uw', demoSetup: "3Uw'", desc: 'Turns the Top face plus both inner layers to the center (3 layers on 5x5).' },
+  { id: 'wide-3fw', letter: '3Fw', face: '3-Layer Front Wide', demoAlg: '3Fw', demoSetup: "3Fw'", desc: 'Turns the Front face plus both inner layers to the center (3 layers on 5x5).' }
 ];
 
 export const NOTATION_TRIGGERS = [
@@ -76,10 +126,11 @@ export const NOTATION_TRIGGERS = [
   }
 ];
 
-const SANDBOX_PUZZLES = [
+export const SANDBOX_PUZZLES = [
   { id: '222', label: '2x2' },
   { id: '333', label: '3x3' },
-  { id: '444', label: '4x4' }
+  { id: '444', label: '4x4' },
+  { id: '555', label: '5x5' }
 ];
 
 let SandboxSD = null;
@@ -119,18 +170,35 @@ export function createNotationTutorialView({
     `;
   }
 
+  function renderMoveCard(cid, displayToken, title, setup, alg, desc, puzzle = sandboxPuzzle) {
+    return `
+      <article class="tut-notation-card tut-3d-card">
+        <div class="tut-notation-top">
+          <div class="tut-notation-title-pair">
+            <code class="tut-letter">${escapeHtml(displayToken)}</code>
+            <strong>${escapeHtml(title)}</strong>
+          </div>
+          <button type="button" class="btn btn-xs not-try-big-btn" data-not-seq="${escapeHtml(alg)}" title="Play on the big cube above">Try Above</button>
+        </div>
+        <div class="tut-3d-wrap" data-cube-id="${cid}" data-cube-puzzle="${puzzle}" data-cube-setup="${escapeHtml(setup)}" data-cube-moves="${escapeHtml(alg)}">
+          <span class="study-visual-loading">3D Cube</span>
+        </div>
+        ${renderTurnCardControls(cid)}
+        <p>${escapeHtml(desc)}</p>
+      </article>
+    `;
+  }
+
   function updateSandboxHistoryUi() {
     if (!container) return;
     const badge = container.querySelector('#notSandboxCountBadge');
     const list = container.querySelector('#notSandboxHistoryList');
     const undoBtn = container.querySelector('#notSandboxUndoBtn');
     const resetBtn = container.querySelector('#notSandboxResetBtn');
-    const wideSliceRow = container.querySelector('#notSandboxSliceWideRow');
 
     if (badge) badge.textContent = `${sandboxMoves.length} turn${sandboxMoves.length === 1 ? '' : 's'}`;
     if (undoBtn) undoBtn.disabled = sandboxMoves.length === 0;
     if (resetBtn) resetBtn.disabled = sandboxMoves.length === 0;
-    if (wideSliceRow) wideSliceRow.hidden = sandboxPuzzle === '222';
 
     if (list) {
       list.innerHTML = sandboxMoves.length === 0
@@ -226,15 +294,95 @@ export function createNotationTutorialView({
     }
   }
 
+  function renderKeypadButtons(moves) {
+    return moves.map(m => `<button type="button" class="btn-face-turn not-turn-btn" data-not-move="${m}">${m}</button>`).join('');
+  }
+
+  function renderSliceSection() {
+    const hasMiddleSlices = sandboxPuzzle === '333' || sandboxPuzzle === '555';
+    const hasInnerSlices = sandboxPuzzle === '444' || sandboxPuzzle === '555';
+    if (!hasMiddleSlices && !hasInnerSlices) return '';
+
+    const middleCards = NOTATION_SLICE_MOVES
+      .map(s => renderMoveCard(s.id, s.letter, s.face, s.demoSetup, s.demoAlg, s.desc))
+      .join('');
+    const innerCards = NOTATION_INNER_SLICE_MOVES
+      .map(s => renderMoveCard(s.id, s.letter, s.face, s.demoSetup, s.demoAlg, s.desc))
+      .join('');
+
+    if (sandboxPuzzle === '333') {
+      return `
+        <section id="notSliceSection" class="guide-card guide-card-full">
+          <h3 class="guide-card-title">&#x2702;&#xFE0F; Slice Moves (M, E, S)</h3>
+          <div class="not-section-callout">
+            <strong>3 Middle Slices:</strong> Slice moves turn only the center layer between two outer faces — <code>M</code> follows <code>L</code>, <code>E</code> follows <code>D</code>, and <code>S</code> follows <code>F</code>.
+          </div>
+          <div class="tut-notation-grid">${middleCards}</div>
+        </section>
+      `;
+    }
+    if (sandboxPuzzle === '444') {
+      return `
+        <section id="notSliceSection" class="guide-card guide-card-full">
+          <h3 class="guide-card-title">&#x2702;&#xFE0F; Single Inner Slices (4x4: 2R–2B)</h3>
+          <div class="not-section-callout">
+            4x4 is an even-layered cube, so it has no single center slice (<code>M</code>/<code>E</code>/<code>S</code>). Instead, turning just one inner slice is written with a layer number like <code>2R</code>, <code>2L</code>, <code>2U</code>, <code>2D</code>, <code>2F</code>, or <code>2B</code>.
+          </div>
+          <div class="tut-notation-grid">${innerCards}</div>
+        </section>
+      `;
+    }
+    return `
+      <section id="notSliceSection" class="guide-card guide-card-full">
+        <h3 class="guide-card-title">&#x2702;&#xFE0F; Slice Moves (5x5: Center M/E/S &amp; Inner 2R–2B)</h3>
+        <h4 class="not-subsection-title">Center Middle Slices (M, E, S)</h4>
+        <div class="tut-notation-grid">${middleCards}</div>
+        <h4 class="not-subsection-title">Single Inner Slices (2nd Layer Only: 2R–2B)</h4>
+        <div class="tut-notation-grid">${innerCards}</div>
+      </section>
+    `;
+  }
+
+  function renderWideSection() {
+    if (sandboxPuzzle === '222') return '';
+    const is333 = sandboxPuzzle === '333';
+    const is555 = sandboxPuzzle === '555';
+    const wideCards = NOTATION_WIDE_MOVES
+      .map(w => renderMoveCard(w.id, is333 ? `${w.letter} / ${w.lower}` : w.letter, w.face, w.demoSetup, w.demoAlg, w.desc))
+      .join('');
+    const wide3Cards = is555
+      ? NOTATION_WIDE_3_MOVES.map(w => renderMoveCard(w.id, w.letter, w.face, w.demoSetup, w.demoAlg, w.desc)).join('')
+      : '';
+
+    return `
+      <section id="notWideSection" class="guide-card guide-card-full">
+        <h3 class="guide-card-title">&#x21C4; Wide Moves (2+ Layers Together)</h3>
+        <div class="not-section-callout">
+          ${is333
+            ? '<strong>Lowercase shorthand:</strong> On 3x3, lowercase letters (<code>r</code>, <code>l</code>, <code>u</code>, <code>d</code>, <code>f</code>, <code>b</code>) mean the <strong>exact same move</strong> as <code>Rw</code>, <code>Lw</code>, <code>Uw</code>, <code>Dw</code>, <code>Fw</code>, <code>Bw</code> (outer layer + middle slice together). Many OLL &amp; F2L algs use lowercase <code>r</code>.'
+            : '<strong>Wide vs. Inner Slice:</strong> <code>Rw</code> (and lowercase <code>r</code> on 3x3 algs) turns the outer face <strong>plus</strong> its inner neighbor together, whereas <code>2R</code> moves only the single inner slice.'}
+        </div>
+        <div class="tut-notation-grid">${wideCards}</div>
+        ${is555 ? `
+          <h4 class="not-subsection-title">3-Layer Wide Turns (5x5: 3Rw, 3Uw, 3Fw)</h4>
+          <div class="tut-notation-grid">${wide3Cards}</div>
+        ` : ''}
+      </section>
+    `;
+  }
+
   function render() {
     if (!container) return;
-    const isBig = sandboxPuzzle !== '222';
+    const hasMiddleSlices = sandboxPuzzle === '333' || sandboxPuzzle === '555';
+    const hasInnerSlices = sandboxPuzzle === '444' || sandboxPuzzle === '555';
+    const hasWideMoves = sandboxPuzzle !== '222';
+    const hasWide3Moves = sandboxPuzzle === '555';
     container.innerHTML = `
       <div class="flb-wrap">
         <div class="study-header">
           <div class="study-track-title-wrap">
             <h2 class="study-track-title">NxN Notation &amp; Triggers<sup class="beta-sup" aria-label="Experimental">β</sup></h2>
-            <span class="study-track-desc">Explore how cube letters, primes, doubles, slices, and 4-move triggers work on any puzzle size.</span>
+            <span class="study-track-desc">Explore how face turns, slices, wide moves, rotations, and 4-move triggers work on 2x2 through 5x5.</span>
           </div>
           <div class="oh-hand-switcher" role="group" aria-label="Choose sandbox puzzle size">
             <span class="oh-hand-label">Cube Size:</span>
@@ -270,20 +418,40 @@ export function createNotationTutorialView({
                 </div>
                 <div class="free-moves-row free-moves-cw">
                   <span class="free-moves-row-label">CW:</span>
-                  ${['U', 'D', 'L', 'R', 'F', 'B'].map(m => `<button type="button" class="btn-face-turn not-turn-btn" data-not-move="${m}">${m}</button>`).join('')}
+                  ${renderKeypadButtons(['U', 'D', 'L', 'R', 'F', 'B'])}
                 </div>
                 <div class="free-moves-row free-moves-ccw">
                   <span class="free-moves-row-label">CCW:</span>
-                  ${["U'", "D'", "L'", "R'", "F'", "B'"].map(m => `<button type="button" class="btn-face-turn not-turn-btn" data-not-move="${m}">${m}</button>`).join('')}
+                  ${renderKeypadButtons(["U'", "D'", "L'", "R'", "F'", "B'"])}
                 </div>
                 <div class="free-moves-row">
                   <span class="free-moves-row-label">180°:</span>
-                  ${['U2', 'D2', 'L2', 'R2', 'F2', 'B2'].map(m => `<button type="button" class="btn-face-turn not-turn-btn" data-not-move="${m}">${m}</button>`).join('')}
+                  ${renderKeypadButtons(['U2', 'D2', 'L2', 'R2', 'F2', 'B2'])}
                 </div>
-                <div id="notSandboxSliceWideRow" class="free-moves-row" ${isBig ? '' : 'hidden'}>
-                  <span class="free-moves-row-label">Slice/Wide:</span>
-                  ${['M', "M'", 'M2', 'Rw', "Rw'", 'Uw', "Uw'"].map(m => `<button type="button" class="btn-face-turn not-turn-btn" data-not-move="${m}">${m}</button>`).join('')}
-                </div>
+                ${hasMiddleSlices ? `
+                  <div id="notSandboxSliceRow" class="free-moves-row">
+                    <span class="free-moves-row-label">Slice:</span>
+                    ${renderKeypadButtons(['M', "M'", 'M2', 'E', "E'", 'E2', 'S', "S'", 'S2'])}
+                  </div>
+                ` : ''}
+                ${hasInnerSlices ? `
+                  <div id="notSandboxInnerSliceRow" class="free-moves-row">
+                    <span class="free-moves-row-label">Inner:</span>
+                    ${renderKeypadButtons(['2U', "2U'", '2D', "2D'", '2L', "2L'", '2R', "2R'", '2F', "2F'", '2B', "2B'"])}
+                  </div>
+                ` : ''}
+                ${hasWideMoves ? `
+                  <div id="notSandboxWideRow" class="free-moves-row">
+                    <span class="free-moves-row-label">Wide:</span>
+                    ${renderKeypadButtons(['Uw', "Uw'", 'Dw', "Dw'", 'Lw', "Lw'", 'Rw', "Rw'", 'Fw', "Fw'", 'Bw', "Bw'"])}
+                  </div>
+                ` : ''}
+                ${hasWide3Moves ? `
+                  <div id="notSandboxWide3Row" class="free-moves-row">
+                    <span class="free-moves-row-label">3-Wide:</span>
+                    ${renderKeypadButtons(['3Uw', "3Uw'", '3Dw', "3Dw'", '3Lw', "3Lw'", '3Rw', "3Rw'", '3Fw', "3Fw'", '3Bw', "3Bw'"])}
+                  </div>
+                ` : ''}
               </div>
               <div class="free-moves-history" style="margin-top:8px;">
                 <span class="free-moves-history-label">Moves:</span>
@@ -296,49 +464,36 @@ export function createNotationTutorialView({
         <section class="guide-card guide-card-full">
           <h3 class="guide-card-title">&#x1F524; Face Letters (Look Straight at That Face for Clockwise)</h3>
           <div class="tut-notation-grid">
-            ${NOTATION_FACE_MOVES.map((m, idx) => {
-              const cid = `not-face-${m.letter}`;
-              return `
-                <article class="tut-notation-card tut-3d-card">
-                  <div class="tut-notation-top">
-                    <div class="tut-notation-title-pair">
-                      <code class="tut-letter">${escapeHtml(m.letter)}</code>
-                      <strong>${escapeHtml(m.face)}</strong>
-                    </div>
-                    <button type="button" class="btn btn-xs not-try-big-btn" data-not-seq="${escapeHtml(m.demoAlg)}" title="Play on the big cube above">Try Above</button>
-                  </div>
-                  <div class="tut-3d-wrap" data-cube-id="${cid}" data-cube-puzzle="${sandboxPuzzle}" data-cube-setup="${escapeHtml(m.demoSetup)}" data-cube-moves="${escapeHtml(m.demoAlg)}">
-                    <span class="study-visual-loading">3D Cube</span>
-                  </div>
-                  ${renderTurnCardControls(cid)}
-                  <p>${escapeHtml(m.desc)}</p>
-                </article>
-              `;
-            }).join('')}
+            ${NOTATION_FACE_MOVES.map(m =>
+              renderMoveCard(`not-face-${m.letter}`, m.letter, m.face, m.demoSetup, m.demoAlg, m.desc)
+            ).join('')}
           </div>
         </section>
 
         <section class="guide-card guide-card-full">
-          <h3 class="guide-card-title">&#x1F504; Turn Modifiers, Slices &amp; Rotations</h3>
+          <h3 class="guide-card-title">&#x1F504; Turn Modifiers &amp; Cube Rotations</h3>
           <div class="tut-notation-grid">
-            ${NOTATION_MODIFIERS.map(mod => {
-              const puz = mod.puzzle || sandboxPuzzle;
-              return `
-                <article class="tut-notation-card tut-3d-card">
-                  <div class="tut-notation-top">
-                    <strong>${escapeHtml(mod.token)}</strong>
+            ${NOTATION_MODIFIERS.map(mod => `
+              <article class="tut-notation-card tut-3d-card">
+                <div class="tut-notation-top">
+                  <strong>${escapeHtml(mod.token)}</strong>
+                  <div class="tut-notation-title-pair">
                     <span class="badge">${escapeHtml(mod.meaning)}</span>
+                    <button type="button" class="btn btn-xs not-try-big-btn" data-not-seq="${escapeHtml(mod.demoAlg)}" title="Play on the big cube above">Try Above</button>
                   </div>
-                  <div class="tut-3d-wrap" data-cube-id="${mod.id}" data-cube-puzzle="${puz}" data-cube-setup="${escapeHtml(mod.demoSetup)}" data-cube-moves="${escapeHtml(mod.demoAlg)}">
-                    <span class="study-visual-loading">3D Cube</span>
-                  </div>
-                  ${renderTurnCardControls(mod.id)}
-                  <p>${escapeHtml(mod.desc)}</p>
-                </article>
-              `;
-            }).join('')}
+                </div>
+                <div class="tut-3d-wrap" data-cube-id="${mod.id}" data-cube-puzzle="${sandboxPuzzle}" data-cube-setup="${escapeHtml(mod.demoSetup)}" data-cube-moves="${escapeHtml(mod.demoAlg)}">
+                  <span class="study-visual-loading">3D Cube</span>
+                </div>
+                ${renderTurnCardControls(mod.id)}
+                <p>${escapeHtml(mod.desc)}</p>
+              </article>
+            `).join('')}
           </div>
         </section>
+
+        ${renderSliceSection()}
+        ${renderWideSection()}
 
         <section class="guide-card guide-card-full">
           <h3 class="guide-card-title">&#x26A1; Essential 4-Move Triggers (Play Directly in 3D)</h3>
