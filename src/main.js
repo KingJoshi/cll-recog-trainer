@@ -44,6 +44,7 @@ import { createQuickSimModal } from './features/modals/quickSimModal.js';
 import { createSettingsModalController } from './features/modals/settingsModal.js';
 import { createShortcutsModalController } from './features/modals/shortcutsModal.js';
 import { createOnboardingWizard } from './features/onboarding/onboardingWizard.js';
+import { createNotationTutorialView } from './features/study/notationTutorialView.js';
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(err => {
@@ -52,6 +53,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 }
 
 let studyView;
+let notationView;
 let practiceView;
 let algDrillView;
 let freeMovesCtrl;
@@ -220,6 +222,7 @@ navCtrl = createNavController({
   freeMovesCtrl,
   casePickerCtrl,
   getStudyView: () => studyView,
+  getNotationView: () => notationView,
   getPracticeView: () => practiceView,
   getAlgDrillView: () => algDrillView,
   getSolvePanelView: () => solvePanelView,
@@ -430,6 +433,14 @@ studyView = new StudyView({
   }
 });
 
+notationView = createNotationTutorialView({
+  container: document.getElementById("notationViewContainer"),
+  getSimSpeed: () => appStore.state.simSpeed ?? 1,
+  getShowReflection: () => appStore.state.showReflection,
+  onQuickSimSolutions: openQuickSim,
+  onSimulateCase: (caseObj, algObj) => simulatorCtrl.loadStudyCase(caseObj, algObj)
+});
+
 practiceView = new PracticeView({
   container: document.getElementById("practiceViewContainer"),
   onGenerateScramble: (trackId) => navCtrl.generatePracticeScramble(trackId),
@@ -516,6 +527,7 @@ appStore.subscribe((evt) => {
     quickSimModal?.syncPlaybackSpeed?.(spd);
     solveReplayViewer?.syncPlaybackSpeed?.(spd);
     studyView?.syncPlaybackSpeed?.(spd);
+    notationView?.syncSpeed?.(spd);
   } else if (evt === "advancedMode") {
     settingsModal?.renderToggles?.();
     solvePanelView?.renderSolvePanel?.();
@@ -578,12 +590,16 @@ appStore.subscribe((evt) => {
     if (!isTrackEnabled(s, s.currentPuzzle, s.solveTarget)) {
       navCtrl?.setSolveTarget?.(s.mode === "solve" ? "full" : getFallbackTrackForPuzzle(s.currentPuzzle));
     }
+    if (s.mode === "notation" && !isExperimentalEnabled(s, "notationTutorial")) {
+      navCtrl?.setMode?.("study");
+    }
     if (s.currentPuzzle === "333oh") {
       if (s.mode === "study") studyView?.render?.();
       else if (s.mode === "practice" && !isTimerViewMode(s) && !isSimulateViewMode(s)) practiceView?.render?.();
     }
     navCtrl?.renderPuzzleButtons?.();
     navCtrl?.renderTrackBar?.();
+    navCtrl?.renderStage?.();
   }
 });
 
@@ -906,7 +922,12 @@ function refreshAllViewsAfterHydrate() {
   if (!s.showTooltips) tooltipCtrl?.hide?.();
   if (s.onboardingCompleted) onboardingWizard?.close?.({ markComplete: false });
 
-  if (s.mode === "study") {
+  if (modeChanged && s.mode !== "notation") {
+    notationView?.teardown?.();
+  }
+  if (s.mode === "notation") {
+    notationView?.render?.();
+  } else if (s.mode === "study") {
     if (modeChanged || puzzleChanged || trackChanged) {
       studyView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     } else {

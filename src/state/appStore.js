@@ -56,13 +56,23 @@ export const VALID_PUZZLES = ["222", "333", "333oh", "444", "555", "666", "777",
 export const DEFAULT_VISIBLE_EVENTS = ["222", "333", "333oh", "444", "555"];
 export const ALL_BUILTIN_EVENT_IDS = [...VALID_PUZZLES];
 export const BETA_TRACK_IDS_222 = new Set(["tutorial", "face", "eg1", "eg2", "layer"]);
-export const BETA_TRACK_IDS_333 = new Set(["coll", "cmll", "wv"]);
+export const BETA_TRACK_IDS_333 = new Set(["tutorial", "coll", "cmll", "wv"]);
 
 export const EXPERIMENTAL_FEATURES = Object.freeze([
   {
+    id: "notationTutorial",
+    label: "NxN Notation & Triggers Tutorial",
+    description: "Standalone interactive NxN notation & 4-move triggers guide with live 3D cubes and always-visible Free Face Turns"
+  },
+  {
     id: "twoByTwoTutorial",
-    label: "2x2 Beginner Tutorial & NxN Notation",
-    description: "Step-by-step low-memorization 2x2 tutorial plus interactive NxN notation, triggers, and Simulator walkthroughs (shown before 1st Face)"
+    label: "2x2 Beginner Tutorial",
+    description: "Dynamic step-by-step 3D beginner 2x2 guide using Righty, Sune/Antisune, and T-Perm"
+  },
+  {
+    id: "threeByThreeTutorial",
+    label: "3x3 Beginner Tutorial",
+    description: "Dynamic step-by-step 3D beginner 3x3 guide: Daisy, Cross, Corners, Middle Edges, Sune/Antisune OLL, T-Perm & Ua/Ub PLL"
   },
   {
     id: "twoByTwoFirstFace",
@@ -156,6 +166,7 @@ export function getTrackExperimentalFeature(puzzleId, trackId) {
     if (trackId === "eg2") return "eg2";
     if (trackId === "layer") return "twoByTwoFirstLayer";
   } else if (puzzleId === "333" || puzzleId === "333oh") {
+    if (trackId === "tutorial" && puzzleId === "333") return "threeByThreeTutorial";
     if (trackId === "coll") return "coll";
     if (trackId === "cmll") return "cmll";
     if (trackId === "wv") return "wv";
@@ -221,7 +232,7 @@ export function sanitizeVisibleEvents(rawList, fallbackShowExtra = false) {
   }
   return fallbackShowExtra ? [...ALL_BUILTIN_EVENT_IDS] : [...DEFAULT_VISIBLE_EVENTS];
 }
-export const MODES = ["study", "practice", "solve", "simulate"];
+export const MODES = ["study", "practice", "solve", "simulate", "notation"];
 export const VALID_TRAIN_SUBMODES = ["recog", "alg-drill", "timed-drill", "simulate"];
 export const VALID_F2L_MODES = ["essential", "basic", "intermediate", "advanced"];
 
@@ -393,6 +404,9 @@ export class AppStore {
     } else {
       if (PUZZLES[currentPuzzle]?.hideSimulate && mode === "simulate") {
         mode = "solve";
+      }
+      if (mode === "notation" && !isExperimentalEnabled({ experimentalFeatures, betaFeatures }, "notationTutorial")) {
+        mode = "study";
       }
       if (!isTrackEnabled({ experimentalFeatures, betaFeatures }, currentPuzzle, currentTrackId)) {
         currentTrackId = getFallbackTrackForPuzzle(currentPuzzle);

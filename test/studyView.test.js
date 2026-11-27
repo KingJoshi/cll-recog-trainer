@@ -100,17 +100,20 @@ test('StudyView renders dedicated 2x2 1st Face, 1st Layer Bottom-Piece Case Grou
     getOhHand: () => 'right'
   });
 
-  // 0. 2x2 Beginner Tutorial & NxN Notation track
+  // 0. 2x2 & 3x3 Beginner Tutorials (dynamic 3D widgets)
   sv.setTrack('222', 'tutorial');
-  assert.ok(container.innerHTML.includes('Beginner 2x2 Method'));
-  assert.ok(container.innerHTML.includes('How to Solve 2x2 (Beginner)'));
-  assert.ok(container.innerHTML.includes('NxN Notation &amp; Triggers'));
-  assert.ok(container.innerHTML.includes('tut-step-opensim-btn'));
-  sv.tutorialState.subTab = 'notation';
-  sv.render();
+  assert.ok(container.innerHTML.includes('Beginner 2x2 Guide'));
+  assert.ok(container.innerHTML.includes('tut222ScrambleInput'));
+  assert.ok(container.innerHTML.includes('data-tut-anchor="wgr"'));
   assert.ok(container.innerHTML.includes('Righty'));
-  assert.ok(container.innerHTML.includes('Inverse Lefty'));
-  assert.ok(container.innerHTML.includes('tut-trig-opensim-btn'));
+  assert.ok(container.innerHTML.includes('T-Perm'));
+  assert.ok(!/Ortega|1st Face|\bsexy\b/i.test(container.innerHTML));
+
+  sv.setTrack('333', 'tutorial');
+  assert.ok(container.innerHTML.includes('Beginner 3x3 Guide'));
+  assert.ok(container.innerHTML.includes('tut333ScrambleInput'));
+  assert.ok(container.innerHTML.includes('Daisy'));
+  assert.ok(container.innerHTML.includes('Ua / Ub (M-moves)'));
   assert.ok(!/\bsexy\b/i.test(container.innerHTML));
 
   // 1. 2x2 1st Face dedicated study view (simplified hero without 99.8% in hero lead)

@@ -5,10 +5,11 @@ import path from 'node:path';
 import { cube2x2x2 } from 'cubing/puzzles';
 import { Alg } from 'cubing/alg';
 import {
-  TUTORIAL_BEGINNER_STEPS,
   NOTATION_TRIGGERS,
-  NOTATION_FACE_MOVES
-} from '../src/features/study/twoByTwoTutorialView.js';
+  NOTATION_FACE_MOVES,
+  NOTATION_MODIFIERS
+} from '../src/features/study/notationTutorialView.js';
+import { solveTwoByTwoBeginner } from '../src/cube/twoByTwoBeginnerSolver.js';
 import { PUZZLES } from '../src/data/algRegistry.js';
 import { FIRST_LAYER_BAR_CASES } from '../src/data/firstLayerBarData.js';
 import { getTrackExperimentalFeature, isTrackEnabled, AppStore } from '../src/state/appStore.js';
@@ -58,18 +59,14 @@ test('2x2 Tutorial steps, notation moves, triggers, and flb-68 verify mathematic
   const solved = kp.defaultPattern();
   const pZ2 = solved.applyAlg(new Alg('z2'));
 
-  for (const st of TUTORIAL_BEGINNER_STEPS) {
-    const out = solved.applyAlg(new Alg(`${st.setup} ${st.alg}`));
-    assert.ok(
-      out.isIdentical(solved) || out.isIdentical(pZ2),
-      `Tutorial step ${st.id} setup+alg should return to solved/z2`
-    );
-  }
-
-  for (const tr of [...NOTATION_TRIGGERS, ...NOTATION_FACE_MOVES.map(m => ({ id: m.letter, alg: m.demoAlg, setup: m.demoSetup }))]) {
+  for (const tr of [...NOTATION_TRIGGERS, ...NOTATION_MODIFIERS.map(m => ({ id: m.id, alg: m.demoAlg, setup: m.demoSetup })), ...NOTATION_FACE_MOVES.map(m => ({ id: m.letter, alg: m.demoAlg, setup: m.demoSetup }))]) {
+    if (tr.id === 'mod-slice' || tr.id === 'mod-wide' || tr.id === 'mod-rot') continue;
     const out = solved.applyAlg(new Alg(`${tr.setup} ${tr.alg}`));
     assert.ok(out.isIdentical(solved), `Trigger/move ${tr.id} setup+alg should return to solved`);
   }
+
+  const tutPlan = await solveTwoByTwoBeginner("R U' F2 U2 R' F U R2");
+  assert.strictEqual(tutPlan.solved, true, '2x2 beginner tutorial solver must solve sample scramble');
 
   // Confirm flb-68 has exactly 2 solved corners (DFL, DBL) and swapped DFR/DBR (3 white stickers down, 2 solved)
   const flb68 = FIRST_LAYER_BAR_CASES.find(c => c.id === 'flb-68');

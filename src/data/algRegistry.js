@@ -27,13 +27,13 @@ export const PUZZLES = {
     tracks: [
       {
         id: "tutorial",
-        name: "Beginner 2x2 Tutorial & Notation",
+        name: "Beginner 2x2 Tutorial (Step-by-Step)",
         shortName: "Tutorial",
-        description: "Learn to solve the 2x2 step-by-step with minimal memorization, plus interactive NxN notation & triggers",
+        description: "Dynamic 3D step-by-step 2x2 beginner solve guide using Righty, Sune/Antisune, and T-Perm",
         studyOnly: true,
         cases: [],
         caseById: new Map(),
-        groups: ["Beginner 2x2", "NxN Notation & Triggers"]
+        groups: ["White Layer", "Yellow Face (OLL)", "Top Corners (PLL)"]
       },
       {
         id: "face",
@@ -107,6 +107,16 @@ export const PUZZLES = {
     wcaEvent: "333",
     defaultTrack: "pll",
     tracks: [
+      {
+        id: "tutorial",
+        name: "Beginner 3x3 Tutorial (Step-by-Step)",
+        shortName: "Tutorial",
+        description: "Dynamic 3D step-by-step 3x3 beginner solve guide: Daisy, Cross, Corners, Middle Edges, Sune/Antisune OLL, T-Perm & Ua/Ub PLL",
+        studyOnly: true,
+        cases: [],
+        caseById: new Map(),
+        groups: ["Daisy & Cross", "White Corners", "Middle Edges", "Yellow OLL", "Top PLL"]
+      },
       {
         id: "cross",
         name: "White Cross & Cross+1",

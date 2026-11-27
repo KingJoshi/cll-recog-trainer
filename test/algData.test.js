@@ -19,7 +19,7 @@ test('PUZZLES registry structure', () => {
   assert.ok(PUZZLES['444'], 'Must have 444');
   assert.ok(PUZZLES['555'], 'Must have 555');
   assert.strictEqual(PUZZLES['222'].tracks.length, 8);
-  assert.strictEqual(PUZZLES['333'].tracks.length, 7);
+  assert.strictEqual(PUZZLES['333'].tracks.length, 8);
   assert.strictEqual(PUZZLES['333oh'].tracks.length, 7);
   assert.strictEqual(PUZZLES['444'].tracks.length, 2);
   assert.strictEqual(PUZZLES['555'].tracks.length, 1);
@@ -30,7 +30,7 @@ test('PUZZLES registry structure', () => {
 
   assert.deepStrictEqual(PUZZLES['222'].tracks.map(t => t.id), ['tutorial', 'face', 'layer', 'lbl', 'ortega', 'cll', 'eg1', 'eg2']);
   assert.strictEqual(PUZZLES['222'].defaultTrack, 'lbl');
-  assert.deepStrictEqual(PUZZLES['333'].tracks.map(t => t.id), ['cross', 'f2l', 'oll', 'pll', 'coll', 'cmll', 'wv']);
+  assert.deepStrictEqual(PUZZLES['333'].tracks.map(t => t.id), ['tutorial', 'cross', 'f2l', 'oll', 'pll', 'coll', 'cmll', 'wv']);
   assert.deepStrictEqual(PUZZLES['333oh'].tracks.map(t => t.id), ['cross', 'f2l', 'oll', 'pll', 'coll', 'cmll', 'wv']);
   assert.deepStrictEqual(PUZZLES['444'].tracks.map(t => t.id), ['parity', 'methods']);
   assert.deepStrictEqual(PUZZLES['555'].tracks.map(t => t.id), ['parity']);

@@ -52,8 +52,17 @@ import {
 import {
   createTwoByTwoTutorialState,
   renderTwoByTwoTutorialHtml,
-  bindTwoByTwoTutorialEvents
+  bindTwoByTwoTutorialEvents,
+  syncTwoByTwoTutorialSpeed,
+  teardownTwoByTwoTutorial3d
 } from './features/study/twoByTwoTutorialView.js';
+import {
+  createThreeByThreeTutorialState,
+  renderThreeByThreeTutorialHtml,
+  bindThreeByThreeTutorialEvents,
+  syncThreeByThreeTutorialSpeed,
+  teardownThreeByThreeTutorial3d
+} from './features/study/threeByThreeTutorialView.js';
 import { render3BldGuideHtml } from './features/study/bldGuideRenderer.js';
 
 let ScrambleDisplayClass = null;
@@ -125,6 +134,7 @@ export class StudyView {
     this.previewAlgId = null;
     this.activeDisplay3d = null;
     this.tutorialState = createTwoByTwoTutorialState();
+    this.threeByThreeTutorialState = createThreeByThreeTutorialState();
     this.firstLayerExplorerState = createFirstLayerExplorerState();
     this._renderToken = 0;
 
@@ -278,6 +288,8 @@ export class StudyView {
 
   _teardownMiniPlayer() {
     teardownFirstLayerExplorer3d();
+    teardownTwoByTwoTutorial3d();
+    teardownThreeByThreeTutorial3d();
     this._teardownTwoSided3d();
     this._miniLoadGen++;
     this._miniPendingSeek = false;
@@ -319,10 +331,13 @@ export class StudyView {
       speedBtn.setAttribute('aria-label', `Playback pace ${next}x`);
     }
     syncFirstLayerExplorerSpeed(next);
+    syncTwoByTwoTutorialSpeed(next);
+    syncThreeByThreeTutorialSpeed(next);
   }
 
   supportsTwoSidedView(puzzleId = this.currentPuzzle, track = getTrack(puzzleId, this.currentTrackId)) {
     if (!track) return false;
+    if (puzzleId === "333" && track.id === "tutorial") return false;
     if ((puzzleId === "333" || puzzleId === "333oh") && (track.id === "pll" || track.id === "oll")) {
       return true;
     }
@@ -470,7 +485,9 @@ export class StudyView {
     if (!track) return;
 
     const activeView = this.currentView === 'detail' ? 'hybrid' : this.currentView;
-    const is222FaceOrLayer = this.currentPuzzle === "222" && ["tutorial", "face", "layer"].includes(this.currentTrackId);
+    const is222FaceOrLayer =
+      (this.currentPuzzle === "222" && ["tutorial", "face", "layer"].includes(this.currentTrackId)) ||
+      (this.currentPuzzle === "333" && this.currentTrackId === "tutorial");
     const isOh = this.currentPuzzle === "333oh";
     const ohHand = this.getOhHand();
     const ohTableAbuse = this.getOhTableAbuse();
@@ -534,7 +551,9 @@ export class StudyView {
       <div class="study-content">
         ${is222FaceOrLayer
           ? (this.currentTrackId === 'tutorial'
-              ? renderTwoByTwoTutorialHtml(this.tutorialState)
+              ? (this.currentPuzzle === '333'
+                  ? renderThreeByThreeTutorialHtml(this.threeByThreeTutorialState)
+                  : renderTwoByTwoTutorialHtml(this.tutorialState))
               : this.currentTrackId === 'face'
                 ? renderFirstFaceStudyHtml()
                 : renderFirstLayerStudyHtml(this.firstLayerExplorerState, this.getSimSpeed ? this.getSimSpeed() : 1))
@@ -1429,11 +1448,18 @@ export class StudyView {
 
     if (is222FaceOrLayer) {
       if (this.currentTrackId === 'tutorial') {
-        bindTwoByTwoTutorialEvents(this.container, this.tutorialState, {
+        const tutorialOpts = {
           onRerender: () => this.render(),
           onQuickSimSolutions: this.onQuickSimSolutions,
-          onSimulateCase: this.onSimulateCase
-        });
+          onSimulateCase: this.onSimulateCase,
+          getSimSpeed: this.getSimSpeed,
+          getShowReflection: this.getShowReflection
+        };
+        if (this.currentPuzzle === '333') {
+          bindThreeByThreeTutorialEvents(this.container, this.threeByThreeTutorialState, tutorialOpts);
+        } else {
+          bindTwoByTwoTutorialEvents(this.container, this.tutorialState, tutorialOpts);
+        }
       } else if (this.currentTrackId === 'face') {
         bindFirstFaceStudyEvents(this.container, {
           onQuickSimSolutions: this.onQuickSimSolutions,

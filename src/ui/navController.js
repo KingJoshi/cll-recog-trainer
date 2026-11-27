@@ -74,6 +74,7 @@ export function createNavController({
   freeMovesCtrl,
   casePickerCtrl,
   getStudyView = () => null,
+  getNotationView = () => null,
   getPracticeView = () => null,
   getAlgDrillView = () => null,
   getSolvePanelView = () => null,
@@ -94,6 +95,7 @@ export function createNavController({
   const resetOrientationBtn = typeof document !== "undefined" ? document.getElementById("resetOrientationBtn") : null;
   const regenerateBtn = typeof document !== "undefined" ? document.getElementById("regenerateBtn") : null;
   const studyViewContainer = typeof document !== "undefined" ? document.getElementById("studyViewContainer") : null;
+  const notationViewContainer = typeof document !== "undefined" ? document.getElementById("notationViewContainer") : null;
   const practiceViewContainer = typeof document !== "undefined" ? document.getElementById("practiceViewContainer") : null;
   const algDrillContainer = typeof document !== "undefined" ? document.getElementById("algDrillContainer") : null;
   const simulatePanel = typeof document !== "undefined" ? document.getElementById("simulatePanel") : null;
@@ -204,7 +206,7 @@ export function createNavController({
     }
 
     if (!trackBar) return;
-    if (isSimulateViewMode(s) || s.mode === "solve") {
+    if (isSimulateViewMode(s) || s.mode === "solve" || s.mode === "notation") {
       if (s.mode === "solve" && s.solveTarget !== "full") {
         s.solveTarget = "full";
       }
@@ -299,22 +301,30 @@ export function createNavController({
     }
     const hasCases = s.selectedCases.size > 0;
 
+    const notationEnabled = isExperimentalEnabled(s, "notationTutorial");
+    if (s.mode === "notation" && !notationEnabled) {
+      s.mode = "study";
+    }
+
     modeButtons.forEach(btn => {
       const m = btn.dataset.mode;
       btn.hidden = Boolean(
         (isSolveOnly && m !== "solve") ||
-        (isHideSimulate && m === "simulate")
+        (isHideSimulate && m === "simulate") ||
+        (m === "notation" && !notationEnabled)
       );
       btn.setAttribute("aria-pressed", String(m === s.mode));
     });
 
+    const notationMode = s.mode === "notation";
     const simulating = isSimulateViewMode(s);
     const studying = s.mode === "study";
     const solving = isTimerViewMode(s);
     const algDrilling = s.mode === "practice" && s.trainSubMode === "alg-drill";
-    const practicing = s.mode === "practice" && !solving && !algDrilling && !simulating;
+    const practicing = s.mode === "practice" && !solving && !algDrilling && !simulating && !notationMode;
 
     if (studyViewContainer) studyViewContainer.hidden = !studying;
+    if (notationViewContainer) notationViewContainer.hidden = !notationMode;
     if (practiceViewContainer) practiceViewContainer.hidden = !practicing;
     if (algDrillContainer) algDrillContainer.hidden = !algDrilling;
 
@@ -325,6 +335,7 @@ export function createNavController({
     }
 
     if (studying) getStudyView()?.render?.();
+    if (notationMode) getNotationView()?.render?.();
     if (practicing) getPracticeView()?.render?.();
     if (algDrilling) getAlgDrillView()?.render?.();
 
@@ -333,13 +344,13 @@ export function createNavController({
     const hasTrackCases = Boolean(getTrack(s.currentPuzzle, s.currentTrackId)?.cases?.length);
     const solveUsesCases = Boolean(getSolveTargetInfo(s.currentPuzzle, s.solveTarget)?.usesCases);
     if (settingsPanel) {
-      settingsPanel.hidden = simulating || (solving ? !solveUsesCases : !hasTrackCases);
+      settingsPanel.hidden = notationMode || simulating || (solving ? !solveUsesCases : !hasTrackCases);
     }
     const activePDef = PUZZLES[s.currentPuzzle];
     const customNoScramble = Boolean(activePDef?.isCustomEvent && (!activePDef.wcaEvent || activePDef.wcaEvent === "none"));
     const hideCubeInSolve = solving && (!s.solveShowCube || customNoScramble);
     if (cubeCard) {
-      cubeCard.hidden = studying || hideCubeInSolve || (!hasCases && hasTrackCases && practicing);
+      cubeCard.hidden = notationMode || studying || hideCubeInSolve || (!hasCases && hasTrackCases && practicing);
     }
     if (emptyState && practicing) {
       emptyState.hidden = !hasTrackCases || hasCases;
@@ -378,6 +389,7 @@ export function createNavController({
     if (stage) {
       stage.classList.toggle("mode-solve", solving);
       stage.classList.toggle("mode-study", studying);
+      stage.classList.toggle("mode-notation", notationMode);
       stage.classList.toggle("mode-practice", practicing || algDrilling);
       stage.classList.toggle("mode-alg-drill", algDrilling);
       stage.classList.toggle("mode-simulate", simulating);
@@ -636,6 +648,9 @@ export function createNavController({
     const prevSimulating = isSimulateViewMode(s);
     if (prevMode === "study" && next !== "study") {
       getStudyView()?.deactivate?.();
+    }
+    if (prevMode === "notation" && next !== "notation") {
+      getNotationView()?.teardown?.();
     }
     if (prevMode === "practice" && (next !== "practice" || s.trainSubMode !== "recog")) {
       getPracticeView()?.deactivate?.();
