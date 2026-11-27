@@ -33,6 +33,7 @@ import { createSessionLimitController } from './features/solve/sessionLimitContr
 import { createDisconnectAlertView } from './features/bluetooth/disconnectAlertView.js';
 import { createSmartCubeController } from './features/bluetooth/smartCubeController.js';
 import { createGanTimerController } from './features/bluetooth/ganTimerController.js';
+import { createStackmatTimerController } from './features/bluetooth/stackmatTimerController.js';
 import { createStatsPanelController } from './features/stats/statsPanelController.js';
 import { createSimulatorController } from './features/simulator/simulatorController.js';
 import { createCustomLabelModal } from './features/modals/customLabelModal.js';
@@ -62,6 +63,7 @@ let sessionLimitCtrl;
 let disconnectAlertView;
 let smartCubeCtrl;
 let ganTimerCtrl;
+let stackmatTimerCtrl;
 let statsCtrl;
 let simulatorCtrl;
 let customLabelModal;
@@ -270,6 +272,7 @@ smartCubeCtrl = createSmartCubeController({
   solveReplayViewer,
   getTimerCtrl: () => timerCtrl,
   getGanTimerCtrl: () => ganTimerCtrl,
+  getStackmatTimerCtrl: () => stackmatTimerCtrl,
   getDisconnectAlertView: () => disconnectAlertView,
   getNavCtrl: () => navCtrl,
   getAlgDrillView: () => algDrillView,
@@ -278,6 +281,15 @@ smartCubeCtrl = createSmartCubeController({
 });
 
 ganTimerCtrl = createGanTimerController({
+  appStore,
+  modalManager,
+  getTimerCtrl: () => timerCtrl,
+  getSmartCubeCtrl: () => smartCubeCtrl,
+  getSolvePanel: () => solvePanelView,
+  getDisconnectAlertView: () => disconnectAlertView
+});
+
+stackmatTimerCtrl = createStackmatTimerController({
   appStore,
   modalManager,
   getTimerCtrl: () => timerCtrl,
@@ -546,6 +558,7 @@ appStore.subscribe((evt) => {
     const s = appStore.state;
     settingsModal?.renderToggles?.();
     simulatorCtrl?.populateSimCaseSelect?.();
+    stackmatTimerCtrl?.syncBetaVisibility?.();
     if (!s.betaFeatures) {
       if (isBetaPuzzle(s.currentPuzzle)) {
         navCtrl?.setPuzzle?.("333");
@@ -802,6 +815,7 @@ navCtrl.renderTrackBar();
 navCtrl.renderStage();
 smartCubeCtrl.updateBluetoothUI();
 ganTimerCtrl.updateGanTimerUI();
+stackmatTimerCtrl.syncBetaVisibility();
 solvePanelView.renderSolvePanel();
 statsCtrl.updateStatsTable();
 
@@ -864,6 +878,7 @@ function refreshAllViewsAfterHydrate() {
   smartCubeCtrl?.updateBluetoothUI?.();
   smartCube.dispatchEvent(new CustomEvent("savedcubeschange"));
   ganTimerCtrl?.updateGanTimerUI?.();
+  stackmatTimerCtrl?.syncBetaVisibility?.();
   solvePanelView?.renderSolvePanel?.();
   statsCtrl?.updateStatsTable?.();
   if (!s.showTooltips) tooltipCtrl?.hide?.();

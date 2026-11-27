@@ -2,6 +2,7 @@
 
 import { smartCube, formatMacAddress, preloadSmartCube } from '../../smartCube.js';
 import { ganTimer } from '../../ganTimer.js';
+import { stackmatTimer } from '../../stackmatTimer.js';
 import { ScrambleTracker } from '../../scrambleTracker.js';
 import { GyroOrientationTracker } from '../../cube/gyroTracker.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
@@ -79,6 +80,7 @@ export function createSmartCubeController({
   solveReplayViewer,
   getTimerCtrl = () => null,
   getGanTimerCtrl = () => null,
+  getStackmatTimerCtrl = () => null,
   getDisconnectAlertView = () => null,
   getNavCtrl = () => null,
   getAlgDrillView = () => null,
@@ -240,6 +242,9 @@ export function createSmartCubeController({
     const safeCorrections = escapeHtml(trackerStatus.corrections.join(" "));
     const safeNextReq = escapeHtml(trackerStatus.nextRequired || "");
 
+    const extConnected = ganTimer.isConnected() || stackmatTimer.isConnected();
+    const extLabel = stackmatTimer.isConnected() ? "Stackmat G5" : "GAN timer";
+
     if (isNeedsReset) {
       const reasonLabel = needsResetReason === "+2" ? "+2 (1 move away)" : "DNF (Cube not solved)";
       smartCubeSolveText.innerHTML = `⚠️ <strong>${devName}</strong> · <strong>${reasonLabel}</strong> · Solve the cube to auto-reset, or click <strong>↺ Cube Solved / Reset</strong>`;
@@ -257,18 +262,19 @@ export function createSmartCubeController({
         smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · Scrambling (${trackerStatus.currentIndex}/${trackerStatus.totalMoves})${nextTxt}`;
       }
     } else if (smartCubeStage === "inspecting" || solveState === "inspecting") {
-      smartCubeSolveText.innerHTML = ganTimer.isConnected()
-        ? `ᛒ <strong>${devName}</strong> · ✓ Scrambled · <strong>Inspecting (15s)</strong> · Start the GAN timer`
+      smartCubeSolveText.innerHTML = extConnected
+        ? `ᛒ <strong>${devName}</strong> · ✓ Scrambled · <strong>Inspecting (15s)</strong> · Start the ${extLabel}`
         : `ᛒ <strong>${devName}</strong> · ✓ Scrambled · <strong>Inspecting (15s)</strong> · Turn cube or hold Space to start`;
     } else if (smartCubeStage === "ready") {
-      smartCubeSolveText.innerHTML = ganTimer.isConnected()
-        ? `ᛒ <strong>${devName}</strong> · ✓ Scramble Verified · <strong>READY</strong> · Start the GAN timer`
+      smartCubeSolveText.innerHTML = extConnected
+        ? `ᛒ <strong>${devName}</strong> · ✓ Scramble Verified · <strong>READY</strong> · Start the ${extLabel}`
         : `ᛒ <strong>${devName}</strong> · ✓ Scramble Verified · <strong>READY</strong> · Turn cube or hold Space to start`;
     } else if (smartCubeStage === "solving" || solveState === "running") {
       const safeSource = escapeHtml(solveTimerSource || "Timer");
+      const isHardwareTimer = solveTimerSource === "GAN Smart Timer" || solveTimerSource === "Stackmat G5";
       if (solveTimerDriven && solveCubeSolvedTs) {
-        smartCubeSolveText.innerHTML = solveTimerSource === "GAN Smart Timer"
-          ? `ᛒ <strong>${devName}</strong> · ✓ Cube solved · Put it down &amp; stop the GAN timer`
+        smartCubeSolveText.innerHTML = isHardwareTimer
+          ? `ᛒ <strong>${devName}</strong> · ✓ Cube solved · Put it down &amp; stop the ${safeSource}`
           : `ᛒ <strong>${devName}</strong> · ✓ Cube solved · Put it down &amp; press Space or tap to stop`;
       } else if (solveTimerDriven) {
         smartCubeSolveText.innerHTML = `ᛒ <strong>${devName}</strong> · ⏱ ${safeSource} running · ${solveFirstMoveTs ? "Solving…" : "Pick up the cube!"}`;
@@ -411,28 +417,32 @@ export function createSmartCubeController({
   function updateBluetoothUI() {
     const st = smartCube.getStatus();
     const gt = ganTimer.getStatus();
+    const smt = stackmatTimer.getStatus();
+    const timerConnected = gt.connected || smt.connected;
+    const timerConnecting = gt.status === "connecting" || smt.status === "connecting";
+    const timerName = smt.connected ? "Stackmat G5" : "GAN Timer";
     const s = appStore.state;
     const alertView = getDisconnectAlertView();
     const hasCubeAlert = Boolean(alertView?.getCubeAlert?.() && !st.connected);
     const hasTimerAlert = Boolean(alertView?.getTimerAlert?.() && !gt.connected);
 
     renderSavedCubesList();
-    const combinedStatus = (st.connected || gt.connected)
+    const combinedStatus = (st.connected || timerConnected)
       ? "connected"
-      : ((st.status === "connecting" || gt.status === "connecting") ? "connecting" : "disconnected");
+      : ((st.status === "connecting" || timerConnecting) ? "connecting" : "disconnected");
     if (bluetoothHeaderDot) bluetoothHeaderDot.className = `bt-dot ${combinedStatus}`;
     if (bluetoothHeaderLabel) {
-      if (st.connected && gt.connected) bluetoothHeaderLabel.textContent = "Devices (2)";
+      if (st.connected && timerConnected) bluetoothHeaderLabel.textContent = "Devices (2)";
       else if (st.connected) bluetoothHeaderLabel.textContent = st.isVirtual ? "Virtual Cube" : "Smart Cube ✓";
-      else if (gt.connected) bluetoothHeaderLabel.textContent = "GAN Timer ✓";
+      else if (timerConnected) bluetoothHeaderLabel.textContent = `${timerName} ✓`;
       else bluetoothHeaderLabel.textContent = "Devices";
     }
     if (bluetoothBtn) {
       let devDesc = "Devices: Connect Bluetooth Smart Cubes, GAN Smart Timer, or Keyboard Cube";
       if (hasCubeAlert || hasTimerAlert) devDesc = "Devices: Bluetooth disconnected — click to reconnect";
-      else if (st.connected && gt.connected) devDesc = `Devices: ${st.deviceName || "Smart Cube"} & GAN Timer connected`;
+      else if (st.connected && timerConnected) devDesc = `Devices: ${st.deviceName || "Smart Cube"} & ${timerName} connected`;
       else if (st.connected) devDesc = `Devices: ${st.isVirtual ? "Virtual Keyboard Cube active" : `${st.deviceName || "Smart Cube"} connected`}`;
-      else if (gt.connected) devDesc = "Devices: GAN Smart Timer connected";
+      else if (timerConnected) devDesc = `Devices: ${timerName} connected`;
       bluetoothBtn.setAttribute("data-tooltip", devDesc);
       bluetoothBtn.setAttribute("aria-label", devDesc);
     }
@@ -487,7 +497,7 @@ export function createSmartCubeController({
     const st = smartCube.getStatus();
     if (opts?.tab === "timers" || opts?.tab === "keyboard" || opts?.tab === "cubes") {
       setDevicesTab(opts.tab);
-    } else if (!st.connected && ganTimer.isConnected()) {
+    } else if (!st.connected && (ganTimer.isConnected() || stackmatTimer.isConnected())) {
       setDevicesTab("timers");
     } else if (st.connected && st.isVirtual) {
       setDevicesTab("keyboard");
@@ -501,6 +511,7 @@ export function createSmartCubeController({
     }
     updateBluetoothUI();
     getGanTimerCtrl()?.updateGanTimerUI?.();
+    getStackmatTimerCtrl()?.syncBetaVisibility?.();
   }
 
   function openBluetoothModal(opts = {}) {
@@ -523,6 +534,7 @@ export function createSmartCubeController({
   function handleBluetoothReset() {
     smartCube.hardReset();
     ganTimer.disconnect();
+    stackmatTimer.disconnect();
     if (btCustomMacInput) btCustomMacInput.value = "";
     try { localStorage.removeItem("cll_smartcube_last_mac"); } catch {}
     if (btErrorAlert) btErrorAlert.hidden = true;
@@ -530,6 +542,7 @@ export function createSmartCubeController({
     renderSavedCubesList();
     updateBluetoothUI();
     getGanTimerCtrl()?.updateGanTimerUI?.();
+    getStackmatTimerCtrl()?.updateStackmatUI?.();
   }
 
   function request3DCubeUpdate() {
@@ -861,7 +874,7 @@ export function createSmartCubeController({
         smartCubeStage = s.solveInspection ? "inspecting" : "ready";
       }
 
-      if (ganTimer.isConnected() && solveState !== "running" &&
+      if ((ganTimer.isConnected() || stackmatTimer.isConnected()) && solveState !== "running" &&
           (solveState === "inspecting" || smartCubeStage === "inspecting" || smartCubeStage === "ready")) {
         if (isRotation) return;
         timerCtrl.recordPreTurn(move);

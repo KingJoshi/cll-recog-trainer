@@ -4,6 +4,7 @@ import { Alg } from 'cubing/alg';
 import { initCfopAnalyzer, ensureSolveCfop, computeCfopAverages, isCfopAnalyzerReady, computeMedian, computeTrimmedMean } from '../../cfopAnalyzer.js';
 import { initTwoByTwoAnalyzer, ensureSolveTwoByTwo, computeTwoByTwoAverages, isTwoByTwoAnalyzerReady } from '../../twoByTwoAnalyzer.js';
 import { averagePhase, medianPhase, trimMeanPhase, ganTimer } from '../../ganTimer.js';
+import { stackmatTimer } from '../../stackmatTimer.js';
 import { smartCube } from '../../smartCube.js';
 import { getSolveTargetLabel } from '../../data/algRegistry.js';
 import { getSolveTime, computeAverageOfN, getBestAverageOfN } from '../../services/solveStats.js';
@@ -409,17 +410,18 @@ export function createSolvePanelView({
     if (solveSurface) {
       const keyHint = solveSurface.querySelector(".solve-hint-key");
       const touchHint = solveSurface.querySelector(".solve-hint-touch");
-      const timerConnected = ganTimer.isConnected();
+      const timerConnected = ganTimer.isConnected() || stackmatTimer.isConnected();
+      const timerLabel = stackmatTimer.isConnected() ? "Stackmat" : "GAN timer";
       if (keyHint) {
         keyHint.innerHTML = timerConnected
-          ? (s.solveInspection ? "Space to inspect &bull; Use the GAN timer to start &amp; stop" : "GAN timer connected &bull; Hands on timer, release to start")
+          ? (s.solveInspection ? `Space to inspect &bull; Use the ${timerLabel} to start &amp; stop` : `${timerLabel} connected &bull; Hands on timer, release to start`)
           : s.solveInspection
             ? "Space to inspect &bull; Hold Space to arm &bull; Release to start"
             : "Hold Space to arm &bull; Release to start &bull; any key to stop";
       }
       if (touchHint) {
         touchHint.innerHTML = timerConnected
-          ? (s.solveInspection ? "Tap to inspect &bull; Use the GAN timer to start &amp; stop" : "GAN timer connected &bull; Hands on timer, release to start")
+          ? (s.solveInspection ? `Tap to inspect &bull; Use the ${timerLabel} to start &amp; stop` : `${timerLabel} connected &bull; Hands on timer, release to start`)
           : s.solveInspection
             ? "Tap to inspect &bull; Hold to arm &bull; Release to start"
             : "Tap and hold to arm &bull; Release to start";

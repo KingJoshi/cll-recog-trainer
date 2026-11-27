@@ -939,7 +939,7 @@
                   <input type="checkbox" id="settingsBetaFeatures">
                   <span>Beta Features (allow untested tracks &amp; puzzles)</span>
                 </label>
-                <button type="button" class="info-tip-btn" data-tooltip="Enables experimental or partially tested features: 2x2 EG-1 &amp; EG-2, additional WCA puzzles (6x6, 7x7, Pyraminx, Skewb, Megaminx, Square-1, Clock, 3BLD, FTO), and Custom Events." aria-label="Explain Beta Features">?</button>
+                <button type="button" class="info-tip-btn" data-tooltip="Enables experimental or partially tested features: 2x2 EG-1 &amp; EG-2, additional WCA puzzles (6x6, 7x7, Pyraminx, Skewb, Megaminx, Square-1, Clock, 3BLD, FTO), Custom Events, and Stackmat G5 Audio Timer." aria-label="Explain Beta Features">?</button>
               </div>
               <div class="settings-speed-row">
                 <span class="settings-oh-label"><strong>3D Playback Pace:</strong></span>
@@ -1424,6 +1424,42 @@
               <button type="button" id="ganTimerBtn" class="btn btn-primary" data-tooltip="Connect or disconnect a GAN Smart Timer via Bluetooth">⏱ Connect GAN Smart Timer</button>
               <button type="button" id="btOpenSupportedTimersModalBtn" class="btn btn-small">? Supported Timers &amp; Cubes</button>
             </div>
+
+            <div id="stackmatBetaSection" class="stackmat-beta-section" hidden>
+              <div class="bt-status-card disconnected" id="stackmatStatusCard">
+                <div class="bt-status-icon-wrap">
+                  <span class="bt-large-icon" aria-hidden="true">🎙️</span>
+                </div>
+                <div class="bt-status-info">
+                  <div class="devices-timer-title-row">
+                    <span class="bt-dot disconnected" id="stackmatHeaderDot" aria-hidden="true"></span>
+                    <h4 id="stackmatLabel" class="bt-device-name">Stackmat G5 (Audio Line-In)</h4>
+                    <span class="badge stackmat-beta-badge">BETA</span>
+                    <span id="stackmatModalStatusBadge" class="badge badge-disconnected">Disconnected</span>
+                  </div>
+                  <p id="stackmatDesc" class="bt-status-desc">Experimental Web Audio 1200-baud decoder for SpeedStacks Stackmat G5 (and G4/G3) via audio cable.</p>
+                </div>
+              </div>
+
+              <div class="stackmat-device-row">
+                <label for="stackmatAudioSelect" class="stackmat-select-label">Audio Input:</label>
+                <select id="stackmatAudioSelect" class="stackmat-audio-select">
+                  <option value="">Default Microphone / Line-In</option>
+                </select>
+                <button type="button" id="stackmatRefreshInputsBtn" class="btn btn-xs" title="Refresh audio input devices" aria-label="Refresh audio input devices">↻</button>
+              </div>
+
+              <div id="stackmatSignalWrap" class="stackmat-signal-wrap" hidden>
+                <div class="stackmat-signal-track" aria-hidden="true">
+                  <div id="stackmatSignalFill" class="stackmat-signal-fill"></div>
+                </div>
+                <span id="stackmatSignalStatus" class="stackmat-signal-status">Listening for 1200-baud Stackmat FSK audio…</span>
+              </div>
+
+              <div class="bt-actions-row">
+                <button type="button" id="stackmatConnectBtn" class="btn btn-primary" data-tooltip="Connect or disconnect a Stackmat G5 timer via audio input (Beta)">🎙 Connect Stackmat G5</button>
+              </div>
+            </div>
           </div><!-- /devicesPanelTimers -->
 
           <div id="devicesPanelKeyboard" class="devices-tab-panel" role="tabpanel" aria-labelledby="devicesTabKeyboard" hidden>
@@ -1555,7 +1591,7 @@
         <h4 class="bt-info-title">Supported External Timers</h4>
         <div class="bt-cubes-grid">
           <span class="bt-cube-pill">GAN Smart Timer (Web Bluetooth · pickup / cube / putdown splits)</span>
-          <span class="bt-cube-pill">SpeedStacks Stackmat G5 (Planned · audio line-in FSK)</span>
+          <span class="bt-cube-pill">SpeedStacks Stackmat G5 / G4 / G3 (Beta · audio line-in FSK)</span>
         </div>
       </div>
       <p class="bt-browser-note" style="margin:0;">

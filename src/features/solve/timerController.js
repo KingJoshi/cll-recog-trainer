@@ -1,6 +1,7 @@
 // Solve Timer Controller: Space/touch hold-to-arm, 15s inspection, Smart Cube auto-start/stop, and GAN Timer phase tracking
 
 import { ganTimer, computeSolvePhaseSplits } from '../../ganTimer.js';
+import { stackmatTimer } from '../../stackmatTimer.js';
 import { smartCube } from '../../smartCube.js';
 import { ensureSolveCfop } from '../../cfopAnalyzer.js';
 import { ensureSolveTwoByTwo } from '../../twoByTwoAnalyzer.js';
@@ -61,10 +62,30 @@ export function createTimerController({
     solveTimerPad?.classList.remove("is-touch-holding");
   }
 
-  // GAN Timer, Spacebar/Touch & Smart Cube split timestamps
+  // External hardware timer (GAN Smart Timer / Stackmat G5), Spacebar/Touch & Smart Cube split timestamps
   let solveTimerDriven = false;
-  let solveTimerSource = ""; // "" | "GAN Smart Timer" | "Spacebar" | "Touch"
+  let solveTimerSource = ""; // "" | "GAN Smart Timer" | "Stackmat G5" | "Spacebar" | "Touch"
   let solveTimerStartTs = 0;
+
+  function isExternalTimerConnected() {
+    return ganTimer.isConnected() || stackmatTimer.isConnected();
+  }
+
+  function getConnectedExternalTimerName() {
+    if (stackmatTimer.isConnected()) return "Stackmat G5";
+    if (ganTimer.isConnected()) return "GAN Smart Timer";
+    return "";
+  }
+
+  function isHardwareTimerSource(source) {
+    return source === "GAN Smart Timer" || source === "Stackmat G5";
+  }
+
+  function getOverlayExternalPrompt(prefix = "") {
+    const extName = getConnectedExternalTimerName();
+    if (!extName) return `${prefix}Hold Space when ready`;
+    return `${prefix}Start the ${extName} when ready`;
+  }
   let solveFirstMoveTs = 0;
   let solveCubeSolvedTs = 0;
   let solveMoveOrigin = 0;
@@ -84,14 +105,14 @@ export function createTimerController({
   function getRunningOverlayHint() {
     const isVirtualCube = Boolean(smartCube.getStatus().connected && smartCube.isVirtual);
     if (solveTimerDriven) {
-      const isGan = solveTimerSource === "GAN Smart Timer";
+      const isHardwareTimer = isHardwareTimerSource(solveTimerSource);
       if (solveCubeSolvedTs) {
-        return isGan
-          ? "✓ Cube solved · Put it down & stop the GAN timer"
+        return isHardwareTimer
+          ? `✓ Cube solved · Put it down & stop the ${solveTimerSource}`
           : "✓ Cube solved · Put it down & press Space or tap to stop";
       }
-      const base = isGan
-        ? "Stop the GAN timer to finish · Esc to cancel"
+      const base = isHardwareTimer
+        ? `Stop the ${solveTimerSource} to finish · Esc to cancel`
         : (isVirtualCube
           ? "Virtual cube active · Press Space to stop · Esc to cancel"
           : "Pick up cube & solve · Press any key or tap to stop · Esc to cancel");
@@ -137,9 +158,7 @@ export function createTimerController({
     if (solveOverlayCancelBtn) solveOverlayCancelBtn.hidden = false;
     if (solveOverlayTime) solveOverlayTime.textContent = "15";
     if (solveOverlayHint) {
-      solveOverlayHint.textContent = ganTimer.isConnected()
-        ? "Start the GAN timer when ready · Esc to cancel"
-        : "Hold Space when ready · Esc to cancel";
+      solveOverlayHint.textContent = `${getOverlayExternalPrompt()} · Esc to cancel`;
     }
     getDisconnectAlertView()?.renderAlerts?.();
 
@@ -170,9 +189,7 @@ export function createTimerController({
         solveOverlay?.classList.add("penalty-plus2");
         if (solveState === "inspecting" && solveOverlayTime) solveOverlayTime.textContent = "+2";
         if (solveOverlayHint) {
-          solveOverlayHint.textContent = ganTimer.isConnected()
-            ? "+2 penalty · Start the GAN timer"
-            : "+2 penalty · Hold Space when ready";
+          solveOverlayHint.textContent = getOverlayExternalPrompt("+2 penalty · ");
         }
       } else {
         solvePenalty = "DNF";
@@ -188,7 +205,7 @@ export function createTimerController({
     const s = appStore.state;
     if (!isTimerViewMode(s) || (solveState !== "idle" && solveState !== "inspecting")) return;
     if (s.solveTarget === "cll" && !s.currentCaseId) return;
-    if (ganTimer.isConnected()) return;
+    if (isExternalTimerConnected()) return;
 
     solveState = "armed";
     if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
@@ -491,11 +508,11 @@ export function createTimerController({
     if (solveState === "idle") {
       hideSolveOverlay();
     } else if (solveState === "inspecting" && solveOverlayHint) {
-      solveOverlayHint.textContent = "Start the GAN timer when ready · Esc to cancel";
+      solveOverlayHint.textContent = `${getOverlayExternalPrompt()} · Esc to cancel`;
     }
   }
 
-  function startTimerDrivenSolve(ts) {
+  function startTimerDrivenSolve(ts, { timerSource = "" } = {}) {
     const s = appStore.state;
     const scUi = getSmartCubeUi();
     if (!isTimerViewMode(s) || solveState === "running") return;
@@ -512,9 +529,10 @@ export function createTimerController({
       trackedSolveMoves = [];
       solveFirstMoveTs = 0;
     }
-    startSolve(false, { timerDriven: true, timerSource: "GAN Smart Timer", startTs: ts });
+    const resolvedSource = timerSource || getConnectedExternalTimerName() || "GAN Smart Timer";
+    startSolve(false, { timerDriven: true, timerSource: resolvedSource, startTs: ts });
     if (!cubeTracking && solveLiveStats) solveLiveStats.hidden = true;
-    smartCube.logDiag("TIMER_RUNNING", { cubeTracking, preTurns: trackedSolveMoves.length });
+    smartCube.logDiag("TIMER_RUNNING", { timerSource: resolvedSource, cubeTracking, preTurns: trackedSolveMoves.length });
     scUi?.updateSmartCubeIndicator?.();
   }
 
@@ -541,12 +559,13 @@ export function createTimerController({
     }
   }
 
-  function onGanTimerDisconnectedMidSolve() {
+  function onGanTimerDisconnectedMidSolve(sourceName = "") {
     if (solveState === "running" && solveTimerDriven) {
+      const label = (sourceName || solveTimerSource || "GAN TIMER").toUpperCase();
       solveTimerDriven = false;
       solveOverlay?.classList.remove("cube-solved");
       if (solveOverlayHint) {
-        solveOverlayHint.textContent = "⚠️ GAN TIMER DISCONNECTED! Press any key or tap to stop";
+        solveOverlayHint.textContent = `⚠️ ${label} DISCONNECTED! Press any key or tap to stop`;
       }
     } else {
       clearGanTimerHandsOverlay();
@@ -560,7 +579,7 @@ export function createTimerController({
       if (["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key)) {
         return false;
       }
-      if (solveTimerDriven && solveTimerSource === "GAN Smart Timer") {
+      if (solveTimerDriven && isHardwareTimerSource(solveTimerSource)) {
         e.preventDefault();
         if (e.key === "Escape") cancelSolve();
         return true;
@@ -760,7 +779,7 @@ export function createTimerController({
     e.preventDefault();
     if (!isTimerViewMode(appStore.state)) return;
     if (solveState === "running") {
-      if (solveTimerDriven && solveTimerSource === "GAN Smart Timer") return;
+      if (solveTimerDriven && isHardwareTimerSource(solveTimerSource)) return;
       stopSolve(true);
       return;
     }

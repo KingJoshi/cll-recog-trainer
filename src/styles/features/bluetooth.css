@@ -1088,4 +1088,90 @@
     line-height: 1.45;
     color: var(--muted);
   }
+
+  .stackmat-beta-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .stackmat-beta-section[hidden] {
+    display: none;
+  }
+
+  .stackmat-beta-badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.16);
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+  }
+
+  [data-theme="dark"] .stackmat-beta-badge {
+    color: #fbbf24;
+  }
+
+  .stackmat-device-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .stackmat-select-label {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .stackmat-audio-select {
+    flex: 1 1 220px;
+    min-width: 0;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.85rem;
+  }
+
+  .stackmat-signal-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stackmat-signal-wrap[hidden] {
+    display: none;
+  }
+
+  .stackmat-signal-track {
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .stackmat-signal-fill {
+    height: 100%;
+    width: 0%;
+    background: #f59e0b;
+    transition: width 0.12s ease, background 0.15s ease;
+  }
+
+  .stackmat-signal-fill.is-locked {
+    background: #22c55e;
+  }
+
+  .stackmat-signal-status {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
 }
