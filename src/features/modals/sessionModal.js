@@ -1,7 +1,7 @@
 // Multi-session Create/Edit/Switch/Delete controller & modal
 
 import { getSolveTargetsForPuzzle } from '../../data/algRegistry.js';
-import { isBetaTrack } from '../../state/appStore.js';
+import { isBetaTrack, isTrackEnabled } from '../../state/appStore.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
 import { recordTombstone } from '../../services/syncStorage.js';
 import { showToast } from '../../ui/toastService.js';
@@ -48,10 +48,10 @@ export function createSessionModalController({
   function populateTargetOptions(puzzleId, selectedTarget) {
     if (!defaultTarget) return;
     const targets = getSolveTargetsForPuzzle(puzzleId).filter(
-      t => Boolean(appStore?.state?.betaFeatures) || !isBetaTrack(puzzleId, t.id)
+      t => isTrackEnabled(appStore?.state, puzzleId, t.id)
     );
     defaultTarget.innerHTML = targets.map(t =>
-      `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`
+      `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}${isBetaTrack(puzzleId, t.id) ? " β" : ""}</option>`
     ).join("");
     const validTarget = targets.some(t => t.id === selectedTarget)
       ? selectedTarget

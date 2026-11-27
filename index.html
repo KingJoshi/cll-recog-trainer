@@ -28,15 +28,15 @@
       <button type="button" class="puzzle-btn" data-puzzle="333oh" aria-pressed="false">3x3 OH</button>
       <button type="button" class="puzzle-btn" data-puzzle="444" aria-pressed="false">4x4</button>
       <button type="button" class="puzzle-btn" data-puzzle="555" aria-pressed="false">5x5</button>
-      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="pyram" aria-pressed="false" hidden>Pyra</button>
-      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="skewb" aria-pressed="false" hidden>Skewb</button>
-      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="minx" aria-pressed="false" hidden>Mega</button>
-      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="sq1" aria-pressed="false" hidden>Sq-1</button>
-      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="clock" aria-pressed="false" hidden>Clock</button>
-      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="333bf" aria-pressed="false" hidden>3BLD</button>
-      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="666" aria-pressed="false" hidden>6x6</button>
-      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="777" aria-pressed="false" hidden>7x7</button>
-      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="fto" aria-pressed="false" hidden>FTO</button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="pyram" aria-pressed="false" hidden>Pyra<sup class="beta-sup" aria-label="Experimental">β</sup></button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="skewb" aria-pressed="false" hidden>Skewb<sup class="beta-sup" aria-label="Experimental">β</sup></button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="minx" aria-pressed="false" hidden>Mega<sup class="beta-sup" aria-label="Experimental">β</sup></button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="sq1" aria-pressed="false" hidden>Sq-1<sup class="beta-sup" aria-label="Experimental">β</sup></button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="clock" aria-pressed="false" hidden>Clock<sup class="beta-sup" aria-label="Experimental">β</sup></button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="333bf" aria-pressed="false" hidden>3BLD<sup class="beta-sup" aria-label="Experimental">β</sup></button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="666" aria-pressed="false" hidden>6x6<sup class="beta-sup" aria-label="Experimental">β</sup></button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="777" aria-pressed="false" hidden>7x7<sup class="beta-sup" aria-label="Experimental">β</sup></button>
+      <button type="button" class="puzzle-btn puzzle-btn-extra" data-puzzle="fto" aria-pressed="false" hidden>FTO<sup class="beta-sup" aria-label="Experimental">β</sup></button>
     </div>
   </div>
   <div class="header-actions">
@@ -879,6 +879,7 @@
         <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="colors" aria-selected="false">🎨 Theme &amp; Colors</button>
         <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="devices" aria-selected="false">ᛒ Devices</button>
         <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="sync" aria-selected="false">☁️ Sync</button>
+        <button type="button" class="settings-nav-btn" role="tab" data-settings-tab="experimental" aria-selected="false">🧪 Experimental</button>
       </nav>
 
       <div class="settings-content">
@@ -934,13 +935,6 @@
                 <input type="checkbox" id="settingsShowTooltips" checked>
                 <span>Show helpful UI tooltips on hover &amp; focus</span>
               </label>
-              <div class="toggle-with-tip">
-                <label class="solve-toggle-label">
-                  <input type="checkbox" id="settingsBetaFeatures">
-                  <span>Beta Features (allow untested tracks &amp; puzzles)</span>
-                </label>
-                <button type="button" class="info-tip-btn" data-tooltip="Enables experimental or partially tested features: 2x2 EG-1 &amp; EG-2, additional WCA puzzles (6x6, 7x7, Pyraminx, Skewb, Megaminx, Square-1, Clock, 3BLD, FTO), Custom Events, and Stackmat G5 Audio Timer." aria-label="Explain Beta Features">?</button>
-              </div>
               <div class="settings-speed-row">
                 <span class="settings-oh-label"><strong>3D Playback Pace:</strong></span>
                 <div class="settings-speed-group" role="group" aria-label="Default 3D playback pace">
@@ -1060,14 +1054,14 @@
               </div>
             </div>
             <div id="settingsEventsBetaNotice" class="settings-beta-notice" hidden>
-              Non-default WCA puzzles (6x6, 7x7, Pyraminx, Skewb, Megaminx, Square-1, Clock, 3BLD, FTO), Custom Events, and 2x2 EG-1/EG-2 are experimental. Turn on <strong>Beta Features</strong> in <strong>General &amp; Display</strong> to enable them.
+              Additional WCA puzzles (6x6, 7x7, Pyraminx, Skewb, Megaminx, Square-1, Clock, 3BLD, FTO), Custom Events, and 2x2 EG-1/EG-2 are experimental. Enable them individually under <strong>Settings &rarr; Experimental</strong>.
             </div>
             <div id="settingsEventsGrid" class="settings-events-groups"></div>
           </div>
 
           <div class="settings-section" id="settingsCustomEventsSection">
             <div class="settings-section-head">
-              <h4 class="settings-section-title">✨ Custom Events</h4>
+              <h4 class="settings-section-title">✨ Custom Events<sup class="beta-sup" aria-label="Experimental">β</sup></h4>
               <span class="settings-section-desc">Create custom timer-only or scrambled events (e.g. 2-4 Relay, FTO BLD)</span>
             </div>
             <div class="settings-custom-event-form">
@@ -1433,8 +1427,8 @@
                 <div class="bt-status-info">
                   <div class="devices-timer-title-row">
                     <span class="bt-dot disconnected" id="stackmatHeaderDot" aria-hidden="true"></span>
-                    <h4 id="stackmatLabel" class="bt-device-name">Stackmat G5 (Audio Line-In)</h4>
-                    <span class="badge stackmat-beta-badge">BETA</span>
+                    <h4 id="stackmatLabel" class="bt-device-name">Stackmat G5 (Audio Line-In)<sup class="beta-sup" aria-label="Experimental">β</sup></h4>
+                    <span class="badge stackmat-beta-badge">EXPERIMENTAL</span>
                     <span id="stackmatModalStatusBadge" class="badge badge-disconnected">Disconnected</span>
                   </div>
                   <p id="stackmatDesc" class="bt-status-desc">Experimental Web Audio 1200-baud decoder for SpeedStacks Stackmat G5 (and G4/G3) via audio cable.</p>
@@ -1534,6 +1528,59 @@
             </div>
           </div>
         </div>
+
+        <!-- Tab 8: Experimental Features -->
+        <div class="settings-tab-panel" data-settings-panel="experimental" role="tabpanel" hidden>
+          <div class="settings-section">
+            <div class="settings-section-head settings-events-head">
+              <div>
+                <h4 class="settings-section-title">🧪 Experimental Features</h4>
+                <span class="settings-section-desc">Turn individual experimental or partially tested features on or off. Enabled items show a <strong><sup class="beta-sup">β</sup></strong> superscript in menus and navigation.</span>
+              </div>
+              <div class="settings-events-actions">
+                <button type="button" id="settingsExpCheckAllBtn" class="btn btn-xs">Check All</button>
+                <button type="button" id="settingsExpRemoveAllBtn" class="btn btn-xs">Remove All</button>
+              </div>
+            </div>
+            <div id="settingsExperimentalList" class="settings-exp-list">
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_eg1" data-experimental-feature="eg1">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">2x2 EG-1<sup class="beta-sup" aria-label="Experimental">β</sup></span>
+                  <span class="settings-exp-desc">Unlock all 40 EG-1 cases across Learn, Train, Timed Drills, and Simulate.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_eg2" data-experimental-feature="eg2">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">2x2 EG-2<sup class="beta-sup" aria-label="Experimental">β</sup></span>
+                  <span class="settings-exp-desc">Unlock all 40 EG-2 cases across Learn, Train, Timed Drills, and Simulate.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_extraPuzzles" data-experimental-feature="extraPuzzles">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">Additional WCA &amp; Side Puzzles<sup class="beta-sup" aria-label="Experimental">β</sup></span>
+                  <span class="settings-exp-desc">Enable 6x6, 7x7, Pyraminx, Skewb, Megaminx, Square-1, Clock, 3BLD, and FTO.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_customEvents" data-experimental-feature="customEvents">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">Custom Events<sup class="beta-sup" aria-label="Experimental">β</sup></span>
+                  <span class="settings-exp-desc">Create custom timer or scrambled events under Settings &rarr; Events.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_stackmatG5" data-experimental-feature="stackmatG5">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">Stackmat G5 Audio Timer<sup class="beta-sup" aria-label="Experimental">β</sup></span>
+                  <span class="settings-exp-desc">Experimental 1200-baud Web Audio line-in decoder for SpeedStacks Stackmat G5 / G4 / G3 under Settings &rarr; Devices &rarr; Timers.</span>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="solve-modal-actions">
@@ -1623,7 +1670,7 @@
       <div class="stackmat-guide-section">
         <h4>2. Connect in App</h4>
         <ol class="stackmat-guide-list">
-          <li>Enable <strong>Beta Features</strong> in <strong>Settings &rarr; General</strong>.</li>
+          <li>Enable <strong>Stackmat G5 Audio Timer</strong> in <strong>Settings &rarr; Experimental</strong>.</li>
           <li>Power on your Stackmat G5 in <strong>2-Pad mode</strong>.</li>
           <li>In <strong>Settings &rarr; Devices &rarr; Timers</strong>, pick your input under <strong>Audio Input</strong> (click <strong>↻</strong> if newly plugged in), then click <strong>Connect Stackmat G5</strong> and grant microphone permission.</li>
         </ol>

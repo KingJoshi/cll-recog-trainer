@@ -14,4 +14,28 @@
     white-space: nowrap;
     border: 0;
   }
+
+  .beta-sup {
+    font-size: 0.68em;
+    font-weight: 800;
+    line-height: 0;
+    vertical-align: super;
+    margin-left: 2px;
+    color: #d97706;
+  }
+
+  [data-theme="dark"] .beta-sup {
+    color: #fbbf24;
+  }
+
+  .app-header .puzzle-btn:not(.active) .beta-sup {
+    color: #fde047;
+  }
+
+  .puzzle-btn.active .beta-sup,
+  .track-btn.active .beta-sup,
+  .btn-primary .beta-sup {
+    color: inherit;
+    opacity: 0.88;
+  }
 }

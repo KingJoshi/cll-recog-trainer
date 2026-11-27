@@ -6,7 +6,7 @@ import { getEffectiveAlgsForCase } from '../../cube/algMirror.js';
 import { pblCases, pblCaseById } from '../../data/ortegaData.js';
 import { cleanAlg, normalizeAlgForCompare, parseScrambleInput } from '../../algParser.js';
 import { applyColorsTo3DCube } from '../../caseVisualizer.js';
-import { GROUP_DISPLAY_ORDER, caseById, casesByGroup, isSimulateViewMode } from '../../state/appStore.js';
+import { GROUP_DISPLAY_ORDER, caseById, casesByGroup, isSimulateViewMode, isExperimentalEnabled } from '../../state/appStore.js';
 import { escapeHtml } from '../../services/htmlUtils.js';
 import { showToast } from '../../ui/toastService.js';
 import { ICON_PLAY, ICON_PAUSE, ICON_REPLAY } from '../../ui/transportIcons.js';
@@ -806,21 +806,20 @@ export function createSimulatorController({
       simCaseSelect.appendChild(optgroup);
     });
 
-    if (appStore?.state?.betaFeatures) {
-      ["eg1", "eg2"].forEach(egTid => {
-        const egTr = getTrack("222", egTid);
-        if (!egTr) return;
-        const g = document.createElement("optgroup");
-        g.label = `${egTid.toUpperCase()} (40 cases)`;
-        egTr.cases.forEach(c => {
-          const opt = document.createElement("option");
-          opt.value = `222:${egTid}:${c.id}`;
-          opt.textContent = `${c.id}: ${c.algs?.[0]?.alg || ""}`;
-          g.appendChild(opt);
-        });
-        simCaseSelect.appendChild(g);
+    ["eg1", "eg2"].forEach(egTid => {
+      if (!isExperimentalEnabled(appStore?.state, egTid)) return;
+      const egTr = getTrack("222", egTid);
+      if (!egTr) return;
+      const g = document.createElement("optgroup");
+      g.label = `${egTid.toUpperCase()} β (40 cases)`;
+      egTr.cases.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = `222:${egTid}:${c.id}`;
+        opt.textContent = `${c.id}: ${c.algs?.[0]?.alg || ""}`;
+        g.appendChild(opt);
       });
-    }
+      simCaseSelect.appendChild(g);
+    });
   }
 
   function attachSimPlayerListeners() {

@@ -4,7 +4,7 @@ import { stackmatTimer } from '../../stackmatTimer.js';
 import { shouldIgnorePrematureTimerStop } from '../../ganTimer.js';
 import { smartCube } from '../../smartCube.js';
 import { showToast } from '../../ui/toastService.js';
-import { isTimerViewMode } from '../../state/appStore.js';
+import { isTimerViewMode, isExperimentalEnabled } from '../../state/appStore.js';
 
 export function createStackmatTimerController({
   appStore,
@@ -69,7 +69,7 @@ export function createStackmatTimerController({
   }
 
   function syncBetaVisibility() {
-    const enabled = Boolean(appStore?.state?.betaFeatures);
+    const enabled = isExperimentalEnabled(appStore?.state, "stackmatG5");
     if (stackmatBetaSection) {
       stackmatBetaSection.hidden = !enabled;
     }
@@ -92,9 +92,10 @@ export function createStackmatTimerController({
       stackmatModalStatusBadge.textContent = st.status === "connected" ? "Connected" : (st.status === "connecting" ? "Listening..." : "Disconnected");
     }
     if (stackmatLabel) {
-      stackmatLabel.textContent = st.connected
+      const labelText = st.connected
         ? "Stackmat G5 Listening ✓"
         : (st.status === "connecting" ? "Opening Audio Input…" : "Stackmat G5 (Audio Line-In)");
+      stackmatLabel.innerHTML = `${labelText}<sup class="beta-sup" aria-label="Experimental">β</sup>`;
     }
     if (stackmatDesc) {
       stackmatDesc.textContent = st.connected
@@ -141,7 +142,7 @@ export function createStackmatTimerController({
   });
 
   stackmatTimer.addEventListener("timerstate", (e) => {
-    if (!appStore?.state?.betaFeatures) return;
+    if (!isExperimentalEnabled(appStore?.state, "stackmatG5")) return;
     const { state, recordedMs, ts, generation } = e.detail || {};
     smartCube.logDiag("STACKMAT_TIMER_STATE", { state, recordedMs, generation });
     if (!isTimerViewMode(appStore.state)) return;
@@ -209,8 +210,8 @@ export function createStackmatTimerController({
   });
 
   stackmatConnectBtn?.addEventListener("click", async () => {
-    if (!appStore?.state?.betaFeatures) {
-      showToast("Enable Beta Features in Settings → General to use Stackmat G5.", "info");
+    if (!isExperimentalEnabled(appStore?.state, "stackmatG5")) {
+      showToast("Enable Stackmat G5 Audio Timer in Settings → Experimental to use it.", "info");
       return;
     }
     if (stackmatTimer.isConnected()) {

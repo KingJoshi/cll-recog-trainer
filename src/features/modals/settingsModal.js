@@ -9,7 +9,7 @@ import {
   applyColorsTo3DCube
 } from '../../caseVisualizer.js';
 import { PUZZLES, CUSTOM_EVENT_SCRAMBLE_LABELS } from '../../data/algRegistry.js';
-import { sanitizeHexColor, isTimerViewMode, DEFAULT_VISIBLE_EVENTS, ALL_BUILTIN_EVENT_IDS } from '../../state/appStore.js';
+import { sanitizeHexColor, isTimerViewMode, DEFAULT_VISIBLE_EVENTS, ALL_BUILTIN_EVENT_IDS, isBetaPuzzle, isExperimentalEnabled } from '../../state/appStore.js';
 import {
   DEFAULT_THEME_COLORS,
   THEME_COLOR_FIELDS,
@@ -86,7 +86,9 @@ export function createSettingsModalController({
   const openWizardBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenWizardBtn") : null;
   const openShortcutsBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenShortcutsBtn") : null;
 
-  const settingsBetaFeatures = typeof document !== "undefined" ? document.getElementById("settingsBetaFeatures") : null;
+  const settingsExperimentalList = typeof document !== "undefined" ? document.getElementById("settingsExperimentalList") : null;
+  const settingsExpCheckAllBtn = typeof document !== "undefined" ? document.getElementById("settingsExpCheckAllBtn") : null;
+  const settingsExpRemoveAllBtn = typeof document !== "undefined" ? document.getElementById("settingsExpRemoveAllBtn") : null;
   const settingsEventsBetaNotice = typeof document !== "undefined" ? document.getElementById("settingsEventsBetaNotice") : null;
   const settingsCustomEventsSection = typeof document !== "undefined" ? document.getElementById("settingsCustomEventsSection") : null;
   const settingsShowTooltips = typeof document !== "undefined" ? document.getElementById("settingsShowTooltips") : null;
@@ -241,7 +243,10 @@ export function createSettingsModalController({
     });
     if (settingsFocusMode) settingsFocusMode.checked = Boolean(s.focusMode);
     if (settingsDesktopMultiPane) settingsDesktopMultiPane.checked = s.desktopMultiPane !== false;
-    if (settingsBetaFeatures) settingsBetaFeatures.checked = Boolean(s.betaFeatures);
+    settingsExperimentalList?.querySelectorAll("input[data-experimental-feature]").forEach(cb => {
+      const fid = cb.dataset.experimentalFeature;
+      cb.checked = isExperimentalEnabled(s, fid);
+    });
     if (settingsShowLayerWidget) settingsShowLayerWidget.checked = s.showLayerSolutionsWidget !== false;
     if (settingsShowCrossWidget) settingsShowCrossWidget.checked = s.showCrossSolutionsWidget !== false;
     if (settingsSolveShowCube) settingsSolveShowCube.checked = Boolean(s.solveShowCube);
@@ -517,16 +522,17 @@ export function createSettingsModalController({
 
   function renderEventsGrid() {
     const s = appStore.state;
-    const isBeta = Boolean(s.betaFeatures);
-    if (settingsEventsAllBtn) settingsEventsAllBtn.hidden = !isBeta;
-    if (settingsCustomEventsSection) settingsCustomEventsSection.hidden = !isBeta;
-    if (settingsEventsBetaNotice) settingsEventsBetaNotice.hidden = isBeta;
+    const allowExtraPuzzles = isExperimentalEnabled(s, "extraPuzzles");
+    const allowCustomEvents = isExperimentalEnabled(s, "customEvents");
+    if (settingsEventsAllBtn) settingsEventsAllBtn.hidden = !allowExtraPuzzles;
+    if (settingsCustomEventsSection) settingsCustomEventsSection.hidden = !allowCustomEvents;
+    if (settingsEventsBetaNotice) settingsEventsBetaNotice.hidden = allowExtraPuzzles && allowCustomEvents;
     if (!settingsEventsGrid) return;
     const visibleList = Array.isArray(s.visibleEvents) && s.visibleEvents.length
       ? s.visibleEvents
       : (s.showExtraWcaEvents ? ALL_BUILTIN_EVENT_IDS : DEFAULT_VISIBLE_EVENTS);
     const visibleSet = new Set(visibleList);
-    const groups = isBeta
+    const groups = allowExtraPuzzles
       ? [
           { label: "NxN", ids: ["222", "333", "333oh", "444", "555", "666", "777"] },
           { label: "Other WCA Events", ids: ["pyram", "skewb", "minx", "sq1", "clock", "333bf", "fto"] }
@@ -542,10 +548,11 @@ export function createSettingsModalController({
             const p = PUZZLES[id];
             const checked = visibleSet.has(id);
             const title = p.shortName || p.name || id;
+            const betaSup = isBetaPuzzle(id) ? '<sup class="beta-sup" aria-label="Experimental">β</sup>' : "";
             return `
               <label class="settings-event-chip ${checked ? "is-checked" : ""}">
                 <input type="checkbox" data-visible-event="${escapeHtml(id)}" ${checked ? "checked" : ""}>
-                <span>${escapeHtml(title)}</span>
+                <span>${escapeHtml(title)}${betaSup}</span>
               </label>
             `;
           }).join("")}
@@ -725,8 +732,23 @@ export function createSettingsModalController({
     onOpenShortcuts?.();
   });
 
-  settingsBetaFeatures?.addEventListener("change", (e) => {
-    appStore.setBetaFeatures?.(Boolean(e.target.checked));
+  settingsExperimentalList?.addEventListener("change", (e) => {
+    const cb = e.target.closest("input[data-experimental-feature]");
+    if (!cb) return;
+    const fid = cb.dataset.experimentalFeature;
+    appStore.setExperimentalFeature?.(fid, Boolean(cb.checked));
+    renderEventsGrid();
+  });
+
+  settingsExpCheckAllBtn?.addEventListener("click", () => {
+    appStore.setAllExperimentalFeatures?.(true);
+    renderToggles();
+    renderEventsGrid();
+  });
+
+  settingsExpRemoveAllBtn?.addEventListener("click", () => {
+    appStore.setAllExperimentalFeatures?.(false);
+    renderToggles();
     renderEventsGrid();
   });
 

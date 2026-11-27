@@ -23,6 +23,11 @@ import {
   isSimulateViewMode,
   isBetaTrack,
   isBetaPuzzle,
+  isExperimentalEnabled,
+  isTrackEnabled,
+  isPuzzleEnabled,
+  sanitizeExperimentalFeatures,
+  EXPERIMENTAL_FEATURE_IDS,
   VALID_TRAIN_SUBMODES,
   VALID_F2L_MODES
 } from '../src/state/appStore.js';
@@ -113,10 +118,26 @@ test('index.html has 3-slot mode bar, icon-only header, 3-tab Devices modal, spl
   assert.ok(html.indexOf('id="btDiagModal"') > 0 && html.indexOf('id="btDiagModal"') < settingsEnd);
   assert.ok(html.indexOf('id="btSupportedCubesModal"') > 0 && html.indexOf('id="btSupportedCubesModal"') < settingsEnd);
 
-  // Beta Features toggle sits in Settings -> General
+  // Beta Features checkbox moved out of General into its own Experimental tab after Devices & Sync
   const genPanelStart = html.indexOf('data-settings-panel="general"');
   const solvePanelStart = html.indexOf('data-settings-panel="solve"');
-  assert.ok(html.slice(genPanelStart, solvePanelStart).includes('id="settingsBetaFeatures"'));
+  assert.ok(!html.slice(genPanelStart, solvePanelStart).includes('id="settingsBetaFeatures"'));
+  const devicesTabIdx = html.indexOf('data-settings-tab="devices"');
+  const syncTabIdx = html.indexOf('data-settings-tab="sync"');
+  const expTabIdx = html.indexOf('data-settings-tab="experimental"');
+  assert.ok(devicesTabIdx > 0 && syncTabIdx > devicesTabIdx && expTabIdx > syncTabIdx);
+  const expPanelStart = html.indexOf('data-settings-panel="experimental"');
+  const expPanelSlice = html.slice(expPanelStart, settingsEnd);
+  assert.ok(expPanelSlice.includes('id="settingsExpCheckAllBtn"'));
+  assert.ok(expPanelSlice.includes('Check All'));
+  assert.ok(expPanelSlice.includes('id="settingsExpRemoveAllBtn"'));
+  assert.ok(expPanelSlice.includes('Remove All'));
+  for (const fid of ['eg1', 'eg2', 'extraPuzzles', 'customEvents', 'stackmatG5']) {
+    assert.ok(expPanelSlice.includes(`data-experimental-feature="${fid}"`));
+  }
+  for (const pid of ['pyram', 'skewb', 'minx', 'sq1', 'clock', '333bf', '666', '777', 'fto']) {
+    assert.match(html, new RegExp(`data-puzzle="${pid}"[^>]*>[^<]*<sup class="beta-sup"[^>]*>β</sup>`));
+  }
 
   // Footer omits GitHub link
   const footerMatch = html.match(/<footer class="app-legal-footer"[\s\S]*?<\/footer>/);
@@ -166,7 +187,7 @@ test('AppStore & syncMerge handle Train->Simulate and 4-tier F2L modes', () => {
   assert.strictEqual(merged.settings.f2lMode, 'advanced');
   appStore.setF2lMode('basic');
 
-  // Beta Features gating helpers & LWW sync
+  // Experimental features individual gating, Check All / Remove All, legacy migration & LWW sync
   assert.strictEqual(isBetaTrack('222', 'eg1'), true);
   assert.strictEqual(isBetaTrack('222', 'eg2'), true);
   assert.strictEqual(isBetaTrack('222', 'cll'), false);
@@ -176,13 +197,50 @@ test('AppStore & syncMerge handle Train->Simulate and 4-tier F2L modes', () => {
   assert.strictEqual(isBetaPuzzle('pyram'), true);
 
   assert.strictEqual(appStore.state.betaFeatures, false);
-  appStore.setBetaFeatures(true);
+  appStore.setExperimentalFeature('eg1', true);
+  assert.strictEqual(isExperimentalEnabled(appStore.state, 'eg1'), true);
+  assert.strictEqual(isExperimentalEnabled(appStore.state, 'eg2'), false);
+  assert.strictEqual(isTrackEnabled(appStore.state, '222', 'eg1'), true);
+  assert.strictEqual(isTrackEnabled(appStore.state, '222', 'eg2'), false);
+  assert.strictEqual(isPuzzleEnabled(appStore.state, '666'), false);
   assert.strictEqual(appStore.state.betaFeatures, true);
+
+  appStore.setAllExperimentalFeatures(true);
+  for (const id of EXPERIMENTAL_FEATURE_IDS) {
+    assert.strictEqual(isExperimentalEnabled(appStore.state, id), true);
+  }
+  assert.strictEqual(isPuzzleEnabled(appStore.state, '666'), true);
+  assert.strictEqual(isPuzzleEnabled(appStore.state, 'custom_relay'), true);
+
+  appStore.setAllExperimentalFeatures(false);
+  assert.strictEqual(appStore.state.betaFeatures, false);
+  for (const id of EXPERIMENTAL_FEATURE_IDS) {
+    assert.strictEqual(isExperimentalEnabled(appStore.state, id), false);
+  }
+
+  const migrated = sanitizeExperimentalFeatures(null, true);
+  for (const id of EXPERIMENTAL_FEATURE_IDS) {
+    assert.strictEqual(migrated[id], true);
+  }
+
   const { merged: betaMerged } = mergeSyncPayloads(
-    { schemaVersion: 2, settings: { betaFeatures: false }, updatedAt: 1000, sessions: [] },
-    { schemaVersion: 2, settings: { betaFeatures: true }, updatedAt: 2000, sessions: [] }
+    {
+      schemaVersion: 2,
+      settings: { betaFeatures: false, experimentalFeatures: { eg1: false, eg2: false } },
+      updatedAt: 1000,
+      sessions: []
+    },
+    {
+      schemaVersion: 2,
+      settings: { betaFeatures: true, experimentalFeatures: { eg1: true, eg2: false, stackmatG5: true } },
+      updatedAt: 2000,
+      sessions: []
+    }
   );
   assert.strictEqual(betaMerged.settings.betaFeatures, true);
+  assert.strictEqual(betaMerged.settings.experimentalFeatures.eg1, true);
+  assert.strictEqual(betaMerged.settings.experimentalFeatures.stackmatG5, true);
+  assert.strictEqual(betaMerged.settings.experimentalFeatures.eg2, false);
   appStore.setBetaFeatures(false);
 });
 

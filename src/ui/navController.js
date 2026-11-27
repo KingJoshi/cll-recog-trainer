@@ -1,7 +1,7 @@
 // Top-level navigation controller: Puzzle switcher, Mode tabs, Track/Focus bar, Stage visibility, and Scramble coordination
 
 import { PUZZLES, getTrack, getDefaultTrack, getSolveTargetsForPuzzle, getSolveTargetInfo, getSolveTargetLabel } from '../data/algRegistry.js';
-import { MODES, VALID_PUZZLES, caseById, isTimerViewMode, isSimulateViewMode, DEFAULT_VISIBLE_EVENTS, isBetaTrack, isBetaPuzzle } from '../state/appStore.js';
+import { MODES, VALID_PUZZLES, caseById, isTimerViewMode, isSimulateViewMode, DEFAULT_VISIBLE_EVENTS, isBetaTrack, isBetaPuzzle, isExperimentalEnabled, isTrackEnabled, isPuzzleEnabled } from '../state/appStore.js';
 import { escapeHtml } from '../services/htmlUtils.js';
 import { showToast } from './toastService.js';
 import {
@@ -116,24 +116,25 @@ export function createNavController({
 
   function renderPuzzleButtons() {
     const s = appStore.state;
-    const isBeta = Boolean(s.betaFeatures);
+    const allowExtraPuzzles = isExperimentalEnabled(s, "extraPuzzles");
+    const allowCustomEvents = isExperimentalEnabled(s, "customEvents");
     const rawVisible = Array.isArray(s.visibleEvents) && s.visibleEvents.length
       ? s.visibleEvents
       : (s.showExtraWcaEvents ? VALID_PUZZLES : DEFAULT_VISIBLE_EVENTS);
     const visibleSet = new Set(
-      isBeta ? rawVisible : rawVisible.filter(id => DEFAULT_VISIBLE_EVENTS.includes(id))
+      allowExtraPuzzles ? rawVisible : rawVisible.filter(id => DEFAULT_VISIBLE_EVENTS.includes(id))
     );
     if (visibleSet.size === 0) DEFAULT_VISIBLE_EVENTS.forEach(id => visibleSet.add(id));
     if (puzzleSwitcher && typeof document !== "undefined") {
       puzzleSwitcher.querySelectorAll(".puzzle-btn-custom").forEach(btn => btn.remove());
-      if (isBeta) {
+      if (allowCustomEvents) {
         for (const ev of (s.customEvents || [])) {
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className = "puzzle-btn puzzle-btn-custom";
           btn.dataset.puzzle = ev.id;
-          btn.textContent = ev.shortName || ev.name;
-          btn.setAttribute("data-tooltip", `Custom event: ${ev.name}`);
+          btn.innerHTML = `${escapeHtml(ev.shortName || ev.name)}<sup class="beta-sup" aria-label="Experimental">β</sup>`;
+          btn.setAttribute("data-tooltip", `Custom event (Experimental): ${ev.name}`);
           puzzleSwitcher.appendChild(btn);
         }
       }
@@ -141,7 +142,7 @@ export function createNavController({
     getAllPuzzleButtons().forEach(btn => {
       const pid = btn.dataset.puzzle;
       if (!btn.classList.contains("puzzle-btn-custom")) {
-        btn.hidden = (!isBeta && isBetaPuzzle(pid)) || (!visibleSet.has(pid) && pid !== s.currentPuzzle);
+        btn.hidden = (!allowExtraPuzzles && isBetaPuzzle(pid)) || (!visibleSet.has(pid) && pid !== s.currentPuzzle);
       }
       const active = pid === s.currentPuzzle;
       btn.classList.toggle("active", active);
@@ -216,7 +217,7 @@ export function createNavController({
 
     if (s.mode === "practice" && s.trainSubMode === "timed-drill") {
       const items = getSolveTargetsForPuzzle(s.currentPuzzle).filter(item =>
-        item.id !== "full" && (Boolean(s.betaFeatures) || !isBetaTrack(s.currentPuzzle, item.id))
+        item.id !== "full" && isTrackEnabled(s, s.currentPuzzle, item.id)
       );
       if (!items.length) {
         trackBar.hidden = true;
@@ -230,9 +231,12 @@ export function createNavController({
       trackBar.innerHTML = items.map(item => {
         const active = item.id === s.solveTarget;
         const tipAttr = item.description ? `data-tooltip="${escapeHtml(item.description)}"` : "";
+        const betaSup = isBetaTrack(s.currentPuzzle, item.id)
+          ? '<sup class="beta-sup" aria-label="Experimental">β</sup>'
+          : "";
         return `<button type="button" class="track-btn ${active ? "active" : ""}" data-solve-target="${item.id}" aria-pressed="${active}" ${tipAttr}>
-          <span class="track-btn-full">${escapeHtml(item.name)}</span>
-          <span class="track-btn-short">${escapeHtml(item.shortName || item.name)}</span>
+          <span class="track-btn-full">${escapeHtml(item.name)}${betaSup}</span>
+          <span class="track-btn-short">${escapeHtml(item.shortName || item.name)}${betaSup}</span>
         </button>`;
       }).join("");
 
@@ -251,7 +255,7 @@ export function createNavController({
       : s.mode === "study"
         ? pData.tracks.filter(t => !t.practiceOnly)
         : pData.tracks
-    ).filter(t => Boolean(s.betaFeatures) || !isBetaTrack(s.currentPuzzle, t.id));
+    ).filter(t => isTrackEnabled(s, s.currentPuzzle, t.id));
     if (!visibleTracks.some(t => t.id === s.currentTrackId) && visibleTracks.length > 0) {
       const preferred = visibleTracks.find(t => t.id === PUZZLES[s.currentPuzzle]?.defaultTrack) || visibleTracks[0];
       s.currentTrackId = preferred.id;
@@ -262,9 +266,12 @@ export function createNavController({
     trackBar.innerHTML = visibleTracks.map(t => {
       const active = t.id === s.currentTrackId;
       const tipAttr = t.description ? `data-tooltip="${escapeHtml(t.description)}"` : "";
+      const betaSup = isBetaTrack(s.currentPuzzle, t.id)
+        ? '<sup class="beta-sup" aria-label="Experimental">β</sup>'
+        : "";
       return `<button type="button" class="track-btn ${active ? "active" : ""}" data-track="${t.id}" aria-pressed="${active}" ${tipAttr}>
-        <span class="track-btn-full">${escapeHtml(t.name)}</span>
-        <span class="track-btn-short">${escapeHtml(t.shortName || t.name)}</span>
+        <span class="track-btn-full">${escapeHtml(t.name)}${betaSup}</span>
+        <span class="track-btn-short">${escapeHtml(t.shortName || t.name)}${betaSup}</span>
       </button>`;
     }).join("");
 
@@ -488,8 +495,8 @@ export function createNavController({
     const s = appStore.state;
     const pData = PUZZLES[s.currentPuzzle];
     if (!tgt || !getSolveTargetInfo(s.currentPuzzle, tgt)) return false;
-    if (!s.betaFeatures && isBetaTrack(s.currentPuzzle, tgt)) {
-      showToast("Enable Beta Features in Settings → General to access EG-1 / EG-2.", "warning", 2600);
+    if (!isTrackEnabled(s, s.currentPuzzle, tgt)) {
+      showToast("Enable this track in Settings → Experimental to access it.", "warning", 2600);
       return false;
     }
     if ((pData?.solveOnly || pData?.hideSimulate) && tgt !== "full") return false;
@@ -543,8 +550,8 @@ export function createNavController({
     const s = appStore.state;
     const track = getTrack(s.currentPuzzle, trackId);
     if (!track) return;
-    if (!s.betaFeatures && isBetaTrack(s.currentPuzzle, trackId)) {
-      showToast("Enable Beta Features in Settings → General to access EG-1 / EG-2.", "warning", 2600);
+    if (!isTrackEnabled(s, s.currentPuzzle, trackId)) {
+      showToast("Enable this track in Settings → Experimental to access it.", "warning", 2600);
       return;
     }
     s.currentTrackId = trackId;
@@ -692,8 +699,9 @@ export function createNavController({
 
   function setPuzzle(puzzleId) {
     if (!VALID_PUZZLES.includes(puzzleId) && !PUZZLES[puzzleId]) return;
-    if (!appStore.state.betaFeatures && isBetaPuzzle(puzzleId)) {
-      showToast("Enable Beta Features in Settings → General to use additional puzzles.", "warning", 2600);
+    if (!isPuzzleEnabled(appStore.state, puzzleId)) {
+      const featureName = VALID_PUZZLES.includes(puzzleId) ? "Additional WCA & Side Puzzles" : "Custom Events";
+      showToast(`Enable ${featureName} in Settings → Experimental to use this puzzle.`, "warning", 2600);
       return;
     }
     ++scrambleGenToken;

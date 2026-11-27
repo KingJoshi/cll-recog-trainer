@@ -264,7 +264,11 @@ test('Stackmat G5 UI markup and controller stay hidden and inactive unless Beta 
   assert.match(html, /2\.5mm/);
 
   const store = new AppStore();
-  assert.equal(store.state.betaFeatures, false);
+  assert.equal(store.isExperimentalEnabled('stackmatG5'), false);
+  store.setExperimentalFeature('stackmatG5', true);
+  assert.equal(store.isExperimentalEnabled('stackmatG5'), true);
+  store.setExperimentalFeature('stackmatG5', false);
+  assert.equal(store.isExperimentalEnabled('stackmatG5'), false);
   const ctrl = createStackmatTimerController({ appStore: store });
   assert.equal(typeof ctrl.syncBetaVisibility, 'function');
   ctrl.syncBetaVisibility();

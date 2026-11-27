@@ -57,12 +57,75 @@ export const DEFAULT_VISIBLE_EVENTS = ["222", "333", "333oh", "444", "555"];
 export const ALL_BUILTIN_EVENT_IDS = [...VALID_PUZZLES];
 export const BETA_TRACK_IDS = new Set(["eg1", "eg2"]);
 
+export const EXPERIMENTAL_FEATURES = Object.freeze([
+  {
+    id: "eg1",
+    label: "2x2 EG-1",
+    description: "40 EG-1 algorithm cases across Learn, Train, Timed Drills, and Simulate"
+  },
+  {
+    id: "eg2",
+    label: "2x2 EG-2",
+    description: "40 EG-2 algorithm cases across Learn, Train, Timed Drills, and Simulate"
+  },
+  {
+    id: "extraPuzzles",
+    label: "Additional WCA & Side Puzzles",
+    description: "Enable 6x6, 7x7, Pyraminx, Skewb, Megaminx, Square-1, Clock, 3BLD, and FTO"
+  },
+  {
+    id: "customEvents",
+    label: "Custom Events",
+    description: "Create and time custom user-defined puzzle events in Settings → Events"
+  },
+  {
+    id: "stackmatG5",
+    label: "Stackmat G5 Audio Timer",
+    description: "Decode SpeedStacks Stackmat G5 (and G4/G3) via Web Audio line-in under Settings → Devices → Timers"
+  }
+]);
+export const EXPERIMENTAL_FEATURE_IDS = EXPERIMENTAL_FEATURES.map(f => f.id);
+
+export function sanitizeExperimentalFeatures(rawObj, legacyBetaFlag = false) {
+  const hasMap = Boolean(rawObj && typeof rawObj === "object" && !Array.isArray(rawObj));
+  const fallback = hasMap ? false : Boolean(legacyBetaFlag);
+  const out = {};
+  for (const id of EXPERIMENTAL_FEATURE_IDS) {
+    out[id] = hasMap ? Boolean(rawObj[id]) : fallback;
+  }
+  return out;
+}
+
+export function isExperimentalEnabled(stateOrMap, featureId) {
+  if (!featureId || !EXPERIMENTAL_FEATURE_IDS.includes(featureId)) return false;
+  if (stateOrMap && typeof stateOrMap === "object" && stateOrMap.experimentalFeatures && typeof stateOrMap.experimentalFeatures === "object") {
+    return Boolean(stateOrMap.experimentalFeatures[featureId]);
+  }
+  if (stateOrMap && typeof stateOrMap === "object" && EXPERIMENTAL_FEATURE_IDS.some(id => id in stateOrMap)) {
+    return Boolean(stateOrMap[featureId]);
+  }
+  return Boolean(stateOrMap?.betaFeatures);
+}
+
 export function isBetaTrack(puzzleId, trackId) {
   return puzzleId === "222" && BETA_TRACK_IDS.has(trackId);
 }
 
 export function isBetaPuzzle(puzzleId) {
   return Boolean(puzzleId && !DEFAULT_VISIBLE_EVENTS.includes(puzzleId));
+}
+
+export function isTrackEnabled(state, puzzleId, trackId) {
+  if (!isBetaTrack(puzzleId, trackId)) return true;
+  return isExperimentalEnabled(state, trackId);
+}
+
+export function isPuzzleEnabled(state, puzzleId) {
+  if (!isBetaPuzzle(puzzleId)) return true;
+  if (VALID_PUZZLES.includes(puzzleId)) {
+    return isExperimentalEnabled(state, "extraPuzzles");
+  }
+  return isExperimentalEnabled(state, "customEvents");
 }
 
 export function sanitizeVisibleEvents(rawList, fallbackShowExtra = false) {
@@ -211,7 +274,11 @@ export class AppStore {
     syncCustomEventsToRegistry(customEvents);
     const isKnownPuzzle = (pid) => VALID_PUZZLES.includes(pid) || Boolean(PUZZLES[pid]);
 
-    const betaFeatures = Boolean(savedSettings.betaFeatures ?? cookiePrefs.betaFeatures ?? false);
+    const experimentalFeatures = sanitizeExperimentalFeatures(
+      savedSettings.experimentalFeatures ?? cookiePrefs.experimentalFeatures,
+      Boolean(savedSettings.betaFeatures ?? cookiePrefs.betaFeatures ?? false)
+    );
+    const betaFeatures = EXPERIMENTAL_FEATURE_IDS.some(id => experimentalFeatures[id]);
 
     // Navigation & puzzle/track
     let currentPuzzle = isKnownPuzzle(savedSettings.currentPuzzle) ? savedSettings.currentPuzzle : "333";
@@ -230,7 +297,7 @@ export class AppStore {
       else if (urlMode === "timed") mode = "practice";
     }
 
-    if (!betaFeatures && isBetaPuzzle(currentPuzzle)) {
+    if (!isPuzzleEnabled({ experimentalFeatures, betaFeatures }, currentPuzzle)) {
       currentPuzzle = "333";
       currentTrackId = getDefaultTrack("333")?.id || "oll";
     }
@@ -242,7 +309,7 @@ export class AppStore {
       if (PUZZLES[currentPuzzle]?.hideSimulate && mode === "simulate") {
         mode = "solve";
       }
-      if (!betaFeatures && isBetaTrack(currentPuzzle, currentTrackId)) {
+      if (!isTrackEnabled({ experimentalFeatures, betaFeatures }, currentPuzzle, currentTrackId)) {
         currentTrackId = "cll";
       }
       if (!getTrack(currentPuzzle, currentTrackId)) {
@@ -278,7 +345,7 @@ export class AppStore {
       }
     }
 
-    if (!betaFeatures && isBetaTrack(currentPuzzle, solveTarget)) {
+    if (!isTrackEnabled({ experimentalFeatures, betaFeatures }, currentPuzzle, solveTarget)) {
       solveTarget = mode === "solve" ? "full" : "cll";
     }
 
@@ -363,6 +430,7 @@ export class AppStore {
       statsPanelVisibility,
       focusMode: false,
       betaFeatures,
+      experimentalFeatures,
       showTooltips: savedSettings.showTooltips ?? cookiePrefs.showTooltips ?? true,
       onboardingCompleted: savedSettings.onboardingCompleted ?? cookiePrefs.onboardingCompleted ?? (hasExistingSettings || hasRecordedSolves),
       onboardingProfile: savedSettings.onboardingProfile || null,
@@ -970,12 +1038,48 @@ export class AppStore {
     this.notify("twoByTwoMethod", { twoByTwoMethod: next });
   }
 
-  setBetaFeatures(enabled) {
+  isExperimentalEnabled(featureId) {
+    return isExperimentalEnabled(this.state, featureId);
+  }
+
+  setExperimentalFeature(featureId, enabled) {
+    if (!EXPERIMENTAL_FEATURE_IDS.includes(featureId)) return false;
     const next = Boolean(enabled);
-    if (Boolean(this.state.betaFeatures) === next) return;
+    const currentMap = sanitizeExperimentalFeatures(this.state.experimentalFeatures, this.state.betaFeatures);
+    if (Boolean(currentMap[featureId]) === next) return false;
+    currentMap[featureId] = next;
+    this.state.experimentalFeatures = currentMap;
+    this.state.betaFeatures = EXPERIMENTAL_FEATURE_IDS.some(id => currentMap[id]);
+    this.saveSettings();
+    this.notify("betaFeatures", {
+      betaFeatures: this.state.betaFeatures,
+      experimentalFeatures: { ...currentMap }
+    });
+    return true;
+  }
+
+  setAllExperimentalFeatures(enabled) {
+    const next = Boolean(enabled);
+    const currentMap = sanitizeExperimentalFeatures(this.state.experimentalFeatures, this.state.betaFeatures);
+    const changed = EXPERIMENTAL_FEATURE_IDS.some(id => Boolean(currentMap[id]) !== next) ||
+      Boolean(this.state.betaFeatures) !== next;
+    if (!changed) return false;
+    const nextMap = {};
+    for (const id of EXPERIMENTAL_FEATURE_IDS) {
+      nextMap[id] = next;
+    }
+    this.state.experimentalFeatures = nextMap;
     this.state.betaFeatures = next;
     this.saveSettings();
-    this.notify("betaFeatures", { betaFeatures: next });
+    this.notify("betaFeatures", {
+      betaFeatures: next,
+      experimentalFeatures: { ...nextMap }
+    });
+    return true;
+  }
+
+  setBetaFeatures(enabled) {
+    return this.setAllExperimentalFeatures(enabled);
   }
 
   setTrainingBottomFaces(faces) {
@@ -1096,6 +1200,7 @@ export class AppStore {
       advancedMode: Boolean(s.advancedMode),
       statsDisplayMode: ["none", "basic", "advanced"].includes(s.statsDisplayMode) ? s.statsDisplayMode : (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic")),
       betaFeatures: Boolean(s.betaFeatures),
+      experimentalFeatures: sanitizeExperimentalFeatures(s.experimentalFeatures, s.betaFeatures),
       showTooltips: s.showTooltips,
       onboardingCompleted: s.onboardingCompleted,
       onboardingProfile: s.onboardingProfile,
@@ -1164,6 +1269,7 @@ export class AppStore {
       advancedMode: Boolean(s.advancedMode),
       statsDisplayMode: ["none", "basic", "advanced"].includes(s.statsDisplayMode) ? s.statsDisplayMode : (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic")),
       betaFeatures: Boolean(s.betaFeatures),
+      experimentalFeatures: sanitizeExperimentalFeatures(s.experimentalFeatures, s.betaFeatures),
       showTooltips: s.showTooltips,
       onboardingCompleted: s.onboardingCompleted,
       alwaysWhiteBottom: s.alwaysWhiteBottom,
@@ -1278,9 +1384,15 @@ export class AppStore {
       const simSpeed = SIM_SPEED_OPTIONS.includes(rawSimSpeed) ? rawSimSpeed : 1;
 
       const s = this.state;
-      s.betaFeatures = Boolean(savedSettings.betaFeatures ?? s.betaFeatures ?? false);
-      s.currentPuzzle = (!s.betaFeatures && isBetaPuzzle(currentPuzzle)) ? "333" : currentPuzzle;
-      s.currentTrackId = (!s.betaFeatures && isBetaTrack(s.currentPuzzle, currentTrackId)) ? "cll" : (s.currentPuzzle !== currentPuzzle ? (getDefaultTrack(s.currentPuzzle)?.id || "oll") : currentTrackId);
+      const incomingExp = savedSettings.experimentalFeatures !== undefined
+        ? sanitizeExperimentalFeatures(savedSettings.experimentalFeatures, Boolean(savedSettings.betaFeatures))
+        : (savedSettings.betaFeatures !== undefined
+            ? sanitizeExperimentalFeatures(null, Boolean(savedSettings.betaFeatures))
+            : sanitizeExperimentalFeatures(s.experimentalFeatures, Boolean(s.betaFeatures)));
+      s.experimentalFeatures = incomingExp;
+      s.betaFeatures = EXPERIMENTAL_FEATURE_IDS.some(id => incomingExp[id]);
+      s.currentPuzzle = (!isPuzzleEnabled(s, currentPuzzle)) ? "333" : currentPuzzle;
+      s.currentTrackId = (!isTrackEnabled(s, s.currentPuzzle, currentTrackId)) ? "cll" : (s.currentPuzzle !== currentPuzzle ? (getDefaultTrack(s.currentPuzzle)?.id || "oll") : currentTrackId);
       s.mode = mode;
       s.ohHand = savedSettings.ohHand === "right" ? "right" : "left";
       s.ohTableAbuse = savedSettings.ohTableAbuse !== undefined ? Boolean(savedSettings.ohTableAbuse) : true;
@@ -1380,6 +1492,9 @@ export class AppStore {
       s.sessions = incomingSessions;
       s.activeSessionId = activeSessionId;
       s.solveTarget = activeSession.target || savedSettings.solveTarget || "full";
+      if (!isTrackEnabled(s, s.currentPuzzle, s.solveTarget)) {
+        s.solveTarget = s.mode === "solve" ? "full" : "cll";
+      }
       s.solveShowCube = activeSession.showCube ?? savedSettings.solveShowCube ?? true;
       s.solveInspection = activeSession.inspection ?? savedSettings.solveInspection ?? true;
       s.solveLimitMinutes = sanitizeSolveLimitMinutes(savedSettings.solveLimitMinutes, s.solveLimitMinutes || 15);
