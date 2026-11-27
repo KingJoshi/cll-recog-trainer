@@ -175,6 +175,27 @@ test('solveTwoByTwoBeginner dynamically solves any 2x2 scramble from every White
         assert.ok(st.highlightPiece && Array.isArray(st.highlightPiece.colors) && st.highlightPiece.colors.length === 3);
       });
       assert.ok(goals.some(g => cur.isIdentical(g)), `Final state after 2x2 steps not solved for "${scr}" (${anchor.id})`);
+
+      // Verify cascading 'shortest' alternate selections solve cleanly via KPuzzle too
+      const altChoices = {};
+      for (const st of whiteSteps) {
+        if (Array.isArray(st.options) && st.options.length === 2) {
+          const defOpt = st.options.find(o => o.id === 'default');
+          const shortOpt = st.options.find(o => o.id === 'shortest');
+          assert.ok(defOpt && shortOpt, 'Alternate options must contain default & shortest');
+          assert.ok(shortOpt.faceMoves < defOpt.faceMoves, `Shortest (${shortOpt.faceMoves}m) must be shorter than Trigger (${defOpt.faceMoves}m)`);
+          altChoices[st.id] = 'shortest';
+        }
+      }
+      if (Object.keys(altChoices).length > 0) {
+        const altPlan = await solveTwoByTwoBeginner(scr, { anchorId: anchor.id, stepChoices: altChoices });
+        assert.strictEqual(altPlan.solved, true, `2x2 solver failed with shortest alternates on "${scr}" (${anchor.id})`);
+        let altCur = scr ? kp.defaultPattern().applyAlg(new Alg(scr)) : kp.defaultPattern();
+        for (const st of altPlan.steps) {
+          if (st.moves) altCur = altCur.applyAlg(new Alg(st.moves));
+        }
+        assert.ok(goals.some(g => altCur.isIdentical(g)), `Final state with shortest alternates not solved for "${scr}" (${anchor.id})`);
+      }
     }
   }
 });
@@ -212,6 +233,11 @@ test('Tutorial views render dynamic 3D step widgets, scramble controls, and 2x2 
   assert.ok(!html222Wgr.includes('data-cube-mask'), 'Step cubes must show all colors (no masking)');
   assert.ok(html222Wgr.includes('tut-3d-end-btn'), 'Scramble preview must have fast-forward-to-final-state button');
   assert.ok(html222Wgr.includes('tut-highlight-piece-pill'), 'White-layer step cards must show target piece badge');
+  assert.ok(
+    s222.plan.steps.some(st => Array.isArray(st.options) && st.options.length === 2),
+    'Default 2x2 tutorial scramble must offer at least one shorter White-layer alternate'
+  );
+  assert.ok(html222Wgr.includes('data-tut-alt-opt="shortest"'), 'Alternate option button must render when available');
   assert.ok(!/Ortega|1st Face|\bsexy\b/i.test(html222Wgr));
 
   s222.anchorId = 'wbo';

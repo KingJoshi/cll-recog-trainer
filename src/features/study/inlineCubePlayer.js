@@ -553,6 +553,23 @@ export function renderTutorialStepSectionsHtml(steps = [], puzzle = '222') {
 
                     <p class="tut-step-desc">${escapeHtml(step.description || '')}</p>
 
+                    ${Array.isArray(step.options) && step.options.length > 1 ? `
+                      <div class="tut-step-alt-bar" role="group" aria-label="Choose solution method for ${escapeHtml(step.title)}">
+                        ${step.options.map(opt => {
+                          const isActive = opt.id === (step.activeOptionId || 'default');
+                          return `
+                            <button type="button" class="tut-step-alt-btn ${isActive ? 'active' : ''}" data-tut-alt-step="${escapeHtml(step.id)}" data-tut-alt-opt="${escapeHtml(opt.id)}" aria-pressed="${isActive}">
+                              <span class="tut-alt-head">
+                                <strong>${escapeHtml(opt.label)}</strong>
+                                <span class="badge ${opt.id === 'shortest' ? 'badge-solved' : ''}">${opt.faceMoves}m</span>
+                              </span>
+                              <code class="tut-alt-moves">${escapeHtml(opt.shortMoves || opt.moves)}</code>
+                            </button>
+                          `;
+                        }).join('')}
+                      </div>
+                    ` : ''}
+
                     <div class="tut-alg-bar">
                       <div>
                         <div class="tut-alg-label">${moveCount > 0 ? `Moves (${moveCount})` : 'No Moves Needed'}</div>

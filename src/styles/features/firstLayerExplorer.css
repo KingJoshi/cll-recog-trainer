@@ -1627,6 +1627,54 @@
     }
   }
 
+  .tut-step-alt-bar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .tut-step-alt-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+    transition: border-color 0.14s, background-color 0.14s;
+  }
+
+  .tut-step-alt-btn:hover:not(.active) {
+    border-color: var(--primary);
+  }
+
+  .tut-step-alt-btn.active {
+    background: rgba(37, 99, 235, 0.12);
+    border-color: var(--primary);
+  }
+
+  .tut-alt-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    width: 100%;
+    font-size: 0.72rem;
+  }
+
+  .tut-alt-moves {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--text);
+    overflow-wrap: anywhere;
+  }
+
   .not-glossary-mini-head code {
     font-size: 0.72rem;
     color: var(--primary);

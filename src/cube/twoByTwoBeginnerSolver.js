@@ -85,7 +85,11 @@ async function getSolverTables() {
       }
     }
 
-    return { kp, solved, pZ2, rot24, ollTable };
+const SHORT_MOVES = ["R", "R'", "R2", "U", "U'", "U2", "F", "F'", "F2"];
+
+    const shortMoveAlgs = SHORT_MOVES.map(m => ({ m, face: m[0], alg: new Alg(m) }));
+
+    return { kp, solved, pZ2, rot24, ollTable, shortMoveAlgs };
   })();
   return tablesPromise;
 }
@@ -115,11 +119,62 @@ function cornerMatchesGoal(pat, goalPat, slot) {
   );
 }
 
+function countFaceMoves(movesStr) {
+  if (!movesStr) return 0;
+  return String(movesStr)
+    .trim()
+    .split(/\s+/)
+    .filter(tok => tok && !/^[xyz][2']?$/i.test(tok))
+    .length;
+}
+
+function patStateKey222(pat) {
+  const c = pat.patternData.CORNERS;
+  return `${c.pieces.join(',')}|${c.orientation.join(',')}`;
+}
+
+/**
+ * Find the shortest <R, U, F> move sequence solving slot 4 (DFR)
+ * without moving or twisting any White corner already in `protectedSlots`.
+ */
+function findShortestCornerInsert(startPat, goalPat, protectedSlots, shortMoveAlgs, maxDepth = 5, maxVisited = 6500) {
+  if (cornerMatchesGoal(startPat, goalPat, 4) && protectedSlots.every(sl => cornerMatchesGoal(startPat, goalPat, sl))) {
+    return "";
+  }
+  const visited = new Set([patStateKey222(startPat)]);
+  const queue = [{ pat: startPat, seq: [], lastFace: '' }];
+
+  for (let head = 0; head < queue.length; head++) {
+    const cur = queue[head];
+    if (cur.seq.length >= maxDepth) continue;
+    for (const { m, face, alg } of shortMoveAlgs) {
+      if (face === cur.lastFace) continue;
+      const nextPat = cur.pat.applyAlg(alg);
+      if (!protectedSlots.every(sl => cornerMatchesGoal(nextPat, goalPat, sl))) {
+        // Note: a valid 2- or 3-move insert (e.g. R U' R') temporarily moves a solved D-slot?
+        // Wait: NO! On 2x2, R touches [0,1,4,7] (only slot 4 & 7 on D!), NEVER 5 (DFL) or 6 (DBL).
+        // If DBR (7) is NOT yet in protectedSlots, R preserves DFL & DBL on EVERY intermediate move.
+        // If DBR (7) IS in protectedSlots, or F/B moves touch DFL/DBL temporarily, we MUST allow intermediate moves!
+      }
+      if (cornerMatchesGoal(nextPat, goalPat, 4) && protectedSlots.every(sl => cornerMatchesGoal(nextPat, goalPat, sl))) {
+        return [...cur.seq, m].join(' ');
+      }
+      if (cur.seq.length + 1 >= maxDepth || visited.size >= maxVisited) continue;
+      const k = patStateKey222(nextPat);
+      if (!visited.has(k)) {
+        visited.add(k);
+        queue.push({ pat: nextPat, seq: [...cur.seq, m], lastFace: face });
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Compute dynamic step-by-step beginner 2x2 solution for any valid scramble.
  */
-export async function solveTwoByTwoBeginner(scrambleStr, { anchorId = "wgr" } = {}) {
-  const { kp, solved, pZ2, rot24, ollTable } = await getSolverTables();
+export async function solveTwoByTwoBeginner(scrambleStr, { anchorId = "wgr", stepChoices = {} } = {}) {
+  const { kp, solved, pZ2, rot24, ollTable, shortMoveAlgs } = await getSolverTables();
   const anchor = TWO_BY_TWO_ANCHORS.find(a => a.id === anchorId) || TWO_BY_TWO_ANCHORS[0];
 
   const cleanScr = String(scrambleStr || "").trim().replace(/[()]/g, "");
@@ -275,16 +330,60 @@ export async function solveTwoByTwoBeginner(scrambleStr, { anchorId = "wgr" } = 
     }
     segs.push(insertAlg);
 
-    const stepMoves = joinMoves(...segs);
+    const stepId = `222-step-c${i + 2}`;
+    const defaultMoves = joinMoves(...segs);
+    const defaultShortMoves = joinMoves(...segs.slice(rotBefore ? 1 : 0));
+    const defaultFaceCount = countFaceMoves(defaultShortMoves);
+    const defaultDesc = `${rotBefore ? `Turn cube (${rotBefore}) to bring the next empty corner to Front-Right. ` : ''}${slotIdx >= 4 || popBack ? `Pop the highlighted ${targetMeta?.label || 'target'} corner up to Top, align above Front-Right, and drop it in with ` : `Align the highlighted ${targetMeta?.label || 'target'} corner above Front-Right with U and drop it in with `}${insertLabel}.`;
+
+    const protectedSlots = [5, 6, 7].filter(sl => cornerMatchesGoal(previewPat, goalBasePat, sl));
+    const shortestInsert = findShortestCornerInsert(previewPat, goalBasePat, protectedSlots, shortMoveAlgs, 5);
+    const altMoves = shortestInsert !== null ? joinMoves(rotBefore, shortestInsert) : null;
+    const altFaceCount = shortestInsert !== null ? countFaceMoves(shortestInsert) : Infinity;
+
+    let options = null;
+    let activeOptionId = 'default';
+    if (shortestInsert && altFaceCount < defaultFaceCount) {
+      const shortestDesc = `${rotBefore ? `Turn cube (${rotBefore}) to bring the next empty corner to Front-Right, then solve ` : 'Solve '}the highlighted ${targetMeta?.label || 'target'} corner with the shortest ${altFaceCount}-move sequence (${shortestInsert}) without disturbing already-placed White corners.`;
+      options = [
+        {
+          id: 'default',
+          label: 'Trigger',
+          algName: insertLabel,
+          moves: defaultMoves,
+          shortMoves: defaultShortMoves,
+          faceMoves: defaultFaceCount,
+          description: defaultDesc
+        },
+        {
+          id: 'shortest',
+          label: 'Shortest',
+          algName: `Shortest (${altFaceCount}m)`,
+          moves: altMoves,
+          shortMoves: shortestInsert,
+          faceMoves: altFaceCount,
+          description: shortestDesc
+        }
+      ];
+      if (stepChoices && stepChoices[stepId] === 'shortest') {
+        activeOptionId = 'shortest';
+      }
+    }
+
+    const chosenOpt = options ? options.find(o => o.id === activeOptionId) || options[0] : null;
     pushStep({
-      id: `222-step-c${i + 2}`,
+      id: stepId,
       stage: 'white-layer',
       stageLabel: 'White Layer (1st Layer)',
-      title: `${ordinal} (${insertLabel})`,
-      algName: insertLabel,
-      moves: stepMoves,
+      title: chosenOpt && activeOptionId === 'shortest'
+        ? `${ordinal} (Shortest ${altFaceCount}m)`
+        : `${ordinal} (${insertLabel})`,
+      algName: chosenOpt ? chosenOpt.algName : insertLabel,
+      moves: chosenOpt ? chosenOpt.moves : defaultMoves,
       highlightPiece: targetMeta,
-      description: `${rotBefore ? `Turn cube (${rotBefore}) to bring the next empty corner to Front-Right. ` : ''}${slotIdx >= 4 || popBack ? `Pop the highlighted ${targetMeta?.label || 'target'} corner up to Top, align above Front-Right, and drop it in with ` : `Align the highlighted ${targetMeta?.label || 'target'} corner above Front-Right with U and drop it in with `}${insertLabel}.`
+      options,
+      activeOptionId: options ? activeOptionId : undefined,
+      description: chosenOpt ? chosenOpt.description : defaultDesc
     });
     placedWhitePieces.push(targetPiece);
   }

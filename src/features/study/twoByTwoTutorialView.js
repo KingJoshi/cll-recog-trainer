@@ -33,6 +33,7 @@ export function createTwoByTwoTutorialState() {
   return {
     scramble: DEFAULT_222_TUTORIAL_SCRAMBLE,
     anchorId: 'wgr',
+    stepChoices: {},
     plan: null,
     planKey: '',
     loading: false,
@@ -40,13 +41,25 @@ export function createTwoByTwoTutorialState() {
   };
 }
 
+function buildPlanKey(state) {
+  const choices = state.stepChoices && typeof state.stepChoices === 'object' ? state.stepChoices : {};
+  const choicesStr = Object.keys(choices)
+    .sort()
+    .map(k => `${k}:${choices[k]}`)
+    .join(',');
+  return `${state.scramble}|${state.anchorId}|${choicesStr}`;
+}
+
 export async function ensureTwoByTwoTutorialPlan(state) {
-  const key = `${state.scramble}|${state.anchorId}`;
+  const key = buildPlanKey(state);
   if (state.plan && state.planKey === key) return state.plan;
   state.loading = true;
   state.error = '';
   try {
-    const plan = await solveTwoByTwoBeginner(state.scramble, { anchorId: state.anchorId });
+    const plan = await solveTwoByTwoBeginner(state.scramble, {
+      anchorId: state.anchorId,
+      stepChoices: state.stepChoices || {}
+    });
     state.plan = plan;
     state.planKey = key;
     return plan;
@@ -61,7 +74,7 @@ export async function ensureTwoByTwoTutorialPlan(state) {
 }
 
 export function renderTwoByTwoTutorialHtml(state) {
-  const key = `${state.scramble}|${state.anchorId}`;
+  const key = buildPlanKey(state);
   const hasReadyPlan = Boolean(state.plan && state.planKey === key);
   const scrMoveCount = String(state.scramble || '').trim().split(/\s+/).filter(Boolean).length;
 
@@ -160,7 +173,7 @@ export function bindTwoByTwoTutorialEvents(
 ) {
   if (!container) return;
 
-  const key = `${state.scramble}|${state.anchorId}`;
+  const key = buildPlanKey(state);
   if ((!state.plan || state.planKey !== key) && !state.error) {
     void ensureTwoByTwoTutorialPlan(state).then(() => onRerender?.());
     return;
@@ -169,6 +182,7 @@ export function bindTwoByTwoTutorialEvents(
   const inputEl = container.querySelector('#tut222ScrambleInput');
   const applyNewScramble = (nextScr) => {
     state.scramble = String(nextScr || '').trim();
+    state.stepChoices = {};
     state.plan = null;
     state.planKey = '';
     state.error = '';
@@ -196,11 +210,25 @@ export function bindTwoByTwoTutorialEvents(
       const aid = btn.dataset.tutAnchor;
       if (aid && aid !== state.anchorId) {
         state.anchorId = aid;
+        state.stepChoices = {};
         state.plan = null;
         state.planKey = '';
         state.error = '';
         void ensureTwoByTwoTutorialPlan(state).then(() => onRerender?.());
       }
+    });
+  });
+
+  container.querySelectorAll('[data-tut-alt-step][data-tut-alt-opt]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const stepId = btn.dataset.tutAltStep;
+      const optId = btn.dataset.tutAltOpt;
+      if (!stepId || !optId) return;
+      state.stepChoices = { ...(state.stepChoices || {}), [stepId]: optId };
+      state.plan = null;
+      state.planKey = '';
+      state.error = '';
+      void ensureTwoByTwoTutorialPlan(state).then(() => onRerender?.());
     });
   });
 
