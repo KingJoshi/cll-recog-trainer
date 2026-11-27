@@ -96,13 +96,15 @@
           </div>
         </div>
         <p class="hint" id="casePickerHint">Tap a group button to toggle a group, or a case chip to toggle a single case. Turn on <strong>🏷️ Tag Mode</strong> (or right-click) to mark cases Learning / Review / Mastered.</p>
-        <div class="case-tag-filter-bar" role="group" aria-label="Filter cases by tag">
+        <div class="case-tag-filter-bar">
           <span class="tag-filter-label">Filter:</span>
-          <button type="button" class="tag-filter-btn active" data-tag-filter="all">All</button>
-          <button type="button" class="tag-filter-btn tag-filter-none" data-tag-filter="none" data-tooltip="Cases not yet tagged as Learning, Review, or Mastered">Pending</button>
-          <button type="button" class="tag-filter-btn tag-filter-learning" data-tag-filter="learning">Learning</button>
-          <button type="button" class="tag-filter-btn tag-filter-review" data-tag-filter="review">Review</button>
-          <button type="button" class="tag-filter-btn tag-filter-mastered" data-tag-filter="mastered">Mastered</button>
+          <div class="ui-seg-group" role="radiogroup" aria-label="Filter cases by tag (single-select)">
+            <button type="button" class="tag-filter-btn ui-seg-btn active" role="radio" aria-checked="true" data-tag-filter="all">All</button>
+            <button type="button" class="tag-filter-btn ui-seg-btn tag-filter-none" role="radio" aria-checked="false" data-tag-filter="none" data-tooltip="Cases not yet tagged as Learning, Review, or Mastered">Pending</button>
+            <button type="button" class="tag-filter-btn ui-seg-btn tag-filter-learning" role="radio" aria-checked="false" data-tag-filter="learning">Learning</button>
+            <button type="button" class="tag-filter-btn ui-seg-btn tag-filter-review" role="radio" aria-checked="false" data-tag-filter="review">Review</button>
+            <button type="button" class="tag-filter-btn ui-seg-btn tag-filter-mastered" role="radio" aria-checked="false" data-tag-filter="mastered">Mastered</button>
+          </div>
         </div>
         <div id="casePicker" class="case-picker" role="group" aria-label="Cases to practice">
           <!-- Rows are populated by JavaScript -->

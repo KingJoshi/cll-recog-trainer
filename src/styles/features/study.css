@@ -181,7 +181,7 @@
 .study-group-filter-bar {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     flex-wrap: wrap;
     padding: 2px 0 8px;
 }
@@ -192,7 +192,7 @@
     font-weight: 600;
 }
 
-.study-group-pill {
+.study-group-pill:not(.ui-filter-chip):not(.ui-chip-reset) {
     padding: 4px 10px;
     font-size: 0.75rem;
     font-weight: 600;
@@ -204,7 +204,7 @@
     transition: all 0.15s ease;
 }
 
-.study-group-pill.active {
+.study-group-pill:not(.ui-filter-chip):not(.ui-chip-reset).active {
     background: var(--text);
     color: var(--surface);
     border-color: var(--text);

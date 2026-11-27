@@ -248,7 +248,7 @@
     text-transform: uppercase;
 }
 
-.tag-filter-btn {
+.tag-filter-btn:not(.ui-seg-btn) {
     padding: 3px 8px;
     font-size: 0.75rem;
     border-radius: 12px;
@@ -259,12 +259,12 @@
     transition: all 0.15s ease;
 }
 
-.tag-filter-btn:hover {
+.tag-filter-btn:not(.ui-seg-btn):hover {
     background: var(--border);
     color: var(--text);
 }
 
-.tag-filter-btn.active {
+.tag-filter-btn:not(.ui-seg-btn).active {
     background: var(--primary);
     color: #fff;
     border-color: var(--primary);

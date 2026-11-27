@@ -550,16 +550,17 @@ export class StudyView {
     const activeMatchingCount = [...this.activeGroupFilters].filter(g => availableGroups.includes(g)).length;
     const isAll = activeMatchingCount === 0;
     return `
-      <div class="study-group-filter-bar" role="group" aria-label="${availableGroups.length > 2 ? 'Filter cases by group (multi-select)' : 'Filter cases by group'}">
+      <div class="study-group-filter-bar ui-chip-group" role="group" aria-label="Filter cases by group (multi-select)">
         <span class="study-filter-label">Group:</span>
-        <button type="button" class="study-group-pill ${isAll ? 'active' : ''}" data-group="all" aria-pressed="${isAll}">All (${cases.length})</button>
+        <button type="button" class="study-group-pill ui-chip-reset ${isAll ? 'active' : ''}" data-group="all" aria-pressed="${isAll}">All (${cases.length})</button>
+        <span class="ui-chip-divider" aria-hidden="true"></span>
         ${selectedInTrack.length > 0 && selectedInTrack.length < cases.length ? `
-          <button type="button" class="study-group-pill study-selected-pill ${this.onlySelectedFilter ? 'active' : ''}" data-only-selected="1" aria-pressed="${this.onlySelectedFilter}" data-tooltip="Show only cases selected in Active Cases">★ Selected (${selectedInTrack.length})</button>
+          <button type="button" class="study-group-pill ui-filter-chip study-selected-pill ${this.onlySelectedFilter ? 'active' : ''}" data-only-selected="1" aria-pressed="${this.onlySelectedFilter}" data-tooltip="Show only cases selected in Active Cases"><span class="ui-chip-check" aria-hidden="true"></span><span>★ Selected (${selectedInTrack.length})</span></button>
         ` : ''}
         ${availableGroups.map(g => {
           const count = cases.filter(c => c.group === g).length;
           const active = this.activeGroupFilters.has(g);
-          return `<button type="button" class="study-group-pill ${active ? 'active' : ''}" data-group="${g}" aria-pressed="${active}">${g} (${count})</button>`;
+          return `<button type="button" class="study-group-pill ui-filter-chip ${active ? 'active' : ''}" data-group="${g}" aria-pressed="${active}"><span class="ui-chip-check" aria-hidden="true"></span><span>${g} (${count})</span></button>`;
         }).join('')}
       </div>
     `;
@@ -1444,7 +1445,7 @@ export class StudyView {
       });
     });
 
-    // Group filter pills: single-select switch on 2-group tracks (e.g. LBL OLL/PLL), multi-select on 3+ groups
+    // Group filter pills: consistent multi-select toggle across all tracks; "All" resets filter
     this.container.querySelectorAll('.study-group-pill').forEach(btn => {
       btn.addEventListener('click', () => {
         if (btn.dataset.onlySelected) {
@@ -1453,21 +1454,10 @@ export class StudyView {
           const grp = btn.dataset.group;
           if (grp === "all") {
             this.activeGroupFilters.clear();
+          } else if (this.activeGroupFilters.has(grp)) {
+            this.activeGroupFilters.delete(grp);
           } else {
-            const baseCases = this.getTrackBaseCases(track);
-            const totalGroups = this.getTrackOrderedGroups(track).filter(g => baseCases.some(c => c.group === g)).length;
-            if (totalGroups <= 2) {
-              if (this.activeGroupFilters.has(grp)) {
-                this.activeGroupFilters.clear();
-              } else {
-                this.activeGroupFilters.clear();
-                this.activeGroupFilters.add(grp);
-              }
-            } else if (this.activeGroupFilters.has(grp)) {
-              this.activeGroupFilters.delete(grp);
-            } else {
-              this.activeGroupFilters.add(grp);
-            }
+            this.activeGroupFilters.add(grp);
           }
         }
         this.render();

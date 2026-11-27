@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import fs from 'node:fs';
 import { StudyView } from '../src/studyView.js';
 import { getTrack, setPreferredAlg, getPreferredAlg } from '../src/data/algRegistry.js';
 import { render444ParitySvg } from '../src/cube/caseSvgRenderer.js';
@@ -579,7 +580,7 @@ test('333bf 3BLD guide covers all 24 Speffz letters for Corners & Edges, dual ne
   assert.ok(html.includes('OP Buffer sticker'));
 });
 
-test('Case Grid group filter pills switch cleanly on 2-group tracks (LBL) and keep multi-select on 3+ groups (CLL)', () => {
+test('Case Grid group filter pills are consistently multi-select on 2-group (LBL) and 3+ group (CLL) tracks with checkbox UI', () => {
   function createGroupFilterContainer() {
     const pillListeners = new Map();
     return {
@@ -614,20 +615,26 @@ test('Case Grid group filter pills switch cleanly on 2-group tracks (LBL) and ke
     };
   }
 
-  // 2x2 LBL (2 groups: OLL, PLL): selecting PLL then OLL switches to OLL (not All); clicking OLL again returns to All
+  // 2x2 LBL (2 groups: OLL, PLL): multi-select works consistently — both stay selected, individual toggle works, All clears
   const lblContainer = createGroupFilterContainer();
   const svLbl = new StudyView({ container: lblContainer });
   svLbl.setTrack('222', 'lbl');
   svLbl.setView('grid');
   assert.deepStrictEqual([...svLbl.activeGroupFilters], []);
+  assert.ok(lblContainer.innerHTML.includes('class="study-group-filter-bar ui-chip-group"'));
+  assert.ok(lblContainer.innerHTML.includes('ui-chip-reset active" data-group="all"'));
+  assert.ok(lblContainer.innerHTML.includes('data-group="PLL (Permute Last Layer)" aria-pressed="false"><span class="ui-chip-check"'));
 
   lblContainer.clickGroup('PLL (Permute Last Layer)');
   assert.deepStrictEqual([...svLbl.activeGroupFilters], ['PLL (Permute Last Layer)']);
 
   lblContainer.clickGroup('OLL (Orient Last Layer)');
+  assert.deepStrictEqual([...svLbl.activeGroupFilters], ['PLL (Permute Last Layer)', 'OLL (Orient Last Layer)']);
+
+  lblContainer.clickGroup('PLL (Permute Last Layer)');
   assert.deepStrictEqual([...svLbl.activeGroupFilters], ['OLL (Orient Last Layer)']);
 
-  lblContainer.clickGroup('OLL (Orient Last Layer)');
+  lblContainer.clickGroup('all');
   assert.deepStrictEqual([...svLbl.activeGroupFilters], []);
 
   // 2x2 CLL (7 groups): selecting multiple groups preserves multi-select even when all 7 are chosen until All is clicked
@@ -647,4 +654,8 @@ test('Case Grid group filter pills switch cleanly on 2-group tracks (LBL) and ke
 
   cllContainer.clickGroup('all');
   assert.strictEqual(svCll.activeGroupFilters.size, 0);
+
+  // Verify style guide and shared selection CSS exist
+  assert.ok(fs.existsSync(new URL('../docs/UI_STYLE_GUIDE.md', import.meta.url)));
+  assert.ok(fs.existsSync(new URL('../src/styles/components/selection.css', import.meta.url)));
 });

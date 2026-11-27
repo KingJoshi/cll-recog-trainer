@@ -327,7 +327,11 @@ export function createCasePickerController({
     document.querySelectorAll(".tag-filter-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         appStore.state.currentTagFilter = btn.dataset.tagFilter || "all";
-        document.querySelectorAll(".tag-filter-btn").forEach(b => b.classList.toggle("active", b === btn));
+        document.querySelectorAll(".tag-filter-btn").forEach(b => {
+          const isMatch = b === btn;
+          b.classList.toggle("active", isMatch);
+          if (b.getAttribute("role") === "radio") b.setAttribute("aria-checked", String(isMatch));
+        });
         updateCasePickerFilter();
         renderSelection();
       });

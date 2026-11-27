@@ -20,16 +20,17 @@ export function renderBottomLayerPickerHtml(activeFaces = ["white"], { label = "
   return `
     <div class="bottom-layer-picker" role="group" aria-label="Bottom layer colors for drills">
       ${label ? `<span class="bottom-layer-lbl">${label}</span>` : ""}
-      <div class="bottom-layer-faces">
+      <div class="bottom-layer-faces ui-chip-group">
         ${FACE_META.map(f => {
           const isOn = activeSet.has(f.id);
-          return `<button type="button" class="bottom-layer-face-btn ${isOn ? "active" : ""}" data-bottom-face="${f.id}" aria-pressed="${isOn}" title="Include ${f.name} as bottom layer">${
-            `<span class="face-chip-dot face-dot-${f.id}" aria-hidden="true"></span><span>${f.short}</span>`
+          return `<button type="button" class="bottom-layer-face-btn ${isOn ? "active" : ""}" data-bottom-face="${f.id}" aria-pressed="${isOn}" title="Include ${f.name} as bottom layer (multi-select)">${
+            `<span class="ui-chip-check" aria-hidden="true"></span><span class="face-chip-dot face-dot-${f.id}" aria-hidden="true"></span><span>${f.short}</span>`
           }</button>`;
         }).join("")}
         ${showPresets ? `
-          <button type="button" class="bottom-layer-preset-btn ${isDual ? "active" : ""}" data-bottom-preset="wy" aria-pressed="${isDual}" title="Opposite Color Neutral (White + Yellow bottom)">W/Y</button>
-          <button type="button" class="bottom-layer-preset-btn ${isAll ? "active" : ""}" data-bottom-preset="all" aria-pressed="${isAll}" title="Full Color Neutral (all 6 bottom colors)">All</button>
+          <span class="ui-chip-divider" aria-hidden="true"></span>
+          <button type="button" class="bottom-layer-preset-btn ui-chip-reset ${isDual ? "active" : ""}" data-bottom-preset="wy" aria-pressed="${isDual}" title="Opposite Color Neutral (White + Yellow bottom)">W/Y</button>
+          <button type="button" class="bottom-layer-preset-btn ui-chip-reset ${isAll ? "active" : ""}" data-bottom-preset="all" aria-pressed="${isAll}" title="Full Color Neutral (all 6 bottom colors)">All</button>
         ` : ""}
       </div>
     </div>

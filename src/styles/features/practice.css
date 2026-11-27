@@ -1616,13 +1616,12 @@
     gap: 4px;
 }
 
-.bottom-layer-face-btn,
-.bottom-layer-preset-btn {
+.bottom-layer-face-btn {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     padding: 3px 7px;
-    border-radius: 5px;
+    border-radius: 999px;
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--ink);
@@ -1632,11 +1631,26 @@
     line-height: 1.2;
 }
 
-.bottom-layer-face-btn.active,
-.bottom-layer-preset-btn.active {
+.bottom-layer-face-btn.active {
     border-color: var(--primary);
     background: color-mix(in srgb, var(--primary) 15%, var(--surface));
-    color: var(--primary);
+    color: var(--text);
+}
+
+.bottom-layer-face-btn .ui-chip-check {
+    width: 11px;
+    height: 11px;
+}
+
+.bottom-layer-face-btn.active .ui-chip-check::after {
+    width: 3.5px;
+    height: 6px;
+}
+
+.bottom-layer-preset-btn.ui-chip-reset {
+    padding: 3px 7px;
+    font-size: 0.74rem;
+    line-height: 1.2;
 }
 
 .bottom-layer-face-btn .face-chip-dot {

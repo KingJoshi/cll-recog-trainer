@@ -1243,20 +1243,25 @@ function renderQuizTab(state) {
       </div>
 
       <div class="flb-quiz-toolbar">
-        <div class="flb-filter-group" role="group" aria-label="Filter by corner bucket">
+        <div class="flb-filter-group">
           <span class="study-filter-label">Bucket:</span>
-          ${buckets.map(b => `
-            <button type="button" class="study-group-pill ${state.quizBucket === b.id ? 'active' : ''}" data-quiz-bucket="${b.id}">${escapeHtml(b.label)}</button>
-          `).join('')}
+          <div class="ui-seg-group" role="radiogroup" aria-label="Filter by corner bucket (single-select)">
+            ${buckets.map(b => `
+              <button type="button" class="ui-seg-btn ${state.quizBucket === b.id ? 'active' : ''}" role="radio" aria-checked="${state.quizBucket === b.id}" data-quiz-bucket="${b.id}">${escapeHtml(b.label)}</button>
+            `).join('')}
+          </div>
         </div>
 
-        <div class="flb-filter-group" role="group" aria-label="Filter by move count">
+        <div class="flb-filter-group">
           <span class="study-filter-label">Moves:</span>
-          <button type="button" class="study-group-pill ${state.quizMoves === 'all' ? 'active' : ''}" data-quiz-moves="all">All</button>
-          ${moveValues.map(m => {
-            const cnt = baseList.filter(c => getCaseMoveCount(c) === m).length;
-            return `<button type="button" class="study-group-pill ${String(state.quizMoves) === String(m) ? 'active' : ''}" data-quiz-moves="${m}">${m}m (${cnt})</button>`;
-          }).join('')}
+          <div class="ui-seg-group" role="radiogroup" aria-label="Filter by move count (single-select)">
+            <button type="button" class="ui-seg-btn ${state.quizMoves === 'all' ? 'active' : ''}" role="radio" aria-checked="${state.quizMoves === 'all'}" data-quiz-moves="all">All</button>
+            ${moveValues.map(m => {
+              const cnt = baseList.filter(c => getCaseMoveCount(c) === m).length;
+              const isActiveMove = String(state.quizMoves) === String(m);
+              return `<button type="button" class="ui-seg-btn ${isActiveMove ? 'active' : ''}" role="radio" aria-checked="${isActiveMove}" data-quiz-moves="${m}">${m}m (${cnt})</button>`;
+            }).join('')}
+          </div>
         </div>
 
         <div class="flb-quiz-actions">

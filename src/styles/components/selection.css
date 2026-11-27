@@ -1,0 +1,153 @@
+/* Shared Selection Grammar: Segmented Controls (Single-Select) vs Checkbox Chips (Multi-Select) */
+@layer components {
+  /* ------------------------------------------------------------------------
+     Single-Select: Connected Segmented Tray (No checkmarks)
+     ------------------------------------------------------------------------ */
+  .ui-seg-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+
+  .ui-seg-btn {
+    padding: 4px 10px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1.25;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+  }
+
+  .ui-seg-btn:hover:not(.active):not([aria-checked="true"]) {
+    color: var(--text);
+    background: color-mix(in srgb, var(--surface) 75%, transparent);
+  }
+
+  .ui-seg-btn.active,
+  .ui-seg-btn[aria-checked="true"],
+  .ui-seg-btn[aria-pressed="true"] {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+
+  /* ------------------------------------------------------------------------
+     Multi-Select: Spaced Chips with Explicit Square Check Indicators
+     ------------------------------------------------------------------------ */
+  .ui-chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ui-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1.25;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+  }
+
+  .ui-filter-chip:hover:not(.active) {
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  }
+
+  .ui-filter-chip.active,
+  .ui-filter-chip[aria-pressed="true"] {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .ui-chip-check {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    border: 1.5px solid var(--muted);
+    background: var(--surface);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    transition: background-color 0.14s ease, border-color 0.14s ease;
+  }
+
+  .ui-filter-chip.active .ui-chip-check,
+  .ui-filter-chip[aria-pressed="true"] .ui-chip-check,
+  .bottom-layer-face-btn.active .ui-chip-check {
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+
+  .ui-filter-chip.active .ui-chip-check::after,
+  .ui-filter-chip[aria-pressed="true"] .ui-chip-check::after,
+  .bottom-layer-face-btn.active .ui-chip-check::after {
+    content: "";
+    width: 4px;
+    height: 7px;
+    border: solid #ffffff;
+    border-width: 0 1.8px 1.8px 0;
+    transform: rotate(45deg) translate(-0.5px, -0.5px);
+  }
+
+  .ui-chip-reset {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1.25;
+    border-radius: 7px;
+    border: 1px dashed var(--border);
+    background: var(--surface-2);
+    color: var(--muted);
+    cursor: pointer;
+    transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+  }
+
+  .ui-chip-reset:hover:not(.active) {
+    color: var(--text);
+    border-color: var(--muted);
+  }
+
+  .ui-chip-reset.active,
+  .ui-chip-reset[aria-pressed="true"] {
+    background: var(--text);
+    border-style: solid;
+    border-color: var(--text);
+    color: var(--surface);
+    font-weight: 700;
+  }
+
+  .ui-chip-divider {
+    width: 1px;
+    height: 16px;
+    background: var(--border);
+    margin: 0 2px;
+    flex: none;
+  }
+}
