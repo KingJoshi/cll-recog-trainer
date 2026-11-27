@@ -13,7 +13,7 @@ import { recordTombstone } from '../../services/syncStorage.js';
 import { showToast } from '../../ui/toastService.js';
 
 const PARTIAL_CUBE_TARGETS = new Set(["layer", "face", "cross", "f2l", "oll"]);
-const TOUCH_HOLD_MS = 300;
+export const TOUCH_HOLD_MS = 200;
 const TOUCH_MOVE_CANCEL_PX = 10;
 
 export function createTimerController({
@@ -52,11 +52,11 @@ export function createTimerController({
   let solveWarning12Played = false;
   let overlayHideOnPointerUp = false;
   let swallowNextClick = false;
-  let pendingTouchHold = null; // { pointerId, startX, startY, timerId }
+  let pendingTouchHold = null; // { pointerId, startX, startY, timerId, forInspection }
 
   function clearPendingTouchHold() {
     if (pendingTouchHold) {
-      clearTimeout(pendingTouchHold.timerId);
+      if (pendingTouchHold.timerId) clearTimeout(pendingTouchHold.timerId);
       pendingTouchHold = null;
     }
     solveTimerPad?.classList.remove("is-touch-holding");
@@ -755,20 +755,24 @@ export function createTimerController({
       return;
     }
 
-    // On touch/pen, require a 300ms stationary hold so page scrolling never starts the timer
+    // On touch/pen: when inspection is enabled, a clean stationary tap starts inspection on release;
+    // when inspection is off, require a TOUCH_HOLD_MS stationary hold so scrolling never arms the timer.
     clearPendingTouchHold();
     solveTimerPad.classList.add("is-touch-holding");
     const pointerId = e.pointerId;
     const startX = e.clientX;
     const startY = e.clientY;
+    if (appStore.state.solveInspection) {
+      pendingTouchHold = { pointerId, startX, startY, timerId: 0, forInspection: true };
+      return;
+    }
     const timerId = setTimeout(() => {
       if (!pendingTouchHold || pendingTouchHold.pointerId !== pointerId) return;
       clearPendingTouchHold();
       if (!isTimerViewMode(appStore.state) || solveState !== "idle") return;
-      if (appStore.state.solveInspection) startSolveInspection();
-      else armSolve();
+      armSolve();
     }, TOUCH_HOLD_MS);
-    pendingTouchHold = { pointerId, startX, startY, timerId };
+    pendingTouchHold = { pointerId, startX, startY, timerId, forInspection: false };
   });
 
   solveOverlay?.addEventListener("pointerdown", e => {
@@ -798,10 +802,23 @@ export function createTimerController({
         clearPendingTouchHold();
       }
     }, { passive: true });
-    document.addEventListener("pointerup", () => {
-      clearPendingTouchHold();
+    document.addEventListener("pointerup", e => {
+      const pending = pendingTouchHold;
+      const matchesPending = Boolean(pending && (e?.pointerId == null || e.pointerId === pending.pointerId));
+      if (matchesPending) clearPendingTouchHold();
       if (!isTimerViewMode(appStore.state)) return;
       clearTimeout(solveArmTimeout);
+      if (matchesPending && pending.forInspection && solveState === "idle") {
+        const moved = (typeof e?.clientX === "number" && typeof e?.clientY === "number")
+          ? Math.hypot(e.clientX - pending.startX, e.clientY - pending.startY)
+          : 0;
+        if (moved <= TOUCH_MOVE_CANCEL_PX) {
+          startSolveInspection();
+          swallowNextClick = true;
+          setTimeout(() => { swallowNextClick = false; }, 300);
+        }
+        return;
+      }
       if (solveState === "armed") {
         startManualArmedSolve("Touch");
       } else if (overlayHideOnPointerUp) {
