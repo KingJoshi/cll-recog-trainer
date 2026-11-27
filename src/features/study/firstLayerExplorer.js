@@ -96,6 +96,10 @@ function getCasePrimaryMoves(c) {
   return c.fullRuAlg || c.fullAlg || '';
 }
 
+function usesSledgeHedgeShorthand(display) {
+  return /\b[SH]\b/.test(display || '');
+}
+
 function getCaseMoveCount(c) {
   return c.ruMoves ?? c.moveCount ?? 0;
 }
@@ -1015,8 +1019,8 @@ function renderExplorerTab(state, currentSpeed = 1) {
             </div>
             ${hasTrig ? `
               <div class="flb-alg-mode-switcher" role="group" aria-label="Choose algorithm to preview">
-                <button type="button" class="flb-alg-mode-btn ${activeMode === 'primary' ? 'active' : ''}" data-flb-alg-mode="primary">&lt;R, U&gt; (${mvCount}m)</button>
-                <button type="button" class="flb-alg-mode-btn ${activeMode === 'trigger' ? 'active' : ''}" data-flb-alg-mode="trigger">Trigger (${escapeHtml(activeCase.triggerDisplay)})</button>
+                <button type="button" class="flb-alg-mode-btn ${activeMode === 'primary' ? 'active' : ''}" data-flb-alg-mode="primary">${activeCase.ruMoves != null ? '&lt;R, U&gt;' : '&lt;R, U, F&gt;'} (${mvCount}m)</button>
+                <button type="button" class="flb-alg-mode-btn ${activeMode === 'trigger' ? 'active' : ''}" data-flb-alg-mode="trigger">${usesSledgeHedgeShorthand(activeCase.triggerDisplay) ? 'Trigger' : 'Alt'} (${escapeHtml(activeCase.triggerDisplay)})</button>
               </div>
             ` : ''}
             <div class="study-mini-sim-bar" role="group" aria-label="Inline 3D 1st layer playback">
@@ -1051,11 +1055,11 @@ function renderExplorerTab(state, currentSpeed = 1) {
             </div>
             ${activeCase.triggerDisplay ? `
               <div class="flb-sol-row flb-sol-trig ${activeMode === 'trigger' ? 'is-selected' : ''}">
-                <span class="flb-sol-label">Trigger Alt:</span>
+                <span class="flb-sol-label">${usesSledgeHedgeShorthand(activeCase.triggerDisplay) ? 'Trigger Alt:' : 'Ergonomic Alt:'}</span>
                 <span class="flb-trig-mnemonic">${escapeHtml(activeCase.triggerDisplay)}</span>
                 <span class="flb-trig-expanded">(${escapeHtml(activeCase.fullTriggerAlg)})</span>
                 <button type="button" class="btn btn-xs ${activeMode === 'trigger' ? 'btn-primary' : ''}" data-flb-alg-mode="trigger" aria-pressed="${activeMode === 'trigger'}">${activeMode === 'trigger' ? 'Previewing Alt' : 'Sim Alt'}</button>
-                <span class="flb-trig-legend">S = R' F R F' &middot; H = F R' F' R</span>
+                ${usesSledgeHedgeShorthand(activeCase.triggerDisplay) ? `<span class="flb-trig-legend">S = R' F R F' &middot; H = F R' F' R</span>` : ''}
               </div>
             ` : ''}
             <p class="flb-sol-cue">${escapeHtml(activeCase.cue)}</p>
@@ -1138,7 +1142,7 @@ function renderGuideTab() {
           </ul>
           <p style="margin-top: 10px;"><strong>High-Yield Trigger Pairs to Recognize Together:</strong></p>
           <ul class="guide-list">
-            <li><strong>Lone Twist at DFR (BP solved):</strong> White Front → <code>S S</code> (Double Sledge) · White Right → <code>H H</code> (Double Hedge).</li>
+            <li><strong>Lone Twist at DFR (BP solved):</strong> White Front → <code>R U' R' U R U' R'</code> (Inverse Sexy ×2, or <code>S S</code>) · White Right → <code>R U R' U' R U R'</code> (Double Sexy, or <code>H H</code>).</li>
             <li><strong>Bottom Swap Sides Matter:</strong> Both whites down (Case #67 swap): only side colors distinguish swapped vs solved!</li>
             <li><strong>Sledge / Hedge Pairs:</strong> Try <code>S R2 H</code> vs <code>H R2 S</code> and contrast pairs <code>R U H</code> vs <code>R U S</code>.</li>
           </ul>
@@ -1394,8 +1398,8 @@ function toQuickSimSolution(c, mode = 'primary') {
     inspection: 'none',
     scramble: `z2 ${c.setup}`,
     note: isAlt
-      ? `Trigger Alt: ${c.triggerDisplay} (${c.fullTriggerAlg}) — S = R' F R F' · H = F R' F' R. ${c.cue}`
-      : `${c.cue}${c.triggerDisplay ? ` Trigger alt: ${c.triggerDisplay} (${c.fullTriggerAlg})` : ''}`
+      ? `${usesSledgeHedgeShorthand(c.triggerDisplay) ? 'Trigger Alt' : 'Ergonomic Alt'}: ${c.triggerDisplay} (${c.fullTriggerAlg})${usesSledgeHedgeShorthand(c.triggerDisplay) ? " — S = R' F R F' · H = F R' F' R" : ''}. ${c.cue}`
+      : `${c.cue}${c.triggerDisplay ? ` Alt: ${c.triggerDisplay} (${c.fullTriggerAlg})` : ''}`
   };
 }
 

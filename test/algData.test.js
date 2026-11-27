@@ -210,7 +210,7 @@ test('Full mathematical simulation verification of all algorithms', async () => 
   for (const c of ortegaCases) {
     const isOLL = c.group.includes('OLL');
     for (const a of c.algs) {
-      const algStr = `${c.setup} ${a.alg}`;
+      const algStr = `${c.setup} ${a.startAuf ? a.startAuf + ' ' : ''}${a.alg}`;
       const pat = def2.applyAlg(new Alg(algStr));
       if (isOLL) {
         const ori = pat.patternData.CORNERS.orientation.slice(0, 4);

@@ -160,6 +160,9 @@ export function auditAllFirstLayerAlgs(kp, {
       continue;
     }
     verifyLayerCase('two-diag', c.id, 'RUF', c.setup, c.fullAlg);
+    if (c.fullTriggerAlg) {
+      verifyLayerCase('two-diag', c.id, 'Alt', c.setup, c.fullTriggerAlg);
+    }
   }
 
   if (twoLook?.optionA?.bpCases) {

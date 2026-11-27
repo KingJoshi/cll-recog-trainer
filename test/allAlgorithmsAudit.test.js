@@ -219,11 +219,11 @@ test('2x2x2: Ortega (OLL + PBL) and LBL (OLL + PLL) cases × scrambles × algs',
 
         if (isOll) {
           assert.ok(
-            is2x2OllSolved(stBare, solved, { isZ2: false, allowBottomPerm: true }),
+            is2x2OllSolved(stBare, solved, { isZ2: false, allowBottomPerm: false }),
             `2x2 OLL bare failed: ${c.id} | scr="${s}" | alg=${a.id}`
           );
           assert.ok(
-            is2x2OllSolved(stZ2, solved, { isZ2: true, allowBottomPerm: true }),
+            is2x2OllSolved(stZ2, solved, { isZ2: true, allowBottomPerm: false }),
             `2x2 OLL z2 failed: ${c.id} | scr="${s}" | alg=${a.id}`
           );
         } else if (isPbl) {

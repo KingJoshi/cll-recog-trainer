@@ -18,6 +18,22 @@ export const ortegaCases = [
         "id": "o-h-2",
         "alg": "F (R U R' U')3 F'",
         "note": "Triple sexy variant"
+      },
+      {
+        "id": "o-h-3",
+        "alg": "R2 U2 R' U2 R2",
+        "note": "Reverse RU-gen (R' flick)"
+      },
+      {
+        "id": "o-h-4",
+        "alg": "R U R' U R U' R' U R U2 R'",
+        "startAuf": "U",
+        "note": "3x3 RU-gen (Sune-cancel · Home grip)"
+      },
+      {
+        "id": "o-h-5",
+        "alg": "R U2 R' U' R U R' U' R U' R'",
+        "note": "Antisune-cancel RU-gen (Home grip)"
       }
     ],
     "setup": "R2' U2' R' U2' R2'"
@@ -38,6 +54,29 @@ export const ortegaCases = [
         "id": "o-pi-2",
         "alg": "R U2 R2' U' R2 U' R2' U2 R",
         "note": "3x3 variant"
+      },
+      {
+        "id": "o-pi-3",
+        "alg": "R U' R2 U R2 U R2 U' R",
+        "note": "Short 9-move 2x2 RU-gen"
+      },
+      {
+        "id": "o-pi-4",
+        "alg": "R' U' R' F R F' R U' R' U2 R",
+        "startAuf": "U'",
+        "note": "Fast 2x2 RUF (Home grip)"
+      },
+      {
+        "id": "o-pi-5",
+        "alg": "F R' F' R U2 R U' R' U R U2 R'",
+        "startAuf": "U",
+        "note": "Hedge into RU (CLL-style)"
+      },
+      {
+        "id": "o-pi-6",
+        "alg": "L' U2 L2 U L2 U L2 U2 L'",
+        "startAuf": "U2",
+        "note": "Left-hand pure LU-gen mirror"
       }
     ],
     "setup": "F (R U R' U')2' F'"
@@ -53,6 +92,36 @@ export const ortegaCases = [
         "alg": "R U2 R' U' R U' R'",
         "note": "Standard Antisune",
         "isDefault": true
+      },
+      {
+        "id": "o-as-2",
+        "alg": "R' U' R U' R' U2 R",
+        "startAuf": "U'",
+        "note": "Back-slot Antisune (Pure RU · Home grip)"
+      },
+      {
+        "id": "o-as-3",
+        "alg": "L' U' L U' L' U2 L",
+        "startAuf": "U",
+        "note": "Left-hand mirror (Pure LU · Home grip)"
+      },
+      {
+        "id": "o-as-4",
+        "alg": "L U2 L' U' L U' L'",
+        "startAuf": "U2",
+        "note": "Left-hand back Antisune (Pure LU)"
+      },
+      {
+        "id": "o-as-5",
+        "alg": "L' U R U' L U R'",
+        "startAuf": "U",
+        "note": "Left Niklas (L+R alternating · Home grip)"
+      },
+      {
+        "id": "o-as-6",
+        "alg": "R' U L U' R U L'",
+        "startAuf": "U'",
+        "note": "Back Niklas (L+R alternating)"
       }
     ],
     "setup": "R U R' U R U2' R'"
@@ -68,6 +137,34 @@ export const ortegaCases = [
         "alg": "R U R' U R U2 R'",
         "note": "Standard Sune",
         "isDefault": true
+      },
+      {
+        "id": "o-s-2",
+        "alg": "R' U2 R U R' U R",
+        "startAuf": "U'",
+        "note": "Back-slot Sune (Pure RU · Home grip)"
+      },
+      {
+        "id": "o-s-3",
+        "alg": "L' U2 L U L' U L",
+        "startAuf": "U",
+        "note": "Left-hand mirror (Pure LU · Home grip)"
+      },
+      {
+        "id": "o-s-4",
+        "alg": "L U L' U L U2 L'",
+        "startAuf": "U2",
+        "note": "Left-hand back Sune (Pure LU)"
+      },
+      {
+        "id": "o-s-5",
+        "alg": "R U' L' U R' U' L",
+        "note": "Niklas (L+R alternating · Home grip)"
+      },
+      {
+        "id": "o-s-6",
+        "alg": "R U' R' F R' F' R",
+        "note": "Short 7-move RUF (Front Sledge finish)"
       }
     ],
     "setup": "R U2' R' U' R U' R'"
@@ -88,6 +185,23 @@ export const ortegaCases = [
         "id": "o-l-2",
         "alg": "F R U' R' U' R U R' F'",
         "note": "Alternative trigger variant"
+      },
+      {
+        "id": "o-l-3",
+        "alg": "F' R U R' U' R' F R",
+        "startAuf": "U",
+        "note": "Front Sexy + Sledge (3x3 OLL 25 style)"
+      },
+      {
+        "id": "o-l-4",
+        "alg": "F' L F L' U' L' U L",
+        "startAuf": "U",
+        "note": "Left-hand Hedge + Sexy mirror"
+      },
+      {
+        "id": "o-l-5",
+        "alg": "R U2 R D R' U2 R D' R2",
+        "note": "3x3 RUD Bowtie (OLL 25)"
       }
     ],
     "setup": "R U R' U' R' F R F'"
@@ -103,6 +217,29 @@ export const ortegaCases = [
         "alg": "R U R' U' R' F R F'",
         "note": "Sexy + Sledgehammer",
         "isDefault": true
+      },
+      {
+        "id": "o-t-2",
+        "alg": "R U R' U' F' U' F",
+        "startAuf": "U",
+        "note": "Short 7-move 2x2 Sexy + Front Insert"
+      },
+      {
+        "id": "o-t-3",
+        "alg": "F R U' R' U R U R' F'",
+        "note": "Smooth RUF (Home grip)"
+      },
+      {
+        "id": "o-t-4",
+        "alg": "L' U' L U L F' L' F",
+        "startAuf": "U2",
+        "note": "Left-hand Sexy + Left Sledge"
+      },
+      {
+        "id": "o-t-5",
+        "alg": "L' U' L U F U F'",
+        "startAuf": "U",
+        "note": "Short 7-move Left Sexy + Front Insert"
       }
     ],
     "setup": "F R' F' R U R U' R'"
@@ -118,6 +255,36 @@ export const ortegaCases = [
         "alg": "F R U R' U' F'",
         "note": "F Sexy F'",
         "isDefault": true
+      },
+      {
+        "id": "o-u-2",
+        "alg": "F U R U' R' F'",
+        "startAuf": "U2",
+        "note": "F Inverse-Sexy F' (6 moves)"
+      },
+      {
+        "id": "o-u-3",
+        "alg": "F' L' U' L U F",
+        "startAuf": "U2",
+        "note": "Left-hand F' Left-Sexy F (6 moves)"
+      },
+      {
+        "id": "o-u-4",
+        "alg": "R' U' F' U F R",
+        "startAuf": "U'",
+        "note": "Back RUF 6-mover (Regripless)"
+      },
+      {
+        "id": "o-u-5",
+        "alg": "R2 D R' U2 R D' R' U2 R'",
+        "startAuf": "U'",
+        "note": "3x3 RUD Headlights (OLL 23)"
+      },
+      {
+        "id": "o-u-6",
+        "alg": "R2 D' R U2 R' D R U2 R",
+        "startAuf": "U",
+        "note": "3x3 RUD Front Headlights"
       }
     ],
     "setup": "F U R U' R' F'"
