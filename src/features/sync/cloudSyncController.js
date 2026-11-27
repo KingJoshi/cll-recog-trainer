@@ -6,6 +6,11 @@ import {
   parseBackupJson,
   importAndMergeBackup
 } from '../../services/syncStorage.js';
+import {
+  isCsTimerExport,
+  parseCsTimerExport,
+  importCsTimerSessions
+} from '../../services/cstimerImport.js';
 
 function formatRelativeTime(ts) {
   if (!ts) return "";
@@ -86,6 +91,10 @@ export function createCloudSyncController({
   const exportBtn = typeof document !== "undefined" ? document.getElementById("cloudSyncExportBtn") : null;
   const importBtn = typeof document !== "undefined" ? document.getElementById("cloudSyncImportBtn") : null;
   const importInput = typeof document !== "undefined" ? document.getElementById("cloudSyncImportInput") : null;
+  const importCsTimerBtn = typeof document !== "undefined" ? document.getElementById("cloudSyncImportCsTimerBtn") : null;
+  const settingsImportCsTimerBtn = typeof document !== "undefined" ? document.getElementById("settingsImportCsTimerBtn") : null;
+  const statsImportCsTimerBtn = typeof document !== "undefined" ? document.getElementById("statsImportCsTimerBtn") : null;
+  const importCsTimerInput = typeof document !== "undefined" ? document.getElementById("cloudSyncImportCsTimerInput") : null;
 
   let dismissedError = false;
   let busy = false;
@@ -368,10 +377,47 @@ export function createCloudSyncController({
     showToast(`Exported backup (${filename}).`, "success", 2800);
   }
 
+  async function handleImportCsTimerFile(file) {
+    if (!file || !appStore) return;
+    try {
+      const text = await file.text();
+      const parsed = parseCsTimerExport(text, {
+        defaultPuzzle: appStore.state.currentPuzzle || "333",
+        filename: file.name || ""
+      });
+      const res = importCsTimerSessions(appStore, parsed);
+      lastManualSummary = {
+        addedSolves: res.solvesAdded,
+        addedSessions: res.sessionsAdded
+      };
+      if (res.changed) {
+        onBackupImported?.(res);
+      }
+      render(googleDriveSync.getState());
+      const sessTotal = res.sessionsAdded + res.sessionsUpdated;
+      if (res.solvesAdded > 0) {
+        const skipNote = res.solvesSkipped > 0 ? ` (${res.solvesSkipped} duplicate${res.solvesSkipped === 1 ? "" : "s"} skipped)` : "";
+        showToast(
+          `csTimer imported · +${res.solvesAdded} solve${res.solvesAdded === 1 ? "" : "s"} across ${sessTotal} session${sessTotal === 1 ? "" : "s"}${skipNote}`,
+          "success",
+          4200
+        );
+      } else {
+        showToast("csTimer import · All solves are already imported.", "info", 3200);
+      }
+    } catch (err) {
+      showToast(err?.message || "Failed to import csTimer file.", "error", 4200);
+    }
+  }
+
   async function handleImportFile(file) {
     if (!file || !appStore) return;
     try {
       const text = await file.text();
+      if (isCsTimerExport(text)) {
+        await handleImportCsTimerFile({ name: file.name, text: async () => text });
+        return;
+      }
       const parsed = parseBackupJson(text);
       const res = importAndMergeBackup(appStore, parsed);
       lastManualSummary = res.summary;
@@ -411,6 +457,15 @@ export function createCloudSyncController({
     const file = e.target.files?.[0];
     if (file) await handleImportFile(file);
     if (importInput) importInput.value = "";
+  });
+  const triggerCsTimerPicker = () => importCsTimerInput?.click?.();
+  importCsTimerBtn?.addEventListener("click", triggerCsTimerPicker);
+  settingsImportCsTimerBtn?.addEventListener("click", triggerCsTimerPicker);
+  statsImportCsTimerBtn?.addEventListener("click", triggerCsTimerPicker);
+  importCsTimerInput?.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (file) await handleImportCsTimerFile(file);
+    if (importCsTimerInput) importCsTimerInput.value = "";
   });
 
   autoToggle?.addEventListener("change", (e) => {

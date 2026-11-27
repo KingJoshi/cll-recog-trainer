@@ -524,6 +524,7 @@
         <span class="panel-meta" id="statsScopeBadge">2x2 &bull; CLL</span>
       </button>
       <div class="stats-head-actions">
+        <button type="button" id="statsImportCsTimerBtn" class="btn btn-small" data-tooltip="Import sessions and solve logs from a csTimer.net export (.txt, .json, or .csv)">⬆ Import csTimer</button>
         <button type="button" id="statsExportCsvBtn" class="btn btn-small" data-tooltip="Export recorded solves from the active session as a CSV spreadsheet">📥 Export CSV</button>
         <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger" data-tooltip="Choose exactly which stats or solves to reset (current track recognition, all recognition stats, case times, or session solves)">Reset&hellip;</button>
       </div>
@@ -1540,6 +1541,17 @@
             </div>
           </div>
 
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">📥 Import from csTimer.net</h4>
+              <span class="settings-section-desc">Import sessions, times, penalties (+2/DNF), scrambles, comments, and smart-cube move logs from a csTimer export file (.txt, .json, or .csv)</span>
+            </div>
+            <div class="settings-sync-row">
+              <span class="settings-sync-status">Merges safely without duplicates</span>
+              <button type="button" id="settingsImportCsTimerBtn" class="btn btn-small btn-outline">⬆ Import csTimer File…</button>
+            </div>
+          </div>
+
           <div class="settings-section" id="settingsPwaInstallSection">
             <div class="settings-section-head">
               <h4 class="settings-section-title">📲 Offline App (PWA)</h4>
@@ -1854,7 +1866,9 @@
         <div class="sync-backup-actions">
           <button type="button" id="cloudSyncExportBtn" class="btn btn-small btn-outline">⬇ Export Backup (.json)</button>
           <button type="button" id="cloudSyncImportBtn" class="btn btn-small btn-outline">⬆ Import &amp; Merge (.json)</button>
-          <input type="file" id="cloudSyncImportInput" accept=".json,application/json" hidden>
+          <button type="button" id="cloudSyncImportCsTimerBtn" class="btn btn-small btn-outline">📥 Import csTimer (.txt/.json/.csv)</button>
+          <input type="file" id="cloudSyncImportInput" accept=".json,.txt,.csv,application/json,text/plain,text/csv" hidden>
+          <input type="file" id="cloudSyncImportCsTimerInput" accept=".txt,.json,.csv,application/json,text/plain,text/csv" hidden>
         </div>
       </div>
 
