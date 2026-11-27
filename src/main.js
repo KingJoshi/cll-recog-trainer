@@ -8,7 +8,7 @@ import { AlgDrillView } from './features/practice/algDrillView.js';
 import { solveReplayViewer } from './replayView.js';
 import { clearSvgCache, applyColorsTo3DCube } from './caseVisualizer.js';
 import { smartCube } from './smartCube.js';
-import { appStore, isTimerViewMode, isSimulateViewMode, ALL_BUILTIN_EVENT_IDS } from './state/appStore.js';
+import { appStore, isTimerViewMode, isSimulateViewMode, ALL_BUILTIN_EVENT_IDS, isBetaPuzzle, isBetaTrack } from './state/appStore.js';
 import { modalManager } from './ui/modalManager.js';
 import { showToast } from './ui/toastService.js';
 import { initSyncTracking } from './services/syncStorage.js';
@@ -273,7 +273,8 @@ smartCubeCtrl = createSmartCubeController({
   getDisconnectAlertView: () => disconnectAlertView,
   getNavCtrl: () => navCtrl,
   getAlgDrillView: () => algDrillView,
-  onOpenShortcuts: () => shortcutsModal?.open?.()
+  onOpenShortcuts: () => shortcutsModal?.open?.(),
+  onOpenDevicesTab: () => settingsModal?.openTab?.("devices")
 });
 
 ganTimerCtrl = createGanTimerController({
@@ -541,6 +542,24 @@ appStore.subscribe((evt) => {
       navCtrl?.renderPuzzleButtons?.();
     }
     settingsModal?.renderToggles?.();
+  } else if (evt === "betaFeatures") {
+    const s = appStore.state;
+    settingsModal?.renderToggles?.();
+    simulatorCtrl?.populateSimCaseSelect?.();
+    if (!s.betaFeatures) {
+      if (isBetaPuzzle(s.currentPuzzle)) {
+        navCtrl?.setPuzzle?.("333");
+        return;
+      }
+      if (isBetaTrack(s.currentPuzzle, s.currentTrackId)) {
+        navCtrl?.setTrack?.("cll");
+      }
+      if (isBetaTrack(s.currentPuzzle, s.solveTarget)) {
+        navCtrl?.setSolveTarget?.(s.mode === "solve" ? "full" : "cll");
+      }
+    }
+    navCtrl?.renderPuzzleButtons?.();
+    navCtrl?.renderTrackBar?.();
   }
 });
 

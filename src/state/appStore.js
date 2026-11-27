@@ -55,6 +55,15 @@ export const STORAGE_KEYS = {
 export const VALID_PUZZLES = ["222", "333", "333oh", "444", "555", "666", "777", "fto", "pyram", "skewb", "minx", "sq1", "clock", "333bf"];
 export const DEFAULT_VISIBLE_EVENTS = ["222", "333", "333oh", "444", "555"];
 export const ALL_BUILTIN_EVENT_IDS = [...VALID_PUZZLES];
+export const BETA_TRACK_IDS = new Set(["eg1", "eg2"]);
+
+export function isBetaTrack(puzzleId, trackId) {
+  return puzzleId === "222" && BETA_TRACK_IDS.has(trackId);
+}
+
+export function isBetaPuzzle(puzzleId) {
+  return Boolean(puzzleId && !DEFAULT_VISIBLE_EVENTS.includes(puzzleId));
+}
 
 export function sanitizeVisibleEvents(rawList, fallbackShowExtra = false) {
   if (Array.isArray(rawList)) {
@@ -202,6 +211,8 @@ export class AppStore {
     syncCustomEventsToRegistry(customEvents);
     const isKnownPuzzle = (pid) => VALID_PUZZLES.includes(pid) || Boolean(PUZZLES[pid]);
 
+    const betaFeatures = Boolean(savedSettings.betaFeatures ?? cookiePrefs.betaFeatures ?? false);
+
     // Navigation & puzzle/track
     let currentPuzzle = isKnownPuzzle(savedSettings.currentPuzzle) ? savedSettings.currentPuzzle : "333";
     let currentTrackId = savedSettings.currentTrackId || getDefaultTrack(currentPuzzle)?.id || "oll";
@@ -219,12 +230,20 @@ export class AppStore {
       else if (urlMode === "timed") mode = "practice";
     }
 
+    if (!betaFeatures && isBetaPuzzle(currentPuzzle)) {
+      currentPuzzle = "333";
+      currentTrackId = getDefaultTrack("333")?.id || "oll";
+    }
+
     if (PUZZLES[currentPuzzle]?.solveOnly) {
       currentTrackId = "full";
       mode = "solve";
     } else {
       if (PUZZLES[currentPuzzle]?.hideSimulate && mode === "simulate") {
         mode = "solve";
+      }
+      if (!betaFeatures && isBetaTrack(currentPuzzle, currentTrackId)) {
+        currentTrackId = "cll";
       }
       if (!getTrack(currentPuzzle, currentTrackId)) {
         currentTrackId = getDefaultTrack(currentPuzzle)?.id || "cll";
@@ -257,6 +276,10 @@ export class AppStore {
       } else if (urlParams.has("track") && ["pll", "oll", "f2l", "cross", "layer", "face", "lbl", "cll", "eg1", "eg2"].includes(urlParams.get("track"))) {
         solveTarget = urlParams.get("track");
       }
+    }
+
+    if (!betaFeatures && isBetaTrack(currentPuzzle, solveTarget)) {
+      solveTarget = mode === "solve" ? "full" : "cll";
     }
 
     const hasSavedTrainSubMode = savedSettings.trainSubMode !== undefined || cookiePrefs.trainSubMode !== undefined;
@@ -339,6 +362,7 @@ export class AppStore {
       statsDisplayMode,
       statsPanelVisibility,
       focusMode: false,
+      betaFeatures,
       showTooltips: savedSettings.showTooltips ?? cookiePrefs.showTooltips ?? true,
       onboardingCompleted: savedSettings.onboardingCompleted ?? cookiePrefs.onboardingCompleted ?? (hasExistingSettings || hasRecordedSolves),
       onboardingProfile: savedSettings.onboardingProfile || null,
@@ -946,6 +970,14 @@ export class AppStore {
     this.notify("twoByTwoMethod", { twoByTwoMethod: next });
   }
 
+  setBetaFeatures(enabled) {
+    const next = Boolean(enabled);
+    if (Boolean(this.state.betaFeatures) === next) return;
+    this.state.betaFeatures = next;
+    this.saveSettings();
+    this.notify("betaFeatures", { betaFeatures: next });
+  }
+
   setTrainingBottomFaces(faces) {
     const next = sanitizeTrainingBottomFaces(faces, ["white"]);
     const prev = sanitizeTrainingBottomFaces(this.state.trainingBottomFaces, ["white"]);
@@ -1063,6 +1095,7 @@ export class AppStore {
       darkMode: s.darkMode,
       advancedMode: Boolean(s.advancedMode),
       statsDisplayMode: ["none", "basic", "advanced"].includes(s.statsDisplayMode) ? s.statsDisplayMode : (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic")),
+      betaFeatures: Boolean(s.betaFeatures),
       showTooltips: s.showTooltips,
       onboardingCompleted: s.onboardingCompleted,
       onboardingProfile: s.onboardingProfile,
@@ -1130,6 +1163,7 @@ export class AppStore {
       darkMode: s.darkMode,
       advancedMode: Boolean(s.advancedMode),
       statsDisplayMode: ["none", "basic", "advanced"].includes(s.statsDisplayMode) ? s.statsDisplayMode : (s.showStatsPanel === false ? "none" : (s.advancedMode ? "advanced" : "basic")),
+      betaFeatures: Boolean(s.betaFeatures),
       showTooltips: s.showTooltips,
       onboardingCompleted: s.onboardingCompleted,
       alwaysWhiteBottom: s.alwaysWhiteBottom,
@@ -1244,8 +1278,9 @@ export class AppStore {
       const simSpeed = SIM_SPEED_OPTIONS.includes(rawSimSpeed) ? rawSimSpeed : 1;
 
       const s = this.state;
-      s.currentPuzzle = currentPuzzle;
-      s.currentTrackId = currentTrackId;
+      s.betaFeatures = Boolean(savedSettings.betaFeatures ?? s.betaFeatures ?? false);
+      s.currentPuzzle = (!s.betaFeatures && isBetaPuzzle(currentPuzzle)) ? "333" : currentPuzzle;
+      s.currentTrackId = (!s.betaFeatures && isBetaTrack(s.currentPuzzle, currentTrackId)) ? "cll" : (s.currentPuzzle !== currentPuzzle ? (getDefaultTrack(s.currentPuzzle)?.id || "oll") : currentTrackId);
       s.mode = mode;
       s.ohHand = savedSettings.ohHand === "right" ? "right" : "left";
       s.ohTableAbuse = savedSettings.ohTableAbuse !== undefined ? Boolean(savedSettings.ohTableAbuse) : true;

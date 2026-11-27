@@ -1,6 +1,7 @@
 // Optional 3-step onboarding setup wizard + pure training-plan recommender
 
 import { PUZZLES, getTrack, getSolveTargetInfo } from '../../data/algRegistry.js';
+import { isBetaTrack } from '../../state/appStore.js';
 import { showToast } from '../../ui/toastService.js';
 
 const PUZZLE_OPTIONS = [
@@ -513,9 +514,11 @@ export function createOnboardingWizard({
 
     // Apply Solve Focus target & track cleanly
     const activeSess = appStore.getActiveSession();
+    const effectiveTrackId = (!s.betaFeatures && isBetaTrack(plan.puzzle, plan.trackId)) ? "cll" : plan.trackId;
+    const rawTarget = (!s.betaFeatures && isBetaTrack(plan.puzzle, plan.solveTarget)) ? "cll" : plan.solveTarget;
     const validTarget = plan.mode === "solve"
       ? "full"
-      : (getSolveTargetInfo(plan.puzzle, plan.solveTarget)?.id || "full");
+      : (getSolveTargetInfo(plan.puzzle, rawTarget)?.id || "full");
     if (plan.mode === "practice") {
       s.trainSubMode = "recog";
     }
@@ -525,7 +528,7 @@ export function createOnboardingWizard({
       appStore.saveSessions();
     }
 
-    const track = getTrack(plan.puzzle, plan.trackId);
+    const track = getTrack(plan.puzzle, effectiveTrackId);
     if (track) {
       s.currentTrackId = track.id;
       appStore.loadTrackSelection(plan.puzzle, track.id);

@@ -40,10 +40,6 @@
     </div>
   </div>
   <div class="header-actions">
-    <button type="button" id="bluetoothBtn" class="header-btn header-icon-btn bluetooth-header-btn" aria-label="Devices (Bluetooth Smart Cubes, Timers, Keyboard Cube)" data-tooltip="Devices: Connect Bluetooth Smart Cubes, GAN Smart Timer, or Keyboard Cube">
-      <span class="bt-dot disconnected" id="bluetoothHeaderDot" aria-hidden="true"></span>
-      <span class="bt-icon" aria-hidden="true">ᛒ</span>
-    </button>
     <button type="button" id="cloudSyncBtn" class="header-btn header-icon-btn cloud-sync-header-btn" aria-label="Google Drive Cloud Sync" data-tooltip="Cloud Sync: Sign in with Google Drive to save and merge settings &amp; solve logs">
       <span class="sync-dot signed-out" id="cloudSyncHeaderDot" aria-hidden="true"></span>
       <img id="cloudSyncHeaderAvatar" class="sync-header-avatar" alt="" hidden referrerpolicy="no-referrer">
@@ -51,7 +47,7 @@
     </button>
     <button type="button" id="onboardingBtn" class="header-btn header-icon-btn" aria-label="Help &amp; Setup Guide" data-tooltip="How to use Cubing.cc &amp; quick setup wizard">?</button>
     <button type="button" id="themeToggleBtn" class="header-btn header-icon-btn" aria-label="Toggle Dark or Light theme" data-tooltip="Toggle Dark or Light theme">🌙</button>
-    <button type="button" id="settingsBtn" class="header-btn header-icon-btn" aria-label="Trainer Settings" data-tooltip="Configure trainer preferences, solver target colors, devices, and sync">⚙️</button>
+    <button type="button" id="settingsBtn" class="header-btn header-icon-btn" aria-label="Trainer Settings" data-tooltip="Configure trainer preferences, devices, events, colors, and sync">⚙️</button>
   </div>
 </header>
 
@@ -628,221 +624,7 @@
   </div>
 </div>
 
-<!-- Devices (Bluetooth Smart Cubes & Timers) Modal -->
-<div id="bluetoothModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bluetoothModalTitle" hidden>
-  <div class="solve-modal-card bluetooth-modal-card">
-    <div class="solve-modal-header">
-      <div class="solve-modal-title-wrap">
-        <h3 id="bluetoothModalTitle" class="solve-modal-title">ᛒ Devices</h3>
-        <span id="bluetoothModalStatusBadge" class="badge badge-disconnected">Disconnected</span>
-      </div>
-      <button type="button" id="bluetoothModalCloseBtn" class="solve-modal-close" aria-label="Close dialog">&times;</button>
-    </div>
-
-    <div class="solve-modal-body">
-      <div class="settings-color-subtabs devices-subtabs" role="tablist" aria-label="Device category">
-        <button type="button" id="devicesTabCubes" class="settings-color-subtab active" role="tab" aria-selected="true" aria-controls="devicesPanelCubes">🧊 Smart Cubes</button>
-        <button type="button" id="devicesTabTimers" class="settings-color-subtab" role="tab" aria-selected="false" aria-controls="devicesPanelTimers">⏱️ Timers</button>
-        <button type="button" id="devicesTabKeyboard" class="settings-color-subtab" role="tab" aria-selected="false" aria-controls="devicesPanelKeyboard">⌨️ Keyboard</button>
-      </div>
-
-      <div id="devicesPanelCubes" class="devices-tab-panel" role="tabpanel" aria-labelledby="devicesTabCubes">
-      <!-- Status Card -->
-      <div class="bt-status-card" id="btStatusCard">
-        <div class="bt-status-icon-wrap">
-          <span class="bt-large-icon" id="btLargeIcon">ᛒ</span>
-        </div>
-        <div class="bt-status-info">
-          <h4 id="btDeviceName" class="bt-device-name">No Cube Connected</h4>
-          <p id="btStatusDesc" class="bt-status-desc">Connect a Bluetooth smart cube to track every turn with millisecond timestamps and replay your solves in 3D.</p>
-          <div id="btBatteryWrap" class="bt-battery-wrap" hidden>
-            <span class="bt-battery-icon" aria-hidden="true">🔋</span>
-            <span id="btBatteryLevel" class="bt-battery-level">100%</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Non-blocking Inline Error Alert Banner -->
-      <div id="btErrorAlert" class="bt-error-alert" hidden>
-        <div class="bt-error-content">
-          <span class="bt-error-icon" aria-hidden="true">⚠️</span>
-          <span id="btErrorText" class="bt-error-text"></span>
-        </div>
-        <button type="button" id="btErrorDismissBtn" class="bt-error-dismiss" aria-label="Dismiss">&times;</button>
-      </div>
-
-      <!-- Action Buttons -->
-      <div class="bt-actions-row">
-        <button type="button" id="btConnectBtn" class="btn btn-primary">
-          <span class="bt-btn-icon" aria-hidden="true">ᛒ</span> Connect Smart Cube
-        </button>
-        <button type="button" id="btDisconnectBtn" class="btn btn-danger" hidden>
-          Disconnect
-        </button>
-        <button type="button" id="btResetBtn" class="btn btn-outline btn-danger" title="Disconnect cube and clear saved Bluetooth/MAC cache">
-          🔄 Hard Reset Bluetooth
-        </button>
-      </div>
-
-      <!-- Previously Connected Smart Cubes List -->
-      <div id="btSavedCubesSection" class="bt-saved-cubes-section">
-        <div class="bt-stream-header">
-          <span class="bt-stream-title">Previously Connected Cubes</span>
-          <span class="bt-saved-hint">Click a cube to reconnect</span>
-        </div>
-        <div id="btSavedCubesList" class="bt-saved-cubes-list"></div>
-      </div>
-
-      <!-- Advanced & Cube Settings (Manual MAC entry for GAN / MoYu) -->
-      <details class="bt-advanced-details" id="btAdvancedDetails">
-        <summary class="bt-advanced-summary">Advanced Settings (MAC Address &amp; Scan Options)</summary>
-        <div class="bt-advanced-body">
-          <div class="bt-field-group">
-            <label for="btCustomMacInput" class="bt-field-label">Cube Bluetooth MAC Address (optional, for GAN &amp; MoYu if auto-detect fails):</label>
-            <div class="bt-input-row">
-              <input type="text" id="btCustomMacInput" class="bt-mac-input" aria-label="Cube Bluetooth MAC address" placeholder="e.g. AA:BB:CC:DD:EE:FF or 12 hex digits" spellcheck="false" autocomplete="off" />
-              <button type="button" id="btSaveMacBtn" class="btn btn-small btn-primary">Save MAC</button>
-            </div>
-            <p class="bt-field-hint">For GAN cubes (e.g. <code>GANic4_5927</code>), the MAC address is printed on the barcode/box sticker. The last digits usually match your device name.</p>
-          </div>
-          <div class="bt-field-group">
-            <label class="bt-checkbox-label">
-              <input type="checkbox" id="btUnfilteredCheckbox" />
-              Show all Bluetooth devices in picker (unfiltered scan)
-            </label>
-          </div>
-        </div>
-      </details>
-
-      <!-- Live Stream Preview -->
-      <div id="btLiveStreamWrap" class="bt-live-stream-wrap" hidden>
-        <div class="bt-stream-header">
-          <span class="bt-stream-title">Live Turns Stream</span>
-          <span id="btTurnCounter" class="badge">0 turns</span>
-        </div>
-        <div id="btMoveChipsList" class="bt-move-chips-list">
-          <span class="bt-empty-hint">Turn your smart cube to see moves live...</span>
-        </div>
-      </div>
-
-      <!-- Smart Cube Diagnostics Recorder -->
-      <div class="bt-diag-section">
-        <div class="bt-stream-header">
-          <span class="bt-stream-title">🩺 Smart Cube Diagnostics Recorder</span>
-          <span id="btDiagCountBadge" class="badge">0 events</span>
-        </div>
-        <p class="bt-field-hint" style="margin: 4px 0 8px;">
-          Record raw Bluetooth moves, serial numbers, facelet syncs, and scramble tracker states to diagnose cube tracking issues (plus a rolling 400-event buffer is always kept automatically).
-        </p>
-        <div class="bt-diag-actions">
-          <button type="button" id="btDiagToggleBtn" class="btn btn-xs btn-primary">⏺ Start Recording</button>
-          <button type="button" id="btDiagCopyBtn" class="btn btn-xs">📋 Copy Diagnostics JSON</button>
-          <button type="button" id="btDiagDownloadBtn" class="btn btn-xs">⬇ Download Log (.json)</button>
-          <button type="button" id="btDiagClearBtn" class="btn btn-xs btn-danger">Clear</button>
-        </div>
-      </div>
-
-      <!-- Supported Cubes & Compatibility -->
-      <div class="bt-info-section">
-        <h4 class="bt-info-title">Supported Smart Cubes</h4>
-        <div class="bt-cubes-grid">
-          <span class="bt-cube-pill">GAN (356 i Carry 4 / 2 / S, 356i, 12 ui, 251 ui 2x2, MonsterGo)</span>
-          <span class="bt-cube-pill">MoYu AI (WeiLong V10 AI, WRM AI, MHC, Weipo AI 2x2, AI 2023)</span>
-          <span class="bt-cube-pill">QiYi Smart Cube &amp; XMD Tornado V4 AI</span>
-          <span class="bt-cube-pill">GoCube &amp; Rubik's Connected</span>
-          <span class="bt-cube-pill">GiiKER Supercube (i2, i3, i3s)</span>
-          <span class="bt-cube-pill">HeyKube</span>
-        </div>
-        <p class="bt-browser-note">
-          <strong>Browser support:</strong> Web Bluetooth is supported in Google Chrome, Microsoft Edge, Opera, and Bluefy (iOS).
-        </p>
-      </div>
-      </div><!-- /devicesPanelCubes -->
-
-      <div id="devicesPanelTimers" class="devices-tab-panel" role="tabpanel" aria-labelledby="devicesTabTimers" hidden>
-        <div class="bt-status-card disconnected" id="ganTimerStatusCard">
-          <div class="bt-status-icon-wrap">
-            <span class="bt-large-icon" aria-hidden="true">⏱</span>
-          </div>
-          <div class="bt-status-info">
-            <div class="devices-timer-title-row">
-              <span class="bt-dot disconnected" id="ganTimerHeaderDot" aria-hidden="true"></span>
-              <h4 id="ganTimerLabel" class="bt-device-name">No Timer Connected</h4>
-              <span id="ganTimerModalStatusBadge" class="badge badge-disconnected">Disconnected</span>
-            </div>
-            <p id="ganTimerDesc" class="bt-status-desc">Connect a Bluetooth GAN Smart Timer to measure pickup, cube solve, and putdown splits automatically.</p>
-          </div>
-        </div>
-
-        <div class="bt-actions-row">
-          <button type="button" id="ganTimerBtn" class="btn btn-primary" data-tooltip="Connect or disconnect a GAN Smart Timer via Bluetooth">⏱ Connect GAN Smart Timer</button>
-        </div>
-
-        <div class="bt-info-section">
-          <h4 class="bt-info-title">Supported External Timers</h4>
-          <div class="bt-cubes-grid">
-            <span class="bt-cube-pill">GAN Smart Timer (Web Bluetooth · pickup / cube / putdown splits)</span>
-            <span class="bt-cube-pill">SpeedStacks Stackmat G5 (Planned · USB/TRRS audio line-in FSK decoder)</span>
-          </div>
-          <p class="bt-browser-note">
-            <strong>Tip:</strong> When connected alongside a Bluetooth Smart Cube, your GAN Smart Timer automatically records hardware solve time while the smart cube tracks turn splits, CFOP phases, and 3D replay.
-          </p>
-        </div>
-      </div><!-- /devicesPanelTimers -->
-
-      <div id="devicesPanelKeyboard" class="devices-tab-panel" role="tabpanel" aria-labelledby="devicesTabKeyboard" hidden>
-        <div class="bt-status-card" id="btKeyboardStatusCard">
-          <div class="bt-status-icon-wrap">
-            <span class="bt-large-icon" aria-hidden="true">⌨️</span>
-          </div>
-          <div class="bt-status-info">
-            <h4 class="bt-device-name">Virtual / Keyboard Cube</h4>
-            <p class="bt-status-desc" id="btVirtualStatusText">Turn the cube directly from your keyboard (e.g. I, K, J, F, U, R) without physical Bluetooth hardware, or load a sample replay solve.</p>
-          </div>
-        </div>
-
-        <div class="bt-actions-row">
-          <button type="button" id="btVirtualBtn" class="btn btn-secondary" title="Simulate turns with keyboard without physical hardware">
-            ⌨️ Activate Virtual / Keyboard Cube
-          </button>
-          <button type="button" id="btDemoSolveBtn" class="btn btn-small" data-tooltip="Load sample solve with tracked turns">
-            <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="4.5,2.8 13.2,8 4.5,13.2"/></svg></span><span>Load Demo Replay</span>
-          </button>
-          <button type="button" id="btOpenShortcutsBtn" class="btn btn-small">⌨️ Customize Shortcuts</button>
-        </div>
-
-        <!-- Virtual Cube Keypad for Testing -->
-        <div id="btVirtualKeypad" class="bt-virtual-keypad" hidden>
-          <div class="bt-keypad-title">Virtual Face Turns:</div>
-          <div class="bt-keypad-grid">
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="U">U</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="U'">U'</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="U2">U2</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="R">R</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="R'">R'</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="R2">R2</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="F">F</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="F'">F'</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="F2">F2</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="D">D</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="D'">D'</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="D2">D2</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="L">L</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="L'">L'</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="L2">L2</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="B">B</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="B'">B'</button>
-            <button type="button" class="btn btn-xs bt-virtual-turn" data-move="B2">B2</button>
-          </div>
-        </div>
-      </div><!-- /devicesPanelKeyboard -->
-    </div>
-
-    <div class="solve-modal-actions">
-      <button type="button" id="btModalDismissBtn" class="btn btn-small">Close</button>
-    </div>
-  </div>
-</div>
+<!-- Devices controls live inside Settings -> Devices, with Diagnostics & Supported Smart Cubes popups below -->
 
 <!-- Solve Replay Viewer Modal -->
 <div id="solveReplayModal" class="solve-modal-overlay replay-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="replayModalTitle" hidden>
@@ -1152,6 +934,13 @@
                 <input type="checkbox" id="settingsShowTooltips" checked>
                 <span>Show helpful UI tooltips on hover &amp; focus</span>
               </label>
+              <div class="toggle-with-tip">
+                <label class="solve-toggle-label">
+                  <input type="checkbox" id="settingsBetaFeatures">
+                  <span>Beta Features (allow untested tracks &amp; puzzles)</span>
+                </label>
+                <button type="button" class="info-tip-btn" data-tooltip="Enables experimental or partially tested features: 2x2 EG-1 &amp; EG-2, additional WCA puzzles (6x6, 7x7, Pyraminx, Skewb, Megaminx, Square-1, Clock, 3BLD, FTO), and Custom Events." aria-label="Explain Beta Features">?</button>
+              </div>
               <div class="settings-speed-row">
                 <span class="settings-oh-label"><strong>3D Playback Pace:</strong></span>
                 <div class="settings-speed-group" role="group" aria-label="Default 3D playback pace">
@@ -1270,10 +1059,13 @@
                 <button type="button" id="settingsEventsAllBtn" class="btn btn-xs">Show All 14</button>
               </div>
             </div>
+            <div id="settingsEventsBetaNotice" class="settings-beta-notice" hidden>
+              Non-default WCA puzzles (6x6, 7x7, Pyraminx, Skewb, Megaminx, Square-1, Clock, 3BLD, FTO), Custom Events, and 2x2 EG-1/EG-2 are experimental. Turn on <strong>Beta Features</strong> in <strong>General &amp; Display</strong> to enable them.
+            </div>
             <div id="settingsEventsGrid" class="settings-events-groups"></div>
           </div>
 
-          <div class="settings-section">
+          <div class="settings-section" id="settingsCustomEventsSection">
             <div class="settings-section-head">
               <h4 class="settings-section-title">✨ Custom Events</h4>
               <span class="settings-section-desc">Create custom timer-only or scrambled events (e.g. 2-4 Relay, FTO BLD)</span>
@@ -1525,29 +1317,160 @@
 
         <!-- Tab 6: Devices -->
         <div class="settings-tab-panel" data-settings-panel="devices" role="tabpanel" hidden>
-          <div class="settings-section">
-            <div class="settings-section-head">
-              <h4 class="settings-section-title">ᛒ Connected Hardware &amp; Virtual Cube</h4>
-              <span class="settings-section-desc">Pair Bluetooth Smart Cubes, GAN Smart Timer, or use the Virtual Keyboard Cube</span>
-            </div>
-            <div class="bt-actions-row" style="margin-top: 8px;">
-              <button type="button" id="settingsOpenCubesBtn" class="btn btn-small btn-primary">🧊 Smart Cubes…</button>
-              <button type="button" id="settingsOpenTimersBtn" class="btn btn-small">⏱️ Timers…</button>
-              <button type="button" id="settingsOpenKeyboardBtn" class="btn btn-small">⌨️ Keyboard Cube…</button>
-            </div>
+          <div class="settings-color-subtabs devices-subtabs" role="tablist" aria-label="Device category">
+            <button type="button" id="devicesTabCubes" class="settings-color-subtab active" role="tab" aria-selected="true" aria-controls="devicesPanelCubes">🧊 Smart Cubes</button>
+            <button type="button" id="devicesTabTimers" class="settings-color-subtab" role="tab" aria-selected="false" aria-controls="devicesPanelTimers">⏱️ Timers</button>
+            <button type="button" id="devicesTabKeyboard" class="settings-color-subtab" role="tab" aria-selected="false" aria-controls="devicesPanelKeyboard">⌨️ Keyboard</button>
           </div>
 
-          <div class="settings-section">
-            <div class="settings-section-head">
-              <h4 class="settings-section-title">Bluetooth Cache Reset</h4>
-              <span class="settings-section-desc">Clear saved Bluetooth devices, MAC overrides, and stuck connection state</span>
+          <div id="devicesPanelCubes" class="devices-tab-panel" role="tabpanel" aria-labelledby="devicesTabCubes">
+            <div class="bt-status-card" id="btStatusCard">
+              <div class="bt-status-icon-wrap">
+                <span class="bt-large-icon" id="btLargeIcon">ᛒ</span>
+              </div>
+              <div class="bt-status-info">
+                <div class="devices-timer-title-row">
+                  <h4 id="btDeviceName" class="bt-device-name">No Cube Connected</h4>
+                  <span id="bluetoothModalStatusBadge" class="badge badge-disconnected">Disconnected</span>
+                </div>
+                <p id="btStatusDesc" class="bt-status-desc">Connect a Bluetooth smart cube to track every turn with millisecond timestamps and replay your solves in 3D.</p>
+                <div id="btBatteryWrap" class="bt-battery-wrap" hidden>
+                  <span class="bt-battery-icon" aria-hidden="true">🔋</span>
+                  <span id="btBatteryLevel" class="bt-battery-level">100%</span>
+                </div>
+              </div>
             </div>
-            <div style="margin-top: 8px;">
-              <button type="button" id="settingsResetBtBtn" class="btn btn-small btn-outline btn-danger" title="Disconnect and wipe Bluetooth MAC address cache">
-                🔄 Hard Reset Bluetooth &amp; Clear MAC Cache
+
+            <div id="btErrorAlert" class="bt-error-alert" hidden>
+              <div class="bt-error-content">
+                <span class="bt-error-icon" aria-hidden="true">⚠️</span>
+                <span id="btErrorText" class="bt-error-text"></span>
+              </div>
+              <button type="button" id="btErrorDismissBtn" class="bt-error-dismiss" aria-label="Dismiss">&times;</button>
+            </div>
+
+            <div class="bt-actions-row">
+              <button type="button" id="btConnectBtn" class="btn btn-primary">
+                <span class="bt-btn-icon" aria-hidden="true">ᛒ</span> Connect Smart Cube
+              </button>
+              <button type="button" id="btDisconnectBtn" class="btn btn-danger" hidden>
+                Disconnect
+              </button>
+              <button type="button" id="btResetBtn" class="btn btn-outline btn-danger" title="Disconnect cube and clear saved Bluetooth/MAC cache">
+                🔄 Hard Reset Bluetooth
               </button>
             </div>
-          </div>
+
+            <div id="btSavedCubesSection" class="bt-saved-cubes-section">
+              <div class="bt-stream-header">
+                <span class="bt-stream-title">Previously Connected Cubes</span>
+                <span class="bt-saved-hint">Click a cube to reconnect</span>
+              </div>
+              <div id="btSavedCubesList" class="bt-saved-cubes-list"></div>
+            </div>
+
+            <details class="bt-advanced-details" id="btAdvancedDetails">
+              <summary class="bt-advanced-summary">Advanced Settings (MAC Address &amp; Scan Options)</summary>
+              <div class="bt-advanced-body">
+                <div class="bt-field-group">
+                  <label for="btCustomMacInput" class="bt-field-label">Cube Bluetooth MAC Address (optional, for GAN &amp; MoYu if auto-detect fails):</label>
+                  <div class="bt-input-row">
+                    <input type="text" id="btCustomMacInput" class="bt-mac-input" aria-label="Cube Bluetooth MAC address" placeholder="e.g. AA:BB:CC:DD:EE:FF or 12 hex digits" spellcheck="false" autocomplete="off" />
+                    <button type="button" id="btSaveMacBtn" class="btn btn-small btn-primary">Save MAC</button>
+                  </div>
+                  <p class="bt-field-hint">For GAN cubes (e.g. <code>GANic4_5927</code>), the MAC address is printed on the barcode/box sticker. The last digits usually match your device name.</p>
+                </div>
+                <div class="bt-field-group">
+                  <label class="bt-checkbox-label">
+                    <input type="checkbox" id="btUnfilteredCheckbox" />
+                    Show all Bluetooth devices in picker (unfiltered scan)
+                  </label>
+                </div>
+              </div>
+            </details>
+
+            <div id="btLiveStreamWrap" class="bt-live-stream-wrap" hidden>
+              <div class="bt-stream-header">
+                <span class="bt-stream-title">Live Turns Stream</span>
+                <span id="btTurnCounter" class="badge">0 turns</span>
+              </div>
+              <div id="btMoveChipsList" class="bt-move-chips-list">
+                <span class="bt-empty-hint">Turn your smart cube to see moves live...</span>
+              </div>
+            </div>
+
+            <div class="bt-tools-row">
+              <button type="button" id="btOpenDiagModalBtn" class="btn btn-small">🩺 Smart Cube Diagnostics</button>
+              <button type="button" id="btOpenSupportedCubesModalBtn" class="btn btn-small" aria-label="Supported Smart Cubes">? Supported Smart Cubes</button>
+            </div>
+          </div><!-- /devicesPanelCubes -->
+
+          <div id="devicesPanelTimers" class="devices-tab-panel" role="tabpanel" aria-labelledby="devicesTabTimers" hidden>
+            <div class="bt-status-card disconnected" id="ganTimerStatusCard">
+              <div class="bt-status-icon-wrap">
+                <span class="bt-large-icon" aria-hidden="true">⏱</span>
+              </div>
+              <div class="bt-status-info">
+                <div class="devices-timer-title-row">
+                  <span class="bt-dot disconnected" id="ganTimerHeaderDot" aria-hidden="true"></span>
+                  <h4 id="ganTimerLabel" class="bt-device-name">No Timer Connected</h4>
+                  <span id="ganTimerModalStatusBadge" class="badge badge-disconnected">Disconnected</span>
+                </div>
+                <p id="ganTimerDesc" class="bt-status-desc">Connect a Bluetooth GAN Smart Timer to measure pickup, cube solve, and putdown splits automatically.</p>
+              </div>
+            </div>
+
+            <div class="bt-actions-row">
+              <button type="button" id="ganTimerBtn" class="btn btn-primary" data-tooltip="Connect or disconnect a GAN Smart Timer via Bluetooth">⏱ Connect GAN Smart Timer</button>
+              <button type="button" id="btOpenSupportedTimersModalBtn" class="btn btn-small">? Supported Timers &amp; Cubes</button>
+            </div>
+          </div><!-- /devicesPanelTimers -->
+
+          <div id="devicesPanelKeyboard" class="devices-tab-panel" role="tabpanel" aria-labelledby="devicesTabKeyboard" hidden>
+            <div class="bt-status-card" id="btKeyboardStatusCard">
+              <div class="bt-status-icon-wrap">
+                <span class="bt-large-icon" aria-hidden="true">⌨️</span>
+              </div>
+              <div class="bt-status-info">
+                <h4 class="bt-device-name">Virtual / Keyboard Cube</h4>
+                <p class="bt-status-desc" id="btVirtualStatusText">Turn the cube directly from your keyboard (e.g. I, K, J, F, U, R) without physical Bluetooth hardware, or load a sample replay solve.</p>
+              </div>
+            </div>
+
+            <div class="bt-actions-row">
+              <button type="button" id="btVirtualBtn" class="btn btn-secondary" title="Simulate turns with keyboard without physical hardware">
+                ⌨️ Activate Virtual / Keyboard Cube
+              </button>
+              <button type="button" id="btDemoSolveBtn" class="btn btn-small" data-tooltip="Load sample solve with tracked turns">
+                <span class="ctrl-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16" fill="currentColor"><polygon points="4.5,2.8 13.2,8 4.5,13.2"/></svg></span><span>Load Demo Replay</span>
+              </button>
+              <button type="button" id="btOpenShortcutsBtn" class="btn btn-small">⌨️ Customize Shortcuts</button>
+            </div>
+
+            <div id="btVirtualKeypad" class="bt-virtual-keypad" hidden>
+              <div class="bt-keypad-title">Virtual Face Turns:</div>
+              <div class="bt-keypad-grid">
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="U">U</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="U'">U'</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="U2">U2</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="R">R</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="R'">R'</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="R2">R2</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="F">F</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="F'">F'</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="F2">F2</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="D">D</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="D'">D'</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="D2">D2</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="L">L</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="L'">L'</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="L2">L2</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="B">B</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="B'">B'</button>
+                <button type="button" class="btn btn-xs bt-virtual-turn" data-move="B2">B2</button>
+              </div>
+            </div>
+          </div><!-- /devicesPanelKeyboard -->
         </div>
 
         <!-- Tab 7: Sync & Offline -->
@@ -1578,6 +1501,69 @@
     </div>
     <div class="solve-modal-actions">
       <button type="button" id="settingsDoneBtn" class="btn btn-primary btn-small">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Smart Cube Diagnostics Popup Modal -->
+<div id="btDiagModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="btDiagModalTitle" hidden>
+  <div class="solve-modal-card bt-info-modal-card">
+    <div class="solve-modal-header">
+      <div class="solve-modal-title-wrap">
+        <h3 id="btDiagModalTitle" class="solve-modal-title">🩺 Smart Cube Diagnostics</h3>
+        <span id="btDiagCountBadge" class="badge">0 events</span>
+      </div>
+      <button type="button" id="btDiagModalCloseBtn" class="solve-modal-close" aria-label="Close diagnostics dialog">&times;</button>
+    </div>
+    <div class="solve-modal-body">
+      <p class="bt-field-hint" style="margin: 0 0 12px;">
+        Record raw Bluetooth moves, serial numbers, facelet syncs, and scramble tracker states to diagnose cube tracking issues (a rolling 400-event buffer is always kept automatically).
+      </p>
+      <div class="bt-diag-actions">
+        <button type="button" id="btDiagToggleBtn" class="btn btn-xs btn-primary">⏺ Start Recording</button>
+        <button type="button" id="btDiagCopyBtn" class="btn btn-xs">📋 Copy Diagnostics JSON</button>
+        <button type="button" id="btDiagDownloadBtn" class="btn btn-xs">⬇ Download Log (.json)</button>
+        <button type="button" id="btDiagClearBtn" class="btn btn-xs btn-danger">Clear</button>
+      </div>
+    </div>
+    <div class="solve-modal-actions">
+      <button type="button" id="btDiagModalDismissBtn" class="btn btn-small">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Supported Smart Cubes & Timers Popup Modal -->
+<div id="btSupportedCubesModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="btSupportedModalTitle" hidden>
+  <div class="solve-modal-card bt-info-modal-card">
+    <div class="solve-modal-header">
+      <h3 id="btSupportedModalTitle" class="solve-modal-title">? Supported Devices</h3>
+      <button type="button" id="btSupportedModalCloseBtn" class="solve-modal-close" aria-label="Close supported devices dialog">&times;</button>
+    </div>
+    <div class="solve-modal-body" style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <h4 class="bt-info-title">Supported Smart Cubes</h4>
+        <div class="bt-cubes-grid">
+          <span class="bt-cube-pill">GAN (356 i Carry 4 / 2 / S, 356i, 12 ui, 251 ui 2x2, MonsterGo)</span>
+          <span class="bt-cube-pill">MoYu AI (WeiLong V10 AI, WRM AI, MHC, Weipo AI 2x2, AI 2023)</span>
+          <span class="bt-cube-pill">QiYi Smart Cube &amp; XMD Tornado V4 AI</span>
+          <span class="bt-cube-pill">GoCube &amp; Rubik's Connected</span>
+          <span class="bt-cube-pill">GiiKER Supercube (i2, i3, i3s)</span>
+          <span class="bt-cube-pill">HeyKube</span>
+        </div>
+      </div>
+      <div>
+        <h4 class="bt-info-title">Supported External Timers</h4>
+        <div class="bt-cubes-grid">
+          <span class="bt-cube-pill">GAN Smart Timer (Web Bluetooth · pickup / cube / putdown splits)</span>
+          <span class="bt-cube-pill">SpeedStacks Stackmat G5 (Planned · audio line-in FSK)</span>
+        </div>
+      </div>
+      <p class="bt-browser-note" style="margin:0;">
+        <strong>Browser support:</strong> Web Bluetooth is supported in Google Chrome, Microsoft Edge, Opera, and Bluefy (iOS).
+      </p>
+    </div>
+    <div class="solve-modal-actions">
+      <button type="button" id="btSupportedModalDismissBtn" class="btn btn-small">Close</button>
     </div>
   </div>
 </div>

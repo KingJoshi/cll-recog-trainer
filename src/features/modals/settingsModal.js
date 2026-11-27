@@ -83,13 +83,12 @@ export function createSettingsModalController({
   const resetBldColorsBtn = typeof document !== "undefined" ? document.getElementById("resetBldColorsBtn") : null;
   const previewLightThemeBtn = typeof document !== "undefined" ? document.getElementById("previewLightThemeBtn") : null;
   const previewDarkThemeBtn = typeof document !== "undefined" ? document.getElementById("previewDarkThemeBtn") : null;
-  const resetBtBtn = typeof document !== "undefined" ? document.getElementById("settingsResetBtBtn") : null;
-  const openCubesBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenCubesBtn") : null;
-  const openTimersBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenTimersBtn") : null;
-  const openKeyboardBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenKeyboardBtn") : null;
   const openWizardBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenWizardBtn") : null;
   const openShortcutsBtn = typeof document !== "undefined" ? document.getElementById("settingsOpenShortcutsBtn") : null;
 
+  const settingsBetaFeatures = typeof document !== "undefined" ? document.getElementById("settingsBetaFeatures") : null;
+  const settingsEventsBetaNotice = typeof document !== "undefined" ? document.getElementById("settingsEventsBetaNotice") : null;
+  const settingsCustomEventsSection = typeof document !== "undefined" ? document.getElementById("settingsCustomEventsSection") : null;
   const settingsShowTooltips = typeof document !== "undefined" ? document.getElementById("settingsShowTooltips") : null;
   const settingsStatsModeNoneBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsModeNoneBtn") : null;
   const settingsStatsModeBasicBtn = typeof document !== "undefined" ? document.getElementById("settingsStatsModeBasicBtn") : null;
@@ -158,6 +157,8 @@ export function createSettingsModalController({
     });
     if (activeTab === "colors") {
       setActiveColorSubtab(activeColorSubtab);
+    } else if (activeTab === "devices") {
+      getSmartCubeCtrl()?.updateBluetoothUI?.();
     }
   }
   const settingsOhHandLeftBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandLeftBtn") : null;
@@ -240,6 +241,7 @@ export function createSettingsModalController({
     });
     if (settingsFocusMode) settingsFocusMode.checked = Boolean(s.focusMode);
     if (settingsDesktopMultiPane) settingsDesktopMultiPane.checked = s.desktopMultiPane !== false;
+    if (settingsBetaFeatures) settingsBetaFeatures.checked = Boolean(s.betaFeatures);
     if (settingsShowLayerWidget) settingsShowLayerWidget.checked = s.showLayerSolutionsWidget !== false;
     if (settingsShowCrossWidget) settingsShowCrossWidget.checked = s.showCrossSolutionsWidget !== false;
     if (settingsSolveShowCube) settingsSolveShowCube.checked = Boolean(s.solveShowCube);
@@ -514,16 +516,24 @@ export function createSettingsModalController({
   }
 
   function renderEventsGrid() {
-    if (!settingsEventsGrid) return;
     const s = appStore.state;
+    const isBeta = Boolean(s.betaFeatures);
+    if (settingsEventsAllBtn) settingsEventsAllBtn.hidden = !isBeta;
+    if (settingsCustomEventsSection) settingsCustomEventsSection.hidden = !isBeta;
+    if (settingsEventsBetaNotice) settingsEventsBetaNotice.hidden = isBeta;
+    if (!settingsEventsGrid) return;
     const visibleList = Array.isArray(s.visibleEvents) && s.visibleEvents.length
       ? s.visibleEvents
       : (s.showExtraWcaEvents ? ALL_BUILTIN_EVENT_IDS : DEFAULT_VISIBLE_EVENTS);
     const visibleSet = new Set(visibleList);
-    const groups = [
-      { label: "NxN", ids: ["222", "333", "333oh", "444", "555", "666", "777"] },
-      { label: "Other WCA Events", ids: ["pyram", "skewb", "minx", "sq1", "clock", "333bf", "fto"] }
-    ];
+    const groups = isBeta
+      ? [
+          { label: "NxN", ids: ["222", "333", "333oh", "444", "555", "666", "777"] },
+          { label: "Other WCA Events", ids: ["pyram", "skewb", "minx", "sq1", "clock", "333bf", "fto"] }
+        ]
+      : [
+          { label: "Core NxN", ids: [...DEFAULT_VISIBLE_EVENTS] }
+        ];
     settingsEventsGrid.innerHTML = groups.map(grp => `
       <div>
         <div class="settings-events-group-label">${escapeHtml(grp.label)}</div>
@@ -705,23 +715,6 @@ export function createSettingsModalController({
   bindSectionReset(resetDarkThemeBtn, "dark", darkThemeColorGrid);
   bindSectionReset(resetBldColorsBtn, "bld", bldColorGrid);
 
-  resetBtBtn?.addEventListener("click", () => {
-    getSmartCubeCtrl()?.handleBluetoothReset?.();
-  });
-
-  openCubesBtn?.addEventListener("click", () => {
-    close();
-    getSmartCubeCtrl()?.openBluetoothModal?.({ tab: "cubes" });
-  });
-  openTimersBtn?.addEventListener("click", () => {
-    close();
-    getSmartCubeCtrl()?.openBluetoothModal?.({ tab: "timers" });
-  });
-  openKeyboardBtn?.addEventListener("click", () => {
-    close();
-    getSmartCubeCtrl()?.openBluetoothModal?.({ tab: "keyboard" });
-  });
-
   openWizardBtn?.addEventListener("click", () => {
     close();
     onOpenWizard?.();
@@ -730,6 +723,11 @@ export function createSettingsModalController({
   openShortcutsBtn?.addEventListener("click", () => {
     close();
     onOpenShortcuts?.();
+  });
+
+  settingsBetaFeatures?.addEventListener("change", (e) => {
+    appStore.setBetaFeatures?.(Boolean(e.target.checked));
+    renderEventsGrid();
   });
 
   settingsShowTooltips?.addEventListener("change", (e) => {
@@ -1002,7 +1000,7 @@ export function createSettingsModalController({
       renderToggles();
     } else if (evt === "themeColors") {
       syncColorPresetStates();
-    } else if (evt === "visibleEvents") {
+    } else if (evt === "visibleEvents" || evt === "betaFeatures") {
       renderToggles();
       renderEventsGrid();
     } else if (evt === "customEvents") {
@@ -1017,8 +1015,14 @@ export function createSettingsModalController({
     }
   });
 
+  function openTab(tabId = "general") {
+    activeTab = tabId || "general";
+    open();
+  }
+
   return {
     open,
+    openTab,
     close,
     renderToggles,
     renderCustomEvents,

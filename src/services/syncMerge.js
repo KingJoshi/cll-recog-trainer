@@ -28,6 +28,7 @@ const SETTINGS_SCALAR_FIELDS = [
   "darkMode",
   "advancedMode",
   "statsDisplayMode",
+  "betaFeatures",
   "showTooltips",
   "onboardingCompleted",
   "onboardingProfile",

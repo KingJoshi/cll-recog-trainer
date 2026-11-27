@@ -1,7 +1,7 @@
 // Top-level navigation controller: Puzzle switcher, Mode tabs, Track/Focus bar, Stage visibility, and Scramble coordination
 
 import { PUZZLES, getTrack, getDefaultTrack, getSolveTargetsForPuzzle, getSolveTargetInfo, getSolveTargetLabel } from '../data/algRegistry.js';
-import { MODES, VALID_PUZZLES, caseById, isTimerViewMode, isSimulateViewMode, DEFAULT_VISIBLE_EVENTS } from '../state/appStore.js';
+import { MODES, VALID_PUZZLES, caseById, isTimerViewMode, isSimulateViewMode, DEFAULT_VISIBLE_EVENTS, isBetaTrack, isBetaPuzzle } from '../state/appStore.js';
 import { escapeHtml } from '../services/htmlUtils.js';
 import { showToast } from './toastService.js';
 import {
@@ -116,26 +116,32 @@ export function createNavController({
 
   function renderPuzzleButtons() {
     const s = appStore.state;
+    const isBeta = Boolean(s.betaFeatures);
     const rawVisible = Array.isArray(s.visibleEvents) && s.visibleEvents.length
       ? s.visibleEvents
       : (s.showExtraWcaEvents ? VALID_PUZZLES : DEFAULT_VISIBLE_EVENTS);
-    const visibleSet = new Set(rawVisible);
+    const visibleSet = new Set(
+      isBeta ? rawVisible : rawVisible.filter(id => DEFAULT_VISIBLE_EVENTS.includes(id))
+    );
+    if (visibleSet.size === 0) DEFAULT_VISIBLE_EVENTS.forEach(id => visibleSet.add(id));
     if (puzzleSwitcher && typeof document !== "undefined") {
       puzzleSwitcher.querySelectorAll(".puzzle-btn-custom").forEach(btn => btn.remove());
-      for (const ev of (s.customEvents || [])) {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "puzzle-btn puzzle-btn-custom";
-        btn.dataset.puzzle = ev.id;
-        btn.textContent = ev.shortName || ev.name;
-        btn.setAttribute("data-tooltip", `Custom event: ${ev.name}`);
-        puzzleSwitcher.appendChild(btn);
+      if (isBeta) {
+        for (const ev of (s.customEvents || [])) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "puzzle-btn puzzle-btn-custom";
+          btn.dataset.puzzle = ev.id;
+          btn.textContent = ev.shortName || ev.name;
+          btn.setAttribute("data-tooltip", `Custom event: ${ev.name}`);
+          puzzleSwitcher.appendChild(btn);
+        }
       }
     }
     getAllPuzzleButtons().forEach(btn => {
       const pid = btn.dataset.puzzle;
       if (!btn.classList.contains("puzzle-btn-custom")) {
-        btn.hidden = !visibleSet.has(pid) && pid !== s.currentPuzzle;
+        btn.hidden = (!isBeta && isBetaPuzzle(pid)) || (!visibleSet.has(pid) && pid !== s.currentPuzzle);
       }
       const active = pid === s.currentPuzzle;
       btn.classList.toggle("active", active);
@@ -209,7 +215,9 @@ export function createNavController({
     }
 
     if (s.mode === "practice" && s.trainSubMode === "timed-drill") {
-      const items = getSolveTargetsForPuzzle(s.currentPuzzle).filter(item => item.id !== "full");
+      const items = getSolveTargetsForPuzzle(s.currentPuzzle).filter(item =>
+        item.id !== "full" && (Boolean(s.betaFeatures) || !isBetaTrack(s.currentPuzzle, item.id))
+      );
       if (!items.length) {
         trackBar.hidden = true;
         return;
@@ -238,11 +246,12 @@ export function createNavController({
     }
 
     const isAlgDrill = s.mode === "practice" && s.trainSubMode === "alg-drill";
-    const visibleTracks = s.mode === "practice"
+    const visibleTracks = (s.mode === "practice"
       ? pData.tracks.filter(t => !t.studyOnly && (!isAlgDrill || (t.cases && t.cases.length > 0)))
       : s.mode === "study"
         ? pData.tracks.filter(t => !t.practiceOnly)
-        : pData.tracks;
+        : pData.tracks
+    ).filter(t => Boolean(s.betaFeatures) || !isBetaTrack(s.currentPuzzle, t.id));
     if (!visibleTracks.some(t => t.id === s.currentTrackId) && visibleTracks.length > 0) {
       const preferred = visibleTracks.find(t => t.id === PUZZLES[s.currentPuzzle]?.defaultTrack) || visibleTracks[0];
       s.currentTrackId = preferred.id;
@@ -479,6 +488,10 @@ export function createNavController({
     const s = appStore.state;
     const pData = PUZZLES[s.currentPuzzle];
     if (!tgt || !getSolveTargetInfo(s.currentPuzzle, tgt)) return false;
+    if (!s.betaFeatures && isBetaTrack(s.currentPuzzle, tgt)) {
+      showToast("Enable Beta Features in Settings → General to access EG-1 / EG-2.", "warning", 2600);
+      return false;
+    }
     if ((pData?.solveOnly || pData?.hideSimulate) && tgt !== "full") return false;
 
     const timerCtrl = getTimerCtrl();
@@ -530,6 +543,10 @@ export function createNavController({
     const s = appStore.state;
     const track = getTrack(s.currentPuzzle, trackId);
     if (!track) return;
+    if (!s.betaFeatures && isBetaTrack(s.currentPuzzle, trackId)) {
+      showToast("Enable Beta Features in Settings → General to access EG-1 / EG-2.", "warning", 2600);
+      return;
+    }
     s.currentTrackId = trackId;
 
     appStore.loadTrackSelection(s.currentPuzzle, trackId);
@@ -675,6 +692,10 @@ export function createNavController({
 
   function setPuzzle(puzzleId) {
     if (!VALID_PUZZLES.includes(puzzleId) && !PUZZLES[puzzleId]) return;
+    if (!appStore.state.betaFeatures && isBetaPuzzle(puzzleId)) {
+      showToast("Enable Beta Features in Settings → General to use additional puzzles.", "warning", 2600);
+      return;
+    }
     ++scrambleGenToken;
     const s = appStore.state;
     const timerCtrl = getTimerCtrl();

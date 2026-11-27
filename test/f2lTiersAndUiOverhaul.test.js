@@ -21,6 +21,8 @@ import {
   sanitizeF2lMode,
   sanitizeTrainSubMode,
   isSimulateViewMode,
+  isBetaTrack,
+  isBetaPuzzle,
   VALID_TRAIN_SUBMODES,
   VALID_F2L_MODES
 } from '../src/state/appStore.js';
@@ -73,10 +75,10 @@ test('index.html has 3-slot mode bar, icon-only header, 3-tab Devices modal, spl
   assert.ok(trainBarMatch);
   assert.ok(trainBarMatch[0].includes('data-train-submode="simulate"'));
 
-  // Header actions are all consistent compact icon buttons without text labels
+  // Header actions have no #bluetoothBtn (Devices lives in Settings) and all 4 header actions are compact icon buttons
   const headerActionsMatch = html.match(/<div class="header-actions">[\s\S]*?<\/div>/);
   assert.ok(headerActionsMatch, 'Expected .header-actions');
-  assert.ok(headerActionsMatch[0].includes('id="bluetoothBtn"'));
+  assert.ok(!headerActionsMatch[0].includes('id="bluetoothBtn"'), 'Devices button removed from main header');
   assert.ok(!headerActionsMatch[0].includes('id="bluetoothHeaderLabel"'));
   assert.ok(!headerActionsMatch[0].includes('id="cloudSyncHeaderLabel"'));
   assert.ok(!headerActionsMatch[0].includes('id="ganTimerBtn"'));
@@ -84,27 +86,37 @@ test('index.html has 3-slot mode bar, icon-only header, 3-tab Devices modal, spl
   assert.match(headerActionsMatch[0], /id="themeToggleBtn"[^>]*>🌙<\/button>/);
   assert.match(headerActionsMatch[0], /id="settingsBtn"[^>]*>⚙️<\/button>/);
 
-  // Unified Devices modal has Smart Cubes, Timers & Keyboard tabs with Virtual Cube in Keyboard
-  const btModalStart = html.indexOf('id="bluetoothModal"');
-  const btModalEnd = html.indexOf('id="solveReplayModal"');
-  const btSlice = html.slice(btModalStart, btModalEnd);
-  assert.ok(btSlice.includes('id="devicesTabCubes"'));
-  assert.ok(btSlice.includes('id="devicesTabTimers"'));
-  assert.ok(btSlice.includes('id="devicesTabKeyboard"'));
-  assert.ok(btSlice.includes('id="devicesPanelKeyboard"'));
-  const kbPanelIdx = btSlice.indexOf('id="devicesPanelKeyboard"');
-  assert.ok(btSlice.indexOf('id="btVirtualBtn"') > kbPanelIdx, 'Virtual Keyboard Cube sits inside Keyboard tab');
-  assert.ok(btSlice.indexOf('id="btVirtualKeypad"') > kbPanelIdx, 'Virtual Keypad sits inside Keyboard tab');
-  assert.ok(btSlice.includes('id="ganTimerBtn"'));
-
-  // Settings has separate Devices and Sync tabs (no combined Hardware & Sync)
+  // Devices live inside Settings -> Devices tab with 3 subtabs + popup buttons for Diagnostics & Supported Smart Cubes
+  assert.ok(!html.includes('id="bluetoothModal"'), 'Separate #bluetoothModal overlay removed in favor of Settings -> Devices');
   assert.ok(html.includes('data-settings-tab="devices"'));
   assert.ok(html.includes('data-settings-tab="sync"'));
   assert.ok(!html.includes('data-settings-tab="hardware"'));
   const devPanelStart = html.indexOf('data-settings-panel="devices"');
   const syncPanelStart = html.indexOf('data-settings-panel="sync"');
+  const devSlice = html.slice(devPanelStart, syncPanelStart);
   assert.ok(devPanelStart > 0 && syncPanelStart > devPanelStart);
-  assert.ok(html.indexOf('id="settingsResetBtBtn"') > devPanelStart && html.indexOf('id="settingsResetBtBtn"') < syncPanelStart);
+  assert.ok(devSlice.includes('id="devicesTabCubes"'));
+  assert.ok(devSlice.includes('id="devicesTabTimers"'));
+  assert.ok(devSlice.includes('id="devicesTabKeyboard"'));
+  assert.ok(devSlice.includes('id="devicesPanelKeyboard"'));
+  const kbPanelIdx = devSlice.indexOf('id="devicesPanelKeyboard"');
+  assert.ok(devSlice.indexOf('id="btVirtualBtn"') > kbPanelIdx, 'Virtual Keyboard Cube sits inside Keyboard tab');
+  assert.ok(devSlice.indexOf('id="btVirtualKeypad"') > kbPanelIdx, 'Virtual Keypad sits inside Keyboard tab');
+  assert.ok(devSlice.includes('id="ganTimerBtn"'));
+  assert.ok(devSlice.includes('id="btOpenDiagModalBtn"'));
+  assert.ok(devSlice.includes('id="btOpenSupportedCubesModalBtn"'));
+  assert.ok(!devSlice.includes('bt-diag-section'), 'Diagnostics moves into its own popup modal');
+  assert.ok(!devSlice.includes('Supported Smart Cubes</h4>'), 'Supported Smart Cubes moves into its own popup modal');
+
+  // Popups for Diagnostics and Supported Smart Cubes stack after #settingsModal
+  const settingsEnd = html.indexOf('id="shortcutsModal"');
+  assert.ok(html.indexOf('id="btDiagModal"') > 0 && html.indexOf('id="btDiagModal"') < settingsEnd);
+  assert.ok(html.indexOf('id="btSupportedCubesModal"') > 0 && html.indexOf('id="btSupportedCubesModal"') < settingsEnd);
+
+  // Beta Features toggle sits in Settings -> General
+  const genPanelStart = html.indexOf('data-settings-panel="general"');
+  const solvePanelStart = html.indexOf('data-settings-panel="solve"');
+  assert.ok(html.slice(genPanelStart, solvePanelStart).includes('id="settingsBetaFeatures"'));
 
   // Footer omits GitHub link
   const footerMatch = html.match(/<footer class="app-legal-footer"[\s\S]*?<\/footer>/);
@@ -153,6 +165,25 @@ test('AppStore & syncMerge handle Train->Simulate and 4-tier F2L modes', () => {
   );
   assert.strictEqual(merged.settings.f2lMode, 'advanced');
   appStore.setF2lMode('basic');
+
+  // Beta Features gating helpers & LWW sync
+  assert.strictEqual(isBetaTrack('222', 'eg1'), true);
+  assert.strictEqual(isBetaTrack('222', 'eg2'), true);
+  assert.strictEqual(isBetaTrack('222', 'cll'), false);
+  assert.strictEqual(isBetaPuzzle('333'), false);
+  assert.strictEqual(isBetaPuzzle('222'), false);
+  assert.strictEqual(isBetaPuzzle('666'), true);
+  assert.strictEqual(isBetaPuzzle('pyram'), true);
+
+  assert.strictEqual(appStore.state.betaFeatures, false);
+  appStore.setBetaFeatures(true);
+  assert.strictEqual(appStore.state.betaFeatures, true);
+  const { merged: betaMerged } = mergeSyncPayloads(
+    { schemaVersion: 2, settings: { betaFeatures: false }, updatedAt: 1000, sessions: [] },
+    { schemaVersion: 2, settings: { betaFeatures: true }, updatedAt: 2000, sessions: [] }
+  );
+  assert.strictEqual(betaMerged.settings.betaFeatures, true);
+  appStore.setBetaFeatures(false);
 });
 
 test('Extended F2L curriculum, Sledge/Hedge algs, and Essential mirror pairs verify cleanly on 3x3 KPuzzle', async () => {

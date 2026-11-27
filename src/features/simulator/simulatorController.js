@@ -806,19 +806,21 @@ export function createSimulatorController({
       simCaseSelect.appendChild(optgroup);
     });
 
-    ["eg1", "eg2"].forEach(egTid => {
-      const egTr = getTrack("222", egTid);
-      if (!egTr) return;
-      const g = document.createElement("optgroup");
-      g.label = `${egTid.toUpperCase()} (40 cases)`;
-      egTr.cases.forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = `222:${egTid}:${c.id}`;
-        opt.textContent = `${c.id}: ${c.algs?.[0]?.alg || ""}`;
-        g.appendChild(opt);
+    if (appStore?.state?.betaFeatures) {
+      ["eg1", "eg2"].forEach(egTid => {
+        const egTr = getTrack("222", egTid);
+        if (!egTr) return;
+        const g = document.createElement("optgroup");
+        g.label = `${egTid.toUpperCase()} (40 cases)`;
+        egTr.cases.forEach(c => {
+          const opt = document.createElement("option");
+          opt.value = `222:${egTid}:${c.id}`;
+          opt.textContent = `${c.id}: ${c.algs?.[0]?.alg || ""}`;
+          g.appendChild(opt);
+        });
+        simCaseSelect.appendChild(g);
       });
-      simCaseSelect.appendChild(g);
-    });
+    }
   }
 
   function attachSimPlayerListeners() {

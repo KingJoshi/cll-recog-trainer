@@ -82,12 +82,23 @@ export function createSmartCubeController({
   getDisconnectAlertView = () => null,
   getNavCtrl = () => null,
   getAlgDrillView = () => null,
-  onOpenShortcuts = null
+  onOpenShortcuts = null,
+  onOpenDevicesTab = null
 } = {}) {
   const bluetoothBtn = typeof document !== "undefined" ? document.getElementById("bluetoothBtn") : null;
   const bluetoothHeaderDot = typeof document !== "undefined" ? document.getElementById("bluetoothHeaderDot") : null;
   const bluetoothHeaderLabel = typeof document !== "undefined" ? document.getElementById("bluetoothHeaderLabel") : null;
   const bluetoothModal = typeof document !== "undefined" ? document.getElementById("bluetoothModal") : null;
+  const settingsModal = typeof document !== "undefined" ? document.getElementById("settingsModal") : null;
+  const btDiagModal = typeof document !== "undefined" ? document.getElementById("btDiagModal") : null;
+  const btDiagModalCloseBtn = typeof document !== "undefined" ? document.getElementById("btDiagModalCloseBtn") : null;
+  const btDiagModalDismissBtn = typeof document !== "undefined" ? document.getElementById("btDiagModalDismissBtn") : null;
+  const btOpenDiagModalBtn = typeof document !== "undefined" ? document.getElementById("btOpenDiagModalBtn") : null;
+  const btSupportedCubesModal = typeof document !== "undefined" ? document.getElementById("btSupportedCubesModal") : null;
+  const btSupportedModalCloseBtn = typeof document !== "undefined" ? document.getElementById("btSupportedModalCloseBtn") : null;
+  const btSupportedModalDismissBtn = typeof document !== "undefined" ? document.getElementById("btSupportedModalDismissBtn") : null;
+  const btOpenSupportedCubesModalBtn = typeof document !== "undefined" ? document.getElementById("btOpenSupportedCubesModalBtn") : null;
+  const btOpenSupportedTimersModalBtn = typeof document !== "undefined" ? document.getElementById("btOpenSupportedTimersModalBtn") : null;
   const bluetoothModalCloseBtn = typeof document !== "undefined" ? document.getElementById("bluetoothModalCloseBtn") : null;
   const btModalDismissBtn = typeof document !== "undefined" ? document.getElementById("btModalDismissBtn") : null;
   const devicesTabCubes = typeof document !== "undefined" ? document.getElementById("devicesTabCubes") : null;
@@ -471,9 +482,7 @@ export function createSmartCubeController({
     }
   }
 
-  function openBluetoothModal(opts = {}) {
-    if (!bluetoothModal) return;
-    void preloadSmartCube();
+  function prepareDevicesView(opts = {}) {
     if (btErrorAlert) btErrorAlert.hidden = true;
     const st = smartCube.getStatus();
     if (opts?.tab === "timers" || opts?.tab === "keyboard" || opts?.tab === "cubes") {
@@ -492,11 +501,23 @@ export function createSmartCubeController({
     }
     updateBluetoothUI();
     getGanTimerCtrl()?.updateGanTimerUI?.();
-    modalManager.open(bluetoothModal);
+  }
+
+  function openBluetoothModal(opts = {}) {
+    void preloadSmartCube();
+    prepareDevicesView(opts);
+    if (onOpenDevicesTab) {
+      onOpenDevicesTab();
+    } else if (bluetoothModal) {
+      modalManager.open(bluetoothModal);
+    }
   }
 
   function closeBluetoothModal() {
     if (bluetoothModal) modalManager.close(bluetoothModal);
+    if (settingsModal && modalManager.isOpen?.(settingsModal)) {
+      modalManager.close(settingsModal);
+    }
   }
 
   function handleBluetoothReset() {
@@ -602,6 +623,22 @@ export function createSmartCubeController({
   devicesTabCubes?.addEventListener("click", () => setDevicesTab("cubes"));
   devicesTabTimers?.addEventListener("click", () => setDevicesTab("timers"));
   devicesTabKeyboard?.addEventListener("click", () => setDevicesTab("keyboard"));
+  btOpenDiagModalBtn?.addEventListener("click", () => {
+    if (btDiagModal) {
+      updateDiagnosticsUI();
+      modalManager.open(btDiagModal);
+    }
+  });
+  btDiagModalCloseBtn?.addEventListener("click", () => btDiagModal && modalManager.close(btDiagModal));
+  btDiagModalDismissBtn?.addEventListener("click", () => btDiagModal && modalManager.close(btDiagModal));
+  btOpenSupportedCubesModalBtn?.addEventListener("click", () => {
+    if (btSupportedCubesModal) modalManager.open(btSupportedCubesModal);
+  });
+  btOpenSupportedTimersModalBtn?.addEventListener("click", () => {
+    if (btSupportedCubesModal) modalManager.open(btSupportedCubesModal);
+  });
+  btSupportedModalCloseBtn?.addEventListener("click", () => btSupportedCubesModal && modalManager.close(btSupportedCubesModal));
+  btSupportedModalDismissBtn?.addEventListener("click", () => btSupportedCubesModal && modalManager.close(btSupportedCubesModal));
   btOpenShortcutsBtn?.addEventListener("click", () => {
     closeBluetoothModal();
     onOpenShortcuts?.();

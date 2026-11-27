@@ -1065,4 +1065,27 @@
     gap: 8px;
     padding-top: 2px;
   }
+
+  .bt-tools-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+  }
+
+  .bt-info-modal-card {
+    max-width: 560px;
+  }
+
+  .settings-beta-notice {
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--muted);
+  }
 }
