@@ -45,7 +45,7 @@ export const ollCases = [
       {
         "id": "oll-02-1",
         "alg": "F R U R' U' F' f R U R' U' f'",
-        "note": "F Sexy F' + f Sexy f'",
+        "note": "F (Righty) F' + f (Righty) f'",
         "isDefault": true,
         "startAuf": ""
       },
@@ -759,7 +759,7 @@ export const ollCases = [
       {
         "id": "oll-21-2",
         "alg": "F (R U R' U')3 F'",
-        "note": "Triple Sexy variant",
+        "note": "Triple Righty variant",
         "startAuf": ""
       },
       {
@@ -794,7 +794,7 @@ export const ollCases = [
       {
         "id": "oll-22-2",
         "alg": "f (R U R' U') f' F (R U R' U') F'",
-        "note": "Wide f + F sexy variant",
+        "note": "Wide f (Righty) f' + F (Righty) F'",
         "startAuf": ""
       },
       {
@@ -1220,7 +1220,7 @@ export const ollCases = [
       {
         "id": "oll-33-1",
         "alg": "R U R' U' R' F R F'",
-        "note": "Sexy + Sledgehammer",
+        "note": "Righty + Sledgehammer",
         "isDefault": true,
         "startAuf": ""
       },
@@ -1368,7 +1368,7 @@ export const ollCases = [
       {
         "id": "oll-37-1",
         "alg": "F R' F' R U R U' R'",
-        "note": "Inverse Sledge + Sexy",
+        "note": "Inverse Sledge + Righty",
         "isDefault": true,
         "startAuf": ""
       },
@@ -1572,7 +1572,7 @@ export const ollCases = [
       {
         "id": "oll-43-1",
         "alg": "F' U' L' U L F",
-        "note": "F' Left-Sexy F",
+        "note": "F' (Lefty) F",
         "isDefault": true,
         "startAuf": ""
       },
@@ -1606,7 +1606,7 @@ export const ollCases = [
       {
         "id": "oll-44-1",
         "alg": "F U R U' R' F'",
-        "note": "F Sexy F' reverse",
+        "note": "F (Inverse Righty) F'",
         "isDefault": true,
         "startAuf": ""
       },
@@ -1640,7 +1640,7 @@ export const ollCases = [
       {
         "id": "oll-45-1",
         "alg": "F R U R' U' F'",
-        "note": "F Sexy F'",
+        "note": "F (Righty) F'",
         "isDefault": true,
         "startAuf": ""
       },
@@ -1742,7 +1742,7 @@ export const ollCases = [
       {
         "id": "oll-48-1",
         "alg": "F R U R' U' R U R' U' F'",
-        "note": "F double sexy F'",
+        "note": "F (Double Righty) F'",
         "isDefault": true,
         "startAuf": ""
       },
@@ -1850,7 +1850,7 @@ export const ollCases = [
       {
         "id": "oll-51-1",
         "alg": "f R U R' U' R U R' U' f'",
-        "note": "Wide f double sexy f'",
+        "note": "Wide f (Double Righty) f'",
         "isDefault": true,
         "startAuf": ""
       },

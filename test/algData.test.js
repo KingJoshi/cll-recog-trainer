@@ -18,7 +18,7 @@ test('PUZZLES registry structure', () => {
   assert.ok(PUZZLES['333oh'], 'Must have 333oh');
   assert.ok(PUZZLES['444'], 'Must have 444');
   assert.ok(PUZZLES['555'], 'Must have 555');
-  assert.strictEqual(PUZZLES['222'].tracks.length, 7);
+  assert.strictEqual(PUZZLES['222'].tracks.length, 8);
   assert.strictEqual(PUZZLES['333'].tracks.length, 7);
   assert.strictEqual(PUZZLES['333oh'].tracks.length, 7);
   assert.strictEqual(PUZZLES['444'].tracks.length, 2);
@@ -28,7 +28,7 @@ test('PUZZLES registry structure', () => {
   assert.ok(pllTrack);
   assert.strictEqual(pllTrack.cases.length, 21);
 
-  assert.deepStrictEqual(PUZZLES['222'].tracks.map(t => t.id), ['face', 'layer', 'lbl', 'ortega', 'cll', 'eg1', 'eg2']);
+  assert.deepStrictEqual(PUZZLES['222'].tracks.map(t => t.id), ['tutorial', 'face', 'layer', 'lbl', 'ortega', 'cll', 'eg1', 'eg2']);
   assert.strictEqual(PUZZLES['222'].defaultTrack, 'lbl');
   assert.deepStrictEqual(PUZZLES['333'].tracks.map(t => t.id), ['cross', 'f2l', 'oll', 'pll', 'coll', 'cmll', 'wv']);
   assert.deepStrictEqual(PUZZLES['333oh'].tracks.map(t => t.id), ['cross', 'f2l', 'oll', 'pll', 'coll', 'cmll', 'wv']);

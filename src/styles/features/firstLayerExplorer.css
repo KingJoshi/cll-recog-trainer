@@ -1133,4 +1133,224 @@
       min-height: 26px;
     }
   }
+
+  /* Multi-group 1st Layer structured sections & wrong-slot white warning */
+  .flb-group-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .flb-group-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .flb-group-section-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+
+  .flb-group-section-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .flb-group-section-title {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 700;
+  }
+
+  .flb-group-section-desc {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  .flb-swap-warn {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: rgba(245, 158, 11, 0.16);
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+  }
+
+  [data-theme="dark"] .flb-swap-warn {
+    color: #fbbf24;
+  }
+
+  /* 2x2 Beginner Tutorial & NxN Notation */
+  .tut-steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 12px;
+  }
+
+  .tut-step-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .tut-step-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .tut-step-kicker {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+
+  .tut-step-goal {
+    margin: 0;
+    font-size: 0.86rem;
+    color: var(--muted);
+  }
+
+  .tut-step-list {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+
+  .tut-alg-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+
+  .tut-alg-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+
+  .tut-alg-code {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text);
+    word-break: break-word;
+  }
+
+  .tut-alg-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .tut-step-tip {
+    margin: auto 0 0;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .tut-notation-grid,
+  .tut-trigger-grid,
+  .tut-glossary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+  }
+
+  .tut-notation-card,
+  .tut-trigger-card,
+  .tut-glossary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+
+  .tut-notation-top,
+  .tut-trigger-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .tut-letter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.95rem;
+  }
+
+  .tut-notation-card p,
+  .tut-trigger-card p,
+  .tut-glossary-item p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .tut-modifiers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .tut-mod-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 190px) minmax(130px, 170px) 1fr;
+    gap: 8px;
+    align-items: baseline;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    font-size: 0.82rem;
+  }
+
+  @media (max-width: 640px) {
+    .tut-mod-row {
+      grid-template-columns: 1fr;
+      gap: 2px;
+    }
+  }
 }

@@ -49,6 +49,11 @@ import {
   syncFirstLayerExplorerSpeed,
   teardownFirstLayerExplorer3d
 } from './features/study/firstLayerExplorer.js';
+import {
+  createTwoByTwoTutorialState,
+  renderTwoByTwoTutorialHtml,
+  bindTwoByTwoTutorialEvents
+} from './features/study/twoByTwoTutorialView.js';
 import { render3BldGuideHtml } from './features/study/bldGuideRenderer.js';
 
 let ScrambleDisplayClass = null;
@@ -119,6 +124,7 @@ export class StudyView {
     this.selectedCaseId = null;
     this.previewAlgId = null;
     this.activeDisplay3d = null;
+    this.tutorialState = createTwoByTwoTutorialState();
     this.firstLayerExplorerState = createFirstLayerExplorerState();
     this._renderToken = 0;
 
@@ -320,7 +326,7 @@ export class StudyView {
     if ((puzzleId === "333" || puzzleId === "333oh") && (track.id === "pll" || track.id === "oll")) {
       return true;
     }
-    return puzzleId === "222" && track.id !== "face" && track.id !== "layer" && (track.cases || []).length > 0;
+    return puzzleId === "222" && !["tutorial", "face", "layer"].includes(track.id) && (track.cases || []).length > 0;
   }
 
   isF2lStudyTrack() {
@@ -464,7 +470,7 @@ export class StudyView {
     if (!track) return;
 
     const activeView = this.currentView === 'detail' ? 'hybrid' : this.currentView;
-    const is222FaceOrLayer = this.currentPuzzle === "222" && (this.currentTrackId === "face" || this.currentTrackId === "layer");
+    const is222FaceOrLayer = this.currentPuzzle === "222" && ["tutorial", "face", "layer"].includes(this.currentTrackId);
     const isOh = this.currentPuzzle === "333oh";
     const ohHand = this.getOhHand();
     const ohTableAbuse = this.getOhTableAbuse();
@@ -527,9 +533,11 @@ export class StudyView {
 
       <div class="study-content">
         ${is222FaceOrLayer
-          ? (this.currentTrackId === 'face'
-              ? renderFirstFaceStudyHtml()
-              : renderFirstLayerStudyHtml(this.firstLayerExplorerState, this.getSimSpeed ? this.getSimSpeed() : 1))
+          ? (this.currentTrackId === 'tutorial'
+              ? renderTwoByTwoTutorialHtml(this.tutorialState)
+              : this.currentTrackId === 'face'
+                ? renderFirstFaceStudyHtml()
+                : renderFirstLayerStudyHtml(this.firstLayerExplorerState, this.getSimSpeed ? this.getSimSpeed() : 1))
           : `
             ${activeView === 'grid' ? this.renderGridView(track) : ''}
             ${activeView === 'hybrid' ? this.renderHybridView(track) : ''}
@@ -1114,7 +1122,7 @@ export class StudyView {
             <ul class="guide-list">
               <li><strong>OLL (4-Piece Front Flip):</strong> Fast wide-turn algorithms (<code>Rw U2 x Rw...</code> or wide Lucas <code>Rw2 B2...</code>) flip the entire front row (<strong>UFL corner + UF dedge + UFR corner</strong>) and swap UL/UR. Use right before OLL recognition so OLL/PLL finishes everything cleanly.</li>
               <li><strong>OLL (Pure Single Dedge Flip):</strong> Inner-slice Lucas Parity (<code>2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2</code>) flips <strong>only the 2 middle UF wings</strong> while preserving all 4 corners. Ideal when OLL corners/edges are already solved or recognized.</li>
-              <li><strong>PLL Parity (Opposite &amp; Adjacent):</strong> Swaps two opposite dedges (<code>2R2 U2 2R2 Uw2 2R2 Uw2</code>) or two adjacent dedges via sexy-move setup.</li>
+              <li><strong>PLL Parity (Opposite &amp; Adjacent):</strong> Swaps two opposite dedges (<code>2R2 U2 2R2 Uw2 2R2 Uw2</code>) or two adjacent dedges via Righty setup.</li>
             </ul>
           </section>
 
@@ -1420,7 +1428,13 @@ export class StudyView {
     });
 
     if (is222FaceOrLayer) {
-      if (this.currentTrackId === 'face') {
+      if (this.currentTrackId === 'tutorial') {
+        bindTwoByTwoTutorialEvents(this.container, this.tutorialState, {
+          onRerender: () => this.render(),
+          onQuickSimSolutions: this.onQuickSimSolutions,
+          onSimulateCase: this.onSimulateCase
+        });
+      } else if (this.currentTrackId === 'face') {
         bindFirstFaceStudyEvents(this.container, {
           onQuickSimSolutions: this.onQuickSimSolutions,
           getSimSpeed: this.getSimSpeed,

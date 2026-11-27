@@ -92,7 +92,7 @@ export const cmllCases = [
       {
         "id": "cmll-H4-default",
         "alg": "F R U R' U' R U R' U' R U R' U' F'",
-        "note": "Triple Sexy",
+        "note": "Triple Righty",
         "isDefault": true,
         "startAuf": ""
       }

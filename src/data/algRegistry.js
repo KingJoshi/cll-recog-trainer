@@ -26,10 +26,20 @@ export const PUZZLES = {
     defaultTrack: "lbl",
     tracks: [
       {
+        id: "tutorial",
+        name: "Beginner 2x2 Tutorial & Notation",
+        shortName: "Tutorial",
+        description: "Learn to solve the 2x2 step-by-step with minimal memorization, plus interactive NxN notation & triggers",
+        studyOnly: true,
+        cases: [],
+        caseById: new Map(),
+        groups: ["Beginner 2x2", "NxN Notation & Triggers"]
+      },
+      {
         id: "face",
         name: "1st Face (Ortega / EG)",
         shortName: "1st Face",
-        description: "Build any 4-sticker face in ≤4 moves and recognize Bar, Adj, and Diag bottom outcomes",
+        description: "Solve one full color face on the bottom first (side colors don't have to match yet), then spot how the bottom sides line up for your next step",
         cases: [],
         caseById: new Map(),
         groups: ["Face Spotting", "Bottom Outcomes", "Color Neutrality"]
@@ -38,7 +48,7 @@ export const PUZZLES = {
         id: "layer",
         name: "1st Layer (123 Cases by Bottom Pieces)",
         shortName: "1st Layer",
-        description: "Organized by pieces solved on bottom: 1 in Bottom (9) · 2 Bottom Bar (70) · 2 Bottom Diagonal (39) · 3 in Bottom (5) · 4 solved → CLL",
+        description: "Organized by solved bottom corners (white down + matching side colors): 1-Corner Bar Builder (9) · 2 Bottom Bar (70) · 2 Bottom Diagonal (39) · 3 in Bottom (5)",
         cases: [],
         caseById: new Map(),
         groups: ["1 in Bottom", "2 Bottom: Bar", "2 Bottom: Diagonal", "3 in Bottom"]

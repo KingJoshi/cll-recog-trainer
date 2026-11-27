@@ -575,7 +575,7 @@ export const FIRST_LAYER_BAR_CASES = [
     "triggerDisplay": "RU Home Grip",
     "triggerAlg": "R' U R U' R' U2 R2 U2 R'",
     "fullTriggerAlg": "R' U R U' R' U2 R2 U2 R'",
-    "cue": "7-move RU Sexy-start case — or home-grip R' U R U' R' U2 R2 U2 R'.",
+    "cue": "7-move RU Righty-start case — or home-grip R' U R U' R' U2 R2 U2 R'.",
     "setup": "R' U2 R' U R' U' R"
   },
   {
@@ -796,10 +796,10 @@ export const FIRST_LAYER_BAR_CASES = [
     "ruAlg": "R2 U R2 U' R2",
     "fullRuAlg": "R2 U R2 U' R2",
     "triggerAuf": "",
-    "triggerDisplay": "RU Sexy",
+    "triggerDisplay": "RU Righty",
     "triggerAlg": "R U2 R' U' R U R'",
     "fullTriggerAlg": "R U2 R' U' R U R'",
-    "cue": "White up in UFR: fast 5m R2 U R2 U' R2 or classic 7m home-grip Sexy finish (R U2 R' U' R U R').",
+    "cue": "White up in UFR: fast 5m R2 U R2 U' R2 or classic 7m home-grip Righty finish (R U2 R' U' R U R').",
     "setup": "R2 U R2 U' R2"
   },
   {
@@ -1723,7 +1723,7 @@ export const FIRST_LAYER_BAR_CASES = [
     "triggerDisplay": "S S",
     "triggerAlg": "R' F R F' R' F R F'",
     "fullTriggerAlg": "R' F R F' R' F R F'",
-    "cue": "Lone front twist: Inverse Sexy ×2 (R U' R' U R U' R', home grip) or Double Sledge (S S)",
+    "cue": "Lone front twist: Inverse Righty ×2 (R U' R' U R U' R', home grip) or Double Sledge (S S)",
     "setup": "R' U' R U R2 U R'"
   },
   {
@@ -1751,7 +1751,7 @@ export const FIRST_LAYER_BAR_CASES = [
     "triggerDisplay": "H H",
     "triggerAlg": "F R' F' R F R' F' R",
     "fullTriggerAlg": "F R' F' R F R' F' R",
-    "cue": "Lone right twist: Double Sexy (R U R' U' R U R', home grip) or Double Hedge (H H)",
+    "cue": "Lone right twist: Double Righty (R U R' U' R U R', home grip) or Double Hedge (H H)",
     "setup": "R' U' R2 U' R U2 R"
   },
   {
@@ -1860,10 +1860,10 @@ export const FIRST_LAYER_BAR_CASES = [
     "ruAlg": "R' U R' U R'",
     "fullRuAlg": "R' U R' U R'",
     "triggerAuf": "",
-    "triggerDisplay": "Inv-Sexy RU",
+    "triggerDisplay": "Inv-Righty RU",
     "triggerAlg": "R U' R' U2 R' U R2",
     "fullTriggerAlg": "R U' R' U2 R' U R2",
-    "cue": "Both bottom corners twisted in place — 5m RU or Inverse-Sexy RU (R U' R' U2 R' U R2).",
+    "cue": "Both bottom corners twisted in place — 5m RU or Inverse Righty RU (R U' R' U2 R' U R2).",
     "setup": "R U' R U' R"
   },
   {
@@ -1947,7 +1947,7 @@ export const FIRST_LAYER_BAR_CASES = [
     "triggerDisplay": "RUF Sledge",
     "triggerAlg": "R' U2 F R F' R2",
     "fullTriggerAlg": "R' U2 F R F' R2",
-    "cue": "Bottom swap — Inverse Sexy into R2 U' R2 (or R' U2 F R F' R2).",
+    "cue": "Bottom swap — Inverse Righty into R2 U' R2 (or R' U2 F R F' R2).",
     "setup": "R' U R U' R2 U R2"
   },
   {
@@ -2221,13 +2221,13 @@ export const FIRST_LAYER_TWO_LOOK = {
         "label": "FP twisted in DFR, White Front (F)",
         "alg": "R U' R' U R U' R'",
         "setup": "F R' F' R F R' F' R",
-        "note": "Inverse Sexy ×2 (7m home grip) · or Double Sledge (R' F R F' R' F R F')"
+        "note": "Inverse Righty ×2 (7m home grip) · or Double Sledge (R' F R F' R' F R F')"
       },
       {
         "label": "FP twisted in DFR, White Right (R)",
         "alg": "R U R' U' R U R'",
         "setup": "R' F R F' R' F R F'",
-        "note": "Double Sexy (7m home grip) · or Double Hedge (F R' F' R F R' F' R)"
+        "note": "Double Righty (7m home grip) · or Double Hedge (F R' F' R F R' F' R)"
       }
     ]
   },

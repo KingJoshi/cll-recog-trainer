@@ -17,7 +17,7 @@ export const ortegaCases = [
       {
         "id": "o-h-2",
         "alg": "F (R U R' U')3 F'",
-        "note": "Triple sexy variant"
+        "note": "Triple Righty variant"
       },
       {
         "id": "o-h-3",
@@ -178,7 +178,7 @@ export const ortegaCases = [
       {
         "id": "o-l-1",
         "alg": "F R' F' R U R U' R'",
-        "note": "Inverse Sledge into Sexy",
+        "note": "Inverse Sledge into Righty",
         "isDefault": true
       },
       {
@@ -190,13 +190,13 @@ export const ortegaCases = [
         "id": "o-l-3",
         "alg": "F' R U R' U' R' F R",
         "startAuf": "U",
-        "note": "Front Sexy + Sledge (3x3 OLL 25 style)"
+        "note": "Front Righty + Sledge (3x3 OLL 25 style)"
       },
       {
         "id": "o-l-4",
         "alg": "F' L F L' U' L' U L",
         "startAuf": "U",
-        "note": "Left-hand Hedge + Sexy mirror"
+        "note": "Left-hand Hedge + Lefty mirror"
       },
       {
         "id": "o-l-5",
@@ -215,14 +215,14 @@ export const ortegaCases = [
       {
         "id": "o-t-1",
         "alg": "R U R' U' R' F R F'",
-        "note": "Sexy + Sledgehammer",
+        "note": "Righty + Sledgehammer",
         "isDefault": true
       },
       {
         "id": "o-t-2",
         "alg": "R U R' U' F' U' F",
         "startAuf": "U",
-        "note": "Short 7-move 2x2 Sexy + Front Insert"
+        "note": "Short 7-move 2x2 Righty + Front Insert"
       },
       {
         "id": "o-t-3",
@@ -233,13 +233,13 @@ export const ortegaCases = [
         "id": "o-t-4",
         "alg": "L' U' L U L F' L' F",
         "startAuf": "U2",
-        "note": "Left-hand Sexy + Left Sledge"
+        "note": "Lefty + Left Sledge"
       },
       {
         "id": "o-t-5",
         "alg": "L' U' L U F U F'",
         "startAuf": "U",
-        "note": "Short 7-move Left Sexy + Front Insert"
+        "note": "Short 7-move Lefty + Front Insert"
       }
     ],
     "setup": "F R' F' R U R U' R'"
@@ -253,20 +253,20 @@ export const ortegaCases = [
       {
         "id": "o-u-1",
         "alg": "F R U R' U' F'",
-        "note": "F Sexy F'",
+        "note": "F (Righty) F'",
         "isDefault": true
       },
       {
         "id": "o-u-2",
         "alg": "F U R U' R' F'",
         "startAuf": "U2",
-        "note": "F Inverse-Sexy F' (6 moves)"
+        "note": "F (Inverse Righty) F' (6 moves)"
       },
       {
         "id": "o-u-3",
         "alg": "F' L' U' L U F",
         "startAuf": "U2",
-        "note": "Left-hand F' Left-Sexy F (6 moves)"
+        "note": "Left-hand F' (Lefty) F (6 moves)"
       },
       {
         "id": "o-u-4",

@@ -120,7 +120,7 @@ export const parity444Cases = [
       {
         id: "444-pll-adj-std",
         alg: "R U R' U' 2R2 U2 2R2 Uw2 2R2 Uw2 U R U' R'",
-        note: "Sexy-move setup into opposite PLL parity + reverse sexy setup"
+        note: "Righty setup into opposite PLL parity + Inverse Righty setup"
       }
     ]
   }

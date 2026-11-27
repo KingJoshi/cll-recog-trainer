@@ -138,9 +138,9 @@ test('index.html has 3-slot mode bar, icon-only header, 3-tab Devices modal, spl
   assert.ok(expPanelSlice.includes('id="settingsExpRemoveAllBtn"'));
   assert.ok(expPanelSlice.includes('Remove All'));
   for (const fid of [
-    'eg1', 'eg2', 'twoByTwoFirstLayer', 'coll', 'cmll', 'wv',
-    'extraPuzzles', 'customEvents', 'stackmatG5', 'virtualKeyboard',
-    'quickSetup', 'metronome', 'ohSettings'
+    'twoByTwoTutorial', 'twoByTwoFirstFace', 'eg1', 'eg2', 'twoByTwoFirstLayer',
+    'coll', 'cmll', 'wv', 'extraPuzzles', 'customEvents', 'stackmatG5',
+    'virtualKeyboard', 'quickSetup', 'metronome', 'ohSettings', 'cstimerImport', 'cubeastImport'
   ]) {
     assert.ok(expPanelSlice.includes(`data-experimental-feature="${fid}"`), `Missing experimental checkbox ${fid}`);
   }

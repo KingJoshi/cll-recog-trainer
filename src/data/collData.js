@@ -60,7 +60,7 @@ export const collCases = [
       {
         "id": "coll-H4-default",
         "alg": "F R U R' U' R U R' U' R U R' U' F'",
-        "note": "Triple Sexy",
+        "note": "Triple Righty",
         "isDefault": true,
         "startAuf": ""
       }
@@ -124,7 +124,7 @@ export const collCases = [
       {
         "id": "coll-P4-default",
         "alg": "F U R U' R' U R U2 R' U' R U R' F'",
-        "note": "F Sexy Variant",
+        "note": "F (Righty) Variant",
         "isDefault": true,
         "startAuf": ""
       }

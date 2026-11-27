@@ -41,8 +41,10 @@ const TOTAL_LAYER_CASES =
   FIRST_LAYER_DIAG_CASES.length +
   FIRST_LAYER_THREE_BOTTOM_CASES.length;
 
+const QUIZ_GROUP_ORDER = ['one-bottom', 'two-bar', 'two-diag', 'three-bottom'];
+
 function normalizeGroupId(groupId) {
-  if (groupId === 'one-bottom' || groupId === 'two-bar' || groupId === 'two-diag' || groupId === 'three-bottom') {
+  if (QUIZ_GROUP_ORDER.includes(groupId)) {
     return groupId;
   }
   return 'two-bar';
@@ -55,12 +57,7 @@ const EXPLORER_GROUP_TABS = [
   { id: 'three-bottom', label: `3 in Bottom (${FIRST_LAYER_THREE_BOTTOM_CASES.length})`, count: FIRST_LAYER_THREE_BOTTOM_CASES.length }
 ];
 
-const QUIZ_GROUP_TABS = [
-  { id: 'one-bottom', label: `1 in Bottom (${FIRST_LAYER_ONE_BOTTOM_CASES.length})` },
-  { id: 'two-bar', label: `2 Bottom: Bar (${FIRST_LAYER_BAR_PURE_CASES.length})` },
-  { id: 'two-diag', label: `2 Bottom: Diagonal (${FIRST_LAYER_DIAG_CASES.length})` },
-  { id: 'three-bottom', label: `3 in Bottom (${FIRST_LAYER_THREE_BOTTOM_CASES.length})` }
-];
+const QUIZ_GROUP_TABS = EXPLORER_GROUP_TABS;
 
 function getCasesForGroup(groupId) {
   const norm = normalizeGroupId(groupId);
@@ -73,7 +70,7 @@ function getCasesForGroup(groupId) {
 function getGroupBanner(groupId) {
   const norm = normalizeGroupId(groupId);
   if (norm === 'one-bottom') {
-    return 'Strictly 1 white face on bottom (DBL anchor — no bar, no second white sticker on D). Every case solves the complete 1st Layer in 2 steps: build the Left Bar (DFL + DBL), then finish DFR + DBR.';
+    return 'Step-1 Bar Builders (1 white anchor at DBL): pairs DFL into DBL to form a 2-Bottom Bar cleanly (9 partner positions).';
   }
   if (norm === 'two-diag') {
     return '2 corners solved Diagonally (DBL + DFR solved). Resolve the remaining DFL + DBR pair cleanly in 3–6 <R, U, F> moves (no cube rotation needed).';
@@ -82,6 +79,10 @@ function getGroupBanner(groupId) {
     return '3 corners solved in Bottom (DFL + DBL + DBR). Only DFR remains — and when all 4 corners are solved, you are straight into CLL!';
   }
   return '2 corners solved Adjacent on the Left (DFL + DBL Bar; excludes the 5 cases where DBR is already solved in 3 in Bottom).';
+}
+
+function hasWrongSlotWhiteDown(c) {
+  return c?.fpWhite === 'D' || c?.bpWhite === 'D' || c?.flWhite === 'D' || c?.brWhite === 'D' || c?.partnerWhite === 'D';
 }
 
 function getCaseCodeBadge(c) {
@@ -442,14 +443,14 @@ export function renderFirstFaceStudyHtml() {
         <section class="guide-card guide-card-full flb-hero-card">
           <h3 class="guide-card-title">&#x1F9E9; 1st Face vs. 1st Layer &mdash; Why They Are Separate</h3>
           <p class="flb-hero-lead">
-            A <strong>1st Face</strong> only matches the 4 stickers of your bottom color (avg <strong>3.1 moves</strong>, 99.8% &le; 4 moves), ignoring whether side colors line up. That tiny shortcut unlocks <strong>Ortega PBL</strong> and <strong>EG-1 / EG-2</strong>! A <strong>1st Layer</strong> matches both bottom and side colors (for <strong>LBL</strong> &amp; <strong>CLL</strong>).
+            A <strong>1st Face</strong> only matches the 4 stickers on the bottom face&mdash;the side colors do not need to line up yet. That makes it quicker to build than a full <strong>1st Layer</strong> (where both bottom and side colors match), and prepares you for <strong>Ortega</strong> and <strong>EG</strong> methods.
           </p>
 
           <div class="ff-outcomes-grid">
             <div class="ff-outcome-card">
               ${renderBottomOutcomeSvg('solved')}
               <div class="ff-outcome-body">
-                <strong>Solved Layer (All 4 Match)</strong>
+                <strong>Solved Layer (All 4 Side Pairs Match)</strong>
                 <span class="badge badge-solved">Skip PBL / Use CLL</span>
                 <p>Opposite colors sit across sides &amp; every adjacent pair matches. Go straight to <strong>LBL</strong> or <strong>1-Look CLL</strong>!</p>
               </div>
@@ -457,7 +458,7 @@ export function renderFirstFaceStudyHtml() {
             <div class="ff-outcome-card">
               ${renderBottomOutcomeSvg('bar')}
               <div class="ff-outcome-body">
-                <strong>Adjacent Swap (1 Back Bar)</strong>
+                <strong>Adjacent Swap (1 Matching Side Pair = &quot;Bar&quot;)</strong>
                 <span class="badge badge-case">Ortega PBL / EG-1</span>
                 <p>One pair of matching side colors forms a <strong>Bar</strong> (hold it in Back <code>DBL+DBR</code>). Leads into <strong>Adj PBL</strong> or <strong>EG-1</strong>.</p>
               </div>
@@ -465,7 +466,7 @@ export function renderFirstFaceStudyHtml() {
             <div class="ff-outcome-card">
               ${renderBottomOutcomeSvg('diag')}
               <div class="ff-outcome-body">
-                <strong>Diagonal Swap (No Bar)</strong>
+                <strong>Diagonal Swap (No Matching Side Pairs)</strong>
                 <span class="badge badge-warning">Ortega PBL / EG-2</span>
                 <p>Zero side bars on bottom (every pair has opposite/mismatched colors). Triggers fast <code>R2 F2 R2</code> PBL or <strong>EG-2 / Anti-CLL</strong>.</p>
               </div>
@@ -784,7 +785,7 @@ export function createFirstLayerExplorerState() {
     activeShape: 'right-edge',
     activeCaseId: 'flb-01',
     explorerAlgMode: 'primary', // 'primary' | 'trigger'
-    quizGroup: 'two-bar', // 'one-bottom' | 'two-bar' | 'two-diag' | 'three-bottom'
+    quizGroups: new Set(), // empty Set = All (123) across all 4 ordered groups
     quizBucket: 'all',
     quizMoves: 'all'
   };
@@ -1137,7 +1138,7 @@ function renderGuideTab() {
           </ul>
           <p style="margin-top: 10px;"><strong>High-Yield Trigger Pairs to Recognize Together:</strong></p>
           <ul class="guide-list">
-            <li><strong>Lone Twist at DFR (BP solved):</strong> White Front → <code>R U' R' U R U' R'</code> (Inverse Sexy ×2, or <code>S S</code>) · White Right → <code>R U R' U' R U R'</code> (Double Sexy, or <code>H H</code>).</li>
+            <li><strong>Lone Twist at DFR (BP solved):</strong> White Front → <code>R U' R' U R U' R'</code> (Inverse Righty ×2, or <code>S S</code>) · White Right → <code>R U R' U' R U R'</code> (Double Righty, or <code>H H</code>).</li>
             <li><strong>Bottom Swap Sides Matter:</strong> Both whites down (Case #67 swap): only side colors distinguish swapped vs solved!</li>
             <li><strong>Sledge / Hedge Pairs:</strong> Try <code>S R2 H</code> vs <code>H R2 S</code> and contrast pairs <code>R U H</code> vs <code>R U S</code>.</li>
           </ul>
@@ -1181,61 +1182,194 @@ function renderGuideTab() {
   `;
 }
 
-function getGroupBuckets(groupId, baseList) {
-  const norm = normalizeGroupId(groupId);
-  if (norm === 'one-bottom') {
-    return [
-      { id: 'all', label: `All (${baseList.length})` },
-      { id: 'in-top', label: `Partner in Top (${baseList.filter(c => c.bucket === 'in-top').length})` },
-      { id: 'in-bottom', label: `Partner on Bottom Side (${baseList.filter(c => c.bucket === 'in-bottom').length})` }
-    ];
+function getNormalizedBucket(c) {
+  if (c.bucket === 'in-top' || c.bucket === 'both-top') return 'top';
+  if (c.bucket === 'in-bottom' || c.bucket === 'both-bottom') return 'bottom';
+  return 'mixed';
+}
+
+const BUCKET_ORDER_RANK = { top: 0, mixed: 1, bottom: 2 };
+
+function ensureQuizGroupsSet(state) {
+  if (!(state.quizGroups instanceof Set)) {
+    const init = QUIZ_GROUP_ORDER.includes(state.quizGroup) ? [state.quizGroup] : [];
+    state.quizGroups = new Set(init);
   }
-  if (norm === 'three-bottom') {
+  return state.quizGroups;
+}
+
+function getActiveQuizGroups(state) {
+  const set = ensureQuizGroupsSet(state);
+  return set.size === 0
+    ? QUIZ_GROUP_ORDER
+    : QUIZ_GROUP_ORDER.filter(id => set.has(id));
+}
+
+function getQuizBaseList(state) {
+  const activeGroups = getActiveQuizGroups(state);
+  const out = [];
+  for (const grpId of activeGroups) {
+    const items = [...getCasesForGroup(grpId)].sort((a, b) => {
+      const ba = BUCKET_ORDER_RANK[getNormalizedBucket(a)] ?? 9;
+      const bb = BUCKET_ORDER_RANK[getNormalizedBucket(b)] ?? 9;
+      if (ba !== bb) return ba - bb;
+      return (a.index || 0) - (b.index || 0);
+    });
+    out.push(...items);
+  }
+  return out;
+}
+
+function getGroupBuckets(activeGroups, baseList) {
+  if (activeGroups.length === 1) {
+    const norm = normalizeGroupId(activeGroups[0]);
+    if (norm === 'one-bottom') {
+      return [
+        { id: 'all', label: `All (${baseList.length})` },
+        { id: 'in-top', label: `Partner in Top (${baseList.filter(c => c.bucket === 'in-top').length})` },
+        { id: 'in-bottom', label: `Partner on Bottom Side (${baseList.filter(c => c.bucket === 'in-bottom').length})` }
+      ];
+    }
+    if (norm === 'three-bottom') {
+      return [
+        { id: 'all', label: `All (${baseList.length})` },
+        { id: 'mixed', label: `Last Corner Top (${baseList.filter(c => c.bucket === 'mixed').length})` },
+        { id: 'both-bottom', label: `Last Corner Twisted (${baseList.filter(c => c.bucket === 'both-bottom').length})` }
+      ];
+    }
     return [
       { id: 'all', label: `All (${baseList.length})` },
-      { id: 'mixed', label: `Last Corner Top (${baseList.filter(c => c.bucket === 'mixed').length})` },
-      { id: 'both-bottom', label: `Last Corner Twisted (${baseList.filter(c => c.bucket === 'both-bottom').length})` }
+      { id: 'both-top', label: `Both Top (${baseList.filter(c => c.bucket === 'both-top').length})` },
+      { id: 'mixed', label: `1 Top + 1 Bottom (${baseList.filter(c => c.bucket === 'mixed').length})` },
+      { id: 'both-bottom', label: `Both Bottom (${baseList.filter(c => c.bucket === 'both-bottom').length})` }
     ];
   }
   return [
     { id: 'all', label: `All (${baseList.length})` },
-    { id: 'both-top', label: `Both Top (${baseList.filter(c => c.bucket === 'both-top').length})` },
-    { id: 'mixed', label: `1 Top + 1 Bottom (${baseList.filter(c => c.bucket === 'mixed').length})` },
-    { id: 'both-bottom', label: `Both Bottom (${baseList.filter(c => c.bucket === 'both-bottom').length})` }
+    { id: 'top', label: `Both Top (${baseList.filter(c => getNormalizedBucket(c) === 'top').length})` },
+    { id: 'mixed', label: `1 Top + 1 Bottom (${baseList.filter(c => getNormalizedBucket(c) === 'mixed').length})` },
+    { id: 'bottom', label: `Bottom (${baseList.filter(c => getNormalizedBucket(c) === 'bottom').length})` }
   ];
 }
 
+function matchesQuizBucket(c, state, isMultiGroup) {
+  if (!state.quizBucket || state.quizBucket === 'all') return true;
+  if (isMultiGroup) return getNormalizedBucket(c) === state.quizBucket;
+  return c.bucket === state.quizBucket || getNormalizedBucket(c) === state.quizBucket;
+}
+
 function getFilteredQuizCases(state) {
-  const baseList = getCasesForGroup(state.quizGroup || 'two-bar');
+  const activeGroups = getActiveQuizGroups(state);
+  const isMultiGroup = activeGroups.length > 1;
+  const baseList = getQuizBaseList(state);
   return baseList.filter(c => {
-    if (state.quizBucket !== 'all' && c.bucket !== state.quizBucket) return false;
+    if (!matchesQuizBucket(c, state, isMultiGroup)) return false;
     if (state.quizMoves !== 'all' && String(getCaseMoveCount(c)) !== String(state.quizMoves)) return false;
     return true;
   });
 }
 
+function renderQuizCard(c, idx) {
+  const mv = getCaseMoveCount(c);
+  const primaryAlg = getCasePrimaryMoves(c);
+  const overlay = getCaseCornerOverlay(c);
+  const canStep = mv > 0;
+  const wrongSlotWhite = hasWrongSlotWhiteDown(c);
+  return `
+    <article class="flb-case-card ${c.isRimBar ? 'is-rim' : ''}" data-quiz-case-id="${c.id}">
+      <div class="flb-card-head">
+        <span class="flb-quiz-num">${escapeHtml(getCaseCodeBadge(c))}</span>
+        <span class="badge ${getMoveBadgeClass(mv)}">${mv}m</span>
+        <span class="flb-card-shape">${escapeHtml(c.subShape)}</span>
+        <button type="button" class="btn btn-xs btn-icon-only flb-card-diag-btn flb-open-in-exp-btn" data-exp-case="${c.id}" data-exp-group="${c.group || 'two-bar'}" data-tooltip="Open 2D diagrams in Explorer" aria-label="Open 2D diagrams in Explorer">${ICON_DIAGRAM}</button>
+      </div>
+      <div class="flb-card-3d-wrap flb-card-3d-live" data-card-id="${c.id}" data-card-setup="${escapeHtml(c.setup)}" data-card-alg="${escapeHtml(primaryAlg)}">
+        ${renderFirstLayer3dSvg(c)}
+      </div>
+      <div class="flb-card-corners">
+        ${overlay.pieceA ? `<span class="flb-tag-a">${escapeHtml(overlay.pieceA.tagText)}</span>` : ''}
+        ${overlay.pieceB ? `<span class="flb-tag-b">${escapeHtml(overlay.pieceB.tagText)}</span>` : ''}
+        ${wrongSlotWhite ? `<span class="flb-swap-warn" title="White faces down in the wrong bottom slot — side colors do not match the solved bar">⚠ Wrong-slot white</span>` : ''}
+      </div>
+      <div class="flb-card-alg-box">
+        ${c.triggerDisplay && c.fullTriggerAlg
+          ? `<button type="button" class="flb-card-alg-opt is-active" data-card-id="${c.id}" data-alg-mode="primary" aria-pressed="true" data-tooltip="Simulate optimal &lt;R, U&gt; solution"><span class="flb-sol-alg">${escapeHtml(primaryAlg)}</span></button>
+             <button type="button" class="flb-card-alg-opt is-alt" data-card-id="${c.id}" data-alg-mode="trigger" aria-pressed="false" data-tooltip="Simulate Alt (${escapeHtml(c.triggerDisplay)}): ${escapeHtml(c.fullTriggerAlg)}"><span class="flb-trig-mini">Alt: ${escapeHtml(c.triggerDisplay)}</span><span class="flb-trig-expanded-mini">${escapeHtml(c.fullTriggerAlg)}</span></button>`
+          : `<span class="flb-sol-alg">${escapeHtml(primaryAlg)}</span>
+             ${c.barAlg && c.finishAlg ? `<span class="flb-step-hint-mini">Bar: ${escapeHtml(c.barAlg)} &rarr; + ${escapeHtml(c.finishAlg)}</span>` : ''}`
+        }
+      </div>
+      <div class="flb-card-actions" role="group" aria-label="3D controls for ${escapeHtml(getCaseCodeBadge(c))}">
+        <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-reset-3d-btn" data-card-id="${c.id}" data-tooltip="Reset 3D orientation" aria-label="Reset 3D orientation">${ICON_RESET_ANGLE}</button>
+        <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-start-btn" data-card-id="${c.id}" data-tooltip="Reset to case start" aria-label="Reset to case start" disabled>${ICON_SKIP_START}</button>
+        <button type="button" class="btn btn-xs btn-icon-only btn-primary flb-card-icon-btn flb-card-play-btn" data-card-id="${c.id}" data-play-state="play" data-tooltip="Play / Pause solution" aria-label="Play solution" ${canStep ? '' : 'disabled'}>${ICON_PLAY}</button>
+        <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-next-btn" data-card-id="${c.id}" data-tooltip="Step forward 1 move" aria-label="Step forward 1 move" ${canStep ? '' : 'disabled'}>${ICON_STEP_FORWARD}</button>
+        <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-quiz-sim-btn" data-quiz-idx="${idx}" data-tooltip="Open popup simulator" aria-label="Open popup simulator">${ICON_POPUP_SIM}</button>
+      </div>
+    </article>
+  `;
+}
+
 function renderQuizTab(state) {
-  const activeGroup = normalizeGroupId(state.quizGroup || 'two-bar');
-  state.quizGroup = activeGroup;
-  const baseList = getCasesForGroup(activeGroup);
+  const selectedSet = ensureQuizGroupsSet(state);
+  const activeGroups = getActiveQuizGroups(state);
+  const isAllSelected = selectedSet.size === 0;
+  const baseList = getQuizBaseList(state);
   const filtered = getFilteredQuizCases(state);
-  const buckets = getGroupBuckets(activeGroup, baseList);
+  const buckets = getGroupBuckets(activeGroups, baseList);
   const moveValues = Array.from(new Set(baseList.map(getCaseMoveCount))).sort((a, b) => a - b);
+
+  let gridBodyHtml = '';
+  if (activeGroups.length > 1) {
+    let flatIdx = 0;
+    const sectionsHtml = activeGroups.map(grpId => {
+      const grpTab = QUIZ_GROUP_TABS.find(t => t.id === grpId);
+      const grpCases = filtered.filter(c => (c.group || 'two-bar') === grpId);
+      if (grpCases.length === 0) return '';
+      const cardsHtml = grpCases.map(c => renderQuizCard(c, flatIdx++)).join('');
+      return `
+        <section class="flb-group-section" data-quiz-section="${grpId}">
+          <div class="flb-group-section-head">
+            <div class="flb-group-section-title-row">
+              <h3 class="flb-group-section-title">${escapeHtml(grpTab?.label || grpId)}</h3>
+              <span class="badge">${grpCases.length} shown</span>
+            </div>
+            <p class="flb-group-section-desc">${escapeHtml(getGroupBanner(grpId))}</p>
+          </div>
+          <div class="flb-case-grid">${cardsHtml}</div>
+        </section>
+      `;
+    }).join('');
+    gridBodyHtml = sectionsHtml
+      ? `<div class="flb-group-sections">${sectionsHtml}</div>`
+      : `<div class="flb-group-banner"><span>No cases match the active filters.</span></div>`;
+  } else {
+    const singleGroup = activeGroups[0] || 'two-bar';
+    gridBodyHtml = `
+      <div class="flb-group-banner">
+        <span>${escapeHtml(getGroupBanner(singleGroup))}</span>
+        <span class="flb-cll-note">All 4 solved &rarr; CLL</span>
+      </div>
+      <div class="flb-case-grid">
+        ${filtered.map((c, idx) => renderQuizCard(c, idx)).join('')}
+      </div>
+    `;
+  }
 
   return `
     <div class="flb-quiz-wrap">
-      <div class="flb-bottom-group-bar" role="group" aria-label="Group cases by pieces in bottom">
+      <div class="flb-bottom-group-bar ui-chip-group" role="group" aria-label="Filter cases by pieces in bottom (multi-select)">
         <span class="study-filter-label">Bottom Pieces:</span>
-        ${QUIZ_GROUP_TABS.map(tab => `
-          <button type="button" class="flb-bottom-group-btn ${activeGroup === tab.id ? 'active' : ''}" data-quiz-group="${tab.id}" aria-pressed="${activeGroup === tab.id}">
-            ${escapeHtml(tab.label)}
-          </button>
-        `).join('')}
-      </div>
-
-      <div class="flb-group-banner">
-        <span>${escapeHtml(getGroupBanner(activeGroup))}</span>
-        <span class="flb-cll-note">All 4 solved &rarr; CLL</span>
+        <button type="button" class="flb-bottom-group-btn ui-chip-reset ${isAllSelected ? 'active' : ''}" data-quiz-group="all" aria-pressed="${isAllSelected}">All (${TOTAL_LAYER_CASES})</button>
+        <span class="ui-chip-divider" aria-hidden="true"></span>
+        ${QUIZ_GROUP_TABS.map(tab => {
+          const active = selectedSet.has(tab.id);
+          return `
+            <button type="button" class="flb-bottom-group-btn ui-filter-chip ${active ? 'active' : ''}" data-quiz-group="${tab.id}" aria-pressed="${active}">
+              <span class="ui-chip-check" aria-hidden="true"></span><span>${escapeHtml(tab.label)}</span>
+            </button>
+          `;
+        }).join('')}
       </div>
 
       <div class="flb-quiz-toolbar">
@@ -1265,46 +1399,7 @@ function renderQuizTab(state) {
         ${renderIconLegendHtml({ includeStepBack: false, includeEnd: false })}
       </div>
 
-      <div class="flb-case-grid">
-        ${filtered.map((c, idx) => {
-          const mv = getCaseMoveCount(c);
-          const primaryAlg = getCasePrimaryMoves(c);
-          const overlay = getCaseCornerOverlay(c);
-          const canStep = mv > 0;
-          return `
-            <article class="flb-case-card ${c.isRimBar ? 'is-rim' : ''}" data-quiz-case-id="${c.id}">
-              <div class="flb-card-head">
-                <span class="flb-quiz-num">${escapeHtml(getCaseCodeBadge(c))}</span>
-                <span class="badge ${getMoveBadgeClass(mv)}">${mv}m</span>
-                <span class="flb-card-shape">${escapeHtml(c.subShape)}</span>
-                <button type="button" class="btn btn-xs btn-icon-only flb-card-diag-btn flb-open-in-exp-btn" data-exp-case="${c.id}" data-exp-group="${c.group || 'two-bar'}" data-tooltip="Open 2D diagrams in Explorer" aria-label="Open 2D diagrams in Explorer">${ICON_DIAGRAM}</button>
-              </div>
-              <div class="flb-card-3d-wrap flb-card-3d-live" data-card-id="${c.id}" data-card-setup="${escapeHtml(c.setup)}" data-card-alg="${escapeHtml(primaryAlg)}">
-                ${renderFirstLayer3dSvg(c)}
-              </div>
-              <div class="flb-card-corners">
-                ${overlay.pieceA ? `<span class="flb-tag-a">${escapeHtml(overlay.pieceA.tagText)}</span>` : ''}
-                ${overlay.pieceB ? `<span class="flb-tag-b">${escapeHtml(overlay.pieceB.tagText)}</span>` : ''}
-              </div>
-              <div class="flb-card-alg-box">
-                ${c.triggerDisplay && c.fullTriggerAlg
-                  ? `<button type="button" class="flb-card-alg-opt is-active" data-card-id="${c.id}" data-alg-mode="primary" aria-pressed="true" data-tooltip="Simulate optimal &lt;R, U&gt; solution"><span class="flb-sol-alg">${escapeHtml(primaryAlg)}</span></button>
-                     <button type="button" class="flb-card-alg-opt is-alt" data-card-id="${c.id}" data-alg-mode="trigger" aria-pressed="false" data-tooltip="Simulate Alt (${escapeHtml(c.triggerDisplay)}): ${escapeHtml(c.fullTriggerAlg)}"><span class="flb-trig-mini">Alt: ${escapeHtml(c.triggerDisplay)}</span><span class="flb-trig-expanded-mini">${escapeHtml(c.fullTriggerAlg)}</span></button>`
-                  : `<span class="flb-sol-alg">${escapeHtml(primaryAlg)}</span>
-                     ${c.barAlg && c.finishAlg ? `<span class="flb-step-hint-mini">Bar: ${escapeHtml(c.barAlg)} &rarr; + ${escapeHtml(c.finishAlg)}</span>` : ''}`
-                }
-              </div>
-              <div class="flb-card-actions" role="group" aria-label="3D controls for ${escapeHtml(getCaseCodeBadge(c))}">
-                <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-reset-3d-btn" data-card-id="${c.id}" data-tooltip="Reset 3D orientation" aria-label="Reset 3D orientation">${ICON_RESET_ANGLE}</button>
-                <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-start-btn" data-card-id="${c.id}" data-tooltip="Reset to case start" aria-label="Reset to case start" disabled>${ICON_SKIP_START}</button>
-                <button type="button" class="btn btn-xs btn-icon-only btn-primary flb-card-icon-btn flb-card-play-btn" data-card-id="${c.id}" data-play-state="play" data-tooltip="Play / Pause solution" aria-label="Play solution" ${canStep ? '' : 'disabled'}>${ICON_PLAY}</button>
-                <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-next-btn" data-card-id="${c.id}" data-tooltip="Step forward 1 move" aria-label="Step forward 1 move" ${canStep ? '' : 'disabled'}>${ICON_STEP_FORWARD}</button>
-                <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-quiz-sim-btn" data-quiz-idx="${idx}" data-tooltip="Open popup simulator" aria-label="Open popup simulator">${ICON_POPUP_SIM}</button>
-              </div>
-            </article>
-          `;
-        }).join('')}
-      </div>
+      ${gridBodyHtml}
     </div>
   `;
 }
@@ -2322,10 +2417,23 @@ export function bindFirstLayerStudyEvents(container, state, {
     });
   });
 
-  // Grid filter bindings
+  // Grid filter bindings (multi-select Bottom Pieces chips + separate All reset)
   container.querySelectorAll('[data-quiz-group]').forEach(btn => {
     btn.addEventListener('click', () => {
-      state.quizGroup = normalizeGroupId(btn.dataset.quizGroup || 'two-bar');
+      const set = ensureQuizGroupsSet(state);
+      const val = btn.dataset.quizGroup || 'all';
+      if (val === 'all') {
+        set.clear();
+      } else if (QUIZ_GROUP_ORDER.includes(val)) {
+        if (set.has(val)) set.delete(val);
+        else {
+          set.add(val);
+          if (QUIZ_GROUP_ORDER.every(id => set.has(id))) {
+            set.clear();
+          }
+        }
+      }
+      delete state.quizGroup;
       state.quizBucket = 'all';
       state.quizMoves = 'all';
       onRerender?.();

@@ -55,10 +55,20 @@ export const STORAGE_KEYS = {
 export const VALID_PUZZLES = ["222", "333", "333oh", "444", "555", "666", "777", "fto", "pyram", "skewb", "minx", "sq1", "clock", "333bf"];
 export const DEFAULT_VISIBLE_EVENTS = ["222", "333", "333oh", "444", "555"];
 export const ALL_BUILTIN_EVENT_IDS = [...VALID_PUZZLES];
-export const BETA_TRACK_IDS_222 = new Set(["eg1", "eg2", "layer"]);
+export const BETA_TRACK_IDS_222 = new Set(["tutorial", "face", "eg1", "eg2", "layer"]);
 export const BETA_TRACK_IDS_333 = new Set(["coll", "cmll", "wv"]);
 
 export const EXPERIMENTAL_FEATURES = Object.freeze([
+  {
+    id: "twoByTwoTutorial",
+    label: "2x2 Beginner Tutorial & NxN Notation",
+    description: "Step-by-step low-memorization 2x2 tutorial plus interactive NxN notation, triggers, and Simulator walkthroughs (shown before 1st Face)"
+  },
+  {
+    id: "twoByTwoFirstFace",
+    label: "2x2 1st Face",
+    description: "2x2 1st Face study guide, inspection drills, and timed drills for Ortega & EG"
+  },
   {
     id: "eg1",
     label: "2x2 EG-1",
@@ -140,6 +150,8 @@ export const EXPERIMENTAL_FEATURE_IDS = EXPERIMENTAL_FEATURES.map(f => f.id);
 export function getTrackExperimentalFeature(puzzleId, trackId) {
   if (!trackId) return null;
   if (puzzleId === "222") {
+    if (trackId === "tutorial") return "twoByTwoTutorial";
+    if (trackId === "face") return "twoByTwoFirstFace";
     if (trackId === "eg1") return "eg1";
     if (trackId === "eg2") return "eg2";
     if (trackId === "layer") return "twoByTwoFirstLayer";

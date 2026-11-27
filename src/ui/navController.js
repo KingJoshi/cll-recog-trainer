@@ -17,7 +17,7 @@ import {
 export const TIMER_DRILL_PRESETS = {
   "righty": {
     id: "righty",
-    name: "Righty (Sexy Move)",
+    name: "Righty",
     scramble: "U R U' R'",
     solution: "R U R' U'",
     display: "U R U' R'",
@@ -26,7 +26,7 @@ export const TIMER_DRILL_PRESETS = {
   },
   "lefty": {
     id: "lefty",
-    name: "Lefty (Left Sexy)",
+    name: "Lefty",
     scramble: "U' L' U L",
     solution: "L' U' L U",
     display: "U' L' U L",

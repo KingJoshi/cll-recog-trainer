@@ -391,7 +391,7 @@ export const f2lCases = [
       {
         "id": "f2l-24-1",
         "alg": "R U R' U' U' R U R' U' R U R'",
-        "note": "Triple Sexy variant",
+        "note": "Triple Righty variant",
         "isDefault": true
       }
     ],

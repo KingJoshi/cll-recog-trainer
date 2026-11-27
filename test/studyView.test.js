@@ -100,12 +100,30 @@ test('StudyView renders dedicated 2x2 1st Face, 1st Layer Bottom-Piece Case Grou
     getOhHand: () => 'right'
   });
 
-  // 1. 2x2 1st Face dedicated study view
+  // 0. 2x2 Beginner Tutorial & NxN Notation track
+  sv.setTrack('222', 'tutorial');
+  assert.ok(container.innerHTML.includes('Beginner 2x2 Method'));
+  assert.ok(container.innerHTML.includes('How to Solve 2x2 (Beginner)'));
+  assert.ok(container.innerHTML.includes('NxN Notation &amp; Triggers'));
+  assert.ok(container.innerHTML.includes('tut-step-opensim-btn'));
+  sv.tutorialState.subTab = 'notation';
+  sv.render();
+  assert.ok(container.innerHTML.includes('Righty'));
+  assert.ok(container.innerHTML.includes('Inverse Lefty'));
+  assert.ok(container.innerHTML.includes('tut-trig-opensim-btn'));
+  assert.ok(!/\bsexy\b/i.test(container.innerHTML));
+
+  // 1. 2x2 1st Face dedicated study view (simplified hero without 99.8% in hero lead)
   sv.setTrack('222', 'face');
   assert.ok(container.innerHTML.includes('1st Face vs. 1st Layer'));
   assert.ok(container.innerHTML.includes('ff-sim-btn'));
+  const heroLeadStart = container.innerHTML.indexOf('class="flb-hero-lead"');
+  const heroLeadEnd = container.innerHTML.indexOf('</p>', heroLeadStart);
+  const heroLead = container.innerHTML.slice(heroLeadStart, heroLeadEnd);
+  assert.ok(!heroLead.includes('99.8%'));
+  assert.ok(container.innerHTML.includes('Color Neutrality Benchmarks'));
 
-  // 2. 2x2 1st Layer: default Cases Grid (123) across the 4 disjoint bottom-piece groups
+  // 2. 2x2 1st Layer: default All (123) multi-select across structured groups
   sv.setTrack('222', 'layer');
   assert.ok(container.innerHTML.includes('1st Layer (123 Cases by Bottom Pieces)'));
   assert.ok(container.innerHTML.includes('Cases Grid (123)'));
@@ -114,14 +132,21 @@ test('StudyView renders dedicated 2x2 1st Face, 1st Layer Bottom-Piece Case Grou
   assert.ok(!container.innerHTML.includes('All Bar System (75)'));
   assert.ok(!container.innerHTML.includes('Bar-on-Left Explorer (75)'));
 
+  assert.ok(container.innerHTML.includes('All (123)'));
   assert.ok(container.innerHTML.includes('1 in Bottom (9)'));
   assert.ok(container.innerHTML.includes('2 Bottom: Bar (70)'));
   assert.ok(container.innerHTML.includes('2 Bottom: Diagonal (39)'));
   assert.ok(container.innerHTML.includes('3 in Bottom (5)'));
-  assert.ok(container.innerHTML.includes('All (70)'));
+  assert.ok(container.innerHTML.includes('data-quiz-section="one-bottom"'));
+  assert.ok(container.innerHTML.includes('data-quiz-section="two-bar"'));
+  assert.ok(container.innerHTML.includes('data-quiz-section="two-diag"'));
+  assert.ok(container.innerHTML.includes('data-quiz-section="three-bottom"'));
+  assert.ok(container.innerHTML.includes('ui-filter-chip'));
   assert.ok(container.innerHTML.includes('flb-case-grid'));
   assert.ok(container.innerHTML.includes('flb-card-3d-live'));
   assert.ok(container.innerHTML.includes('data-card-id="flb-01"'));
+  assert.ok(container.innerHTML.includes('data-quiz-case-id="flb-68"'));
+  assert.ok(container.innerHTML.includes('flb-swap-warn'));
   assert.ok(!container.innerHTML.includes('data-card-3d-id'));
   assert.ok(container.innerHTML.includes('flb-card-alg-opt'));
   assert.ok(container.innerHTML.includes('data-alg-mode="trigger"'));
@@ -135,13 +160,22 @@ test('StudyView renders dedicated 2x2 1st Face, 1st Layer Bottom-Piece Case Grou
   assert.ok(!container.innerHTML.includes('flbIconLegendBtn'));
   assert.ok(!container.innerHTML.includes('flb-quiz-actions'));
 
-  sv.firstLayerExplorerState.quizGroup = 'one-bottom';
+  // Multi-select subset (1 in Bottom + 3 in Bottom = 14)
+  sv.firstLayerExplorerState.quizGroups = new Set(['one-bottom', 'three-bottom']);
+  sv.render();
+  assert.ok(container.innerHTML.includes('All (14)'));
+  assert.ok(container.innerHTML.includes('1B-1'));
+  assert.ok(container.innerHTML.includes('3B-1'));
+  assert.ok(!container.innerHTML.includes('data-quiz-section="two-bar"'));
+
+  // Single group selection
+  sv.firstLayerExplorerState.quizGroups = new Set(['one-bottom']);
   sv.render();
   assert.ok(container.innerHTML.includes('All (9)'));
   assert.ok(container.innerHTML.includes('1B-1'));
   assert.ok(container.innerHTML.includes('flb-step-hint-mini'));
 
-  sv.firstLayerExplorerState.quizGroup = 'two-diag';
+  sv.firstLayerExplorerState.quizGroups = new Set(['two-diag']);
   sv.render();
   assert.ok(container.innerHTML.includes('All (39)'));
   assert.ok(container.innerHTML.includes('D-1'));

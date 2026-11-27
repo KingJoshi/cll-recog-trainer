@@ -202,7 +202,7 @@ export const f2lIntermediateCases = [
     group: "Keyhole & Left-Front (FL)",
     cameraLongitude: -45,
     algs: [
-      { id: "f2l-int-13-1", alg: "U' L' U L", note: "Left-hand sexy variation into FL", isDefault: true }
+      { id: "f2l-int-13-1", alg: "U' L' U L", note: "Inverse Lefty into FL", isDefault: true }
     ],
     setup: "L' U' L U"
   },
