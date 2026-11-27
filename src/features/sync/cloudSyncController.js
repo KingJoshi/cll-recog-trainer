@@ -11,6 +11,11 @@ import {
   parseCsTimerExport,
   importCsTimerSessions
 } from '../../services/cstimerImport.js';
+import {
+  isCubeastExport,
+  parseCubeastExport,
+  importCubeastSessions
+} from '../../services/cubeastImport.js';
 import { isExperimentalEnabled } from '../../state/appStore.js';
 
 function formatRelativeTime(ts) {
@@ -97,20 +102,33 @@ export function createCloudSyncController({
   const settingsCsTimerImportSection = typeof document !== "undefined" ? document.getElementById("settingsCsTimerImportSection") : null;
   const statsImportCsTimerBtn = typeof document !== "undefined" ? document.getElementById("statsImportCsTimerBtn") : null;
   const importCsTimerInput = typeof document !== "undefined" ? document.getElementById("cloudSyncImportCsTimerInput") : null;
+  const importCubeastBtn = typeof document !== "undefined" ? document.getElementById("cloudSyncImportCubeastBtn") : null;
+  const settingsImportCubeastBtn = typeof document !== "undefined" ? document.getElementById("settingsImportCubeastBtn") : null;
+  const settingsCubeastImportSection = typeof document !== "undefined" ? document.getElementById("settingsCubeastImportSection") : null;
+  const statsImportCubeastBtn = typeof document !== "undefined" ? document.getElementById("statsImportCubeastBtn") : null;
+  const importCubeastInput = typeof document !== "undefined" ? document.getElementById("cloudSyncImportCubeastInput") : null;
 
   let dismissedError = false;
   let busy = false;
   let lastManualSummary = null;
 
   function syncBetaVisibility() {
-    const enabled = isExperimentalEnabled(appStore?.state, "cstimerImport");
-    if (settingsCsTimerImportSection) settingsCsTimerImportSection.hidden = !enabled;
-    if (importCsTimerBtn) importCsTimerBtn.hidden = !enabled;
-    if (statsImportCsTimerBtn) statsImportCsTimerBtn.hidden = !enabled;
+    const cstimerEnabled = isExperimentalEnabled(appStore?.state, "cstimerImport");
+    const cubeastEnabled = isExperimentalEnabled(appStore?.state, "cubeastImport");
+    if (settingsCsTimerImportSection) settingsCsTimerImportSection.hidden = !cstimerEnabled;
+    if (importCsTimerBtn) importCsTimerBtn.hidden = !cstimerEnabled;
+    if (statsImportCsTimerBtn) statsImportCsTimerBtn.hidden = !cstimerEnabled;
+    if (settingsCubeastImportSection) settingsCubeastImportSection.hidden = !cubeastEnabled;
+    if (importCubeastBtn) importCubeastBtn.hidden = !cubeastEnabled;
+    if (statsImportCubeastBtn) statsImportCubeastBtn.hidden = !cubeastEnabled;
     if (importInput) {
-      importInput.accept = enabled
-        ? ".json,.txt,.csv,application/json,text/plain,text/csv"
-        : ".json,application/json";
+      if (cstimerEnabled) {
+        importInput.accept = ".json,.txt,.csv,application/json,text/plain,text/csv";
+      } else if (cubeastEnabled) {
+        importInput.accept = ".json,.csv,application/json,text/csv";
+      } else {
+        importInput.accept = ".json,application/json";
+      }
     }
   }
 
@@ -392,15 +410,15 @@ export function createCloudSyncController({
     showToast(`Exported backup (${filename}).`, "success", 2800);
   }
 
-  async function handleImportCsTimerFile(file) {
-    if (!file || !appStore || !isExperimentalEnabled(appStore.state, "cstimerImport")) return;
+  async function handleExternalImportFile(file, { featureId, label, parseFn, importFn }) {
+    if (!file || !appStore || !isExperimentalEnabled(appStore.state, featureId)) return;
     try {
       const text = await file.text();
-      const parsed = parseCsTimerExport(text, {
+      const parsed = parseFn(text, {
         defaultPuzzle: appStore.state.currentPuzzle || "333",
         filename: file.name || ""
       });
-      const res = importCsTimerSessions(appStore, parsed);
+      const res = importFn(appStore, parsed);
       lastManualSummary = {
         addedSolves: res.solvesAdded,
         addedSessions: res.sessionsAdded
@@ -413,16 +431,34 @@ export function createCloudSyncController({
       if (res.solvesAdded > 0) {
         const skipNote = res.solvesSkipped > 0 ? ` (${res.solvesSkipped} duplicate${res.solvesSkipped === 1 ? "" : "s"} skipped)` : "";
         showToast(
-          `csTimer imported · +${res.solvesAdded} solve${res.solvesAdded === 1 ? "" : "s"} across ${sessTotal} session${sessTotal === 1 ? "" : "s"}${skipNote}`,
+          `${label} imported · +${res.solvesAdded} solve${res.solvesAdded === 1 ? "" : "s"} across ${sessTotal} session${sessTotal === 1 ? "" : "s"}${skipNote}`,
           "success",
           4200
         );
       } else {
-        showToast("csTimer import · All solves are already imported.", "info", 3200);
+        showToast(`${label} import · All solves are already imported.`, "info", 3200);
       }
     } catch (err) {
-      showToast(err?.message || "Failed to import csTimer file.", "error", 4200);
+      showToast(err?.message || `Failed to import ${label} file.`, "error", 4200);
     }
+  }
+
+  function handleImportCsTimerFile(file) {
+    return handleExternalImportFile(file, {
+      featureId: "cstimerImport",
+      label: "csTimer",
+      parseFn: parseCsTimerExport,
+      importFn: importCsTimerSessions
+    });
+  }
+
+  function handleImportCubeastFile(file) {
+    return handleExternalImportFile(file, {
+      featureId: "cubeastImport",
+      label: "Cubeast",
+      parseFn: parseCubeastExport,
+      importFn: importCubeastSessions
+    });
   }
 
   async function handleImportFile(file) {
@@ -434,6 +470,14 @@ export function createCloudSyncController({
           await handleImportCsTimerFile({ name: file.name, text: async () => text });
         } else {
           showToast("csTimer import is an experimental feature — enable it in Settings → Experimental.", "info", 4200);
+        }
+        return;
+      }
+      if (isCubeastExport(text)) {
+        if (isExperimentalEnabled(appStore.state, "cubeastImport")) {
+          await handleImportCubeastFile({ name: file.name, text: async () => text });
+        } else {
+          showToast("Cubeast import is an experimental feature — enable it in Settings → Experimental.", "info", 4200);
         }
         return;
       }
@@ -488,6 +532,18 @@ export function createCloudSyncController({
     const file = e.target.files?.[0];
     if (file) await handleImportCsTimerFile(file);
     if (importCsTimerInput) importCsTimerInput.value = "";
+  });
+  const triggerCubeastPicker = () => {
+    if (!isExperimentalEnabled(appStore?.state, "cubeastImport")) return;
+    importCubeastInput?.click?.();
+  };
+  importCubeastBtn?.addEventListener("click", triggerCubeastPicker);
+  settingsImportCubeastBtn?.addEventListener("click", triggerCubeastPicker);
+  statsImportCubeastBtn?.addEventListener("click", triggerCubeastPicker);
+  importCubeastInput?.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (file) await handleImportCubeastFile(file);
+    if (importCubeastInput) importCubeastInput.value = "";
   });
 
   autoToggle?.addEventListener("change", (e) => {

@@ -292,6 +292,7 @@ export function createSettingsModalController({
       const metronomeOn = isExperimentalEnabled(s, "metronome");
       const ohSettingsOn = isExperimentalEnabled(s, "ohSettings");
       const cstimerImportOn = isExperimentalEnabled(s, "cstimerImport");
+      const cubeastImportOn = isExperimentalEnabled(s, "cubeastImport");
       if (openWizardBtn) openWizardBtn.hidden = !quickSetupOn;
       const quickTitle = document.getElementById("settingsQuickSetupTitle");
       if (quickTitle) {
@@ -305,6 +306,8 @@ export function createSettingsModalController({
       if (ohSec) ohSec.hidden = !ohSettingsOn;
       const csTimerSec = document.getElementById("settingsCsTimerImportSection");
       if (csTimerSec) csTimerSec.hidden = !cstimerImportOn;
+      const cubeastSec = document.getElementById("settingsCubeastImportSection");
+      if (cubeastSec) cubeastSec.hidden = !cubeastImportOn;
     }
     renderEventsGrid();
     const isRight = s.ohHand === "right";

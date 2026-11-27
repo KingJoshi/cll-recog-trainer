@@ -128,6 +128,11 @@ export const EXPERIMENTAL_FEATURES = Object.freeze([
     id: "cstimerImport",
     label: "csTimer.net Import",
     description: "Show csTimer.net session and solve log import (.txt, .json, .csv) in Stats & History, Settings → Sync, and Cloud Sync"
+  },
+  {
+    id: "cubeastImport",
+    label: "Cubeast Import",
+    description: "Show Cubeast CSV solve log import (with full smart-cube moves & CFOP splits) in Stats & History, Settings → Sync, and Cloud Sync"
   }
 ]);
 export const EXPERIMENTAL_FEATURE_IDS = EXPERIMENTAL_FEATURES.map(f => f.id);

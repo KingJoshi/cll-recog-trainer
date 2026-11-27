@@ -525,6 +525,7 @@
       </button>
       <div class="stats-head-actions">
         <button type="button" id="statsImportCsTimerBtn" class="btn btn-small" data-tooltip="Import sessions and solve logs from a csTimer.net export (.txt, .json, or .csv)" hidden>⬆ Import csTimer<sup class="beta-sup" aria-label="Experimental">β</sup></button>
+        <button type="button" id="statsImportCubeastBtn" class="btn btn-small" data-tooltip="Import sessions, smart-cube move logs, and solves from a Cubeast CSV export (.csv)" hidden>⬆ Import Cubeast<sup class="beta-sup" aria-label="Experimental">β</sup></button>
         <button type="button" id="statsExportCsvBtn" class="btn btn-small" data-tooltip="Export recorded solves from the active session as a CSV spreadsheet">📥 Export CSV</button>
         <button type="button" id="resetStatsBtn" class="btn btn-small btn-danger" data-tooltip="Choose exactly which stats or solves to reset (current track recognition, all recognition stats, case times, or session solves)">Reset&hellip;</button>
       </div>
@@ -1552,6 +1553,17 @@
             </div>
           </div>
 
+          <div class="settings-section" id="settingsCubeastImportSection" hidden>
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">📥 Import from Cubeast<sup class="beta-sup" aria-label="Experimental">β</sup></h4>
+              <span class="settings-section-desc">Import sessions, times, penalties (+2/DNF), inspection splits, scrambles, and full smart-cube move logs from a Cubeast CSV export (.csv)</span>
+            </div>
+            <div class="settings-sync-row">
+              <span class="settings-sync-status">Merges safely without duplicates</span>
+              <button type="button" id="settingsImportCubeastBtn" class="btn btn-small btn-outline">⬆ Import Cubeast CSV…</button>
+            </div>
+          </div>
+
           <div class="settings-section" id="settingsPwaInstallSection">
             <div class="settings-section-head">
               <h4 class="settings-section-title">📲 Offline App (PWA)</h4>
@@ -1674,6 +1686,13 @@
                 <div class="settings-exp-copy">
                   <span class="settings-exp-title">csTimer.net Import</span>
                   <span class="settings-exp-desc">Import sessions, times, penalties, scrambles, comments, and smart-cube logs from csTimer.net (.txt, .json, or .csv) via Stats &amp; History, Settings &rarr; Sync, and Cloud Sync.</span>
+                </div>
+              </label>
+              <label class="settings-exp-item">
+                <input type="checkbox" id="settingsExp_cubeastImport" data-experimental-feature="cubeastImport">
+                <div class="settings-exp-copy">
+                  <span class="settings-exp-title">Cubeast Import</span>
+                  <span class="settings-exp-desc">Import Cubeast CSV exports with full smart-cube move logs, inspection splits, and automatic CFOP replay via Stats &amp; History, Settings &rarr; Sync, and Cloud Sync.</span>
                 </div>
               </label>
             </div>
@@ -1874,8 +1893,10 @@
           <button type="button" id="cloudSyncExportBtn" class="btn btn-small btn-outline">⬇ Export Backup (.json)</button>
           <button type="button" id="cloudSyncImportBtn" class="btn btn-small btn-outline">⬆ Import &amp; Merge (.json)</button>
           <button type="button" id="cloudSyncImportCsTimerBtn" class="btn btn-small btn-outline" hidden>📥 Import csTimer<sup class="beta-sup" aria-label="Experimental">β</sup> (.txt/.json/.csv)</button>
+          <button type="button" id="cloudSyncImportCubeastBtn" class="btn btn-small btn-outline" hidden>📥 Import Cubeast<sup class="beta-sup" aria-label="Experimental">β</sup> (.csv)</button>
           <input type="file" id="cloudSyncImportInput" accept=".json,application/json" hidden>
           <input type="file" id="cloudSyncImportCsTimerInput" accept=".txt,.json,.csv,application/json,text/plain,text/csv" hidden>
+          <input type="file" id="cloudSyncImportCubeastInput" accept=".csv,text/csv" hidden>
         </div>
       </div>
 
