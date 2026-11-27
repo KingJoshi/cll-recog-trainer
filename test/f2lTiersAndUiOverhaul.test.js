@@ -177,9 +177,8 @@ test('index.html has 3-slot mode bar, icon-only header, 3-tab Devices modal, spl
   assert.ok(aboutSlice.includes('https://github.com/KingJoshi/cll-recog-trainer'));
   assert.ok(aboutSlice.includes('GNU GPL v3.0'));
 
-  // Help modal
-  assert.ok(html.includes('id="helpModal"'));
-  assert.ok(html.includes('id="helpLaunchWizardBtn"'));
+  // Help dialog removed in favor of standalone Help/Notation page + Quick Setup Wizard
+  assert.ok(!html.includes('id="helpModal"'));
 });
 
 test('AppStore & syncMerge handle Train->Simulate and 4-tier F2L modes', () => {

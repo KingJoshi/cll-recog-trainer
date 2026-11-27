@@ -375,17 +375,10 @@ tooltipCtrl = createTooltipController({
   isEnabled: () => Boolean(appStore.state.showTooltips)
 });
 
-const helpModal = document.getElementById("helpModal");
 const aboutModal = document.getElementById("aboutModal");
 
 document.getElementById("onboardingBtn")?.addEventListener("click", () => {
   navCtrl?.setMode?.("notation");
-});
-document.getElementById("helpModalCloseBtn")?.addEventListener("click", () => helpModal && modalManager.close(helpModal));
-document.getElementById("helpModalDismissBtn")?.addEventListener("click", () => helpModal && modalManager.close(helpModal));
-document.getElementById("helpLaunchWizardBtn")?.addEventListener("click", () => {
-  if (helpModal) modalManager.close(helpModal);
-  onboardingWizard.open();
 });
 
 document.getElementById("aboutModalBtn")?.addEventListener("click", () => {
@@ -430,8 +423,7 @@ notationView = createNotationTutorialView({
   getShowReflection: () => appStore.state.showReflection,
   onQuickSimSolutions: openQuickSim,
   onSimulateCase: (caseObj, algObj) => simulatorCtrl.loadStudyCase(caseObj, algObj),
-  onOpenWizard: () => onboardingWizard?.open?.(),
-  onOpenHelpModal: () => helpModal && modalManager.open(helpModal)
+  onOpenWizard: () => onboardingWizard?.open?.()
 });
 
 practiceView = new PracticeView({
@@ -571,8 +563,6 @@ appStore.subscribe((evt) => {
     smartCubeCtrl?.syncExperimentalDevicesUI?.();
     cloudSyncCtrl?.syncBetaVisibility?.();
     if (!isExperimentalEnabled(s, "metronome")) stopMetronome();
-    const helpWizBtn = document.getElementById("helpLaunchWizardBtn");
-    if (helpWizBtn) helpWizBtn.hidden = !isExperimentalEnabled(s, "quickSetup");
     if (!isPuzzleEnabled(s, s.currentPuzzle)) {
       navCtrl?.setPuzzle?.("333");
       return;
@@ -834,10 +824,6 @@ smartCubeCtrl.syncExperimentalDevicesUI();
 smartCubeCtrl.updateBluetoothUI();
 ganTimerCtrl.updateGanTimerUI();
 stackmatTimerCtrl.syncBetaVisibility();
-{
-  const helpWizBtn = document.getElementById("helpLaunchWizardBtn");
-  if (helpWizBtn) helpWizBtn.hidden = !appStore.isExperimentalEnabled("quickSetup");
-}
 solvePanelView.renderSolvePanel();
 statsCtrl.updateStatsTable();
 
@@ -903,21 +889,14 @@ function refreshAllViewsAfterHydrate() {
   ganTimerCtrl?.updateGanTimerUI?.();
   stackmatTimerCtrl?.syncBetaVisibility?.();
   cloudSyncCtrl?.syncBetaVisibility?.();
-  {
-    const helpWizBtn = document.getElementById("helpLaunchWizardBtn");
-    if (helpWizBtn) helpWizBtn.hidden = !appStore.isExperimentalEnabled("quickSetup");
-  }
   solvePanelView?.renderSolvePanel?.();
   statsCtrl?.updateStatsTable?.();
   if (!s.showTooltips) tooltipCtrl?.hide?.();
-  if (s.onboardingCompleted) onboardingWizard?.close?.({ markComplete: false });
 
   if (modeChanged && s.mode !== "notation") {
     notationView?.teardown?.();
   }
-  if (s.mode === "notation") {
-    notationView?.render?.();
-  } else if (s.mode === "study") {
+  if (s.mode === "study") {
     if (modeChanged || puzzleChanged || trackChanged) {
       studyView?.setTrack?.(s.currentPuzzle, s.currentTrackId);
     } else {

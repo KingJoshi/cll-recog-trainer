@@ -52,7 +52,7 @@ export const NOTATION_SLICE_MOVES = [
 ];
 
 export const NOTATION_INNER_SLICE_MOVES = [
-  { id: 'inner-2r', letter: '2R', face: 'Inner Right', demoAlg: '2R', demoSetup: "2R'", desc: 'Single 2nd inner layer from the Right face only (outer R face stays still).' },
+  { id: 'inner-2r', letter: '2R', face: 'Inner Right', demoAlg: '2R', demoSetup: "2R'", desc: 'Single 2nd inner layer from the Right face only (outer R face stays still; 2R2 is key for 4x4 PLL parity).' },
   { id: 'inner-2l', letter: '2L', face: 'Inner Left', demoAlg: '2L', demoSetup: "2L'", desc: 'Single 2nd inner layer from the Left face only (outer L face stays still).' },
   { id: 'inner-2u', letter: '2U', face: 'Inner Up', demoAlg: '2U', demoSetup: "2U'", desc: 'Single 2nd inner layer from the Top face only (outer U face stays still).' },
   { id: 'inner-2d', letter: '2D', face: 'Inner Down', demoAlg: '2D', demoSetup: "2D'", desc: 'Single 2nd inner layer from the Bottom face only (outer D face stays still).' },
@@ -341,32 +341,44 @@ function renderGlossarySection(sandboxPuzzle, renderTurnCardControls) {
 
         <article id="notGlossarySune" class="tut-glossary-item">
           <div class="tut-notation-top">
-            <strong>Sune &amp; Antisune</strong>
+            <strong>Sune</strong>
             <span class="badge">3D Preview</span>
           </div>
-          <div class="not-glossary-pair">
-            <div class="not-glossary-mini-3d tut-3d-card">
-              <div class="not-glossary-mini-head">
-                <strong>Sune</strong>
+          <div class="not-glossary-mini-3d tut-3d-card">
+            <div class="not-glossary-mini-head">
+              <div class="not-glossary-mini-head-left">
+                <strong>Twist Top Corners</strong>
                 <code>R U R' U R U2 R'</code>
               </div>
-              <div class="tut-3d-wrap" data-cube-id="not-gloss-sune" data-cube-puzzle="333" data-cube-setup="z2 R U2 R' U' R U' R'" data-cube-moves="R U R' U R U2 R'">
-                <span class="study-visual-loading">3D Cube</span>
-              </div>
-              ${renderTurnCardControls('not-gloss-sune')}
+              <button type="button" class="btn btn-xs not-try-big-btn" data-not-seq="R U R' U R U2 R'">Try Above</button>
             </div>
-            <div class="not-glossary-mini-3d tut-3d-card">
-              <div class="not-glossary-mini-head">
-                <strong>Antisune (Reverse)</strong>
+            <div class="tut-3d-wrap" data-cube-id="not-gloss-sune" data-cube-puzzle="333" data-cube-setup="z2 R U2 R' U' R U' R'" data-cube-moves="R U R' U R U2 R'">
+              <span class="study-visual-loading">3D Cube</span>
+            </div>
+            ${renderTurnCardControls('not-gloss-sune')}
+          </div>
+          <p><strong>Sune</strong> cycles top-corner orientations without disturbing the bottom layer. Repeat it with simple <code>U</code> turns to solve any top-face corner pattern.</p>
+        </article>
+
+        <article id="notGlossaryAntisune" class="tut-glossary-item">
+          <div class="tut-notation-top">
+            <strong>Antisune (Reverse Sune)</strong>
+            <span class="badge">3D Preview</span>
+          </div>
+          <div class="not-glossary-mini-3d tut-3d-card">
+            <div class="not-glossary-mini-head">
+              <div class="not-glossary-mini-head-left">
+                <strong>Sune Backwards</strong>
                 <code>R U2 R' U' R U' R'</code>
               </div>
-              <div class="tut-3d-wrap" data-cube-id="not-gloss-antisune" data-cube-puzzle="333" data-cube-setup="z2 R U R' U R U2 R'" data-cube-moves="R U2 R' U' R U' R'">
-                <span class="study-visual-loading">3D Cube</span>
-              </div>
-              ${renderTurnCardControls('not-gloss-antisune')}
+              <button type="button" class="btn btn-xs not-try-big-btn" data-not-seq="R U2 R' U' R U' R'">Try Above</button>
             </div>
+            <div class="tut-3d-wrap" data-cube-id="not-gloss-antisune" data-cube-puzzle="333" data-cube-setup="z2 R U R' U R U2 R'" data-cube-moves="R U2 R' U' R U' R'">
+              <span class="study-visual-loading">3D Cube</span>
+            </div>
+            ${renderTurnCardControls('not-gloss-antisune')}
           </div>
-          <p><strong>Antisune</strong> is simply <strong>Sune</strong> performed backwards — together they solve any top-corner twist without learning dozens of OLL cases.</p>
+          <p><strong>Antisune</strong> is simply <strong>Sune performed backwards</strong> — together, Sune and Antisune solve every OLL corner case in at most 2 repetitions.</p>
         </article>
 
         <article id="notGlossaryAuf" class="tut-glossary-item">
@@ -376,8 +388,11 @@ function renderGlossarySection(sandboxPuzzle, renderTurnCardControls) {
           </div>
           <div class="not-glossary-mini-3d tut-3d-card">
             <div class="not-glossary-mini-head">
-              <strong>Final Top Alignment</strong>
-              <code>U / U' / U2</code>
+              <div class="not-glossary-mini-head-left">
+                <strong>Final Top Alignment</strong>
+                <code>U / U' / U2</code>
+              </div>
+              <button type="button" class="btn btn-xs not-try-big-btn" data-not-seq="U">Try Above</button>
             </div>
             <div class="tut-3d-wrap" data-cube-id="not-gloss-auf" data-cube-puzzle="${sandboxPuzzle}" data-cube-setup="z2 U'" data-cube-moves="U">
               <span class="study-visual-loading">3D Cube</span>
@@ -413,14 +428,15 @@ export function createNotationTutorialView({
   getShowReflection = () => true,
   onQuickSimSolutions = null,
   onSimulateCase = null,
-  onOpenWizard = null,
-  onOpenHelpModal = null
+  onOpenWizard = null
 } = {}) {
   let sandboxPuzzle = '333';
   let sandboxMoves = [];
   let sandboxDisplay = null;
   let sandboxIndexer = null;
   let sandboxMountGen = 0;
+  let rendered = false;
+  let renderedPuzzle = null;
 
   const inlineCubes = createInlineCubeManager({ maxLive: 12 });
 
@@ -638,8 +654,13 @@ export function createNotationTutorialView({
     `;
   }
 
-  function render() {
+  function render({ force = false } = {}) {
     if (!container) return;
+    if (!force && rendered && renderedPuzzle === sandboxPuzzle && container.querySelector('#notSandboxCubeHost')) {
+      return;
+    }
+    rendered = true;
+    renderedPuzzle = sandboxPuzzle;
     const hasMiddleSlices = sandboxPuzzle === '333' || sandboxPuzzle === '555';
     const hasInnerSlices = sandboxPuzzle === '444' || sandboxPuzzle === '555';
     const hasWideMoves = sandboxPuzzle !== '222';
@@ -648,8 +669,8 @@ export function createNotationTutorialView({
       <div class="flb-wrap">
         <div class="study-header">
           <div class="study-track-title-wrap">
-            <h2 class="study-track-title">NxN Notation &amp; Triggers</h2>
-            <span class="study-track-desc">Explore how face turns, slices, wide moves, rotations, and 4-move triggers work on 2x2 through 5x5.</span>
+            <h2 class="study-track-title">Help</h2>
+            <span class="study-track-desc">Quick setup, interactive NxN cube notation, 4-move triggers, and visual speedcubing glossary.</span>
           </div>
           <div class="oh-hand-switcher" role="group" aria-label="Choose sandbox puzzle size">
             <span class="oh-hand-label">Cube Size:</span>
@@ -658,6 +679,14 @@ export function createNotationTutorialView({
             `).join('')}
           </div>
         </div>
+
+        <section id="notQuickSetupSection" class="guide-card guide-card-full not-quick-setup-bar">
+          <div class="not-quick-setup-copy">
+            <h3 class="guide-card-title" style="margin:0;">&#x1F9ED; Quick Setup Wizard</h3>
+            <p class="hint">Pick your puzzle size, current skill level, and training goal in 3 quick steps.</p>
+          </div>
+          <button type="button" id="notLaunchWizardBtn" class="btn btn-primary btn-small">&#x1F9ED; Launch Quick Setup Wizard</button>
+        </section>
 
         <section class="guide-card guide-card-full not-sandbox-card">
           <div class="not-sandbox-layout">
@@ -705,6 +734,10 @@ export function createNotationTutorialView({
                   <div id="notSandboxInnerSliceRow" class="free-moves-row">
                     <span class="free-moves-row-label">Inner:</span>
                     ${renderKeypadButtons(['2U', "2U'", '2D', "2D'", '2L', "2L'", '2R', "2R'", '2F', "2F'", '2B', "2B'"])}
+                  </div>
+                  <div id="notSandboxInner180Row" class="free-moves-row">
+                    <span class="free-moves-row-label">Inner 180°:</span>
+                    ${renderKeypadButtons(['2U2', '2D2', '2L2', '2R2', '2F2', '2B2'])}
                   </div>
                 ` : ''}
                 ${hasWideMoves ? `
@@ -789,17 +822,6 @@ export function createNotationTutorialView({
         </section>
 
         ${renderGlossarySection(sandboxPuzzle, renderTurnCardControls)}
-
-        <section id="notQuickSetupSection" class="guide-card guide-card-full">
-          <h3 class="guide-card-title">&#x1F9ED; Quick Setup Wizard</h3>
-          <p class="hint" style="margin: 0 0 10px;">
-            New to Cubing.cc or switching methods? Run the 3-step Quick Setup Guide to configure your puzzle, training track, and preferred layout in seconds.
-          </p>
-          <div class="tut-alg-actions">
-            <button type="button" id="notLaunchWizardBtn" class="btn btn-primary btn-small">&#x1F9ED; Launch Quick Setup Wizard</button>
-            <button type="button" id="notOpenHelpBtn" class="btn btn-small">? How to Use Cubing.cc</button>
-          </div>
-        </section>
       </div>
     `;
 
@@ -818,7 +840,7 @@ export function createNotationTutorialView({
         if (nextP && nextP !== sandboxPuzzle) {
           sandboxPuzzle = nextP;
           sandboxMoves = [];
-          render();
+          render({ force: true });
         }
       });
     });
@@ -890,12 +912,9 @@ export function createNotationTutorialView({
       });
     });
 
-    container.querySelector('#notLaunchWizardBtn')?.addEventListener('click', () => {
+    container.querySelector('#notLaunchWizardBtn')?.addEventListener('click', (e) => {
+      e?.stopPropagation?.();
       onOpenWizard?.();
-    });
-
-    container.querySelector('#notOpenHelpBtn')?.addEventListener('click', () => {
-      onOpenHelpModal?.();
     });
   }
 
@@ -907,6 +926,8 @@ export function createNotationTutorialView({
   }
 
   function teardown() {
+    rendered = false;
+    renderedPuzzle = null;
     sandboxMountGen++;
     if (sandboxDisplay) {
       try {

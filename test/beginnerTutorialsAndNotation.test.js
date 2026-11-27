@@ -216,24 +216,30 @@ test('Tutorial views render dynamic 3D step widgets, scramble controls, and 2x2 
   assert.ok(!/\bsexy\b/i.test(html333));
 });
 
-test('Standalone NxN Notation view renders large 3D cube, always-visible Free Face Turns, 2x2-5x5 switcher, and puzzle-specific sections', () => {
+test('Standalone Help / NxN Notation view renders top Quick Setup Wizard, 2x2-5x5 switcher, 2R2 inner 180s, and separated Sune/Antisune', () => {
   const container = createInteractiveMockContainer();
   let wizardCalls = 0;
-  let helpCalls = 0;
   const view = createNotationTutorialView({
     container,
-    onOpenWizard: () => { wizardCalls++; },
-    onOpenHelpModal: () => { helpCalls++; }
+    onOpenWizard: () => { wizardCalls++; }
   });
   view.render();
 
+  assert.ok(container.innerHTML.includes('<h2 class="study-track-title">Help</h2>'));
   assert.ok(container.innerHTML.includes('id="notQuickSetupSection"'));
   assert.ok(container.querySelector('#notLaunchWizardBtn'));
-  assert.ok(container.querySelector('#notOpenHelpBtn'));
+  assert.strictEqual(container.querySelector('#notOpenHelpBtn'), null, 'Redundant How to Use modal trigger must be removed');
+  assert.ok(
+    container.innerHTML.indexOf('id="notQuickSetupSection"') < container.innerHTML.indexOf('id="notSandboxCubeHost"'),
+    'Quick Setup Wizard section must appear above the sandbox cube'
+  );
   container.querySelector('#notLaunchWizardBtn').click();
-  container.querySelector('#notOpenHelpBtn').click();
   assert.strictEqual(wizardCalls, 1);
-  assert.strictEqual(helpCalls, 1);
+
+  // Idempotent render(): repeated call without puzzle change must preserve DOM without tearing down
+  const htmlSnapshot = container.innerHTML;
+  view.render();
+  assert.strictEqual(container.innerHTML, htmlSnapshot);
 
   const countCards = () => (container.innerHTML.match(/class="[^"]*\btut-3d-card\b/g) || []).length;
 
@@ -247,7 +253,7 @@ test('Standalone NxN Notation view renders large 3D cube, always-visible Free Fa
   assert.ok(container.innerHTML.includes('Lefty Sledgehammer'));
   assert.ok(container.innerHTML.includes('Lefty Hedgeslammer'));
 
-  // Visual Glossary: Face vs Layer, separate Bar card, separate Headlights card (2x2 & 3x3), Sune/Antisune 3D, AUF 3D
+  // Visual Glossary: Face vs Layer, separate Bar, separate Headlights (2x2 & 3x3), separate Sune & Antisune cards, AUF 3D
   assert.ok(container.innerHTML.includes('id="notGlossaryFaceVsLayer"'));
   assert.ok(container.innerHTML.includes('id="notGlossaryBar"'));
   assert.ok(container.innerHTML.includes('id="notGlossaryHeadlights"'));
@@ -255,17 +261,19 @@ test('Standalone NxN Notation view renders large 3D cube, always-visible Free Fa
   assert.ok(container.innerHTML.includes('3x3 Headlights'));
   assert.ok(container.innerHTML.includes('class="not-glossary-svg"'));
   assert.ok(container.innerHTML.includes('id="notGlossarySune"'));
+  assert.ok(container.innerHTML.includes('id="notGlossaryAntisune"'));
   assert.ok(container.innerHTML.includes('id="notGlossaryAuf"'));
   assert.ok(container.innerHTML.includes('data-cube-id="not-gloss-sune"'));
   assert.ok(container.innerHTML.includes('data-cube-id="not-gloss-antisune"'));
   assert.ok(container.innerHTML.includes('data-cube-id="not-gloss-auf"'));
   const gloss3dCards = 3;
 
-  // Default 3x3: Slice (M/E/S) & Wide (Rw/r) sections & rows, NO Inner slices row, NO 3-Wide row
+  // Default 3x3: Slice (M/E/S) & Wide (Rw/r) sections & rows, NO Inner slices / Inner 180° rows
   assert.strictEqual(view.getSandboxPuzzle(), '333');
   assert.ok(container.querySelector('#notSandboxSliceRow'));
   assert.ok(container.querySelector('#notSandboxWideRow'));
   assert.strictEqual(container.querySelector('#notSandboxInnerSliceRow'), null);
+  assert.strictEqual(container.querySelector('#notSandboxInner180Row'), null);
   assert.strictEqual(container.querySelector('#notSandboxWide3Row'), null);
   assert.ok(container.innerHTML.includes('id="notSliceSection"'));
   assert.ok(container.innerHTML.includes('id="notWideSection"'));
@@ -289,6 +297,7 @@ test('Standalone NxN Notation view renders large 3D cube, always-visible Free Fa
   assert.strictEqual(view.getSandboxPuzzle(), '222');
   assert.strictEqual(container.querySelector('#notSandboxSliceRow'), null);
   assert.strictEqual(container.querySelector('#notSandboxInnerSliceRow'), null);
+  assert.strictEqual(container.querySelector('#notSandboxInner180Row'), null);
   assert.strictEqual(container.querySelector('#notSandboxWideRow'), null);
   assert.strictEqual(container.querySelector('#notSliceSection'), null);
   assert.strictEqual(container.querySelector('#notWideSection'), null);
@@ -297,11 +306,12 @@ test('Standalone NxN Notation view renders large 3D cube, always-visible Free Fa
     NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_TRIGGERS.length + gloss3dCards
   );
 
-  // 4x4: Inner slices (2R-2B) + Wide moves, no M/E/S row
+  // 4x4: Inner slices (2R-2B + 2R2 inner 180s) + Wide moves, no M/E/S row
   container.querySelectorAll('[data-not-puzzle]').find(b => b.dataset.notPuzzle === '444').click();
   assert.strictEqual(view.getSandboxPuzzle(), '444');
   assert.strictEqual(container.querySelector('#notSandboxSliceRow'), null);
   assert.ok(container.querySelector('#notSandboxInnerSliceRow'));
+  assert.ok(container.querySelector('#notSandboxInner180Row'));
   assert.ok(container.querySelector('#notSandboxWideRow'));
   assert.ok(container.innerHTML.includes('id="notSliceSection"'));
   assert.ok(container.innerHTML.includes('id="notWideSection"'));
@@ -309,16 +319,17 @@ test('Standalone NxN Notation view renders large 3D cube, always-visible Free Fa
     countCards(),
     NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_INNER_SLICE_MOVES.length + NOTATION_WIDE_MOVES.length + NOTATION_TRIGGERS.length + gloss3dCards
   );
-  const btn2R = container.querySelectorAll('.not-turn-btn').find(b => b.dataset.notMove === '2R');
-  assert.ok(btn2R, '2R inner slice button must be rendered on 4x4');
-  btn2R.click();
-  assert.deepStrictEqual(view.getSandboxMoves(), ['2R']);
+  const btn2R2 = container.querySelectorAll('.not-turn-btn').find(b => b.dataset.notMove === '2R2');
+  assert.ok(btn2R2, '2R2 inner 180° button must be rendered on 4x4 for PLL parity');
+  btn2R2.click();
+  assert.deepStrictEqual(view.getSandboxMoves(), ['2R2']);
 
-  // 5x5: Middle Slices + Inner Slices + Wide + 3-Wide
+  // 5x5: Middle Slices + Inner Slices + Inner 180° + Wide + 3-Wide
   container.querySelectorAll('[data-not-puzzle]').find(b => b.dataset.notPuzzle === '555').click();
   assert.strictEqual(view.getSandboxPuzzle(), '555');
   assert.ok(container.querySelector('#notSandboxSliceRow'));
   assert.ok(container.querySelector('#notSandboxInnerSliceRow'));
+  assert.ok(container.querySelector('#notSandboxInner180Row'));
   assert.ok(container.querySelector('#notSandboxWideRow'));
   assert.ok(container.querySelector('#notSandboxWide3Row'));
   assert.strictEqual(
@@ -326,7 +337,7 @@ test('Standalone NxN Notation view renders large 3D cube, always-visible Free Fa
     NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_SLICE_MOVES.length + NOTATION_INNER_SLICE_MOVES.length + NOTATION_WIDE_MOVES.length + NOTATION_WIDE_3_MOVES.length + NOTATION_TRIGGERS.length + gloss3dCards
   );
 
-  assert.ok(!container.innerHTML.includes('beta-sup'), 'Notations view must not show a Beta badge');
+  assert.ok(!container.innerHTML.includes('beta-sup'), 'Help / Notations view must not show a Beta badge');
   view.teardown();
 });
 
@@ -349,11 +360,11 @@ test('Notation mode is non-beta via ? icon while 2x2 and 3x3 tutorials remain be
   const html = fs.readFileSync(new URL('../index.html', import.meta.url).pathname, 'utf8');
   assert.ok(!html.includes('id="modeNotationBtn"'), 'Top mode bar stays 3-slot without beta Notation mode button');
   assert.ok(html.includes('id="notationViewContainer"'));
+  assert.ok(!html.includes('id="helpModal"'), 'Redundant How to Use modal must be removed');
   assert.ok(!html.includes('id="settingsExp_notationTutorial"'), 'Experimental settings must not list Notations');
   assert.ok(html.includes('id="settingsExp_threeByThreeTutorial"'));
-  assert.ok(!html.includes('id="helpOpenDevicesBtn"'), 'Help modal must not include redundant Devices button');
-  assert.ok(!html.includes('id="helpOpenShortcutsBtn"'), 'Help modal must not include redundant Shortcuts button');
 
   const mainJs = fs.readFileSync(new URL('../src/main.js', import.meta.url).pathname, 'utf8');
   assert.match(mainJs, /document\.getElementById\("onboardingBtn"\)\?\.addEventListener\("click",\s*\(\)\s*=>\s*\{\s*navCtrl\?\.setMode\?\.\("notation"\)/);
+  assert.ok(!mainJs.includes('onboardingWizard?.close'), 'Sync hydration must not auto-close the Quick Setup Wizard');
 });
