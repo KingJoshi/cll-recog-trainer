@@ -31,6 +31,7 @@ import {
 import { PUZZLES } from '../src/data/algRegistry.js';
 import {
   AppStore,
+  EXPERIMENTAL_FEATURE_IDS,
   MODES,
   getTrackExperimentalFeature,
   isTrackEnabled,
@@ -325,29 +326,30 @@ test('Standalone NxN Notation view renders large 3D cube, always-visible Free Fa
     NOTATION_FACE_MOVES.length + NOTATION_MODIFIERS.length + NOTATION_SLICE_MOVES.length + NOTATION_INNER_SLICE_MOVES.length + NOTATION_WIDE_MOVES.length + NOTATION_WIDE_3_MOVES.length + NOTATION_TRIGGERS.length + gloss3dCards
   );
 
+  assert.ok(!container.innerHTML.includes('beta-sup'), 'Notations view must not show a Beta badge');
   view.teardown();
 });
 
-test('Notation mode, 2x2 tutorial, and 3x3 tutorial are beta experimental features and wired into index.html & AppStore', () => {
+test('Notation mode is non-beta via ? icon while 2x2 and 3x3 tutorials remain beta experimental features', () => {
   assert.ok(MODES.includes('notation'), 'AppStore MODES must include "notation"');
+  assert.ok(!EXPERIMENTAL_FEATURE_IDS.includes('notationTutorial'), 'notationTutorial must NOT be an experimental feature');
   assert.strictEqual(PUZZLES['333'].tracks[0].id, 'tutorial');
   assert.strictEqual(getTrackExperimentalFeature('333', 'tutorial'), 'threeByThreeTutorial');
   assert.strictEqual(getTrackExperimentalFeature('222', 'tutorial'), 'twoByTwoTutorial');
 
   const store = new AppStore();
-  assert.strictEqual(isExperimentalEnabled(store.state, 'notationTutorial'), false);
+  assert.strictEqual(isExperimentalEnabled(store.state, 'twoByTwoTutorial'), false);
   assert.strictEqual(isExperimentalEnabled(store.state, 'threeByThreeTutorial'), false);
   assert.strictEqual(isTrackEnabled(store.state, '333', 'tutorial'), false);
 
-  store.setExperimentalFeature('notationTutorial', true);
   store.setExperimentalFeature('threeByThreeTutorial', true);
-  assert.strictEqual(isExperimentalEnabled(store.state, 'notationTutorial'), true);
+  assert.strictEqual(isExperimentalEnabled(store.state, 'threeByThreeTutorial'), true);
   assert.strictEqual(isTrackEnabled(store.state, '333', 'tutorial'), true);
 
   const html = fs.readFileSync(new URL('../index.html', import.meta.url).pathname, 'utf8');
-  assert.ok(html.includes('id="modeNotationBtn"'));
+  assert.ok(!html.includes('id="modeNotationBtn"'), 'Top mode bar stays 3-slot without beta Notation mode button');
   assert.ok(html.includes('id="notationViewContainer"'));
-  assert.ok(html.includes('id="settingsExp_notationTutorial"'));
+  assert.ok(!html.includes('id="settingsExp_notationTutorial"'), 'Experimental settings must not list Notations');
   assert.ok(html.includes('id="settingsExp_threeByThreeTutorial"'));
   assert.ok(!html.includes('id="helpOpenDevicesBtn"'), 'Help modal must not include redundant Devices button');
   assert.ok(!html.includes('id="helpOpenShortcutsBtn"'), 'Help modal must not include redundant Shortcuts button');

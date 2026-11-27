@@ -1,4 +1,4 @@
-// Standalone NxN Notation & Triggers View (Beta Experimental Mode)
+// Standalone NxN Notation & Triggers View
 // Features a large interactive 3D sandbox cube with Free Face Turns always visible,
 // puzzle size switcher (2x2 / 3x3 / 4x4 / 5x5), and inline playable 3D cubes on every notation/trigger card.
 
@@ -648,7 +648,7 @@ export function createNotationTutorialView({
       <div class="flb-wrap">
         <div class="study-header">
           <div class="study-track-title-wrap">
-            <h2 class="study-track-title">NxN Notation &amp; Triggers<sup class="beta-sup" aria-label="Experimental">β</sup></h2>
+            <h2 class="study-track-title">NxN Notation &amp; Triggers</h2>
             <span class="study-track-desc">Explore how face turns, slices, wide moves, rotations, and 4-move triggers work on 2x2 through 5x5.</span>
           </div>
           <div class="oh-hand-switcher" role="group" aria-label="Choose sandbox puzzle size">

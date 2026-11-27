@@ -60,11 +60,6 @@ export const BETA_TRACK_IDS_333 = new Set(["tutorial", "coll", "cmll", "wv"]);
 
 export const EXPERIMENTAL_FEATURES = Object.freeze([
   {
-    id: "notationTutorial",
-    label: "NxN Notation & Triggers Tutorial",
-    description: "Standalone interactive NxN notation & 4-move triggers guide with live 3D cubes and always-visible Free Face Turns"
-  },
-  {
     id: "twoByTwoTutorial",
     label: "2x2 Beginner Tutorial",
     description: "Dynamic step-by-step 3D beginner 2x2 guide using Righty, Sune/Antisune, and T-Perm"

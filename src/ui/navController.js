@@ -302,14 +302,11 @@ export function createNavController({
     }
     const hasCases = s.selectedCases.size > 0;
 
-    const notationEnabled = isExperimentalEnabled(s, "notationTutorial");
-
     modeButtons.forEach(btn => {
       const m = btn.dataset.mode;
       btn.hidden = Boolean(
         (isSolveOnly && m !== "solve") ||
-        (isHideSimulate && m === "simulate") ||
-        (m === "notation" && !notationEnabled)
+        (isHideSimulate && m === "simulate")
       );
       btn.setAttribute("aria-pressed", String(m === s.mode));
     });
