@@ -15,7 +15,7 @@ import {
 } from './cfopAnalyzer.js';
 
 export const TWO_BY_TWO_COLOR_NAMES = ["White", "Yellow", "Green", "Blue", "Red", "Orange"];
-export const TWO_BY_TWO_ANALYSIS_VERSION = 8;
+export const TWO_BY_TWO_ANALYSIS_VERSION = 9;
 
 const OPPOSITE_COLOR_NAME = {
   White: "Yellow",
@@ -32,12 +32,12 @@ let initPromise = null;
 
 // Candidate rotations bringing each physical cube face to Bottom (D)
 const CANDIDATE_ROTATIONS_222 = [
-  { rot: "",   inv: "",   uFace: "U", transCache: new Map(), rotTrans: null, invTrans: null },
-  { rot: "z2", inv: "z2", uFace: "D", transCache: new Map(), rotTrans: null, invTrans: null },
-  { rot: "x'", inv: "x",  uFace: "B", transCache: new Map(), rotTrans: null, invTrans: null },
-  { rot: "x",  inv: "x'", uFace: "F", transCache: new Map(), rotTrans: null, invTrans: null },
-  { rot: "z",  inv: "z'", uFace: "L", transCache: new Map(), rotTrans: null, invTrans: null },
-  { rot: "z'", inv: "z",  uFace: "R", transCache: new Map(), rotTrans: null, invTrans: null }
+  { rot: "",   inv: "",   uFace: "U", dFace: "D", transCache: new Map(), rotTrans: null, invTrans: null },
+  { rot: "z2", inv: "z2", uFace: "D", dFace: "U", transCache: new Map(), rotTrans: null, invTrans: null },
+  { rot: "x'", inv: "x",  uFace: "B", dFace: "F", transCache: new Map(), rotTrans: null, invTrans: null },
+  { rot: "x",  inv: "x'", uFace: "F", dFace: "B", transCache: new Map(), rotTrans: null, invTrans: null },
+  { rot: "z",  inv: "z'", uFace: "L", dFace: "R", transCache: new Map(), rotTrans: null, invTrans: null },
+  { rot: "z'", inv: "z",  uFace: "R", dFace: "L", transCache: new Map(), rotTrans: null, invTrans: null }
 ];
 
 // All 24 solved 2x2x2 orientations indexed by their D-layer corner piece+orientation signature
@@ -469,13 +469,18 @@ function getMoveFaceLetter(moveStr) {
 }
 
 function isLayerUMove(moveStr, cand) {
-  return getMoveFaceLetter(moveStr) === cand.uFace;
+  return getMoveFaceLetter(moveStr) === cand?.uFace;
+}
+
+function isLayerAxisMove(moveStr, cand) {
+  const face = getMoveFaceLetter(moveStr);
+  return Boolean(face && (face === cand?.uFace || face === cand?.dFace));
 }
 
 function isLayerSetupMove(moveStr, cand) {
   if (!moveStr) return false;
   if (/^[xyz][2']?$/i.test(String(moveStr).trim())) return true;
-  return isLayerUMove(moveStr, cand);
+  return isLayerAxisMove(moveStr, cand);
 }
 
 function normalizeMovesWithTiming(moves = []) {

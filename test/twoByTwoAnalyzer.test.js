@@ -452,7 +452,7 @@ test('analyzeTwoByTwoSolve prefers real White CLL over trivial Yellow CLL Skip a
 
 test('stale cached 2x2 analysis auto-upgrades to current version, force/reanalyzeTwoByTwoSolves re-runs cached solves, and sessionLogView re-analyzes chosen solves', async () => {
   await initTwoByTwoAnalyzer();
-  assert.strictEqual(TWO_BY_TWO_ANALYSIS_VERSION, 8);
+  assert.strictEqual(TWO_BY_TWO_ANALYSIS_VERSION, 9);
 
   // 1. Stale version cached twoByTwo auto-invalidates on ensureSolveTwoByTwo
   const staleSolve = makeRealisticTwoByTwoSolve({ color: "White", cllId: "H1", stepMs: 140, pauseBeforeCllMs: 460 });
@@ -838,4 +838,91 @@ test('collectCaseSolves and renderCaseSolvesModalBodyHtml show Recog, Exec, Move
   assert.ok(cllTableHtml.includes('class="cfop-case-solves-btn"'));
   assert.ok(cllTableHtml.includes('data-case-solves-id="H1"'));
   assert.ok(cllTableHtml.includes('data-drill-case-id="H1"'));
+});
+
+test('analyzeTwoByTwoSolve counts opposite-face {R, U, F} AUF adjustments as Recog across all 3 axes', async () => {
+  await initTwoByTwoAnalyzer();
+
+  // Case 1: 1st Layer on L/R axis (Orange/Red), {R,U,F} smart cube turns R/R' to AUF top layer before F'-start alg
+  // Using z' frame (Orange D, uFace R, dFace L -> mapAlgTokens shifts std D->L, U->R, R->D, L->U, F->F, B->B; so use pure <L,U,F> mapped or build {R,U,F} directly):
+  // Conjugate a <R,U,F> L6 alg (F' R U R' U' R' F R) under z' -> R/U/F maps: wait z sends U->L, R->U, F->F!
+  // Let's map std {R, U, F} under x (Blue on D, uFace F, dFace B) and std {L, U, F} under z' (dFace L, uFace R -> L maps to U, U maps to R, F maps to F):
+  const buildAxisSolve = ({ faceStdMoves, preAufMoves, execMoves, splitsMs, rotKey }) => {
+    const faceToks = faceStdMoves.flatMap(m => mapAlgTokens(m, rotKey));
+    const preToks = preAufMoves;
+    const allToks = [...faceToks, ...preToks, ...execMoves];
+    let t = 0;
+    const moves = allToks.map((mv, idx) => {
+      const sp = splitsMs[idx] ?? 150;
+      t += sp;
+      return { move: mv, t, split: sp };
+    });
+    return {
+      puzzle: "222",
+      target: "full",
+      ms: t,
+      rawMs: t,
+      cubeMs: t,
+      moves,
+      scramble: new Alg(allToks.join(" ")).invert().toString(),
+    };
+  };
+
+  // Axis 1: L/R axis with dFace = R (uFace = L, Red on D; {R,U,F} smart cube reports L turns as R turns!)
+  // Red (cand rot="z") maps U->L, D->R, R->U, L->D, F->F, B->B.
+  // Std T1 alg = R U R' U' R' F R F' mapped by z -> U L U' L' L' F U F' (wait contains L),
+  // whereas an alg in <D, R, F> mapped by z gives <R, U, F>!
+  // Wait: in z (uFace=L, dFace=R), ANY R/R' turn turns the U/D axis WITHOUT breaking the Red 1st layer!
+  // After Red 1st layer solves with R U' R' (std), we do 4 opposite-face R/R' turns (870, 150, 2370, 660ms),
+  // then execute mapped T1 (1110ms first move F -> total Recog = 870 + 150 + 2370 + 660 + 1110 = 5160ms)!
+  const t1ExecZ = mapAlgTokens("F' L F L' U' L' U L", "z"); // Notice F, L, U -> F, D... wait map "z": L->D! Let us use direct {R,U,F} L6/T1?
+  // Better: test with raw move tokens from std CLL where pre-AUF uses dFace!
+  // On z2 (White D, uFace D, dFace U): {R,U,F} smart cube reports top-layer turns as U instead of D!
+  // So after ["D'", "R", "U'", "R'"] mapped by x2 -> ["U'", "R", "D'", "R'"], multiple U/U' moves are dFace!
+  const x2Solve = buildAxisSolve({
+    faceStdMoves: ["D'", "R", "U'", "R'"],
+    preAufMoves: ["U", "U", "U2", "U'"],
+    execMoves: mapAlgTokens("R U R' U' R' F R F'", "x2"), // Wait R -> R, first move R splits at 1110
+    splitsMs: [150, 150, 150, 150, 870, 150, 2370, 660, 1110],
+    rotKey: "x2",
+  });
+  const resX2 = await analyzeTwoByTwoSolve(x2Solve);
+  assert.strictEqual(resX2.layerColor, "White");
+  const cllX2 = resX2.steps.find(s => s.phase === "cll");
+  assert.ok(cllX2);
+  assert.strictEqual(cllX2.recogMs, 870 + 150 + 2370 + 660 + 1110);
+  assert.strictEqual(cllX2.setupMs, 0);
+  assert.strictEqual(cllX2.recogMs + cllX2.execMs, cllX2.ms);
+
+  // Axis 2: L/R axis with uFace = R, dFace = L (Orange on D, R-moves turn top layer and L-moves turn opposite face on axis)
+  const zPrimeSolve = buildAxisSolve({
+    faceStdMoves: ["D'", "R", "U'", "R'"],
+    preAufMoves: ["L", "L'", "L2"],
+    execMoves: mapAlgTokens("F R' F' R U R U' R'", "z'"),
+    splitsMs: [150, 150, 150, 150, 620, 490, 220, 810],
+    rotKey: "z'",
+  });
+  const resZPrime = await analyzeTwoByTwoSolve(zPrimeSolve);
+  assert.strictEqual(resZPrime.layerColor, "Orange");
+  const cllZPrime = resZPrime.steps.find(s => s.phase === "cll");
+  assert.ok(cllZPrime);
+  assert.strictEqual(cllZPrime.recogMs, 620 + 490 + 220 + 810);
+  assert.strictEqual(cllZPrime.setupMs, 0);
+  assert.strictEqual(cllZPrime.recogMs + cllZPrime.execMs, cllZPrime.ms);
+
+  // Axis 3: F/B axis with uFace = B, dFace = F (Green on D, F-moves from {R,U,F} smart cube are dFace!)
+  const xPrimeSolve = buildAxisSolve({
+    faceStdMoves: ["D'", "R", "U'", "R'"],
+    preAufMoves: ["F", "F'", "F2"],
+    execMoves: mapAlgTokens("R U R' U' R' F R F'", "x'"),
+    splitsMs: [150, 150, 150, 150, 500, 310, 440, 720],
+    rotKey: "x'",
+  });
+  const resXPrime = await analyzeTwoByTwoSolve(xPrimeSolve);
+  assert.strictEqual(resXPrime.layerColor, "Green");
+  const cllXPrime = resXPrime.steps.find(s => s.phase === "cll");
+  assert.ok(cllXPrime);
+  assert.strictEqual(cllXPrime.recogMs, 500 + 310 + 440 + 720);
+  assert.strictEqual(cllXPrime.setupMs, 0);
+  assert.strictEqual(cllXPrime.recogMs + cllXPrime.execMs, cllXPrime.ms);
 });
