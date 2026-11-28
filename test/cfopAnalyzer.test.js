@@ -115,19 +115,19 @@ test('analyzeCfopSolve accurately detects Cross, F2L 1-4, OLL 27 (Sune), PLL (T 
   const pllStep = cfop.steps.find(s => s.phase === 'pll');
   assert.strictEqual(crossStep.caseId, 'Yellow');
   assert.strictEqual(crossStep.accumMs, 720);
-  assert.strictEqual(ollStep.caseId, 'OLL 27');
+    assert.strictEqual(ollStep.caseId, 'OLL 27');
   assert.strictEqual(ollStep.setupMoves, 'U');
-  assert.strictEqual(ollStep.recogMs, 550);
-  assert.strictEqual(ollStep.setupMs, 200);
-  assert.strictEqual(ollStep.recogMs + ollStep.setupMs + ollStep.execMs, ollStep.ms);
+  assert.strictEqual(ollStep.recogMs, 750);
+  assert.strictEqual(ollStep.setupMs, 0);
+  assert.strictEqual(ollStep.recogMs + ollStep.execMs, ollStep.ms);
   assert.strictEqual(pllStep.caseId, 'T');
   assert.strictEqual(pllStep.setupMoves, 'U');
-  assert.strictEqual(pllStep.recogMs, 630);
-  assert.strictEqual(pllStep.setupMs, 200);
-  assert.strictEqual(pllStep.recogMs + pllStep.setupMs + pllStep.execMs, pllStep.ms);
+  assert.strictEqual(pllStep.recogMs, 830);
+  assert.strictEqual(pllStep.setupMs, 0);
+  assert.strictEqual(pllStep.recogMs + pllStep.execMs, pllStep.ms);
   assert.strictEqual(pllStep.accumMs, 9760);
 
-  // Heuristic edge case: U-fishing with pause right before first alg turn folds into Recog
+  // All leading U/U'/U2 moves (even with pauses/fishing) fold into Recog until first non-U move
   const fishing = computePhaseRecogSetupExec(
     [
       { move: 'U', split: 140 },
@@ -142,7 +142,7 @@ test('analyzeCfopSolve accurately detects Cross, F2L 1-4, OLL 27 (Sune), PLL (T 
   assert.strictEqual(fishing.setupMs, 0);
   assert.strictEqual(fishing.execMs, 160);
 
-  // Heuristic edge case: Pause -> U -> U' (fishing w/ pause between setups) -> R
+  // Multiple leading U moves (e.g. U -> U' before R) all fold into Recog
   const midPause = computePhaseRecogSetupExec(
     [
       { move: 'U', split: 120 },
@@ -154,9 +154,25 @@ test('analyzeCfopSolve accurately detects Cross, F2L 1-4, OLL 27 (Sune), PLL (T 
     900,
     400
   );
-  assert.strictEqual(midPause.recogMs, 600);
-  assert.strictEqual(midPause.setupMs, 150);
+  assert.strictEqual(midPause.recogMs, 750);
+  assert.strictEqual(midPause.setupMs, 0);
   assert.strictEqual(midPause.execMs, 150);
+
+  // Zero-pause multi-U adjustment (U2 -> U' -> F ...) folds completely into Recog until first non-U move
+  const multiU = computePhaseRecogSetupExec(
+    [
+      { move: 'U2', split: 180 },
+      { move: "U'", split: 140 },
+      { move: 'F', split: 190 },
+      { move: 'R', split: 130 }
+    ],
+    2,
+    640,
+    400
+  );
+  assert.strictEqual(multiU.recogMs, 510);
+  assert.strictEqual(multiU.setupMs, 0);
+  assert.strictEqual(multiU.execMs, 130);
   assert.strictEqual(cfop.aufSummary?.ms, 200);
   assert.strictEqual(cfop.aufSummary?.accumMs, 9960);
   assert.ok(cfop.f2lSummary);

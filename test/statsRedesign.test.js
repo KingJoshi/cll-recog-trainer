@@ -103,7 +103,7 @@ test('renderCfopStepTable supports simplified Basic (Step/Total/Accum) vs full A
   const advHtml = renderCfopStepTable(solve, { detailed: false, basic: false });
   assert.ok(!advHtml.includes('cfop-step-table-basic'));
   assert.ok(advHtml.includes('>Recog<'));
-  assert.ok(advHtml.includes('>Setup<'));
+  assert.ok(!advHtml.includes('>Setup<'));
   assert.ok(advHtml.includes('>Exec<'));
   assert.ok(advHtml.includes('>Pauses<'));
   assert.ok(advHtml.includes('>Recon<'));

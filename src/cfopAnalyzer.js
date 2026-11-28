@@ -17,57 +17,30 @@ import {
 } from './cube/cubeUtils.js';
 
 export const DEFAULT_PAUSE_THRESHOLD_MS = 400;
-export const CFOP_ANALYSIS_VERSION = 3;
+export const CFOP_ANALYSIS_VERSION = 4;
 
 /**
- * Split pre-execution phase time into recognition (pause/fishing before setup)
- * vs. pre-AUF/rotation setup transition time (`setupMs`) vs. alg execution (`execMs`).
+ * Split pre-execution phase time into recognition (`recogMs`, including all leading U/U'/U2
+ * adjustments and zero-split rotations until the first non-U execution move) vs. execution (`execMs`).
  */
 export function computePhaseRecogSetupExec(
   phaseMoves = [],
   setupMoveCount = 0,
   durationMs = 0,
-  pauseThresholdMs = DEFAULT_PAUSE_THRESHOLD_MS
+  _pauseThresholdMs = DEFAULT_PAUSE_THRESHOLD_MS
 ) {
   if (!Array.isArray(phaseMoves) || phaseMoves.length === 0) {
     return { recogMs: 0, setupMs: 0, execMs: Math.max(0, durationMs) };
   }
   const clampedDur = Math.max(0, durationMs);
-  if (setupMoveCount <= 0) {
-    const recogMs = Math.min(clampedDur, Math.max(0, phaseMoves[0]?.split || 0));
-    return { recogMs, setupMs: 0, execMs: Math.max(0, clampedDur - recogMs) };
-  }
-
-  const endIdx = Math.min(phaseMoves.length - 1, setupMoveCount);
-  let totalPreExecMs = 0;
+  const endIdx = Math.min(phaseMoves.length - 1, Math.max(0, setupMoveCount));
+  let rSum = 0;
   for (let i = 0; i <= endIdx; i++) {
-    totalPreExecMs += Math.max(0, phaseMoves[i]?.split || 0);
+    rSum += Math.max(0, phaseMoves[i]?.split || 0);
   }
-  totalPreExecMs = Math.min(clampedDur, totalPreExecMs);
-
-  let recogMs = 0;
-  let setupMs = 0;
-  if (setupMoveCount < phaseMoves.length && (phaseMoves[setupMoveCount]?.split || 0) >= pauseThresholdMs) {
-    // Pause occurred after pre-AUF/fishing right before the first alg move
-    recogMs = totalPreExecMs;
-    setupMs = 0;
-  } else {
-    let recogEndIdx = 0;
-    for (let i = 1; i < setupMoveCount; i++) {
-      if ((phaseMoves[i]?.split || 0) >= pauseThresholdMs) {
-        recogEndIdx = i;
-      }
-    }
-    let rSum = 0;
-    for (let i = 0; i <= recogEndIdx && i < phaseMoves.length; i++) {
-      rSum += Math.max(0, phaseMoves[i]?.split || 0);
-    }
-    recogMs = Math.min(totalPreExecMs, rSum);
-    setupMs = Math.max(0, totalPreExecMs - recogMs);
-  }
-
-  const execMs = Math.max(0, clampedDur - recogMs - setupMs);
-  return { recogMs, setupMs, execMs };
+  const recogMs = Math.min(clampedDur, rSum);
+  const execMs = Math.max(0, clampedDur - recogMs);
+  return { recogMs, setupMs: 0, execMs };
 }
 
 let kp333 = null;
@@ -734,10 +707,13 @@ export function analyzeCfopSolveSync(solve, options = {}) {
       caseId = detectedPll ? detectedPll.shortName : (durationMs === 0 ? "PLL Skip" : "-");
     }
 
-    // Separate pre-AUF / rotation setup moves (cross-relative U/y) at the start of the step from execution moves
+    // Count leading U/U'/U2 moves (and zero-split rotations) before the first non-U execution move into Recog
     let setupMoveCount = 0;
     if (ph.key !== "cross" && phaseMoves.length > 0) {
-      while (setupMoveCount < phaseMoves.length && isCrossSetupMove(phaseMoves[setupMoveCount].move, bestCandidate.cand)) {
+      while (
+        setupMoveCount < phaseMoves.length &&
+        (phaseMoves[setupMoveCount].isRotation || isCrossUMove(phaseMoves[setupMoveCount].move, bestCandidate.cand))
+      ) {
         setupMoveCount++;
       }
     }

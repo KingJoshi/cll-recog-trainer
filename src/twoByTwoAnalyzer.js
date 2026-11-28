@@ -15,7 +15,7 @@ import {
 } from './cfopAnalyzer.js';
 
 export const TWO_BY_TWO_COLOR_NAMES = ["White", "Yellow", "Green", "Blue", "Red", "Orange"];
-export const TWO_BY_TWO_ANALYSIS_VERSION = 7;
+export const TWO_BY_TWO_ANALYSIS_VERSION = 8;
 
 const OPPOSITE_COLOR_NAME = {
   White: "Yellow",

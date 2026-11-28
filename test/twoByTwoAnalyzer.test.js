@@ -187,14 +187,14 @@ test('analyzeTwoByTwoSolve detects all 6 1st-layer colors color-neutrally plus e
     assert.strictEqual(layerStep.moveCount, 4);
     assert.strictEqual(layerStep.ms, 600);
 
-    // CLL step: starts with 560ms pause (recog) + pre-AUF setup time + alg execution
+    // CLL step: starts with 560ms pause + leading U adjustments folded into Recog until first non-U move
     const cllStep = res.steps.find(s => s.phase === "cll");
     assert.ok(cllStep);
     assert.strictEqual(cllStep.caseId, cllId);
-    assert.strictEqual(cllStep.recogMs, 560);
-    assert.ok(cllStep.setupMs >= 150, `Expected setupMs >= 150ms, got ${cllStep.setupMs}`);
-    if (cllId === "T1") assert.strictEqual(cllStep.setupMs, 150);
-    assert.strictEqual(cllStep.recogMs + cllStep.setupMs + cllStep.execMs, cllStep.ms);
+    assert.ok(cllStep.recogMs >= 710, `Expected recogMs >= 710ms, got ${cllStep.recogMs}`);
+    if (cllId === "T1") assert.strictEqual(cllStep.recogMs, 710);
+    assert.strictEqual(cllStep.setupMs, 0);
+    assert.strictEqual(cllStep.recogMs + cllStep.execMs, cllStep.ms);
     assert.strictEqual(cllStep.setupMoves.length > 0, true);
 
     // Post-AUF separated and excluded from CLL time
@@ -447,7 +447,7 @@ test('analyzeTwoByTwoSolve prefers real White CLL over trivial Yellow CLL Skip a
 
 test('stale cached 2x2 analysis auto-upgrades to current version, force/reanalyzeTwoByTwoSolves re-runs cached solves, and sessionLogView re-analyzes chosen solves', async () => {
   await initTwoByTwoAnalyzer();
-  assert.strictEqual(TWO_BY_TWO_ANALYSIS_VERSION, 7);
+  assert.strictEqual(TWO_BY_TWO_ANALYSIS_VERSION, 8);
 
   // 1. Stale version cached twoByTwo auto-invalidates on ensureSolveTwoByTwo
   const staleSolve = makeRealisticTwoByTwoSolve({ color: "White", cllId: "H1", stepMs: 140, pauseBeforeCllMs: 460 });

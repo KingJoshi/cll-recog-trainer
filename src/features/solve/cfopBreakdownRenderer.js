@@ -67,7 +67,6 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
   const aufExecExtra = hasSeparateAuf ? (analysis.aufSummary.execMs ?? analysis.aufSummary.ms ?? 0) : 0;
   const aufMoveExtra = hasSeparateAuf ? (analysis.aufSummary.moveCount || 0) : 0;
   const totalRecogMs = realSteps.reduce((acc, s) => acc + (isNoRecogPhase(s.phase) ? 0 : (s.recogMs || 0)), 0);
-  const totalSetupMs = realSteps.reduce((acc, s) => acc + (isNoRecogPhase(s.phase) ? 0 : (s.setupMs || 0)), 0);
   const totalExecMs = realSteps.reduce((acc, s) => acc + (s.execMs || 0), 0) + aufExecExtra;
   const stepsTotalMs = realSteps.reduce((acc, s) => acc + (s.ms || 0), 0) + aufMsExtra;
   const cubeSolveMs = typeof solve.cubeMs === "number" && Number.isFinite(solve.cubeMs) ? solve.cubeMs : stepsTotalMs;
@@ -126,7 +125,6 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
       label: "Pick-up",
       caseId: solve.timer || "Timer",
       recogMs: null,
-      setupMs: null,
       setupMoves: "",
       execMs: null,
       ms: solve.pickupMs,
@@ -161,7 +159,6 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
       label: "Cube Solve",
       caseId: solve.smartCube || "Smart Cube",
       recogMs: totalRecogMs,
-      setupMs: totalSetupMs,
       setupMoves: "",
       execMs: totalExecMs,
       ms: cubeSolveMs,
@@ -179,7 +176,6 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
       label: "Put-down",
       caseId: solve.timer || "Timer",
       recogMs: null,
-      setupMs: null,
       setupMoves: "",
       execMs: null,
       ms: solve.putdownMs,
@@ -241,10 +237,6 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
       ? `<span class="cfop-muted-dash">-</span>`
       : formatCfopSplitMs(row.recogMs);
 
-    const setupTxt = (isNoRecogPhase(row.phase) || row.phase === "auf" || isHandlingRow)
-      ? `<span class="cfop-muted-dash">-</span>`
-      : formatCfopSplitMs(row.setupMs ?? 0);
-
     const execTxt = isHandlingRow
       ? `<span class="cfop-muted-dash">-</span>`
       : formatCfopSplitMs(row.execMs);
@@ -269,7 +261,6 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
         <td class="cfop-col-step"><span class="cfop-step-badge ${stepBadgeClass}">${escapeHtml(row.label)}</span></td>
         <td class="cfop-col-case">${caseDisplay}</td>
         <td class="cfop-col-recog">${recogTxt}</td>
-        <td class="cfop-col-setup">${setupTxt}</td>
         <td class="cfop-col-exec">${execTxt}</td>
         <td class="cfop-col-total ${splitCmp.cls}"${splitCmp.titleAttr}>${totalTxt}</td>
         <td class="cfop-col-accum">${accumTxt}</td>
@@ -313,10 +304,9 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
           <tr>
             <th scope="col">Step</th>
             <th scope="col">Case</th>
-            <th scope="col" title="Recognition time before setup / execution">Recog</th>
-            <th scope="col" title="Pre-AUF / rotation setup time before alg execution">Setup</th>
+            <th scope="col" title="Recognition time until first non-U execution move">Recog</th>
             <th scope="col" title="Algorithm execution time">Exec</th>
-            <th scope="col" title="Total time for this step (Recog + Setup + Exec)">Total</th>
+            <th scope="col" title="Total time for this step (Recog + Exec)">Total</th>
             <th scope="col" title="Total accumulated solve time after this step">Accum</th>
             <th scope="col">Moves</th>
             <th scope="col" title="Pauses ≥0.40s during this step">Pauses</th>
@@ -328,7 +318,6 @@ export function renderCfopStepTable(solve, { detailed = false, basic = false, re
           <tr class="cfop-step-tfoot-row">
             <th scope="row" colspan="2">Solve Total</th>
             <td>${formatCfopSplitMs(totalRecogMs)}</td>
-            <td>${formatCfopSplitMs(totalSetupMs)}</td>
             <td>${formatCfopSplitMs(totalExecMs)}</td>
             <td class="${totalSolveCmp.cls}"${totalSolveCmp.titleAttr}><strong>${formatCfopSplitMs(solveMs)}</strong></td>
             <td><strong>${formatCfopSplitMs(solveMs)}</strong></td>
