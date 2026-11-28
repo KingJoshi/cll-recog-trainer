@@ -643,6 +643,27 @@
   </div>
 </div>
 
+<!-- Case Solves Breakdown Modal (per-solve Recog, Exec, Moves & Pauses for a case) -->
+<div id="caseSolvesModal" class="solve-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="caseSolvesModalTitle" hidden>
+  <div class="solve-modal-card">
+    <div class="solve-modal-header">
+      <div class="case-solves-header-info">
+        <div id="caseSolvesModalSvg" class="case-solves-modal-svg" aria-hidden="true"></div>
+        <div class="solve-modal-title-wrap">
+          <h3 id="caseSolvesModalTitle" class="solve-modal-title">Case Solves</h3>
+          <span id="caseSolvesModalSub" class="cfop-case-breakdown-sub"></span>
+        </div>
+      </div>
+      <button type="button" id="caseSolvesModalCloseBtn" class="solve-modal-close" aria-label="Close case solves dialog">&times;</button>
+    </div>
+    <div id="caseSolvesModalBody" class="solve-modal-body"></div>
+    <div class="solve-modal-actions">
+      <button type="button" id="caseSolvesModalDrillBtn" class="btn btn-primary btn-small" hidden>&#x26A1; Drill Case</button>
+      <button type="button" id="caseSolvesModalDismissBtn" class="btn btn-small">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Devices controls live inside Settings -> Devices, with Diagnostics & Supported Smart Cubes popups below -->
 
 <!-- Solve Replay Viewer Modal -->

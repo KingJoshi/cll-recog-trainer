@@ -26,7 +26,7 @@ import {
 import { getSolveTime } from '../../services/solveStats.js';
 import { escapeHtml, formatSolveTime, formatCfopSplitMs } from '../../services/htmlUtils.js';
 
-export function createCaseSolveStatsView({ appStore, onStartAlgDrill = null } = {}) {
+export function createCaseSolveStatsView({ appStore, onStartAlgDrill = null, onOpenCaseSolves = null } = {}) {
   const sortState = { col: "median", dir: "desc" };
 
   function render(container) {
@@ -192,11 +192,14 @@ export function createCaseSolveStatsView({ appStore, onStartAlgDrill = null } = 
       const caseBtnHtml = typeof onStartAlgDrill === "function"
         ? `<button type="button" class="stats-case-drill-btn" data-stats-drill-case="${escapeHtml(stat.id)}" title="Click to drill ${escapeHtml(stat.id)}"><strong>${escapeHtml(stat.id)}</strong></button>`
         : `<strong>${escapeHtml(stat.id)}</strong>`;
-      html += `<tr>
+      const attemptsHtml = typeof onOpenCaseSolves === "function"
+        ? `<button type="button" class="cfop-case-solves-btn" data-stats-case-solves="${escapeHtml(stat.id)}" data-case-solves-name="${escapeHtml(stat.name)}" title="Inspect all ${stat.attempts} solve${stat.attempts === 1 ? "" : "s"} for ${escapeHtml(stat.id)}">${stat.attempts} <span aria-hidden="true">&#x2197;</span></button>`
+        : `${stat.attempts}`;
+      html += `<tr class="${typeof onOpenCaseSolves === "function" ? "cfop-case-row-clickable" : ""}" data-stats-case-solves="${escapeHtml(stat.id)}" data-case-solves-name="${escapeHtml(stat.name)}">
         <th scope="row">${caseBtnHtml}</th>
         ${showCubeSvgCol ? `<td class="case-svg-cell"><div class="case-table-svg">${svgDiagram}</div></td>` : ""}
         ${showGroupCol ? `<td class="case-stat-name-cell">${escapeHtml(stat.name)}</td>` : ""}
-        <td>${stat.attempts}</td>
+        <td>${attemptsHtml}</td>
         <td>${formatSolveTime(stat.best)}</td>
         <td><strong>${formatSolveTime(stat.median)}</strong></td>
         <td><strong>${formatSolveTime(stat.trimMean)}</strong></td>
@@ -248,9 +251,37 @@ export function createCaseSolveStatsView({ appStore, onStartAlgDrill = null } = 
     }
     container.innerHTML = html;
     attachSortListeners(container);
+    if (typeof onOpenCaseSolves === "function") {
+      const openStatsCaseSolves = (el) => {
+        const id = el?.dataset?.statsCaseSolves;
+        if (!id) return;
+        onOpenCaseSolves({
+          puzzleId: currentPuzzle,
+          trackId: currentTrackId,
+          caseId: id,
+          caseLabel: id,
+          caseName: el.dataset.caseSolvesName || id,
+          svgCaseId: id,
+          solves: currentSolves
+        });
+      };
+      container.querySelectorAll("button[data-stats-case-solves]").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openStatsCaseSolves(btn);
+        });
+      });
+      container.querySelectorAll("tr[data-stats-case-solves]").forEach(row => {
+        row.addEventListener("click", (e) => {
+          if (e.target?.closest?.("[data-stats-drill-case], button[data-stats-case-solves]")) return;
+          openStatsCaseSolves(row);
+        });
+      });
+    }
     if (typeof onStartAlgDrill === "function") {
       container.querySelectorAll("[data-stats-drill-case]").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
           const id = btn.dataset.statsDrillCase;
           if (id) onStartAlgDrill({ puzzleId: currentPuzzle, trackId: currentTrackId, caseIds: [id] });
         });

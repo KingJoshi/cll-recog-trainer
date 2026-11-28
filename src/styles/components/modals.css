@@ -157,9 +157,59 @@
 }
 
 /* Wider Solve Detail Modal for Full CFOP Step Breakdown & Recon */
-#solveDetailModal .solve-modal-card {
+#solveDetailModal .solve-modal-card,
+#caseSolvesModal .solve-modal-card {
     max-width: 960px;
     width: 95vw;
+}
+
+.case-solves-header-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.case-solves-modal-svg {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.case-solves-modal-svg svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.case-solves-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.case-solves-pct {
+    color: var(--muted, #64748b);
+    font-size: 0.75em;
+    font-weight: 500;
+}
+
+.case-solves-date-cell {
+    color: var(--muted, #64748b);
+    font-size: 0.8rem;
+}
+
+.case-solves-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+#caseSolvesModalDrillBtn {
+    margin-right: auto;
 }
 
 .solve-modal-note-input {

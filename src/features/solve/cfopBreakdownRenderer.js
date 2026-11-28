@@ -405,15 +405,16 @@ function renderBreakdownCaseTable({
     const svgDiagram = item.isSkip
       ? `<span class="cfop-slot-tag">Solved</span>`
       : getCachedCaseSvg(puzzleId, trackId, item.svgCaseId || item.id);
+    const solvesBtnHtml = `<button type="button" class="cfop-case-solves-btn" data-case-solves-btn="1" data-case-solves-puzzle="${escapeHtml(puzzleId)}" data-case-solves-track="${escapeHtml(trackId)}" data-case-solves-id="${escapeHtml(item.id)}" data-case-solves-label="${escapeHtml(item.shortName)}" data-case-solves-name="${escapeHtml(item.name || item.shortName)}" data-case-solves-svg="${escapeHtml(item.svgCaseId || item.id)}" title="Inspect all ${item.attempts} solve${item.attempts === 1 ? "" : "s"} for ${escapeHtml(item.shortName)} (Recog, Exec, Moves, Pauses)">${item.attempts} <span aria-hidden="true">&#x2197;</span></button>`;
     return `
-      <tr>
+      <tr class="cfop-case-row-clickable" data-case-solves-puzzle="${escapeHtml(puzzleId)}" data-case-solves-track="${escapeHtml(trackId)}" data-case-solves-id="${escapeHtml(item.id)}" data-case-solves-label="${escapeHtml(item.shortName)}" data-case-solves-name="${escapeHtml(item.name || item.shortName)}" data-case-solves-svg="${escapeHtml(item.svgCaseId || item.id)}">
         <td class="cfop-case-id-cell">
           ${caseBadgeHtml}
           ${tagBtnHtml}
         </td>
         <td class="case-svg-cell"><div class="case-table-svg">${svgDiagram}</div></td>
         ${showGroupCol ? `<td class="cfop-case-group-cell">${escapeHtml(item.group)}</td>` : ""}
-        <td>${item.attempts}</td>
+        <td>${solvesBtnHtml}</td>
         <td><strong>${formatCfopSplitMs(item.medianMs)}</strong></td>
         <td><strong>${formatCfopSplitMs(item.trimMeanMs)}</strong></td>
         <td>${formatCfopSplitMs(item.avgMs)}</td>
@@ -504,7 +505,7 @@ export function renderOllPllCasesBreakdownHtml(solvesList, { ollOpen = true, pll
       <div class="layer-log-header" style="margin-top: 20px;">
         <div class="layer-log-title-wrap">
           <h3 class="layer-log-title">3x3 OLL &amp; PLL Case Performance &amp; Pauses (Where to Improve)</h3>
-          <span class="layer-log-hint">Sorted by slowest Median first · Click any case to drill it · Click headers to sort</span>
+          <span class="layer-log-hint">Sorted by slowest Median first · Click a row or Solves count to inspect solves · Click badge to drill</span>
         </div>
       </div>
       <div class="cfop-cases-grid">
@@ -556,7 +557,7 @@ export function renderCllCasesBreakdownHtml(solvesList, { cllOpen = true, sortSt
       <div class="layer-log-header" style="margin-top: 20px;">
         <div class="layer-log-title-wrap">
           <h3 class="layer-log-title">2x2 CLL Case Performance &amp; Pauses (Where to Improve)</h3>
-          <span class="layer-log-hint">Color-neutral 1st Layer + CLL detection · Sorted by slowest Median first · Click any case to drill it</span>
+          <span class="layer-log-hint">Color-neutral 1st Layer + CLL · Sorted by slowest Median first · Click a row or Solves count to inspect solves · Click badge to drill</span>
         </div>
       </div>
       <div class="cfop-cases-grid">

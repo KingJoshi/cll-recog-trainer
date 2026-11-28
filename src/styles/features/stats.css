@@ -621,6 +621,36 @@
     text-align: left;
 }
 
+.cfop-case-row-clickable {
+    cursor: pointer;
+    transition: background-color 0.14s ease;
+}
+
+.cfop-case-row-clickable:hover {
+    background: color-mix(in srgb, var(--primary, #2563eb) 6%, transparent);
+}
+
+.cfop-case-solves-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border, #cbd5e1);
+    background: var(--surface-2, #f8fafc);
+    color: var(--primary, #2563eb);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+
+.cfop-case-solves-btn:hover {
+    background: color-mix(in srgb, var(--primary, #2563eb) 12%, transparent);
+    border-color: var(--primary, #2563eb);
+}
+
 .cfop-case-group-cell {
     color: var(--muted, #64748b);
     font-size: 0.82rem;

@@ -1,10 +1,12 @@
+import fs from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert';
 import { AppStore } from '../src/state/appStore.js';
 import { SHORTCUT_ACTION_IDS } from '../src/services/keyboardShortcuts.js';
 import { mergeSyncPayloads } from '../src/services/syncMerge.js';
 import { analyzeCfopSolve, computeCfopAverages } from '../src/cfopAnalyzer.js';
-import { renderCfopStepTable, renderLastSolveCfopInline } from '../src/features/solve/cfopBreakdownRenderer.js';
+import { renderCfopStepTable, renderLastSolveCfopInline, renderOllPllCasesBreakdownHtml } from '../src/features/solve/cfopBreakdownRenderer.js';
+import { collectCaseSolves, renderCaseSolvesModalBodyHtml } from '../src/features/modals/caseSolvesModal.js';
 import { renderSolveStatsBar } from '../src/features/solve/solvePanelView.js';
 import { renderStatsChartsHtml } from '../src/features/stats/statsChartsView.js';
 import { createSessionLogView } from '../src/features/stats/sessionLogView.js';
@@ -409,4 +411,42 @@ test('renderStatsChartsHtml renders SVG trend, histogram, and CFOP stacked bars 
 
   store.state.chartsStatsOpen = false;
   assert.strictEqual(store.getSettingsPayload().chartsStatsOpen, false);
+});
+
+test('Case Solves Breakdown modal supports 3x3 OLL/PLL per-solve breakdown and #caseSolvesModal markup exists', () => {
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.ok(html.includes('id="caseSolvesModal"'));
+  assert.ok(html.includes('id="caseSolvesModalBody"'));
+  assert.ok(html.includes('id="caseSolvesModalDrillBtn"'));
+
+  const solves = [makeCfopSolve(1, 10800), makeCfopSolve(2, 11400)].map(sv => ({
+    ...sv,
+    cfop: {
+      ...sv.cfop,
+      ollCase: { ...sv.cfop.ollCase, id: 'oll-43', ms: sv.cfop.splits.oll, recogMs: 500, execMs: 800, moveCount: 8, pauseCount: 0, pauseMs: 0 },
+      pllCase: { ...sv.cfop.pllCase, id: 'Ua', ms: sv.cfop.splits.pll, recogMs: 450, execMs: sv.cfop.splits.pll - 450, moveCount: 11, pauseCount: 1, pauseMs: 600 }
+    }
+  }));
+  const pllEntries = collectCaseSolves({
+    solves,
+    puzzleId: '333',
+    trackId: 'pll',
+    caseId: 'Ua',
+  });
+  assert.strictEqual(pllEntries.length, 2);
+  assert.strictEqual(pllEntries[0].recogMs, 450);
+  assert.strictEqual(pllEntries[0].moveCount, 11);
+  assert.strictEqual(pllEntries[0].pauseCount, 1);
+  assert.strictEqual(pllEntries[0].pauseMs, 600);
+
+  const bodyHtml = renderCaseSolvesModalBodyHtml({ entries: pllEntries, caseLabel: 'Ua' });
+  assert.ok(bodyHtml.includes('#2'));
+  assert.ok(bodyHtml.includes('#1'));
+  assert.ok(bodyHtml.includes('0.45s'));
+  assert.ok(bodyHtml.includes('11'));
+  assert.ok(bodyHtml.includes('0.60s'));
+
+  const ollPllHtml = renderOllPllCasesBreakdownHtml(solves, {});
+  assert.ok(ollPllHtml.includes('data-case-solves-id="Ua"'));
+  assert.ok(ollPllHtml.includes('cfop-case-solves-btn'));
 });

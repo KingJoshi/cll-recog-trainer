@@ -25,7 +25,12 @@ import {
   renderCfopStepTable,
   renderLastSolveCfopInline,
   renderCllCasesBreakdownHtml,
+  renderOllPllCasesBreakdownHtml,
 } from '../src/features/solve/cfopBreakdownRenderer.js';
+import {
+  collectCaseSolves,
+  renderCaseSolvesModalBodyHtml,
+} from '../src/features/modals/caseSolvesModal.js';
 import { createSessionLogView } from '../src/features/stats/sessionLogView.js';
 import { AppStore } from '../src/state/appStore.js';
 import { mergeSyncPayloads } from '../src/services/syncMerge.js';
@@ -783,4 +788,54 @@ test('analyzeTwoByTwoSolve detects smart-cube EG-1 and EG-2 solves (with 1st Fac
   assert.strictEqual(manualEg2.method, "eg2");
   assert.strictEqual(manualEg2.egCase.id, "EG2-S4");
   assert.strictEqual(manualEg2.splits.eg, 1650);
+});
+
+test('collectCaseSolves and renderCaseSolvesModalBodyHtml show Recog, Exec, Moves, and Pauses for each solve of a case', async () => {
+  await initTwoByTwoAnalyzer();
+
+  const cllSolve1 = makeRealisticTwoByTwoSolve({ color: "White", cllId: "H1", stepMs: 140, pauseBeforeCllMs: 460 });
+  const cllSolve2 = makeRealisticTwoByTwoSolve({ color: "Green", cllId: "H1", stepMs: 180, pauseBeforeCllMs: 680 });
+  const otherCll = makeRealisticTwoByTwoSolve({ color: "Yellow", cllId: "T2", stepMs: 130, pauseBeforeCllMs: 320 });
+  const dnfCll = { ...makeRealisticTwoByTwoSolve({ color: "Red", cllId: "H1" }), penalty: "DNF" };
+
+  ensureSolveTwoByTwo(cllSolve1);
+  ensureSolveTwoByTwo(cllSolve2);
+  ensureSolveTwoByTwo(otherCll);
+
+  const entries = collectCaseSolves({
+    solves: [cllSolve1, otherCll, cllSolve2, dnfCll],
+    puzzleId: "222",
+    trackId: "cll",
+    caseId: "H1",
+    twoByTwoMethod: "cll",
+  });
+  assert.strictEqual(entries.length, 2, "Must return both non-DNF H1 solves in descending solve order");
+  assert.strictEqual(entries[0].solveNum, 3);
+  assert.strictEqual(entries[1].solveNum, 1);
+  assert.ok(entries[0].recogMs > 0);
+  assert.ok(entries[0].execMs > 0);
+  assert.strictEqual(entries[0].recogMs + entries[0].execMs, entries[0].ms);
+  assert.ok(entries[0].moveCount > 0);
+  assert.strictEqual(entries[0].pauseCount, 1);
+  assert.strictEqual(entries[0].pauseMs, 680);
+
+  const modalHtml = renderCaseSolvesModalBodyHtml({ entries, caseLabel: "H1" });
+  assert.ok(modalHtml.includes("Avg Recog"));
+  assert.ok(modalHtml.includes("Avg Exec"));
+  assert.ok(modalHtml.includes("Avg Moves"));
+  assert.ok(modalHtml.includes("Avg Pauses"));
+  assert.ok(modalHtml.includes("#3"));
+  assert.ok(modalHtml.includes("#1"));
+  assert.ok(modalHtml.includes("0.68s"));
+  assert.ok(modalHtml.includes("0.46s"));
+  assert.ok(modalHtml.includes('data-case-solve-detail-idx="0"'));
+
+  const cllTableHtml = renderCllCasesBreakdownHtml([cllSolve1, otherCll, cllSolve2], {
+    cllOpen: true,
+    twoByTwoMethod: "cll",
+  });
+  assert.ok(cllTableHtml.includes('class="cfop-case-row-clickable"'));
+  assert.ok(cllTableHtml.includes('class="cfop-case-solves-btn"'));
+  assert.ok(cllTableHtml.includes('data-case-solves-id="H1"'));
+  assert.ok(cllTableHtml.includes('data-drill-case-id="H1"'));
 });

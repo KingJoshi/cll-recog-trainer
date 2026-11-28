@@ -106,7 +106,8 @@ export function createSessionLogView({
   getSolveDetailModal = () => null,
   getSolvePanel = () => null,
   getSessionModal = () => null,
-  onStartAlgDrill = null
+  onStartAlgDrill = null,
+  onOpenCaseSolves = null
 } = {}) {
   let sessionLogFilter = "all"; // "all" | "target:<targetId>"
   let showAllHistory = false;
@@ -1393,6 +1394,37 @@ export function createSessionLogView({
         if (!caseId || typeof onStartAlgDrill !== "function") return;
         const targetPuzzle = s.currentPuzzle === "333oh" && puzzleId === "333" ? "333oh" : puzzleId;
         onStartAlgDrill({ puzzleId: targetPuzzle, trackId, caseIds: [caseId] });
+      });
+    });
+
+    const openCaseSolvesFromEl = (el) => {
+      if (!el || typeof onOpenCaseSolves !== "function") return;
+      const caseId = el.dataset.caseSolvesId;
+      if (!caseId) return;
+      const rawPuzzle = el.dataset.caseSolvesPuzzle || s.currentPuzzle;
+      const targetPuzzle = s.currentPuzzle === "333oh" && rawPuzzle === "333" ? "333oh" : rawPuzzle;
+      onOpenCaseSolves({
+        puzzleId: targetPuzzle,
+        trackId: el.dataset.caseSolvesTrack || s.currentTrackId,
+        caseId,
+        caseLabel: el.dataset.caseSolvesLabel || caseId,
+        caseName: el.dataset.caseSolvesName || caseId,
+        svgCaseId: el.dataset.caseSolvesSvg || caseId,
+        solveEntries: allIndexed.map(e => ({ solve: e.s, solveNum: e.num }))
+      });
+    };
+
+    container.querySelectorAll(".cfop-case-solves-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openCaseSolvesFromEl(btn);
+      });
+    });
+
+    container.querySelectorAll(".cfop-case-row-clickable").forEach(row => {
+      row.addEventListener("click", (e) => {
+        if (e.target?.closest?.(".cfop-drill-case-btn, .cfop-case-tag-btn, .cfop-case-solves-btn")) return;
+        openCaseSolvesFromEl(row);
       });
     });
 

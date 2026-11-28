@@ -11,6 +11,7 @@ import { showToast } from '../../ui/toastService.js';
 import { createRecogStatsView } from './recogStatsView.js';
 import { createCaseSolveStatsView } from './caseSolveStatsView.js';
 import { createSessionLogView } from './sessionLogView.js';
+import { createCaseSolvesModal } from '../modals/caseSolvesModal.js';
 
 export function createStatsPanelController({
   appStore,
@@ -27,8 +28,16 @@ export function createStatsPanelController({
   const statsExportCsvBtn = typeof document !== "undefined" ? document.getElementById("statsExportCsvBtn") : null;
   const resetStatsBtn = typeof document !== "undefined" ? document.getElementById("resetStatsBtn") : null;
 
+  const caseSolvesModal = createCaseSolvesModal({
+    appStore,
+    modalManager,
+    getSolveDetailModal,
+    onStartAlgDrill
+  });
+  const onOpenCaseSolves = (opts) => caseSolvesModal.open(opts);
+
   const recogView = createRecogStatsView({ appStore, onStartAlgDrill });
-  const caseSolveView = createCaseSolveStatsView({ appStore, onStartAlgDrill });
+  const caseSolveView = createCaseSolveStatsView({ appStore, onStartAlgDrill, onOpenCaseSolves });
   const sessionLogView = createSessionLogView({
     appStore,
     modalManager,
@@ -36,7 +45,8 @@ export function createStatsPanelController({
     getSolveDetailModal,
     getSolvePanel,
     getSessionModal,
-    onStartAlgDrill
+    onStartAlgDrill,
+    onOpenCaseSolves
   });
 
   function renderStatsToggle() {
