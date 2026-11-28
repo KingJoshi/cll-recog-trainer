@@ -1567,6 +1567,17 @@
             </div>
           </div>
 
+          <div class="settings-section" id="settingsStorageSection">
+            <div class="settings-section-head">
+              <h4 class="settings-section-title">💾 Local Storage (IndexedDB)</h4>
+              <span class="settings-section-desc">Solve sessions and smart-cube move histories are stored in IndexedDB for high-capacity offline storage</span>
+            </div>
+            <div class="settings-sync-row">
+              <span id="settingsStorageStatus" class="settings-sync-status">Checking storage…</span>
+              <button type="button" id="settingsRequestPersistBtn" class="btn btn-small btn-outline" hidden>🔒 Enable Persistent Storage</button>
+            </div>
+          </div>
+
           <div class="settings-section" id="settingsPwaInstallSection">
             <div class="settings-section-head">
               <h4 class="settings-section-title">📲 Offline App (PWA)</h4>
@@ -1593,27 +1604,6 @@
               </div>
             </div>
             <div id="settingsExperimentalList" class="settings-exp-list">
-              <label class="settings-exp-item">
-                <input type="checkbox" id="settingsExp_eg1" data-experimental-feature="eg1">
-                <div class="settings-exp-copy">
-                  <span class="settings-exp-title">2x2 EG-1</span>
-                  <span class="settings-exp-desc">Unlock all 40 EG-1 cases across Learn, Train, Timed Drills, and Simulate.</span>
-                </div>
-              </label>
-              <label class="settings-exp-item">
-                <input type="checkbox" id="settingsExp_eg2" data-experimental-feature="eg2">
-                <div class="settings-exp-copy">
-                  <span class="settings-exp-title">2x2 EG-2</span>
-                  <span class="settings-exp-desc">Unlock all 40 EG-2 cases across Learn, Train, Timed Drills, and Simulate.</span>
-                </div>
-              </label>
-              <label class="settings-exp-item">
-                <input type="checkbox" id="settingsExp_twoByTwoFirstLayer" data-experimental-feature="twoByTwoFirstLayer">
-                <div class="settings-exp-copy">
-                  <span class="settings-exp-title">2x2 1st Layer</span>
-                  <span class="settings-exp-desc">Unlock the 75-case 2x2 1st Layer explorer, grid/quiz, 2-look guide, and inspection/timed drills.</span>
-                </div>
-              </label>
               <label class="settings-exp-item">
                 <input type="checkbox" id="settingsExp_coll" data-experimental-feature="coll">
                 <div class="settings-exp-copy">

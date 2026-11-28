@@ -220,9 +220,15 @@ test('solveThreeByThreeBeginner dynamically solves any 3x3 scramble using Daisy,
   }
 });
 
-test('Tutorial views render dynamic 3D step widgets, scramble controls, and 2x2 anchor selector', async () => {
+test('Tutorial views render Guide & Walkthrough tabs, dynamic 3D step widgets, scramble controls, and 2x2 anchor selector', async () => {
   const s222 = createTwoByTwoTutorialState();
+  assert.strictEqual(s222.activeTab, 'guide');
   assert.strictEqual(s222.anchorId, 'wgr');
+  const html222Guide = renderTwoByTwoTutorialHtml(s222);
+  assert.ok(html222Guide.includes('data-tut-tab="guide"') && html222Guide.includes('data-tut-tab="walkthrough"'));
+  assert.ok(!html222Guide.includes('tut-3d-wrap'), '2x2 Guide tab should be pure 2D with no 3D cubes');
+
+  s222.activeTab = 'walkthrough';
   await ensureTwoByTwoTutorialPlan(s222);
   const html222Wgr = renderTwoByTwoTutorialHtml(s222);
   assert.ok(html222Wgr.includes('tut-3d-wrap'), '2x2 tutorial must render 3D widgets for steps');
@@ -246,11 +252,17 @@ test('Tutorial views render dynamic 3D step widgets, scramble controls, and 2x2 
   assert.ok(html222Wbo.includes('White · Blue · Orange'));
 
   const s333 = createThreeByThreeTutorialState();
+  assert.strictEqual(s333.activeTab, 'guide');
+  const html333Guide = renderThreeByThreeTutorialHtml(s333);
+  assert.ok(html333Guide.includes('data-tut-tab="guide"') && html333Guide.includes('data-tut-tab="walkthrough"'));
+  assert.ok(!html333Guide.includes('tut-3d-wrap'), '3x3 Guide tab should be pure 2D with no 3D cubes');
+
+  s333.activeTab = 'walkthrough';
   await ensureThreeByThreeTutorialPlan(s333);
   const html333 = renderThreeByThreeTutorialHtml(s333);
   assert.ok(html333.includes('tut-3d-wrap'), '3x3 tutorial must render 3D widgets for steps');
   assert.ok(html333.includes('Daisy'));
-  assert.ok(html333.includes("M2 U' M U2 M' U' M2") || html333.includes('Ua / Ub'));
+  assert.ok(html333.includes('data-cube-id="tut333-scramble-preview"'));
   assert.ok(!/\bsexy\b/i.test(html333));
 });
 

@@ -2,7 +2,6 @@
 
 import { FIRST_LAYER_BAR_CASES, FIRST_LAYER_BAR_STATS, FIRST_LAYER_TWO_LOOK } from '../../data/firstLayerBarData.js';
 import {
-  FIRST_LAYER_ONE_BOTTOM_CASES,
   FIRST_LAYER_DIAG_CASES,
   FIRST_LAYER_THREE_BOTTOM_CASES,
   FIRST_LAYER_BAR_PURE_CASES
@@ -36,12 +35,11 @@ async function getFlbScrambleDisplay() {
 }
 
 const TOTAL_LAYER_CASES =
-  FIRST_LAYER_ONE_BOTTOM_CASES.length +
   FIRST_LAYER_BAR_PURE_CASES.length +
   FIRST_LAYER_DIAG_CASES.length +
   FIRST_LAYER_THREE_BOTTOM_CASES.length;
 
-const QUIZ_GROUP_ORDER = ['one-bottom', 'two-bar', 'two-diag', 'three-bottom'];
+const QUIZ_GROUP_ORDER = ['two-bar', 'two-diag', 'three-bottom'];
 
 function normalizeGroupId(groupId) {
   if (QUIZ_GROUP_ORDER.includes(groupId)) {
@@ -51,7 +49,6 @@ function normalizeGroupId(groupId) {
 }
 
 const EXPLORER_GROUP_TABS = [
-  { id: 'one-bottom', label: `1 in Bottom (${FIRST_LAYER_ONE_BOTTOM_CASES.length})`, count: FIRST_LAYER_ONE_BOTTOM_CASES.length },
   { id: 'two-bar', label: `2 Bottom: Bar (${FIRST_LAYER_BAR_PURE_CASES.length})`, count: FIRST_LAYER_BAR_PURE_CASES.length },
   { id: 'two-diag', label: `2 Bottom: Diagonal (${FIRST_LAYER_DIAG_CASES.length})`, count: FIRST_LAYER_DIAG_CASES.length },
   { id: 'three-bottom', label: `3 in Bottom (${FIRST_LAYER_THREE_BOTTOM_CASES.length})`, count: FIRST_LAYER_THREE_BOTTOM_CASES.length }
@@ -61,7 +58,6 @@ const QUIZ_GROUP_TABS = EXPLORER_GROUP_TABS;
 
 function getCasesForGroup(groupId) {
   const norm = normalizeGroupId(groupId);
-  if (norm === 'one-bottom') return FIRST_LAYER_ONE_BOTTOM_CASES;
   if (norm === 'two-diag') return FIRST_LAYER_DIAG_CASES;
   if (norm === 'three-bottom') return FIRST_LAYER_THREE_BOTTOM_CASES;
   return FIRST_LAYER_BAR_PURE_CASES;
@@ -69,9 +65,6 @@ function getCasesForGroup(groupId) {
 
 function getGroupBanner(groupId) {
   const norm = normalizeGroupId(groupId);
-  if (norm === 'one-bottom') {
-    return 'Step-1 Bar Builders (1 white anchor at DBL): pairs DFL into DBL to form a 2-Bottom Bar cleanly (9 partner positions).';
-  }
   if (norm === 'two-diag') {
     return '2 corners solved Diagonally (DBL + DFR solved). Resolve the remaining DFL + DBR pair cleanly in 3–6 <R, U, F> moves (no cube rotation needed).';
   }
@@ -86,7 +79,6 @@ function hasWrongSlotWhiteDown(c) {
 }
 
 function getCaseCodeBadge(c) {
-  if (c.group === 'one-bottom') return `1B-${c.index}`;
   if (c.group === 'two-diag') return `D-${c.index}`;
   if (c.group === 'three-bottom') return `3B-${c.threeIndex || c.index} (#${c.index})`;
   return `#${c.index}`;
@@ -105,15 +97,6 @@ function getCaseMoveCount(c) {
 }
 
 function getCaseCornerOverlay(c) {
-  if (c.group === 'one-bottom') {
-    return {
-      solvedBottomSlots: ['DBL'],
-      pieceA: { slot: c.partnerSlot, white: c.partnerWhite, label: 'A', tagText: `DFL: ${c.partnerSlot} (${c.partnerWhite})` },
-      pieceB: null,
-      footerU: 'Front (F) · DBL Fixed',
-      footerD: 'A = Partner for DFL'
-    };
-  }
   if (c.group === 'two-diag') {
     return {
       solvedBottomSlots: ['DBL', 'DFR'],
@@ -781,31 +764,19 @@ export function bindFirstFaceStudyEvents(container, { onQuickSimSolutions, getSi
 export function createFirstLayerExplorerState() {
   return {
     subTab: 'quiz', // 'quiz' | 'explorer' | 'guide'
-    explorerGroup: 'two-bar', // 'one-bottom' | 'two-bar' | 'two-diag' | 'three-bottom'
+    explorerGroup: 'two-bar', // 'two-bar' | 'two-diag' | 'three-bottom'
     activeShape: 'right-edge',
     activeCaseId: 'flb-01',
     explorerAlgMode: 'primary', // 'primary' | 'trigger'
-    quizGroups: new Set(), // empty Set = All (123) across all 4 ordered groups
+    quizPerspective: 'shape', // 'shape' | 'roadmap' | 'technique'
+    quizGroups: new Set(), // empty Set = All (114) across 2 & 3 bottom-piece groups
+    quizChapter: 'all', // sub-chapter / roadmap level / technique filter
     quizBucket: 'all',
     quizMoves: 'all'
   };
 }
 
 const EXPLORER_SHAPES_BY_GROUP = {
-  'one-bottom': [
-    {
-      bucketLabel: 'Partner in Top (3)',
-      shapes: [{ id: 'top-u', label: 'Top Layer (UFL)' }]
-    },
-    {
-      bucketLabel: 'Partner on Bottom Side (6)',
-      shapes: [
-        { id: 'dfl-twisted', label: 'Twisted in DFL (2)' },
-        { id: 'in-dfr', label: 'Side of DFR (2)' },
-        { id: 'in-dbr', label: 'Side of DBR (2)' }
-      ]
-    }
-  ],
   'two-bar': [
     {
       bucketLabel: 'Both on Top (27)',
@@ -836,22 +807,22 @@ const EXPLORER_SHAPES_BY_GROUP = {
     {
       bucketLabel: 'Both on Top (15)',
       shapes: [
-        { id: 'adj-top', label: 'Adjacent Top' },
-        { id: 'diag-top', label: 'Diagonal Top' }
+        { id: 'adj-top', label: 'Adjacent Top (9)', count: 9 },
+        { id: 'diag-top', label: 'Diagonal Top (6)', count: 6 }
       ]
     },
     {
       bucketLabel: '1 Top + 1 Bottom (15)',
       shapes: [
-        { id: 'one-twisted', label: '1 Top + 1 Twisted' },
-        { id: 'one-wrong', label: '1 Top + 1 Wrong Slot' }
+        { id: 'one-twisted', label: '1 Top + 1 Twisted (6)', count: 6 },
+        { id: 'one-wrong', label: '1 Top + 1 Wrong Slot (9)', count: 9 }
       ]
     },
     {
       bucketLabel: 'Both on Bottom (9)',
       shapes: [
-        { id: 'in-place-twist', label: 'In-Place Twist' },
-        { id: 'bottom-swap', label: 'Bottom Swap' }
+        { id: 'in-place-twist', label: 'In-Place Twist (3)', count: 3 },
+        { id: 'bottom-swap', label: 'Bottom Swap (6)', count: 6 }
       ]
     }
   ],
@@ -859,12 +830,137 @@ const EXPLORER_SHAPES_BY_GROUP = {
     {
       bucketLabel: '3 Solved Bottom · Only DFR Unsolved (5)',
       shapes: [
-        { id: 'bp-solved', label: 'DFR in Top UFR (3)' },
-        { id: 'in-place-twist', label: 'DFR Twisted (2)' }
+        { id: 'bp-solved', label: 'Top Corner UFR (3)', count: 3 },
+        { id: 'in-place-twist', label: 'Twisted in Place (2)', count: 2 }
       ]
     }
   ]
 };
+
+const ALL_LAYER_114_CASES = [
+  ...FIRST_LAYER_BAR_PURE_CASES,
+  ...FIRST_LAYER_DIAG_CASES,
+  ...FIRST_LAYER_THREE_BOTTOM_CASES
+];
+
+const QUIZ_CHAPTERS_BY_GROUP = {
+  'two-bar': [
+    { id: 'two-bar:right-edge', grp: 'two-bar', subShape: 'right-edge', label: 'Bar · Right Edge (UBR)', shortLabel: 'Right Edge (9)' },
+    { id: 'two-bar:front-edge', grp: 'two-bar', subShape: 'front-edge', label: 'Bar · Front Edge (UFL)', shortLabel: 'Front Edge (9)' },
+    { id: 'two-bar:diagonal', grp: 'two-bar', subShape: 'diagonal', label: 'Bar · Diagonal Top (UBL)', shortLabel: 'Diagonal Top (9)' },
+    { id: 'two-bar:bp-twisted', grp: 'two-bar', subShape: 'bp-twisted', label: 'Bar · BP Twisted', shortLabel: 'BP Twisted (6)' },
+    { id: 'two-bar:fp-twisted', grp: 'two-bar', subShape: 'fp-twisted', label: 'Bar · FP Twisted', shortLabel: 'FP Twisted (6)' },
+    { id: 'two-bar:fp-in-back', grp: 'two-bar', subShape: 'fp-in-back', label: 'Bar · FP in Back', shortLabel: 'FP in Back (9)' },
+    { id: 'two-bar:bp-in-front', grp: 'two-bar', subShape: 'bp-in-front', label: 'Bar · BP in Front', shortLabel: 'BP in Front (9)' },
+    { id: 'two-bar:in-place-twist', grp: 'two-bar', subShape: 'in-place-twist', label: 'Bar · In-Place Twist', shortLabel: 'Bar Twist (4)' },
+    { id: 'two-bar:bottom-swap', grp: 'two-bar', subShape: 'bottom-swap', label: 'Bar · Bottom Swap', shortLabel: 'Bar Swap (9)' }
+  ],
+  'two-diag': [
+    { id: 'two-diag:adj-top', grp: 'two-diag', subShape: 'adj-top', label: 'Diag · Adjacent Top', shortLabel: 'Diag Adj Top (9)' },
+    { id: 'two-diag:diag-top', grp: 'two-diag', subShape: 'diag-top', label: 'Diag · Diagonal Top', shortLabel: 'Diag Opposite (6)' },
+    { id: 'two-diag:one-twisted', grp: 'two-diag', subShape: 'one-twisted', label: 'Diag · 1 Top + 1 Twisted', shortLabel: 'Diag Twisted (6)' },
+    { id: 'two-diag:one-wrong', grp: 'two-diag', subShape: 'one-wrong', label: 'Diag · 1 Top + 1 Wrong Slot', shortLabel: 'Diag Wrong Slot (9)' },
+    { id: 'two-diag:in-place-twist', grp: 'two-diag', subShape: 'in-place-twist', label: 'Diag · In-Place Twist', shortLabel: 'Diag Twist (3)' },
+    { id: 'two-diag:bottom-swap', grp: 'two-diag', subShape: 'bottom-swap', label: 'Diag · Bottom Swap', shortLabel: 'Diag Swap (6)' }
+  ],
+  'three-bottom': [
+    { id: 'three-bottom:bp-solved', grp: 'three-bottom', subShape: 'bp-solved', label: '3-Bottom · Top Corner UFR', shortLabel: '3B Top (3)' },
+    { id: 'three-bottom:in-place-twist', grp: 'three-bottom', subShape: 'in-place-twist', label: '3-Bottom · Twisted in Place', shortLabel: '3B Twist (2)' }
+  ]
+};
+
+const ROADMAP_LEVELS = [
+  {
+    id: 'level-1',
+    title: 'Level 1 · Beginner Essentials (1–3 Moves · 24 Cases)',
+    shortLabel: 'L1: Beginner (24)',
+    desc: 'Start here: all 5 single-corner finishes (3 in Bottom), the 3 one-move Rim Bars, and the 16 instant 3-move Bar joins.'
+  },
+  {
+    id: 'level-2',
+    title: 'Level 2 · Intermediate · Core 5-Move Bar (42 Cases)',
+    shortLabel: 'L2: Intermediate (42)',
+    desc: 'Build a Bar in 1–2 inspection moves (~87% of scrambles with Color Neutrality), then finish cleanly in 5 alternating <R, U> turns.'
+  },
+  {
+    id: 'level-3',
+    title: 'Level 3 · Advanced · Diagonal Layer (39 Cases)',
+    shortLabel: 'L3: Diagonal (39)',
+    desc: 'When your best color forms a diagonal pair instead of an adjacent Bar, solve both remaining corners rotationlessly in 3–6 <R, U, F> moves.'
+  },
+  {
+    id: 'level-4',
+    title: 'Level 4 · Master · 7-Move Bar & Trigger Shortcuts (9 Cases)',
+    shortLabel: 'L4: Master (9)',
+    desc: 'The longest <R, U> Bar cases plus fast Sledge/Hedge and RUF shortcuts for true 1-look layer execution.'
+  }
+];
+
+function getCaseRoadmapLevel(c) {
+  const grp = c.group || 'two-bar';
+  const mv = getCaseMoveCount(c);
+  if (grp === 'three-bottom' || (grp === 'two-bar' && (c.isRimBar || mv <= 3))) return 'level-1';
+  if (grp === 'two-bar' && mv === 5) return 'level-2';
+  if (grp === 'two-diag') return 'level-3';
+  return 'level-4';
+}
+
+const TECHNIQUE_GROUPS = [
+  {
+    id: 'rim-bar',
+    title: 'One-Move Rim Bars (3 Cases)',
+    shortLabel: '1m Rim Bar (3)',
+    desc: 'Both White stickers sit lined up on the Right rim — a single R / R\' / R2 turn drops the Bar into place.'
+  },
+  {
+    id: 'pair-drop',
+    title: '3-Move Pair & Drop (16 Cases)',
+    shortLabel: '3m Pair & Drop (16)',
+    desc: 'One quick R turn aligns the corners into a Rim Bar, followed by U and the closing R turn.'
+  },
+  {
+    id: 'last-corner',
+    title: 'Last-Corner Finishes · 3 in Bottom (5 Cases)',
+    shortLabel: 'Last Corner (5)',
+    desc: 'Only DFR remains unsolved. Use Righty / Inverse Righty or the clean <R, U> finish before CLL.'
+  },
+  {
+    id: 'top-pairings',
+    title: 'Setup → Join (Both Corners on Top)',
+    shortLabel: 'Setup → Join Top',
+    desc: 'Align one corner on U so both top corners pair into a Bar or 3-move insert without disturbing bottom pieces.'
+  },
+  {
+    id: 'extract-twisted',
+    title: 'Extract & Pair (Twisted in Place)',
+    shortLabel: 'Extract Twist',
+    desc: 'Pop a misoriented bottom corner into U while keeping the solved anchor intact, pairing it with the top corner on the way down.'
+  },
+  {
+    id: 'extract-wrong',
+    title: 'Extract & Pair (Wrong Bottom Slot)',
+    shortLabel: 'Extract Wrong Slot',
+    desc: 'Kick out the corner sitting in the wrong bottom slot using <R, U, F> without breaking already-solved bottom corners.'
+  },
+  {
+    id: 'bottom-swaps',
+    title: 'Bottom Swaps & Double Twists',
+    shortLabel: 'Bottom Swaps',
+    desc: 'Both unsolved corners sit in the bottom layer — compare R2 U R2 swaps against Sledge/Hedge ergonomic alternatives.'
+  }
+];
+
+function getCaseTechniqueId(c) {
+  const grp = c.group || 'two-bar';
+  const mv = getCaseMoveCount(c);
+  if (grp === 'three-bottom') return 'last-corner';
+  if (grp === 'two-bar' && c.isRimBar) return 'rim-bar';
+  if (grp === 'two-bar' && mv <= 3) return 'pair-drop';
+  if (c.bucket === 'both-top') return 'top-pairings';
+  if (c.subShape === 'bp-twisted' || c.subShape === 'fp-twisted' || c.subShape === 'one-twisted') return 'extract-twisted';
+  if (c.subShape === 'fp-in-back' || c.subShape === 'bp-in-front' || c.subShape === 'one-wrong') return 'extract-wrong';
+  return 'bottom-swaps';
+}
 
 function getExplorerPool(state) {
   const allInGroup = getCasesForGroup(state.explorerGroup || 'two-bar');
@@ -886,9 +982,6 @@ function getMoveBadgeClass(mv) {
 }
 
 function getVariantButtonLabel(c) {
-  if (c.group === 'one-bottom') {
-    return `<span class="flb-tag-a">A:${escapeHtml(c.partnerWhite)}</span><span class="flb-tag-b">${escapeHtml(c.partnerSlot)}</span>`;
-  }
   if (c.group === 'two-diag') {
     return `<span class="flb-tag-a">FL:${escapeHtml(c.flSlot)}(${escapeHtml(c.flWhite)})</span><span class="flb-tag-b">BR:${escapeHtml(c.brSlot)}(${escapeHtml(c.brWhite)})</span>`;
   }
@@ -896,9 +989,6 @@ function getVariantButtonLabel(c) {
 }
 
 function getExplorerTitleHtml(c) {
-  if (c.group === 'one-bottom') {
-    return `Anchor <code>DBL</code> &middot; Bar Partner <code>DFL</code> at <code>${escapeHtml(c.partnerSlot)}</code> (White: <strong>${escapeHtml(whiteDirLabel(c.partnerWhite))}</strong>)`;
-  }
   if (c.group === 'two-diag') {
     return `Diagonal Anchor <code>DBL+DFR</code> &middot; <code>DFL</code> at <code>${escapeHtml(c.flSlot)}</code> (<strong>${escapeHtml(c.flWhite)}</strong>) &middot; <code>DBR</code> at <code>${escapeHtml(c.brSlot)}</code> (<strong>${escapeHtml(c.brWhite)}</strong>)`;
   }
@@ -1102,14 +1192,14 @@ function renderGuideTab() {
 
       <div class="guide-grid">
         <section class="guide-card">
-          <h3 class="guide-card-title">&#x1F4CA; 1st Layer Case Breakdown (${TOTAL_LAYER_CASES} Cases) &amp; Bar &lt;R, U&gt; Distribution</h3>
+          <h3 class="guide-card-title">&#x1F4CA; 1st Layer Case Breakdown (${TOTAL_LAYER_CASES} Two- &amp; Three-Piece Cases) &amp; Bar &lt;R, U&gt; Distribution</h3>
           <div class="flb-guide-group-pills">
-            <span class="flb-guide-group-pill">1 in Bottom: ${FIRST_LAYER_ONE_BOTTOM_CASES.length}</span>
             <span class="flb-guide-group-pill">2 Bottom Bar: ${FIRST_LAYER_BAR_PURE_CASES.length}</span>
             <span class="flb-guide-group-pill">2 Bottom Diagonal: ${FIRST_LAYER_DIAG_CASES.length}</span>
             <span class="flb-guide-group-pill">3 in Bottom: ${FIRST_LAYER_THREE_BOTTOM_CASES.length}</span>
             <span class="flb-guide-group-pill is-cll">4 Solved &rarr; CLL</span>
           </div>
+          <p class="hint" style="margin-bottom: 8px;">Starting with only 1 solved corner is easily avoided with Color Neutrality (~87%+ of scrambles start with an adjacent Bar) or reduced to a Bar in 1–2 intuitive moves.</p>
           <p class="hint" style="margin-bottom: 10px;">For Bar-on-Left finishes (Avg ${averageRuMoves} moves across 75 Bar + 3-in-Bottom setups), every optimal &lt;R, U&gt; alternates R &amp; U turns:</p>
           <div class="flb-chart">
             ${distRows.map(r => {
@@ -1223,13 +1313,6 @@ function getQuizBaseList(state) {
 function getGroupBuckets(activeGroups, baseList) {
   if (activeGroups.length === 1) {
     const norm = normalizeGroupId(activeGroups[0]);
-    if (norm === 'one-bottom') {
-      return [
-        { id: 'all', label: `All (${baseList.length})` },
-        { id: 'in-top', label: `Partner in Top (${baseList.filter(c => c.bucket === 'in-top').length})` },
-        { id: 'in-bottom', label: `Partner on Bottom Side (${baseList.filter(c => c.bucket === 'in-bottom').length})` }
-      ];
-    }
     if (norm === 'three-bottom') {
       return [
         { id: 'all', label: `All (${baseList.length})` },
@@ -1252,18 +1335,66 @@ function getGroupBuckets(activeGroups, baseList) {
   ];
 }
 
+function getQuizPerspective(state) {
+  if (state.quizPerspective === 'roadmap' || state.quizPerspective === 'technique') {
+    return state.quizPerspective;
+  }
+  return 'shape';
+}
+
 function matchesQuizBucket(c, state, isMultiGroup) {
   if (!state.quizBucket || state.quizBucket === 'all') return true;
   if (isMultiGroup) return getNormalizedBucket(c) === state.quizBucket;
   return c.bucket === state.quizBucket || getNormalizedBucket(c) === state.quizBucket;
 }
 
+function getCaseChapterKey(c) {
+  return `${c.group || 'two-bar'}:${c.subShape}`;
+}
+
+function getAvailableChaptersForShape(activeGroups) {
+  const out = [];
+  for (const grpId of activeGroups) {
+    const list = QUIZ_CHAPTERS_BY_GROUP[grpId] || [];
+    out.push(...list);
+  }
+  return out;
+}
+
 function getFilteredQuizCases(state) {
+  const perspective = getQuizPerspective(state);
+
+  if (perspective === 'roadmap') {
+    return ALL_LAYER_114_CASES.filter(c => {
+      if (state.quizChapter && state.quizChapter !== 'all' && getCaseRoadmapLevel(c) !== state.quizChapter) {
+        return false;
+      }
+      if (state.quizMoves !== 'all' && String(getCaseMoveCount(c)) !== String(state.quizMoves)) return false;
+      return true;
+    });
+  }
+
+  if (perspective === 'technique') {
+    return ALL_LAYER_114_CASES.filter(c => {
+      if (state.quizChapter && state.quizChapter !== 'all' && getCaseTechniqueId(c) !== state.quizChapter) {
+        return false;
+      }
+      if (state.quizMoves !== 'all' && String(getCaseMoveCount(c)) !== String(state.quizMoves)) return false;
+      return true;
+    });
+  }
+
   const activeGroups = getActiveQuizGroups(state);
   const isMultiGroup = activeGroups.length > 1;
   const baseList = getQuizBaseList(state);
+  const availChapters = new Set(getAvailableChaptersForShape(activeGroups).map(ch => ch.id));
+  const chapterFilter = (state.quizChapter && state.quizChapter !== 'all' && availChapters.has(state.quizChapter))
+    ? state.quizChapter
+    : 'all';
+
   return baseList.filter(c => {
     if (!matchesQuizBucket(c, state, isMultiGroup)) return false;
+    if (chapterFilter !== 'all' && getCaseChapterKey(c) !== chapterFilter) return false;
     if (state.quizMoves !== 'all' && String(getCaseMoveCount(c)) !== String(state.quizMoves)) return false;
     return true;
   });
@@ -1304,60 +1435,161 @@ function renderQuizCard(c, idx) {
         <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-start-btn" data-card-id="${c.id}" data-tooltip="Reset to case start" aria-label="Reset to case start" disabled>${ICON_SKIP_START}</button>
         <button type="button" class="btn btn-xs btn-icon-only btn-primary flb-card-icon-btn flb-card-play-btn" data-card-id="${c.id}" data-play-state="play" data-tooltip="Play / Pause solution" aria-label="Play solution" ${canStep ? '' : 'disabled'}>${ICON_PLAY}</button>
         <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-card-next-btn" data-card-id="${c.id}" data-tooltip="Step forward 1 move" aria-label="Step forward 1 move" ${canStep ? '' : 'disabled'}>${ICON_STEP_FORWARD}</button>
-        <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-quiz-sim-btn" data-quiz-idx="${idx}" data-tooltip="Open popup simulator" aria-label="Open popup simulator">${ICON_POPUP_SIM}</button>
+        <button type="button" class="btn btn-xs btn-icon-only flb-card-icon-btn flb-quiz-sim-btn" data-quiz-idx="${idx}" data-quiz-case-id="${c.id}" data-tooltip="Open popup simulator" aria-label="Open popup simulator">${ICON_POPUP_SIM}</button>
       </div>
     </article>
   `;
 }
 
 function renderQuizTab(state) {
-  const selectedSet = ensureQuizGroupsSet(state);
-  const activeGroups = getActiveQuizGroups(state);
-  const isAllSelected = selectedSet.size === 0;
-  const baseList = getQuizBaseList(state);
+  const perspective = getQuizPerspective(state);
   const filtered = getFilteredQuizCases(state);
-  const buckets = getGroupBuckets(activeGroups, baseList);
-  const moveValues = Array.from(new Set(baseList.map(getCaseMoveCount))).sort((a, b) => a - b);
+  const selectedChapter = state.quizChapter || 'all';
+  const moveValuesAll = Array.from(new Set(ALL_LAYER_114_CASES.map(getCaseMoveCount))).sort((a, b) => a - b);
 
+  const perspectiveBarHtml = `
+    <div class="flb-perspective-bar" role="tablist" aria-label="1st Layer study perspective">
+      <span class="study-filter-label">View:</span>
+      <div class="flb-perspective-tabs">
+        <button type="button" class="flb-perspective-btn ${perspective === 'shape' ? 'active' : ''}" role="tab" aria-selected="${perspective === 'shape'}" data-quiz-perspective="shape">&#x1F9E9; By Bottom Shape</button>
+        <button type="button" class="flb-perspective-btn ${perspective === 'roadmap' ? 'active' : ''}" role="tab" aria-selected="${perspective === 'roadmap'}" data-quiz-perspective="roadmap">&#x1F4C8; Beginner &rarr; Master</button>
+        <button type="button" class="flb-perspective-btn ${perspective === 'technique' ? 'active' : ''}" role="tab" aria-selected="${perspective === 'technique'}" data-quiz-perspective="technique">&#x1F9F1; Bar Building &amp; Technique</button>
+      </div>
+    </div>
+  `;
+
+  let toolbarHtml = '';
   let gridBodyHtml = '';
-  if (activeGroups.length > 1) {
-    let flatIdx = 0;
-    const sectionsHtml = activeGroups.map(grpId => {
-      const grpTab = QUIZ_GROUP_TABS.find(t => t.id === grpId);
-      const grpCases = filtered.filter(c => (c.group || 'two-bar') === grpId);
-      if (grpCases.length === 0) return '';
-      const cardsHtml = grpCases.map(c => renderQuizCard(c, flatIdx++)).join('');
-      return `
-        <section class="flb-group-section" data-quiz-section="${grpId}">
-          <div class="flb-group-section-head">
-            <div class="flb-group-section-title-row">
-              <h3 class="flb-group-section-title">${escapeHtml(grpTab?.label || grpId)}</h3>
-              <span class="badge">${grpCases.length} shown</span>
-            </div>
-            <p class="flb-group-section-desc">${escapeHtml(getGroupBanner(grpId))}</p>
+
+  if (perspective === 'roadmap') {
+    const levelCounts = new Map(ROADMAP_LEVELS.map(l => [l.id, ALL_LAYER_114_CASES.filter(c => getCaseRoadmapLevel(c) === l.id).length]));
+    const activeLevelId = ROADMAP_LEVELS.some(l => l.id === selectedChapter) ? selectedChapter : 'all';
+    const levelPool = activeLevelId === 'all'
+      ? ALL_LAYER_114_CASES
+      : ALL_LAYER_114_CASES.filter(c => getCaseRoadmapLevel(c) === activeLevelId);
+    const moveValues = moveValuesAll.filter(m => levelPool.some(c => getCaseMoveCount(c) === m));
+
+    toolbarHtml = `
+      <div class="flb-quiz-toolbar">
+        <div class="flb-filter-group">
+          <span class="study-filter-label">Skill Level:</span>
+          <div class="ui-seg-group" role="radiogroup" aria-label="Filter by skill level">
+            <button type="button" class="ui-seg-btn ${activeLevelId === 'all' ? 'active' : ''}" role="radio" aria-checked="${activeLevelId === 'all'}" data-quiz-chapter="all">All (${TOTAL_LAYER_CASES})</button>
+            ${ROADMAP_LEVELS.map(l => `
+              <button type="button" class="ui-seg-btn ${activeLevelId === l.id ? 'active' : ''}" role="radio" aria-checked="${activeLevelId === l.id}" data-quiz-chapter="${l.id}">${escapeHtml(l.shortLabel)}</button>
+            `).join('')}
           </div>
-          <div class="flb-case-grid">${cardsHtml}</div>
-        </section>
-      `;
-    }).join('');
+        </div>
+        <div class="flb-filter-group">
+          <span class="study-filter-label">Moves:</span>
+          <div class="ui-seg-group" role="radiogroup" aria-label="Filter by move count">
+            <button type="button" class="ui-seg-btn ${state.quizMoves === 'all' ? 'active' : ''}" role="radio" aria-checked="${state.quizMoves === 'all'}" data-quiz-moves="all">All</button>
+            ${moveValues.map(m => {
+              const cnt = levelPool.filter(c => getCaseMoveCount(c) === m).length;
+              const isActiveMove = String(state.quizMoves) === String(m);
+              return `<button type="button" class="ui-seg-btn ${isActiveMove ? 'active' : ''}" role="radio" aria-checked="${isActiveMove}" data-quiz-moves="${m}">${m}m (${cnt})</button>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+
+    let flatIdx = 0;
+    const sectionsHtml = ROADMAP_LEVELS
+      .filter(l => activeLevelId === 'all' || l.id === activeLevelId)
+      .map(l => {
+        const items = filtered.filter(c => getCaseRoadmapLevel(c) === l.id);
+        if (!items.length) return '';
+        return `
+          <section class="flb-group-section" data-quiz-roadmap="${l.id}">
+            <div class="flb-group-section-head">
+              <div class="flb-group-section-title-row">
+                <h3 class="flb-group-section-title">${escapeHtml(l.title)}</h3>
+                <span class="badge">${items.length} of ${levelCounts.get(l.id)}</span>
+              </div>
+              <p class="flb-group-section-desc">${escapeHtml(l.desc)}</p>
+            </div>
+            <div class="flb-case-grid">${items.map(c => renderQuizCard(c, flatIdx++)).join('')}</div>
+          </section>
+        `;
+      }).join('');
+    gridBodyHtml = sectionsHtml
+      ? `<div class="flb-group-sections">${sectionsHtml}</div>`
+      : `<div class="flb-group-banner"><span>No cases match the active filters.</span></div>`;
+  } else if (perspective === 'technique') {
+    const techCounts = new Map(TECHNIQUE_GROUPS.map(t => [t.id, ALL_LAYER_114_CASES.filter(c => getCaseTechniqueId(c) === t.id).length]));
+    const activeTechId = TECHNIQUE_GROUPS.some(t => t.id === selectedChapter) ? selectedChapter : 'all';
+    const techPool = activeTechId === 'all'
+      ? ALL_LAYER_114_CASES
+      : ALL_LAYER_114_CASES.filter(c => getCaseTechniqueId(c) === activeTechId);
+    const moveValues = moveValuesAll.filter(m => techPool.some(c => getCaseMoveCount(c) === m));
+
+    toolbarHtml = `
+      <div class="flb-bar-building-note">
+        <div><strong>Bar-Building Perspectives (before these 114 cases):</strong></div>
+        <div>
+          &bull; <strong>Color Neutrality:</strong> ~87%+ of scrambles already start with a 2-piece Bar on at least one color &mdash; inspect all 6 colors for an existing Bar first.<br>
+          &bull; <strong>1-Move Bar Building:</strong> Only 1 solved corner? Rotate it to <code>DBL</code>, spot any matching partner, and drop it into <code>DFL</code> in 1–2 intuitive moves to enter the <strong>2 Bottom: Bar</strong> flow.
+        </div>
+      </div>
+      <div class="flb-quiz-toolbar">
+        <div class="flb-filter-group">
+          <span class="study-filter-label">Technique:</span>
+          <div class="ui-seg-group" role="radiogroup" aria-label="Filter by solving technique">
+            <button type="button" class="ui-seg-btn ${activeTechId === 'all' ? 'active' : ''}" role="radio" aria-checked="${activeTechId === 'all'}" data-quiz-chapter="all">All (${TOTAL_LAYER_CASES})</button>
+            ${TECHNIQUE_GROUPS.map(t => `
+              <button type="button" class="ui-seg-btn ${activeTechId === t.id ? 'active' : ''}" role="radio" aria-checked="${activeTechId === t.id}" data-quiz-chapter="${t.id}">${escapeHtml(t.shortLabel)} (${techCounts.get(t.id)})</button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="flb-filter-group">
+          <span class="study-filter-label">Moves:</span>
+          <div class="ui-seg-group" role="radiogroup" aria-label="Filter by move count">
+            <button type="button" class="ui-seg-btn ${state.quizMoves === 'all' ? 'active' : ''}" role="radio" aria-checked="${state.quizMoves === 'all'}" data-quiz-moves="all">All</button>
+            ${moveValues.map(m => {
+              const cnt = techPool.filter(c => getCaseMoveCount(c) === m).length;
+              const isActiveMove = String(state.quizMoves) === String(m);
+              return `<button type="button" class="ui-seg-btn ${isActiveMove ? 'active' : ''}" role="radio" aria-checked="${isActiveMove}" data-quiz-moves="${m}">${m}m (${cnt})</button>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+
+    let flatIdx = 0;
+    const sectionsHtml = TECHNIQUE_GROUPS
+      .filter(t => activeTechId === 'all' || t.id === activeTechId)
+      .map(t => {
+        const items = filtered.filter(c => getCaseTechniqueId(c) === t.id);
+        if (!items.length) return '';
+        return `
+          <section class="flb-group-section" data-quiz-technique="${t.id}">
+            <div class="flb-group-section-head">
+              <div class="flb-group-section-title-row">
+                <h3 class="flb-group-section-title">${escapeHtml(t.title)}</h3>
+                <span class="badge">${items.length} of ${techCounts.get(t.id)}</span>
+              </div>
+              <p class="flb-group-section-desc">${escapeHtml(t.desc)}</p>
+            </div>
+            <div class="flb-case-grid">${items.map(c => renderQuizCard(c, flatIdx++)).join('')}</div>
+          </section>
+        `;
+      }).join('');
     gridBodyHtml = sectionsHtml
       ? `<div class="flb-group-sections">${sectionsHtml}</div>`
       : `<div class="flb-group-banner"><span>No cases match the active filters.</span></div>`;
   } else {
-    const singleGroup = activeGroups[0] || 'two-bar';
-    gridBodyHtml = `
-      <div class="flb-group-banner">
-        <span>${escapeHtml(getGroupBanner(singleGroup))}</span>
-        <span class="flb-cll-note">All 4 solved &rarr; CLL</span>
-      </div>
-      <div class="flb-case-grid">
-        ${filtered.map((c, idx) => renderQuizCard(c, idx)).join('')}
-      </div>
-    `;
-  }
+    // Default perspective: By Bottom Shape (Option A mini-chapters under 2-Bar / 2-Diag / 3-Bottom)
+    const selectedSet = ensureQuizGroupsSet(state);
+    const activeGroups = getActiveQuizGroups(state);
+    const isAllSelected = selectedSet.size === 0;
+    const baseList = getQuizBaseList(state);
+    const buckets = getGroupBuckets(activeGroups, baseList);
+    const chapters = getAvailableChaptersForShape(activeGroups);
+    const activeChapterId = chapters.some(ch => ch.id === selectedChapter) ? selectedChapter : 'all';
+    const moveValues = Array.from(new Set(baseList.map(getCaseMoveCount))).sort((a, b) => a - b);
 
-  return `
-    <div class="flb-quiz-wrap">
+    toolbarHtml = `
       <div class="flb-bottom-group-bar ui-chip-group" role="group" aria-label="Filter cases by pieces in bottom (multi-select)">
         <span class="study-filter-label">Bottom Pieces:</span>
         <button type="button" class="flb-bottom-group-btn ui-chip-reset ${isAllSelected ? 'active' : ''}" data-quiz-group="all" aria-pressed="${isAllSelected}">All (${TOTAL_LAYER_CASES})</button>
@@ -1370,6 +1602,16 @@ function renderQuizTab(state) {
             </button>
           `;
         }).join('')}
+      </div>
+
+      <div class="flb-chapter-bar">
+        <span class="study-filter-label">Mini-Chapter:</span>
+        <div class="ui-seg-group" role="radiogroup" aria-label="Filter by mini-chapter">
+          <button type="button" class="ui-seg-btn ${activeChapterId === 'all' ? 'active' : ''}" role="radio" aria-checked="${activeChapterId === 'all'}" data-quiz-chapter="all">All Chapters (${chapters.length})</button>
+          ${chapters.map(ch => `
+            <button type="button" class="ui-seg-btn ${activeChapterId === ch.id ? 'active' : ''}" role="radio" aria-checked="${activeChapterId === ch.id}" data-quiz-chapter="${ch.id}">${escapeHtml(ch.shortLabel)}</button>
+          `).join('')}
+        </div>
       </div>
 
       <div class="flb-quiz-toolbar">
@@ -1394,11 +1636,53 @@ function renderQuizTab(state) {
           </div>
         </div>
       </div>
+    `;
 
+    let flatIdx = 0;
+    const sectionsHtml = activeGroups.map(grpId => {
+      const grpTab = QUIZ_GROUP_TABS.find(t => t.id === grpId);
+      const grpCases = filtered.filter(c => (c.group || 'two-bar') === grpId);
+      if (grpCases.length === 0) return '';
+      const grpChapters = QUIZ_CHAPTERS_BY_GROUP[grpId] || [];
+      const chaptersHtml = grpChapters.map(ch => {
+        const chCases = grpCases.filter(c => c.subShape === ch.subShape);
+        if (!chCases.length) return '';
+        return `
+          <div class="flb-chapter-section" data-quiz-chapter-section="${ch.id}">
+            <div class="flb-chapter-head">
+              <h4 class="flb-chapter-title">${escapeHtml(ch.label)}</h4>
+              <span class="badge">${chCases.length} ${chCases.length === 1 ? 'case' : 'cases'}</span>
+            </div>
+            <div class="flb-case-grid">${chCases.map(c => renderQuizCard(c, flatIdx++)).join('')}</div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <section class="flb-group-section" data-quiz-section="${grpId}">
+          <div class="flb-group-section-head">
+            <div class="flb-group-section-title-row">
+              <h3 class="flb-group-section-title">${escapeHtml(grpTab?.label || grpId)}</h3>
+              <span class="badge">${grpCases.length} shown</span>
+            </div>
+            <p class="flb-group-section-desc">${escapeHtml(getGroupBanner(grpId))}</p>
+          </div>
+          <div class="flb-chapter-sections">${chaptersHtml}</div>
+        </section>
+      `;
+    }).join('');
+    gridBodyHtml = sectionsHtml
+      ? `<div class="flb-group-sections">${sectionsHtml}</div>`
+      : `<div class="flb-group-banner"><span>No cases match the active filters.</span></div>`;
+  }
+
+  return `
+    <div class="flb-quiz-wrap">
+      ${perspectiveBarHtml}
+      ${toolbarHtml}
       <div class="flb-icon-legend-wrap">
         ${renderIconLegendHtml({ includeStepBack: false, includeEnd: false })}
       </div>
-
       ${gridBodyHtml}
     </div>
   `;
@@ -2417,7 +2701,26 @@ export function bindFirstLayerStudyEvents(container, state, {
     });
   });
 
-  // Grid filter bindings (multi-select Bottom Pieces chips + separate All reset)
+  // Perspective & Grid filter bindings (multi-select Bottom Pieces chips + mini-chapters / roadmap / technique)
+  container.querySelectorAll('[data-quiz-perspective]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const next = btn.dataset.quizPerspective || 'shape';
+      if (state.quizPerspective === next) return;
+      state.quizPerspective = ['shape', 'roadmap', 'technique'].includes(next) ? next : 'shape';
+      state.quizChapter = 'all';
+      state.quizBucket = 'all';
+      state.quizMoves = 'all';
+      onRerender?.();
+    });
+  });
+
+  container.querySelectorAll('[data-quiz-chapter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.quizChapter = btn.dataset.quizChapter || 'all';
+      onRerender?.();
+    });
+  });
+
   container.querySelectorAll('[data-quiz-group]').forEach(btn => {
     btn.addEventListener('click', () => {
       const set = ensureQuizGroupsSet(state);
@@ -2434,6 +2737,7 @@ export function bindFirstLayerStudyEvents(container, state, {
         }
       }
       delete state.quizGroup;
+      state.quizChapter = 'all';
       state.quizBucket = 'all';
       state.quizMoves = 'all';
       onRerender?.();
@@ -2473,8 +2777,9 @@ export function bindFirstLayerStudyEvents(container, state, {
   container.querySelectorAll('.flb-quiz-sim-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = Number(btn.dataset.quizIdx) || 0;
+      const caseId = btn.dataset.quizCaseId || '';
       const filtered = getFilteredQuizCases(state);
-      const item = filtered[idx] || filtered[0];
+      const item = (caseId && filtered.find(c => c.id === caseId)) || filtered[idx] || filtered[0];
       if (!item) return;
       const reqMode = btn.dataset.simMode || flbGrid3d.cards.get(item.id)?.algMode || 'primary';
       const solutions = buildQuickSimSolutionsList(filtered);

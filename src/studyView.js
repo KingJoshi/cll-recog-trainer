@@ -16,7 +16,7 @@ import { renderCaseSvg, applyColorsTo3DCube } from './caseVisualizer.js';
 import { PLL_TWO_SIDED_GUIDE, OLL_TWO_SIDED_GUIDE } from './data/twoSidedRecogData.js';
 import { escapeHtml } from './services/htmlUtils.js';
 import { getEffectiveAlgsForCase } from './cube/algMirror.js';
-import { parseScrambleInput, cleanAlg } from './algParser.js';
+import { parseScrambleInput, cleanAlg, countAlgMoves } from './algParser.js';
 import { SIM_SPEED_OPTIONS, sanitizeF2lMode } from './state/appStore.js';
 import {
   ESSENTIAL_F2L_IDS,
@@ -202,10 +202,7 @@ export class StudyView {
       const rawSetupWithAuf = `${baseSetup}${a.startAuf ? ' ' + a.startAuf : ''}`.trim();
       const scramble = `${needsZ2 && rawSetupWithAuf && !/^z2\b/i.test(rawSetupWithAuf) ? 'z2 ' : ''}${rawSetupWithAuf}`.trim();
       const cleanMoves = cleanAlg(a.alg || '');
-      const parsed = cleanMoves ? parseScrambleInput(cleanMoves) : { ok: false };
-      const moveCount = parsed.ok
-        ? parsed.moves.length
-        : (cleanMoves ? cleanMoves.split(/\s+/).filter(Boolean).length : 0);
+      const moveCount = countAlgMoves(cleanMoves);
       const customLabel = this.getAlgCustomLabel ? this.getAlgCustomLabel(c, a) : '';
       const isPref = a.id === prefAlgId;
       const shortName = a.ohBadge
@@ -620,9 +617,9 @@ export class StudyView {
     const f2lBannerHtml = f2lMode === "essential"
       ? `<div class="study-f2l-tier-note" role="note"><strong>Essential 21 F2L:</strong> Master these 21 foundational shapes first &mdash; click <strong>⇄ Flip</strong> on any card to view its mirrored left/right case from <strong>Basic (41)</strong>.</div>`
       : f2lMode === "intermediate"
-        ? `<div class="study-f2l-tier-note" role="note"><strong>Intermediate 16 F2L:</strong> Rotationless Back-Right (BR), Back-Left (BL), Left-Front (FL), and Keyhole inserts &mdash; drag any 3D cube or click ↻ to reset its slot angle.</div>`
+        ? `<div class="study-f2l-tier-note" role="note"><strong>Intermediate 16 F2L:</strong> Rotationless Back-Right (BR), Back-Left (BL), Left-Front (FL), and Keyhole inserts viewed from the default Green Front &middot; Yellow Top &middot; Orange Right angle &mdash; drag any 3D cube to peek around a back slot or click ↻ to reset.</div>`
         : f2lMode === "advanced"
-          ? `<div class="study-f2l-tier-note" role="note"><strong>Advanced 14 F2L:</strong> Multi-slot techniques where a piece sits in another slot (BR/FL/BL &rarr; target slot), plus Sledge/Wide inserts to force a Yellow Cross before OLL.</div>`
+          ? `<div class="study-f2l-tier-note" role="note"><strong>Advanced 14 F2L:</strong> Multi-slot techniques where a piece sits in another slot (BR/FL/BL &rarr; target slot), plus Sledge/Wide inserts to force a Yellow Cross before OLL &mdash; viewed from the default Green Front &middot; Yellow Top &middot; Orange Right angle.</div>`
           : '';
 
     const renderCard = (baseCase) => {
@@ -640,9 +637,19 @@ export class StudyView {
 
       const rawSetup = activeAlg?.mirroredSetup || c.setup || c.scramble || "";
       const setupStr = (whiteBottom && rawSetup && !/^z2\b/i.test(rawSetup) ? `z2 ${rawSetup}` : rawSetup).trim();
+      const algStr = cleanAlg(activeAlg?.alg || "");
+      const parsedAlg = algStr ? parseScrambleInput(algStr) : { ok: false };
+      const algMovesList = parsedAlg.ok ? parsedAlg.moves : (algStr ? algStr.split(/\s+/).filter(Boolean) : []);
+      const algMoveCount = algMovesList.length;
       const camLng = Number.isFinite(c.cameraLongitude) ? c.cameraLongitude : 30;
       const visualHtml = use3dF2lCards
-        ? `<div class="twosided-card-3d-wrap study-f2l-card-3d" data-twosided-case-id="${escapeHtml(c.id)}" data-twosided-setup="${escapeHtml(setupStr)}" data-camera-longitude="${camLng}"><span class="study-visual-loading">Loading 3D...</span></div>`
+        ? `<div class="twosided-card-3d-wrap study-f2l-card-3d" data-twosided-case-id="${escapeHtml(c.id)}" data-twosided-setup="${escapeHtml(setupStr)}" data-f2l-alg="${escapeHtml(algStr)}" data-camera-longitude="${camLng}"><span class="study-visual-loading">Loading 3D...</span></div>
+           <div class="study-f2l-3d-controls" role="group" aria-label="3D playback controls for ${escapeHtml(displayId)}">
+             <button type="button" class="btn btn-xs btn-icon-only btn-f2l-start-3d" data-twosided-case-id="${escapeHtml(c.id)}" data-tooltip="Reset to case start" aria-label="Reset to case start" disabled>${ICON_SKIP_START}</button>
+             <button type="button" class="btn btn-xs btn-icon-only btn-primary btn-f2l-play-3d" data-twosided-case-id="${escapeHtml(c.id)}" data-tooltip="Play / Pause solution" aria-label="Play solution" ${algMoveCount === 0 ? 'disabled' : ''}>${ICON_PLAY}</button>
+             <button type="button" class="btn btn-xs btn-icon-only btn-f2l-next-3d" data-twosided-case-id="${escapeHtml(c.id)}" data-tooltip="Step forward 1 move" aria-label="Step forward 1 move" ${algMoveCount === 0 ? 'disabled' : ''}>${ICON_STEP_FORWARD}</button>
+             <span class="study-f2l-3d-status">${algMoveCount > 0 ? `0/${algMoveCount}` : 'Done'}</span>
+           </div>`
         : `<div class="study-card-visual" id="studyCardVisual_${c.id}" data-case-id="${c.id}"><span class="study-visual-loading">Loading diagram...</span></div>`;
 
       return `
@@ -663,11 +670,11 @@ export class StudyView {
             ${noteText ? `<div class="study-card-alg-note" data-tooltip="${escapeHtml(noteText)}">${escapeHtml(noteText)}</div>` : ''}
           </div>
 
-          <div class="study-card-actions">
+          <div class="study-card-actions ${use3dF2lCards ? 'is-f2l-actions' : ''}">
             ${use3dF2lCards ? `<button type="button" class="btn btn-xs btn-icon-only btn-twosided-reset-3d" data-twosided-case-id="${escapeHtml(c.id)}" data-tooltip="Reset 3D angle" aria-label="Reset 3D angle for ${escapeHtml(displayId)}">${ICON_RESET_ANGLE}</button>` : ''}
             ${mirrorId ? `<button type="button" class="btn btn-xs btn-f2l-flip ${isFlipped ? 'active' : ''}" data-essential-base-id="${escapeHtml(baseCase.id)}" data-tooltip="Flip between ${escapeHtml(formatCaseDisplayId(baseCase.id))} and its mirror (${escapeHtml(formatCaseDisplayId(mirrorId))})" aria-label="Flip between ${escapeHtml(baseCase.id)} and ${escapeHtml(mirrorId)}" aria-pressed="${isFlipped}">⇄ Flip</button>` : ''}
             <button type="button" class="btn btn-xs btn-study-view" data-case-id="${c.id}" data-tooltip="Open Grid + 3D to compare all algorithms, starting angles &amp; labels" aria-label="View algorithms for ${escapeHtml(displayId)}">${ICON_DIAGRAM}<span>Algs</span></button>
-            <button type="button" class="btn btn-xs btn-study-sim" data-case-id="${c.id}" data-tooltip="Simulate in an interactive 3D popup (switch across all ${algs.length} alg variant${algs.length === 1 ? '' : 's'})" aria-label="Simulate ${escapeHtml(displayId)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>
+            ${use3dF2lCards ? '' : `<button type="button" class="btn btn-xs btn-study-sim" data-case-id="${c.id}" data-tooltip="Simulate in an interactive 3D popup (switch across all ${algs.length} alg variant${algs.length === 1 ? '' : 's'})" aria-label="Simulate ${escapeHtml(displayId)} in 3D popup">${ICON_POPUP_SIM}<span>Sim</span></button>`}
           </div>
         </div>
       `;
@@ -834,6 +841,7 @@ export class StudyView {
                     const isPref = a.id === prefAlgId;
                     const isPreview = activePreviewAlg && a.id === activePreviewAlg.id;
                     const aufText = a.startAuf ? `Start: ${a.startAuf}` : 'Start: Standard';
+                    const algMoveCount = countAlgMoves(a.alg || '');
                     const customLabel = this.getAlgCustomLabel ? this.getAlgCustomLabel(c, a) : "";
                     return `
                       <div class="study-alg-row ${isPref ? 'preferred' : ''} ${isPreview ? 'previewing' : ''}" data-case-id="${c.id}" data-alg-id="${a.id}" role="button" tabindex="0" data-tooltip="Click to preview this algorithm's starting top-layer angle">
@@ -843,6 +851,7 @@ export class StudyView {
                         <div class="study-alg-info">
                           <span class="study-alg-text">${escapeHtml(a.alg)}</span>
                           <div class="study-alg-meta-row">
+                            ${algMoveCount > 0 ? `<span class="study-auf-badge">${algMoveCount}m</span>` : ''}
                             <span class="study-auf-badge ${a.startAuf ? 'has-auf' : ''}">${aufText}</span>
                             ${a.isCustom ? '<span class="study-custom-alg-badge" data-tooltip="Verified against KPuzzle simulation">Custom ✓</span>' : ''}
                             ${a.ohBadge ? `<span class="oh-alg-badge">${escapeHtml(a.ohBadge)}</span>` : ''}
@@ -1807,21 +1816,99 @@ export class StudyView {
       if (idx >= 0) state.lru.splice(idx, 1);
       state.lru.push(caseId);
       while (state.lru.length > MAX_TWOSIDED_3D) {
-        const victimIdx = state.lru.findIndex(cand => !state.cards.get(cand)?.intersecting);
+        const victimIdx = state.lru.findIndex(cand => {
+          const item = state.cards.get(cand);
+          return item && !item.intersecting && !item.playing;
+        });
         if (victimIdx < 0) break;
         const [victimId] = state.lru.splice(victimIdx, 1);
         const victim = state.cards.get(victimId);
         if (victim?.displayEl) {
+          victim.loadGen++;
+          victim.pendingSeek = false;
           try {
             victim.displayEl.player?.pause?.();
             victim.displayEl.remove?.();
           } catch {}
           victim.displayEl = null;
+          victim.indexer = null;
           victim.mountPromise = null;
           if (victim.wrapEl?.isConnected) {
             victim.wrapEl.innerHTML = victim.fallbackSvg || '<span class="study-visual-loading">3D Ready</span>';
           }
         }
+      }
+    };
+
+    const updateCardPlayUi = (entry, playing) => {
+      entry.playing = Boolean(playing);
+      const cardEl = entry.cardEl;
+      if (!cardEl || entry.algMoves.length === 0) return;
+
+      const startBtn = cardEl.querySelector('.btn-f2l-start-3d');
+      const playBtn = cardEl.querySelector('.btn-f2l-play-3d');
+      const nextBtn = cardEl.querySelector('.btn-f2l-next-3d');
+      const statusEl = cardEl.querySelector('.study-f2l-3d-status');
+
+      const total = entry.combinedMoves.length;
+      const algTotal = entry.algMoves.length;
+      const doneSteps = Math.max(0, entry.moveCount - entry.setupCount);
+
+      if (startBtn) startBtn.disabled = entry.moveCount <= entry.setupCount;
+      if (nextBtn) nextBtn.disabled = entry.moveCount >= total;
+      if (statusEl) statusEl.textContent = `${doneSteps}/${algTotal}`;
+
+      if (playBtn) {
+        playBtn.classList.toggle('is-playing', entry.playing);
+        if (entry.playing) {
+          playBtn.innerHTML = ICON_PAUSE;
+          playBtn.setAttribute('aria-label', 'Pause solution');
+        } else if (entry.moveCount >= total) {
+          playBtn.innerHTML = ICON_REPLAY;
+          playBtn.setAttribute('aria-label', 'Replay solution');
+        } else {
+          playBtn.innerHTML = ICON_PLAY;
+          playBtn.setAttribute('aria-label', 'Play solution');
+        }
+      }
+    };
+
+    const pauseOthers = (exceptCaseId) => {
+      for (const [cid, entry] of state.cards.entries()) {
+        if (cid !== exceptCaseId && entry.playing && entry.displayEl?.player) {
+          try { entry.displayEl.player.pause(); } catch {}
+        }
+      }
+    };
+
+    const seekEntry = async (entry, targetCount) => {
+      const el = entry?.displayEl;
+      if (!el?.player) return;
+      const lGen = entry.loadGen;
+      entry.pendingSeek = true;
+      try {
+        el.player.pause();
+        if (!entry.indexer) {
+          entry.indexer = await el.player.experimentalModel.indexer.get();
+        }
+        if (lGen !== entry.loadGen || gen !== state.gen || token !== this._renderToken || entry.displayEl !== el) return;
+        const totalCount = entry.combinedMoves.length;
+        const clamped = Math.max(entry.setupCount, Math.min(totalCount, targetCount));
+        if (clamped <= 0) {
+          el.player.controller?.jumpToStart?.({ flash: false });
+          entry.moveCount = 0;
+        } else if (clamped >= totalCount) {
+          el.player.controller?.jumpToEnd?.({ flash: false });
+          entry.moveCount = totalCount;
+        } else {
+          const targetIdx = clamped - 1;
+          const endTs = entry.indexer.indexToMoveStartTimestamp(targetIdx) + entry.indexer.moveDuration(targetIdx);
+          el.player.experimentalModel.timestampRequest.set(endTs);
+          entry.moveCount = clamped;
+        }
+        updateCardPlayUi(entry, false);
+      } catch {} finally {
+        if (lGen === entry.loadGen) entry.pendingSeek = false;
       }
     };
 
@@ -1851,15 +1938,18 @@ export class StudyView {
       }
       if (entry.mountPromise) return entry.mountPromise;
 
+      const lGen = ++entry.loadGen;
+
       entry.mountPromise = (async () => {
         try {
           const SD = await getScrambleDisplay();
-          if (!SD || gen !== state.gen || token !== this._renderToken || !entry.wrapEl?.isConnected) return null;
+          if (!SD || lGen !== entry.loadGen || gen !== state.gen || token !== this._renderToken || !entry.wrapEl?.isConnected) return null;
           const camLng = Number.isFinite(entry.cameraLongitude) ? entry.cameraLongitude : 30;
+          const spd = Number(this.getSimSpeed ? this.getSimSpeed() : 1) || 1;
           const el = new SD();
           el.event = puzzle === '333oh' ? '333' : puzzle;
           el.visualization = '3D';
-          el.scramble = entry.setup;
+          el.scramble = entry.algMoves.length > 0 ? entry.combinedMoves.join(' ') : entry.setup;
           el.hintFacelets = 'none';
           el.cameraLatitude = 32;
           el.cameraLongitude = camLng;
@@ -1867,12 +1957,53 @@ export class StudyView {
           entry.wrapEl.appendChild(el);
           if (el.player) {
             el.player.hintFacelets = 'none';
+            el.player.tempoScale = spd;
             el.player.cameraLatitude = 32;
             el.player.cameraLongitude = camLng;
           }
           entry.displayEl = el;
           touchLru(entry.caseId);
           void applyColorsTo3DCube(el);
+
+          if (entry.algMoves.length > 0 && el.player?.experimentalModel) {
+            el.player.experimentalModel.indexer.addFreshListener(idx => {
+              if (entry.displayEl === el) entry.indexer = idx;
+            });
+            el.player.experimentalModel.detailedTimelineInfo.addFreshListener(info => {
+              if (entry.displayEl !== el || entry.pendingSeek || !entry.indexer || entry.combinedMoves.length === 0) return;
+              try {
+                if (info.atStart || info.timestamp <= 0) {
+                  if (entry.setupCount > 0) void seekEntry(entry, entry.setupCount);
+                  else {
+                    entry.moveCount = 0;
+                    updateCardPlayUi(entry, entry.playing);
+                  }
+                  return;
+                }
+                if (info.atEnd) {
+                  entry.moveCount = entry.combinedMoves.length;
+                  updateCardPlayUi(entry, false);
+                  return;
+                }
+                const mIdx = entry.indexer.timestampToIndex(info.timestamp);
+                const nextCount = mIdx + 1;
+                if (nextCount < entry.setupCount) {
+                  void seekEntry(entry, entry.setupCount);
+                  return;
+                }
+                entry.moveCount = nextCount;
+                updateCardPlayUi(entry, entry.playing);
+              } catch {}
+            });
+            el.player.experimentalModel.coarseTimelineInfo.addFreshListener(info => {
+              if (entry.displayEl !== el) return;
+              const playing = Boolean(info.playing);
+              if (playing) pauseOthers(entry.caseId);
+              updateCardPlayUi(entry, playing);
+            });
+            await seekEntry(entry, entry.setupCount);
+          }
+
           return el;
         } catch {
           return null;
@@ -1884,19 +2015,39 @@ export class StudyView {
       return entry.mountPromise;
     };
 
+    const splitMoves = (str) => {
+      const cleaned = cleanAlg(str || '');
+      if (!cleaned) return [];
+      const parsed = parseScrambleInput(cleaned);
+      return parsed.ok ? parsed.moves : cleaned.split(/\s+/).filter(Boolean);
+    };
+
     wraps.forEach((wrapEl) => {
       const caseId = wrapEl.getAttribute('data-twosided-case-id') || wrapEl.dataset?.twosidedCaseId;
       const setup = wrapEl.getAttribute('data-twosided-setup') || wrapEl.dataset?.twosidedSetup || '';
+      const alg = wrapEl.getAttribute('data-f2l-alg') || wrapEl.dataset?.f2lAlg || '';
       const camLngAttr = wrapEl.getAttribute('data-camera-longitude') ?? wrapEl.dataset?.cameraLongitude;
       const parsedCamLng = camLngAttr !== null && camLngAttr !== undefined && camLngAttr !== '' ? Number(camLngAttr) : 30;
       const cameraLongitude = Number.isFinite(parsedCamLng) ? parsedCamLng : 30;
       const caseObj = this.getCaseById(track, caseId);
       if (!caseId) return;
+      const setupMoves = splitMoves(setup);
+      const algMoves = splitMoves(alg);
       state.cards.set(caseId, {
         caseId,
         caseObj,
         setup,
+        setupMoves,
+        algMoves,
+        combinedMoves: [...setupMoves, ...algMoves],
+        setupCount: setupMoves.length,
+        moveCount: setupMoves.length,
+        playing: false,
+        pendingSeek: false,
+        loadGen: 0,
+        indexer: null,
         cameraLongitude,
+        cardEl: wrapEl.closest?.('.study-card') || null,
         wrapEl,
         displayEl: null,
         mountPromise: null,
@@ -1913,6 +2064,50 @@ export class StudyView {
         if (!entry) return;
         if (!entry.displayEl) await ensureMounted(entry);
         await resetCardAngle(entry);
+      });
+    });
+
+    this.container.querySelectorAll('.btn-f2l-play-3d').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const cid = btn.getAttribute('data-twosided-case-id') || btn.dataset?.twosidedCaseId;
+        const entry = cid ? state.cards.get(cid) : null;
+        if (!entry || entry.algMoves.length === 0) return;
+        const el = await ensureMounted(entry);
+        if (!el?.player) return;
+        if (entry.playing) {
+          el.player.pause();
+          return;
+        }
+        pauseOthers(entry.caseId);
+        if (entry.moveCount >= entry.combinedMoves.length || entry.moveCount < entry.setupCount) {
+          await seekEntry(entry, entry.setupCount);
+          setTimeout(() => { try { entry.displayEl?.player?.play?.(); } catch {} }, 35);
+          return;
+        }
+        try { el.player.play(); } catch {}
+      });
+    });
+
+    this.container.querySelectorAll('.btn-f2l-start-3d').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const cid = btn.getAttribute('data-twosided-case-id') || btn.dataset?.twosidedCaseId;
+        const entry = cid ? state.cards.get(cid) : null;
+        if (!entry) return;
+        await ensureMounted(entry);
+        await seekEntry(entry, entry.setupCount);
+      });
+    });
+
+    this.container.querySelectorAll('.btn-f2l-next-3d').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const cid = btn.getAttribute('data-twosided-case-id') || btn.dataset?.twosidedCaseId;
+        const entry = cid ? state.cards.get(cid) : null;
+        if (!entry || entry.algMoves.length === 0) return;
+        await ensureMounted(entry);
+        await seekEntry(entry, Math.min(entry.combinedMoves.length, entry.moveCount + 1));
       });
     });
 

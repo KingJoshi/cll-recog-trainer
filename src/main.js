@@ -981,6 +981,20 @@ const pwaInstallCtrl = createPwaInstallController({
 });
 pwaInstallCtrl.init();
 
-if (googleDriveSync.isSignedIn() && googleDriveSync.getEffectiveClientId() && googleDriveSync.meta.autoSync !== false) {
-  void googleDriveSync.syncNow({ reason: "startup", interactive: false });
-}
+(async () => {
+  try {
+    const idbRes = await appStore.hydrateFromIndexedDb();
+    if (idbRes?.hydrated) {
+      refreshAllViewsAfterHydrate();
+    }
+    if (idbRes?.migrated) {
+      settingsModal?.refreshStorageStatus?.();
+    }
+  } catch (err) {
+    console.warn("IndexedDB hydration failed:", err);
+  }
+
+  if (googleDriveSync.isSignedIn() && googleDriveSync.getEffectiveClientId() && googleDriveSync.meta.autoSync !== false) {
+    void googleDriveSync.syncNow({ reason: "startup", interactive: false });
+  }
+})();

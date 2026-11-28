@@ -1,5 +1,5 @@
 // 2x2x2 EG-1 (40 Cases: Back Bar D=[5,4,6,7]) & EG-2 (40 Cases: Diag Bottom Swap D=[4,7,6,5])
-// Generated and mathematically verified against cubing.js 2x2x2 KPuzzle
+// Verified against cubing.js 2x2x2 KPuzzle (bare & z2), curated for <R, U, F> speedcubing ergonomics & EG-2 Anti-CLL
 
 export const eg1Cases = [
   {
@@ -14,24 +14,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-H1-1",
-        "alg": "R U' R F' R' F R2 F U'",
+        "alg": "R' F R2 U' R2 U' F U R",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-H1-2",
-        "alg": "U' F' R2 F' R F R' U R'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U' R F' R' F R2 F",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-H1-3",
-        "alg": "R' F R' F U F' R2 F' U'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R2 F' R F R' U R'",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       }
     ]
   },
@@ -55,14 +55,14 @@ export const eg1Cases = [
       {
         "id": "EG1-H2-2",
         "alg": "F U' R' F R2 U2 R' U F'",
-        "note": "Ergonomic <R, U, F>",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-H2-3",
         "alg": "F' U R U' R2 F2 R U' F",
-        "note": "Ergonomic <R, U, F>",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -80,24 +80,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-H3-1",
-        "alg": "R F U R2 F' U R' F U'",
+        "alg": "R F U R2 F' U R' F",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-H3-2",
-        "alg": "R' U' R' F2 U F' R F' U'",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
+        "alg": "F' R U' R2 U' F' R2 U R",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U2"
+        "startAuf": ""
       },
       {
         "id": "EG1-H3-3",
-        "alg": "F' R U' R2 U' F' R2 U R U",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U' R' F2 U F' R F'",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
       }
     ]
   },
@@ -113,24 +113,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-H4-1",
-        "alg": "R2 U2 R U R2 U2 F2 U' R2",
-        "note": "Recommended <R, U, F>",
+        "alg": "F U' R U' R' F U' F2",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG1-H4-2",
-        "alg": "R2 U2 R U' F2 U2 R2 U R2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R' F U2 R U2 R2 U R'",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG1-H4-3",
-        "alg": "F2 U' R U R2 F' R U' F",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R' F U2 R' U2 R2 U' R'",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
       }
     ]
   },
@@ -146,24 +146,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-P1-1",
-        "alg": "F2 U R U R2 F2 R U' F2",
-        "note": "Recommended <R, U, F>",
+        "alg": "F' R' U2 R' U2 F2 R F",
+        "note": "Start AUF U' · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-P1-2",
-        "alg": "F2 U R' F2 R2 U' R' U' F2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R' F2 U2 R U2 R F",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-P1-3",
-        "alg": "F R F U F' U R' U F'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R' U' R' U F' R U' F",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
       }
     ]
   },
@@ -179,22 +179,22 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-P2-1",
-        "alg": "R U' R2 F R2 U' R'",
+        "alg": "R' F R2 U' R2 F R",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-P2-2",
-        "alg": "R' F R2 U' R2 F R",
-        "note": "Speedcubing <R, U, F> alg",
+        "alg": "R U' R2 F R2 U' R'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-P2-3",
-        "alg": "R U R2 F' R2 U R' U",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U R2 F' R2 U R'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -212,24 +212,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-P3-1",
-        "alg": "F R' F U' F2 R U R",
+        "alg": "F' R U' F R2 U' F' R'",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-P3-2",
-        "alg": "F' R U' F R2 U' F' R' U2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F R' F U' F2 R U R",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-P3-3",
-        "alg": "R2 U F U F2 U2 R2 F R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U' R2 F U R2 U R' F",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
       }
     ]
   },
@@ -252,15 +252,15 @@ export const eg1Cases = [
       },
       {
         "id": "EG1-P4-2",
-        "alg": "F2 U F' R U R' U F'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U R2 U2 R U2 F' R F",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-P4-3",
-        "alg": "R' U F' R' U F' U2 R2 F",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U' R2 U2 R' U2 F' R F",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -278,22 +278,22 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-P5-1",
-        "alg": "R' U' R' F2 U' R U2 F2 R",
+        "alg": "R U2 F2 R2 U' F' R2 U' R2",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-P5-2",
-        "alg": "R U2 F2 R2 U' F' R2 U' R2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U2 F2 R2 U F' R2 U' R2",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-P5-3",
-        "alg": "R' U2 F2 R2 U F' R2 U' R2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F R U' R F R U' F2 R",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -311,22 +311,22 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-P6-1",
-        "alg": "R' F2 U2 R' U F2 R U R",
+        "alg": "R2 U R2 F U R2 F2 U2 R'",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-P6-2",
-        "alg": "R2 U R2 F U R2 F2 U2 R'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 U R2 F U' R2 F2 U2 R",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-P6-3",
-        "alg": "R2 U R2 F U' R2 F2 U2 R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' F2 U R' F' R' U R' F'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -344,24 +344,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-U1-1",
-        "alg": "U F2 U F U2 F U2 F",
-        "note": "Recommended <R, U, F>",
+        "alg": "F U' R' U' R U' F2 R' F",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG1-U1-2",
-        "alg": "F' U2 F' U2 F' U' F2 U'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' U2 F' U2 F' U' F2",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-U1-3",
-        "alg": "U F2 U' F' U2 F' U2 F' U2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F2 U F U2 F U2 F",
+        "note": "Start AUF U · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U"
       }
     ]
   },
@@ -377,22 +377,22 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-U2-1",
-        "alg": "F2 U R U2 R F2 R' F2 R2",
-        "note": "Recommended <R, U, F>",
+        "alg": "F R2 F U2 F U F2 R2",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG1-U2-2",
-        "alg": "F2 U F2 R' U2 R' U2 R F2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R2 F' R2 F' U' F2 R2",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-U2-3",
-        "alg": "F R2 F U2 F U F2 R2 U",
-        "note": "Start AUF U · Optimal <R, U, F>",
+        "alg": "R2 F' U2 F' U2 F R2 U' F2",
+        "note": "Start AUF U · Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": "U"
       }
@@ -417,15 +417,15 @@ export const eg1Cases = [
       },
       {
         "id": "EG1-U3-2",
-        "alg": "F' U2 R U2 R' U2 F U'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F U2 R' F2 R U2 F'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-U3-3",
-        "alg": "F U2 R' F2 R U2 F' U'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' U R' U' R2 U R U' F",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -443,24 +443,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-U4-1",
-        "alg": "R' F R F' R' F R2 U' R'",
-        "note": "Recommended <R, U, F>",
+        "alg": "R U' R' F R U' R2 F R",
+        "note": "Start AUF U2 · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG1-U4-2",
-        "alg": "R2 F' R' F R F2 R2 U' R'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' F R F' R' F R2 U' R'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-U4-3",
-        "alg": "R2 F' R' F R' U R2 F2 R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U R' F U F2 R' U2 R'",
+        "note": "Start AUF U · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U"
       }
     ]
   },
@@ -476,22 +476,22 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-U5-1",
-        "alg": "R U2 F' R U R2 U' F U'",
+        "alg": "R U2 F' R U R2 U' F",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-U5-2",
-        "alg": "R U2 F2 R' U2 R U F2 U'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U' R2 U' R' F' U R F",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-U5-3",
-        "alg": "R F2 R U2 F2 R U F2 U'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 F R' U R F' R' U2 R'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -509,24 +509,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-U6-1",
-        "alg": "F U F' U' R U' R2 F R",
-        "note": "Recommended <R, U, F>",
+        "alg": "F' U R U2 R' F U2 F",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG1-U6-2",
-        "alg": "U2 F2 R F R U2 R F' R'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R2 U R' U2 R' F' U2 R",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-U6-3",
-        "alg": "U2 F2 U' F U2 F R U R'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F2 R F R U2 R F' R'",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
       }
     ]
   },
@@ -542,24 +542,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-T1-1",
-        "alg": "R2 F R' U' R2 U' F R U",
+        "alg": "R2 F R' U' R2 U' F R",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-T1-2",
-        "alg": "R2 F R' F U R F' R2 F'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U R2 U2 F U' R F' R2",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG1-T1-3",
-        "alg": "F' U R' F2 R U' F' U F2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U' F' U2 R2 U R F' R2",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
       }
     ]
   },
@@ -575,24 +575,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-T2-1",
-        "alg": "F' R F R2 F R U2 R U2",
+        "alg": "F' R F R2 F R U2 R",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-T2-2",
-        "alg": "R2 F' U F U2 F U' R' U2",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
+        "alg": "R2 F' U F U2 F U' R'",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": "U2"
       },
       {
         "id": "EG1-T2-3",
-        "alg": "R U F' R U' R U' R2 U' R2",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
+        "alg": "R U2 R2 U' F' U R2 U R'",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U2"
+        "startAuf": "U'"
       }
     ]
   },
@@ -608,24 +608,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-T3-1",
-        "alg": "R U' R2 F R U R U2 R'",
+        "alg": "R U' R2 F U' R2 U R",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-T3-2",
-        "alg": "R U' R2 F U' R2 U R U'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U' R2 U F' R2 U R'",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-T3-3",
-        "alg": "U' R F U2 F' U R2 F' R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R F U2 F' U R2 F' R",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       }
     ]
   },
@@ -648,15 +648,15 @@ export const eg1Cases = [
       },
       {
         "id": "EG1-T4-2",
-        "alg": "R2 F2 U F R2 F R2 F U2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 F2 U F R2 F R2 F",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-T4-3",
         "alg": "F2 U R2 F' U2 F U2 F R2",
-        "note": "Ergonomic <R, U, F>",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -681,15 +681,15 @@ export const eg1Cases = [
       },
       {
         "id": "EG1-T5-2",
-        "alg": "F' R F' R U2 R F U' R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U R2 F' R F R' F' R",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG1-T5-3",
-        "alg": "R U2 R2 F R' F U' F' R2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U2 R F2 U' F' R U' R",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -707,24 +707,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-T6-1",
-        "alg": "F' R U2 R' F' U2 R U R'",
-        "note": "Recommended <R, U, F>",
+        "alg": "R U' R' U2 F R U2 R' F",
+        "note": "Start AUF U' · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-T6-2",
-        "alg": "F2 R F R U' R U' F' R'",
-        "note": "Start AUF U · Optimal <R, U, F>",
+        "alg": "F' R U2 R' F' U2 R U R'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U"
+        "startAuf": ""
       },
       {
         "id": "EG1-T6-3",
-        "alg": "F2 R' U' F' R F' R U R",
-        "note": "Start AUF U · Optimal <R, U, F>",
+        "alg": "R U' F U R' U F' R' F",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U"
+        "startAuf": ""
       }
     ]
   },
@@ -747,17 +747,17 @@ export const eg1Cases = [
       },
       {
         "id": "EG1-L1-2",
-        "alg": "R U F' R F R' F' U2 R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U2 R' F' R2 F' R' F",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-L1-3",
-        "alg": "R' U2 R' F' R2 F' R' F U2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U' R2 U' F U' R2 U2 R",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       }
     ]
   },
@@ -773,24 +773,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-L2-1",
-        "alg": "U' R' F' U R2 U R F' R2",
-        "note": "Recommended <R, U, F>",
+        "alg": "R' F' U R2 U R F' R2",
+        "note": "Start AUF U' · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-L2-2",
-        "alg": "F R2 F R' U' F' R F' R2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 F R' U F' U2 R2 U' R",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-L2-3",
-        "alg": "F2 U' F U R' F2 R U' F",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 F R' U' R2 U2 F U R",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       }
     ]
   },
@@ -806,24 +806,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-L3-1",
-        "alg": "R' U' F2 R2 U R F2 U' F",
-        "note": "Recommended <R, U, F>",
+        "alg": "R U2 F' U R2 U' F U2 R'",
+        "note": "Start AUF U' · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-L3-2",
-        "alg": "R2 U2 F' R F2 R U2 R2 F'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U F2 U' F U' R2 U R2",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-L3-3",
-        "alg": "F2 U' F2 U' R F' U F R2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 U' R2 U F' U F2 U' R'",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       }
     ]
   },
@@ -839,24 +839,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-L4-1",
-        "alg": "R U2 R' F R U' R2 F' R",
-        "note": "Recommended <R, U, F>",
+        "alg": "F' U R' U' R U2 F' U' R2",
+        "note": "Start AUF U' · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-L4-2",
-        "alg": "R' F R2 U R' F' R U2 R'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U2 R' F R U' R2 F' R",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-L4-3",
-        "alg": "F2 R' U F' R U' R2 U' F2",
-        "note": "Start AUF U · Optimal <R, U, F>",
+        "alg": "R' F R2 U R' F' R U2 R'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U"
+        "startAuf": ""
       }
     ]
   },
@@ -872,24 +872,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-L5-1",
-        "alg": "F' U R2 U' R' F U2 R' U2",
+        "alg": "F' U R2 U' R' F U2 R'",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-L5-2",
-        "alg": "F2 U' R' U2 R U2 R U2 F2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R' U' F R U R2 U R'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-L5-3",
-        "alg": "R2 F2 U R U2 F2 R F2 R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U2 R F R' U' R F' R2",
+        "note": "Start AUF U · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U"
       }
     ]
   },
@@ -905,24 +905,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-L6-1",
-        "alg": "R U' R' F' U2 F' U F2 U'",
+        "alg": "R U' R' F' U2 F' U F2",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-L6-2",
-        "alg": "R F R' U2 R' F' R' F2 U'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R F R' U2 R' F' R' F2",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-L6-3",
-        "alg": "U' F' U2 F' R U2 R' U' F",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U2 F R U2 R U' R2 F",
+        "note": "Start AUF U · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U"
       }
     ]
   },
@@ -938,24 +938,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-S1-1",
-        "alg": "U' F' R F2 U2 R F' U",
-        "note": "Recommended <R, U, F>",
+        "alg": "F' R F2 U2 R F'",
+        "note": "Start AUF U' · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-S1-2",
-        "alg": "U' F' R U2 R' F2 U2 F U",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R U2 R' F2 U2 F",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-S1-3",
-        "alg": "U' F U2 F2 R' F2 R F' U",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R U2 R' U2 F2 U2 F'",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       }
     ]
   },
@@ -971,22 +971,22 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-S2-1",
-        "alg": "R F2 U' F2 R U F2 U' R",
-        "note": "Recommended <R, U, F>",
+        "alg": "F' U R' U2 R' F2 U R'",
+        "note": "Start AUF U' · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-S2-2",
-        "alg": "R' F2 U F2 R' U F2 U' R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R U2 R2 U R' U' F' R2",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-S2-3",
-        "alg": "U2 R' F U2 R' F2 R' U F'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R' U2 R2 U' R' U' F' R2",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -1004,24 +1004,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-S3-1",
-        "alg": "R' F2 R F2 U' F U2 F",
+        "alg": "R2 U' R' U2 F U2 F U R'",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-S3-2",
-        "alg": "F2 R' F' R U' F U' F2 U'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U' R' F2 U2 F U' F2",
+        "note": "Start AUF U · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG1-S3-3",
-        "alg": "R' U2 F2 R' F2 U F U2 F",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 U' R U' R U' F2 U' R2",
+        "note": "Start AUF U · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U"
       }
     ]
   },
@@ -1037,24 +1037,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-S4-1",
-        "alg": "R F2 R U2 R U' F2 U F'",
+        "alg": "F' U R U' R' U F R U R'",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-S4-2",
-        "alg": "F' U F2 U' R F2 R U2 R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U' F R' U F2 R2 U2 R'",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-S4-3",
-        "alg": "R2 F2 U' F U' F U' R' F2",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
+        "alg": "R' U' F R' U' R2 U2 F2 R",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U2"
+        "startAuf": "U'"
       }
     ]
   },
@@ -1070,24 +1070,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-S5-1",
-        "alg": "F2 U' R F' U R' F R2",
-        "note": "Recommended <R, U, F>",
+        "alg": "R2 F U' R U' R U' F2",
+        "note": "Start AUF U2 · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
-      },
-      {
-        "id": "EG1-S5-2",
-        "alg": "R2 F U' R U' R U' F2 U2",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
-        "isDefault": false,
         "startAuf": "U2"
       },
       {
-        "id": "EG1-S5-3",
-        "alg": "U' F2 U' R F' U R' F R2",
-        "note": "Start AUF U · Optimal <R, U, F>",
+        "id": "EG1-S5-2",
+        "alg": "R U' R2 U' R' U F' R F",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U"
+        "startAuf": ""
+      },
+      {
+        "id": "EG1-S5-3",
+        "alg": "R' U' R2 U' R U2 F' R F",
+        "note": "Start AUF U' · Alternative <R, U, F>",
+        "isDefault": false,
+        "startAuf": "U'"
       }
     ]
   },
@@ -1103,22 +1103,22 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-S6-1",
-        "alg": "R' F' R2 U R' U2 F U2 F'",
-        "note": "Recommended <R, U, F>",
+        "alg": "R' F U R2 U R2 F' U' R2",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG1-S6-2",
-        "alg": "F U2 F U' F2 R U2 R' U",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 U' R2 U' F R' F U' R2",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG1-S6-3",
-        "alg": "F2 U' F U' R U' R' F2 U",
-        "note": "Start AUF U' · Optimal <R, U, F>",
+        "alg": "R F R' U' R2 F U2 F R",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": "U'"
       }
@@ -1136,24 +1136,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-A1-1",
-        "alg": "U' F R' U2 F2 R' F U",
-        "note": "Recommended <R, U, F>",
+        "alg": "F R' U2 F2 R' F",
+        "note": "Start AUF U' · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-A1-2",
-        "alg": "U' F' U2 F2 R U2 R' F U",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' U2 F2 R U2 R' F",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-A1-3",
-        "alg": "U' F R' F2 R F2 U2 F' U",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F R U2 F2 R2 U2 R F",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       }
     ]
   },
@@ -1169,22 +1169,22 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-A2-1",
-        "alg": "R' U F2 U' R F2 U' F2 R",
-        "note": "Recommended <R, U, F>",
+        "alg": "R U' F2 R U2 R U' F",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG1-A2-2",
-        "alg": "U R U2 R2 F' R F2 U' F'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U' R' F' U' F2 R U' R'",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG1-A2-3",
-        "alg": "U R' F R2 U2 R' F2 U' F'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F U' R F2 R U2 F' R",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -1202,22 +1202,22 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-A3-1",
-        "alg": "R U2 R' F2 U F' U2 F'",
+        "alg": "R2 U F R2 U' R2 U' F' R",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-A3-2",
-        "alg": "F2 R U R' U F' U F2 U",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 U F' R F' U R2 U R2",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-A3-3",
-        "alg": "R F2 U2 R F2 U' F' U2 F'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U2 R' F2 U F' U2 F'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -1235,24 +1235,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-A4-1",
-        "alg": "R' U2 R' F2 R' U F2 U' F",
-        "note": "Recommended <R, U, F>",
+        "alg": "R U' R' F' U' R U R' U' F",
+        "note": "Start AUF U2 · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG1-A4-2",
-        "alg": "F U' F2 U R' U2 R' F2 R'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U2 R2 F2 U' R F' U R",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG1-A4-3",
-        "alg": "R2 F2 U F' R U' F R F2",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
+        "alg": "R' F2 U2 R2 U R F' U R",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U2"
+        "startAuf": "U'"
       }
     ]
   },
@@ -1268,22 +1268,22 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-A5-1",
-        "alg": "R' U' R' F' U F2 R2 U' R'",
+        "alg": "F2 U R' U R' U F' R2",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-A5-2",
-        "alg": "F' R' F U2 R' U R2 U R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R' F U' R U R2 U R'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       },
       {
         "id": "EG1-A5-3",
-        "alg": "F2 U R' U R' U F' R2 U",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R' F U2 R' U R2 U R",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -1301,24 +1301,24 @@ export const eg1Cases = [
     "algs": [
       {
         "id": "EG1-A6-1",
-        "alg": "R2 F' R F' U R' U F2 R2",
+        "alg": "R U' F' U2 F' U2 R U R2",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG1-A6-2",
-        "alg": "F2 U F R' U2 F2 U' R' U",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
+        "alg": "R2 U F2 U R' U R' U R2",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U2"
+        "startAuf": "U'"
       },
       {
         "id": "EG1-A6-3",
-        "alg": "F2 U F' U2 F2 R U R' U",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
+        "alg": "R U R2 F' R U2 F' U2 F",
+        "note": "Start AUF U · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U2"
+        "startAuf": "U"
       }
     ]
   }
@@ -1339,17 +1339,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-H1-1",
-        "alg": "F2 R U2 R2 F2 R' F2",
-        "note": "Recommended <R, U, F>",
+        "alg": "R2 F R2 F2 U2 F' R2",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG2-H1-2",
-        "alg": "F2 R' F2 R2 U2 R F2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 F U2 F2 R2 F' R2",
+        "note": "Start AUF U · Anti-CLL (R2 F2 R2 + H2)",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U"
+      },
+      {
+        "id": "EG2-H1-3",
+        "alg": "R2 F' R2 F2 U2 F R2",
+        "note": "Start AUF U · Alternative <R, U, F>",
+        "isDefault": false,
+        "startAuf": "U"
       }
     ]
   },
@@ -1366,14 +1373,21 @@ export const eg2Cases = [
       {
         "id": "EG2-H2-1",
         "alg": "R2 U2 R U2 F2 R2",
-        "note": "Recommended <R, U, F>",
+        "note": "Anti-CLL (H1 + R2 F2 R2)",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG2-H2-2",
         "alg": "R2 F2 U2 R' U2 R2",
-        "note": "Ergonomic <R, U, F>",
+        "note": "Anti-CLL (R2 F2 R2 + H1)",
+        "isDefault": false,
+        "startAuf": ""
+      },
+      {
+        "id": "EG2-H2-3",
+        "alg": "R2 U2 R' U2 F2 R2",
+        "note": "Anti-CLL (H1 + R2 F2 R2)",
         "isDefault": false,
         "startAuf": ""
       }
@@ -1391,22 +1405,22 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-H3-1",
-        "alg": "F' U2 F' R U2 R F2 U R'",
-        "note": "Recommended <R, U, F>",
+        "alg": "R U2 R F' U2 F' R2 U' F",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG2-H3-2",
-        "alg": "F U2 F R' F2 R' F2 U' R",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
+        "alg": "F' R2 F' U R2 U R2 F R'",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": "U2"
       },
       {
         "id": "EG2-H3-3",
-        "alg": "U' R U R' U R U R' F R' F' R R2 F2 R2",
-        "note": "Anti-CLL (H3 + R2 F2 R2)",
+        "alg": "R U' R' F U2 R2 F R U' R' F2 R2",
+        "note": "Start AUF U · Anti-CLL (H3 + R2 F2 R2)",
         "isDefault": false,
         "startAuf": "U"
       }
@@ -1431,17 +1445,17 @@ export const eg2Cases = [
       },
       {
         "id": "EG2-H4-2",
-        "alg": "R U2 F2 R' F U F' U R'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' F2 U2 R U' R' F U' R",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG2-H4-3",
-        "alg": "U R' F R F' R U' R' U2 R' F R F' R2 F2 R2",
-        "note": "Anti-CLL (H4 + R2 F2 R2)",
+        "alg": "F R2 U' R2 U' R2 U R2 F R2 F2",
+        "note": "Start AUF U' · Anti-CLL (H4 + F2 R2 F2)",
         "isDefault": false,
-        "startAuf": "U2"
+        "startAuf": "U'"
       }
     ]
   },
@@ -1464,8 +1478,15 @@ export const eg2Cases = [
       },
       {
         "id": "EG2-P1-2",
-        "alg": "F2 U' F2 R U2 R F2 U' R2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R U2 R F2 U R2 U R'",
+        "note": "Start AUF U · Alternative <R, U, F>",
+        "isDefault": false,
+        "startAuf": "U"
+      },
+      {
+        "id": "EG2-P1-3",
+        "alg": "R2 F2 U R' U' F R F' R U' R2",
+        "note": "Anti-CLL (R2 F2 R2 + P2)",
         "isDefault": false,
         "startAuf": ""
       }
@@ -1483,15 +1504,22 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-P2-1",
-        "alg": "R U2 R2 U R F2 R2 F U",
+        "alg": "R U2 R2 U R F2 R2 F",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG2-P2-2",
-        "alg": "U' F R2 F2 R U R2 U2 R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U2 R2 U R' F2 R2 F'",
+        "note": "Alternative <R, U, F>",
+        "isDefault": false,
+        "startAuf": ""
+      },
+      {
+        "id": "EG2-P2-3",
+        "alg": "R U' R2 U R2 U R2 U' R' F2 R2",
+        "note": "Anti-CLL (P1 + R2 F2 R2)",
         "isDefault": false,
         "startAuf": ""
       }
@@ -1516,10 +1544,17 @@ export const eg2Cases = [
       },
       {
         "id": "EG2-P3-2",
-        "alg": "R' U F2 R F2 R F' U2 F'",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
+        "alg": "F U' R2 F' R2 F' R U2 R",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U2"
+        "startAuf": "U'"
+      },
+      {
+        "id": "EG2-P3-3",
+        "alg": "F R2 U' R2 U R2 U R2 F R2 F2",
+        "note": "Start AUF U · Anti-CLL (P4 + F2 R2 F2)",
+        "isDefault": false,
+        "startAuf": "U"
       }
     ]
   },
@@ -1535,17 +1570,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-P4-1",
-        "alg": "F' U R' U R F' R2 U2 F",
-        "note": "Recommended <R, U, F>",
+        "alg": "R' F U' R U R' F2 U2 R",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG2-P4-2",
-        "alg": "F R' U F' U' F R2 U2 F'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U F' R U R' U2 F2 R",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
+      },
+      {
+        "id": "EG2-P4-3",
+        "alg": "F2 R2 F' R2 U' R2 U R2 U R2 F'",
+        "note": "Start AUF U2 · Anti-CLL (F2 R2 F2 + P4)",
+        "isDefault": false,
+        "startAuf": "U2"
       }
     ]
   },
@@ -1561,15 +1603,22 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-P5-1",
-        "alg": "R U2 R F2 R2 U' R U' R' U'",
+        "alg": "R U2 R F2 R2 U' R U' R'",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG2-P5-2",
-        "alg": "R U2 R' U R2 F2 R' U' R' U'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U2 R' U R2 F2 R' U' R'",
+        "note": "Alternative <R, U, F>",
+        "isDefault": false,
+        "startAuf": ""
+      },
+      {
+        "id": "EG2-P5-3",
+        "alg": "R2 F2 R F2 R F' U2 R U' R' U' F",
+        "note": "Anti-CLL (R2 F2 R2 + P6)",
         "isDefault": false,
         "startAuf": ""
       }
@@ -1587,17 +1636,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-P6-1",
-        "alg": "F' R2 F R' U2 F2 U R F",
-        "note": "Recommended <R, U, F>",
+        "alg": "R U R F2 R2 U' R U2 R'",
+        "note": "Start AUF U' · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG2-P6-2",
-        "alg": "F' R2 F' U2 F2 R U' R F",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U R' U R2 F2 R' U2 R'",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
+      },
+      {
+        "id": "EG2-P6-3",
+        "alg": "R2 F2 U' R' U' F R2 U2 F' R2 F",
+        "note": "Start AUF U' · Anti-CLL (R2 F2 R2 + P5)",
+        "isDefault": false,
+        "startAuf": "U'"
       }
     ]
   },
@@ -1621,9 +1677,16 @@ export const eg2Cases = [
       {
         "id": "EG2-U1-2",
         "alg": "R2 U2 R' U R' U F' R U' R",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": "U2"
+      },
+      {
+        "id": "EG2-U1-3",
+        "alg": "R' F U' R U' R' U2 F2 R' F2 R2",
+        "note": "Anti-CLL (U2 + R2 F2 R2)",
+        "isDefault": false,
+        "startAuf": ""
       }
     ]
   },
@@ -1639,17 +1702,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-U2-1",
-        "alg": "U' R F R F' U' R F2 R2",
-        "note": "Recommended <R, U, F>",
+        "alg": "R U F R' F' R F2 R2",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG2-U2-2",
-        "alg": "U' R' U' F' U F R' F2 R2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F R U R' U' F R2 F2",
+        "note": "Anti-CLL (U1 + F2 R2 F2)",
         "isDefault": false,
         "startAuf": ""
+      },
+      {
+        "id": "EG2-U2-3",
+        "alg": "F U R U' R' F R2 F2",
+        "note": "Start AUF U2 · Anti-CLL (U1 + F2 R2 F2)",
+        "isDefault": false,
+        "startAuf": "U2"
       }
     ]
   },
@@ -1665,17 +1735,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-U3-1",
-        "alg": "R U R F2 R2 U2 R U' R'",
-        "note": "Recommended <R, U, F>",
+        "alg": "R' F' U' R U2 R' U F R",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG2-U3-2",
-        "alg": "R U R' U2 R2 F2 R' U' R'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U' F' R U2 R' F U R",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
+      },
+      {
+        "id": "EG2-U3-3",
+        "alg": "R2 F R U' R' F2 R F R' F' R2",
+        "note": "Start AUF U' · Anti-CLL (R2 F2 R2 + T5)",
+        "isDefault": false,
+        "startAuf": "U'"
       }
     ]
   },
@@ -1699,9 +1776,16 @@ export const eg2Cases = [
       {
         "id": "EG2-U4-2",
         "alg": "F2 R2 U R U' F2 U R' U R",
-        "note": "Ergonomic <R, U, F>",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
+      },
+      {
+        "id": "EG2-U4-3",
+        "alg": "R2 F2 R U R U2 R2 F R F' R",
+        "note": "Start AUF U' · Anti-CLL (R2 F2 R2 + T6)",
+        "isDefault": false,
+        "startAuf": "U'"
       }
     ]
   },
@@ -1717,17 +1801,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-U5-1",
-        "alg": "R2 F2 U R U' F' U' F R'",
-        "note": "Recommended <R, U, F>",
+        "alg": "F R2 U' F' R' U F' U R",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG2-U5-2",
-        "alg": "F2 R2 F R' U R U F R'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 U' R F' U' F' R2 U F'",
+        "note": "Start AUF U · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U"
+      },
+      {
+        "id": "EG2-U5-3",
+        "alg": "R2 F2 R U' R U F R F'",
+        "note": "Start AUF U' · Anti-CLL (R2 F2 R2 + T1)",
+        "isDefault": false,
+        "startAuf": "U'"
       }
     ]
   },
@@ -1750,8 +1841,15 @@ export const eg2Cases = [
       },
       {
         "id": "EG2-U6-2",
-        "alg": "R2 F2 U' R' U F R F' R",
-        "note": "Start AUF U' · Optimal <R, U, F>",
+        "alg": "F' R2 U R F R' F U' R'",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
+        "isDefault": false,
+        "startAuf": "U2"
+      },
+      {
+        "id": "EG2-U6-3",
+        "alg": "R2 F2 R F' R U R U' R' F",
+        "note": "Start AUF U' · Anti-CLL (R2 F2 R2 U2 + T2)",
         "isDefault": false,
         "startAuf": "U'"
       }
@@ -1769,17 +1867,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-T1-1",
-        "alg": "U' R' F U2 F U F' U2 R",
-        "note": "Recommended <R, U, F>",
+        "alg": "R' F U2 F U F' U2 R",
+        "note": "Start AUF U' · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG2-T1-2",
-        "alg": "F R F' U' R' U' R' F2 R2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' U R2 U F R' U2 F",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
+      },
+      {
+        "id": "EG2-T1-3",
+        "alg": "R' F' R U R U' R' F' R2 F2",
+        "note": "Start AUF U2 · Anti-CLL (T2 + F2 R2 F2)",
+        "isDefault": false,
+        "startAuf": "U2"
       }
     ]
   },
@@ -1795,17 +1900,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-T2-1",
-        "alg": "U2 F R' U2 R' U' R U2 F'",
-        "note": "Recommended <R, U, F>",
+        "alg": "F R' U2 R' U' R U2 F'",
+        "note": "Start AUF U2 · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG2-T2-2",
-        "alg": "F U' R2 U' R' U R2 F' U2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F U' R2 U' R' U R2 F'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
+      },
+      {
+        "id": "EG2-T2-3",
+        "alg": "R' U' R U F R F R2 F2",
+        "note": "Start AUF U' · Anti-CLL (T1 + F2 R2 F2)",
+        "isDefault": false,
+        "startAuf": "U'"
       }
     ]
   },
@@ -1821,15 +1933,22 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-T3-1",
-        "alg": "R' F R' F U' F U R2",
-        "note": "Recommended <R, U, F>",
+        "alg": "R' U R' F U' R U R2",
+        "note": "Start AUF U2 · Anti-CLL (R2 F2 R2 + U2)",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG2-T3-2",
-        "alg": "R2 U' F' U F' R F' R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 U' R' U F' R U' R",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
+        "isDefault": false,
+        "startAuf": "U2"
+      },
+      {
+        "id": "EG2-T3-3",
+        "alg": "R F' U F' U R' U' R2",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
       }
@@ -1847,17 +1966,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-T4-1",
-        "alg": "R2 F2 R F' U' F U R U",
+        "alg": "R2 F2 R' U F R' F' R'",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG2-T4-2",
-        "alg": "R2 F2 R' U F R' F' R' U",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 F2 R' F R F' U' R'",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
+      },
+      {
+        "id": "EG2-T4-3",
+        "alg": "F2 R2 F' R U R' U' F'",
+        "note": "Start AUF U · Anti-CLL (F2 R2 F2 + U1)",
+        "isDefault": false,
+        "startAuf": "U"
       }
     ]
   },
@@ -1881,7 +2007,14 @@ export const eg2Cases = [
       {
         "id": "EG2-T5-2",
         "alg": "F' U' F U' R2 U R' U' F2 R2",
-        "note": "Start AUF U · Optimal <R, U, F>",
+        "note": "Start AUF U · Alternative <R, U, F>",
+        "isDefault": false,
+        "startAuf": "U"
+      },
+      {
+        "id": "EG2-T5-3",
+        "alg": "R' F R U2 R2 F R U' R' F2 R2",
+        "note": "Start AUF U · Anti-CLL (T6 + R2 F2 R2)",
         "isDefault": false,
         "startAuf": "U"
       }
@@ -1899,17 +2032,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-T6-1",
-        "alg": "R F2 R U2 R' F2 R' U'",
-        "note": "Recommended <R, U, F>",
+        "alg": "R U2 R F2 R' U2 R'",
+        "note": "Start AUF U2 · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG2-T6-2",
-        "alg": "R' F2 R' F2 R U2 R U",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R F2 R U2 R' F2 R'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
+      },
+      {
+        "id": "EG2-T6-3",
+        "alg": "R2 F' R U' R' F2 R F R' F R2",
+        "note": "Start AUF U2 · Anti-CLL (T5 + R2 F2 R2)",
+        "isDefault": false,
+        "startAuf": "U2"
       }
     ]
   },
@@ -1932,10 +2072,17 @@ export const eg2Cases = [
       },
       {
         "id": "EG2-L1-2",
-        "alg": "F2 R F2 U' R2 U F R F",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F R2 U' R U R2 U F'",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
+      },
+      {
+        "id": "EG2-L1-3",
+        "alg": "F2 R2 F' R' F' U' R' U R",
+        "note": "Start AUF U2 · Anti-CLL (F2 R2 F2 + L2)",
+        "isDefault": false,
+        "startAuf": "U2"
       }
     ]
   },
@@ -1951,17 +2098,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-L2-1",
-        "alg": "R' U2 F U' F' U2 F' R U",
+        "alg": "R' U2 F U' F' U2 F' R",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG2-L2-2",
-        "alg": "R2 F2 R U R U F R' F'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' U2 R F' U' R2 U' F",
+        "note": "Start AUF U · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U"
+      },
+      {
+        "id": "EG2-L2-3",
+        "alg": "F2 R2 F R U R' U' R' F R",
+        "note": "Start AUF U · Anti-CLL (F2 R2 F2 + L1)",
+        "isDefault": false,
+        "startAuf": "U"
       }
     ]
   },
@@ -1977,17 +2131,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-L3-1",
-        "alg": "F' U F U2 R2 F2 R' U2 R'",
-        "note": "Recommended <R, U, F>",
+        "alg": "R F' R2 U R2 U' R2 F R'",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG2-L3-2",
-        "alg": "F' U F' R2 U2 R' U2 F2 R'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U' F2 R U2 R' U2 F R",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
+      },
+      {
+        "id": "EG2-L3-3",
+        "alg": "R2 U' R U2 R' U2 R U' F2 R2",
+        "note": "Start AUF U · Anti-CLL (L4 + R2 F2 R2)",
+        "isDefault": false,
+        "startAuf": "U"
       }
     ]
   },
@@ -2011,9 +2172,16 @@ export const eg2Cases = [
       {
         "id": "EG2-L4-2",
         "alg": "F' U' R' U R2 U2 R F U R",
-        "note": "Start AUF U' · Optimal <R, U, F>",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": "U'"
+      },
+      {
+        "id": "EG2-L4-3",
+        "alg": "R U2 R' F R' F' R2 U2 R F2 R2",
+        "note": "Start AUF U · Anti-CLL (L3 + R2 F2 R2)",
+        "isDefault": false,
+        "startAuf": "U"
       }
     ]
   },
@@ -2029,17 +2197,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-L5-1",
-        "alg": "R U' R F R F' U' F2 R2",
+        "alg": "R' U' F U' R F U R2 F'",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG2-L5-2",
-        "alg": "R U' R' U' F' U F' R2 F2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F U' R2 F U F R' U R2",
+        "note": "Start AUF U · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U"
+      },
+      {
+        "id": "EG2-L5-3",
+        "alg": "F R' F' U' R' U R' F2 R2",
+        "note": "Start AUF U' · Anti-CLL (L2 + R2 F2 R2)",
+        "isDefault": false,
+        "startAuf": "U'"
       }
     ]
   },
@@ -2055,17 +2230,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-L6-1",
-        "alg": "F U R' U F' R' U' F2 R",
-        "note": "Recommended <R, U, F>",
+        "alg": "R F R' F R' U' R' U2 F",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG2-L6-2",
-        "alg": "R' U R U F R' F R2 F2",
-        "note": "Start AUF U' · Optimal <R, U, F>",
+        "alg": "F R U' R F' R' F' U2 R",
+        "note": "Start AUF U2 · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U'"
+        "startAuf": "U2"
+      },
+      {
+        "id": "EG2-L6-3",
+        "alg": "R U R U' R' F R' F R2 F2",
+        "note": "Anti-CLL (L1 + F2 R2 F2)",
+        "isDefault": false,
+        "startAuf": ""
       }
     ]
   },
@@ -2089,9 +2271,16 @@ export const eg2Cases = [
       {
         "id": "EG2-S1-2",
         "alg": "F U R' U2 R U' R' F U2 R2",
-        "note": "Ergonomic <R, U, F>",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
+      },
+      {
+        "id": "EG2-S1-3",
+        "alg": "R' F R2 F' U' R' U' R2 U R F2 R2",
+        "note": "Start AUF U2 · Anti-CLL (S2 + R2 F2 R2)",
+        "isDefault": false,
+        "startAuf": "U2"
       }
     ]
   },
@@ -2108,16 +2297,23 @@ export const eg2Cases = [
       {
         "id": "EG2-S2-1",
         "alg": "R U R' U R U2 R F2 R2",
-        "note": "Recommended <R, U, F>",
+        "note": "Anti-CLL (S1 + R2 F2 R2)",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG2-S2-2",
-        "alg": "R U R2 U' R2 U R' F2 R2 U'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 F2 R' U R' U R U2 R'",
+        "note": "Start AUF U2 · Anti-CLL (R2 F2 R2 + S1)",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U2"
+      },
+      {
+        "id": "EG2-S2-3",
+        "alg": "R' U2 R U R' U R' F2 R2",
+        "note": "Start AUF U' · Anti-CLL (S1 + R2 F2 R2)",
+        "isDefault": false,
+        "startAuf": "U'"
       }
     ]
   },
@@ -2133,15 +2329,22 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-S3-1",
-        "alg": "R U' R F2 R2 F R' F' R",
-        "note": "Recommended <R, U, F>",
+        "alg": "F R U F' U R2 F' R2",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG2-S3-2",
+        "alg": "F R U F' U' R2 F R2",
+        "note": "Start AUF U · Alternative <R, U, F>",
+        "isDefault": false,
+        "startAuf": "U"
+      },
+      {
+        "id": "EG2-S3-3",
         "alg": "R U' R' F R' F' R' F2 R2",
-        "note": "Ergonomic <R, U, F>",
+        "note": "Anti-CLL (S4 + R2 F2 R2)",
         "isDefault": false,
         "startAuf": ""
       }
@@ -2159,15 +2362,22 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-S4-1",
-        "alg": "F R' F R' F2 R' U2 R",
-        "note": "Recommended <R, U, F>",
+        "alg": "R U2 R' F2 R' U R' F",
+        "note": "Start AUF U2 · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG2-S4-2",
-        "alg": "U2 R U2 R' F2 R' U R' F",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R U' R F' U2 F' R2 F",
+        "note": "Start AUF U · Alternative <R, U, F>",
+        "isDefault": false,
+        "startAuf": "U"
+      },
+      {
+        "id": "EG2-S4-3",
+        "alg": "F R' F' R U2 R U2 R F2 R2",
+        "note": "Anti-CLL (S3 + R2 F2 R2)",
         "isDefault": false,
         "startAuf": ""
       }
@@ -2185,17 +2395,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-S5-1",
-        "alg": "F' R U' R F2 U' R U' R'",
-        "note": "Recommended <R, U, F>",
+        "alg": "F' R' U R' U2 F R' U R'",
+        "note": "Start AUF U · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U"
       },
       {
         "id": "EG2-S5-2",
-        "alg": "R' U' R U' F2 R F' R F'",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
+        "alg": "F' R U' R F2 U' R U' R'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": "U2"
+        "startAuf": ""
+      },
+      {
+        "id": "EG2-S5-3",
+        "alg": "F2 R2 F' R' F' R U2 R U2 R'",
+        "note": "Start AUF U' · Anti-CLL (F2 R2 F2 + S3)",
+        "isDefault": false,
+        "startAuf": "U'"
       }
     ]
   },
@@ -2211,17 +2428,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-S6-1",
-        "alg": "R2 F U2 R' U' F R F",
-        "note": "Recommended <R, U, F>",
+        "alg": "R2 F U2 R' U' R U F",
+        "note": "Start AUF U2 · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG2-S6-2",
-        "alg": "R2 F' U2 R U' R U F U2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 F' U2 R U' R U F",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
+      },
+      {
+        "id": "EG2-S6-3",
+        "alg": "R2 F2 R' U' R' F R' F' R",
+        "note": "Start AUF U2 · Anti-CLL (R2 F2 R2 + S4)",
+        "isDefault": false,
+        "startAuf": "U2"
       }
     ]
   },
@@ -2237,17 +2461,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-A1-1",
-        "alg": "R F2 R U2 R' U R U' F2 R'",
+        "alg": "F R' U2 R' U R' U2 R U2 F'",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG2-A1-2",
-        "alg": "F R' U2 R' U R' U2 R U2 F'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R F2 R U2 R' U R U' F2 R'",
+        "note": "Alternative <R, U, F>",
         "isDefault": false,
         "startAuf": ""
+      },
+      {
+        "id": "EG2-A1-3",
+        "alg": "R2 F2 R' U2 R' F R' F' R U' R U' R'",
+        "note": "Start AUF U' · Anti-CLL (R2 F2 R2 + A2)",
+        "isDefault": false,
+        "startAuf": "U'"
       }
     ]
   },
@@ -2264,16 +2495,23 @@ export const eg2Cases = [
       {
         "id": "EG2-A2-1",
         "alg": "R2 F2 R' U2 R' U' R U' R'",
-        "note": "Recommended <R, U, F>",
+        "note": "Anti-CLL (R2 F2 R2 + A1)",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG2-A2-2",
-        "alg": "R2 F2 U R' U R' U' R2 U' R2",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R' U' R U' R' U2 R' F2 R2",
+        "note": "Start AUF U · Anti-CLL (A1 + R2 F2 R2)",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U"
+      },
+      {
+        "id": "EG2-A2-3",
+        "alg": "R2 F2 R U' R U' R' U2 R",
+        "note": "Start AUF U · Anti-CLL (R2 F2 R2 + A1)",
+        "isDefault": false,
+        "startAuf": "U"
       }
     ]
   },
@@ -2289,17 +2527,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-A3-1",
-        "alg": "R' U R F2 R2 F R U R'",
-        "note": "Recommended <R, U, F>",
+        "alg": "F' U' R' U R' U2 F R2",
+        "note": "Start AUF U' · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U'"
       },
       {
         "id": "EG2-A3-2",
-        "alg": "R' U R' F2 R2 F' R U R'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' U' R' U R U2 F' R2",
+        "note": "Start AUF U' · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U'"
+      },
+      {
+        "id": "EG2-A3-3",
+        "alg": "R' F R F' R U R F2 R2",
+        "note": "Start AUF U2 · Anti-CLL (A4 + R2 F2 R2)",
+        "isDefault": false,
+        "startAuf": "U2"
       }
     ]
   },
@@ -2315,17 +2560,24 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-A4-1",
-        "alg": "F' U F' R U2 R F2 R'",
-        "note": "Recommended <R, U, F>",
+        "alg": "F' R U' R F2 R U2 R'",
+        "note": "Start AUF U2 · Recommended <R, U, F>",
         "isDefault": true,
-        "startAuf": ""
+        "startAuf": "U2"
       },
       {
         "id": "EG2-A4-2",
-        "alg": "U2 R' U2 R F2 R F' R F'",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "F' R2 F U2 F R' U R'",
+        "note": "Start AUF U · Alternative <R, U, F>",
         "isDefault": false,
-        "startAuf": ""
+        "startAuf": "U"
+      },
+      {
+        "id": "EG2-A4-3",
+        "alg": "R2 F2 R' U2 R' U2 R' F R F'",
+        "note": "Start AUF U2 · Anti-CLL (R2 F2 R2 U2 + A6)",
+        "isDefault": false,
+        "startAuf": "U2"
       }
     ]
   },
@@ -2348,8 +2600,15 @@ export const eg2Cases = [
       },
       {
         "id": "EG2-A5-2",
-        "alg": "F R F' U R2 F' R U' R",
-        "note": "Start AUF U2 · Optimal <R, U, F>",
+        "alg": "R U R' U F2 R' U R' F",
+        "note": "Start AUF U' · Alternative <R, U, F>",
+        "isDefault": false,
+        "startAuf": "U'"
+      },
+      {
+        "id": "EG2-A5-3",
+        "alg": "R U2 R' U2 R' F R F R2 F2",
+        "note": "Start AUF U2 · Anti-CLL (A6 + F2 R2 F2)",
         "isDefault": false,
         "startAuf": "U2"
       }
@@ -2367,15 +2626,22 @@ export const eg2Cases = [
     "algs": [
       {
         "id": "EG2-A6-1",
-        "alg": "R2 F R2 U' F R' U' F' U",
+        "alg": "R2 F R2 U' F R' U' F'",
         "note": "Recommended <R, U, F>",
         "isDefault": true,
         "startAuf": ""
       },
       {
         "id": "EG2-A6-2",
-        "alg": "R2 F' R2 U R' F' U' F' R",
-        "note": "Ergonomic <R, U, F>",
+        "alg": "R2 F' R2 U F U' R' F'",
+        "note": "Alternative <R, U, F>",
+        "isDefault": false,
+        "startAuf": ""
+      },
+      {
+        "id": "EG2-A6-3",
+        "alg": "R2 F' U' R2 F' R2 U F' R2",
+        "note": "Anti-CLL (A5 + R2 F2 R2)",
         "isDefault": false,
         "startAuf": ""
       }

@@ -1,9 +1,10 @@
-// 2x2x2 CLL (and Ortega) Smart Cube Solve Analyzer
-// Color-neutrally detects 1st Layer color, move count, time splits, exact CLL case (40 cases + Skip),
+// 2x2x2 CLL, EG-1, EG-2, and Ortega Smart Cube Solve Analyzer
+// Color-neutrally detects 1st Layer/Face color, move count, time splits, exact CLL/EG-1/EG-2 case,
 // recognition vs execution splits, trailing AUF, and per-case performance statistics.
 
 import { Alg } from 'cubing/alg';
 import { cllCases } from './data/cllData.js';
+import { eg1Cases, eg2Cases } from './data/egData.js';
 import { ORIENTATIONS_24, getSolvedOrientations } from './cube/cubeUtils.js';
 import {
   DEFAULT_PAUSE_THRESHOLD_MS,
@@ -14,7 +15,7 @@ import {
 } from './cfopAnalyzer.js';
 
 export const TWO_BY_TWO_COLOR_NAMES = ["White", "Yellow", "Green", "Blue", "Red", "Orange"];
-export const TWO_BY_TWO_ANALYSIS_VERSION = 6;
+export const TWO_BY_TWO_ANALYSIS_VERSION = 7;
 
 const OPPOSITE_COLOR_NAME = {
   White: "Yellow",
@@ -41,10 +42,18 @@ const CANDIDATE_ROTATIONS_222 = [
 
 // All 24 solved 2x2x2 orientations indexed by their D-layer corner piece+orientation signature
 const dLayerOrientMap = new Map();
+// Back-Bar (EG-1) and Diagonal-Swap (EG-2) D-layer orientations mapped to bottom color + left/right inverse transforms
+const dLayerEg1OrientMap = new Map();
+const dLayerEg2OrientMap = new Map();
 // Piece -> required D-slot orientation map for each of the 6 colors (used for 1st-face detection)
 const faceColorPiecesMap = new Map();
 // Canonical CLL key -> cllCase metadata (40 CLL cases + cll-skip)
 const cllKeyMap = new Map();
+// Canonical EG-1 & EG-2 keys -> case metadata (40 cases each)
+const eg1KeyMap = new Map();
+const eg2KeyMap = new Map();
+let yTrans222 = null;
+let yInvTrans222 = null;
 
 function getBottomColorForRotation(rotStr) {
   if (!rotStr || rotStr.startsWith("y")) return "Yellow";
@@ -84,10 +93,70 @@ export function computeCllCanonicalKey(relPat) {
   return best;
 }
 
+export function computeEg1CanonicalKey(relPat) {
+  if (!relPat?.patternData?.CORNERS) return null;
+  const { pieces: cp, orientation: co } = relPat.patternData.CORNERS;
+  if (cp[4] !== 5 || cp[5] !== 4 || cp[6] !== 6 || cp[7] !== 7) return null;
+  for (let i = 4; i < 8; i++) {
+    if (co[i] !== 0) return null;
+  }
+
+  let best = null;
+  for (let pre = 0; pre < 4; pre++) {
+    for (let post = 0; post < 4; post++) {
+      let s = "";
+      for (let i = 0; i < 4; i++) {
+        const slot = (i + pre) % 4;
+        const piece = (cp[slot] + post) % 4;
+        s += `${piece}${co[slot]}`;
+      }
+      if (best === null || s < best) best = s;
+    }
+  }
+  return best;
+}
+
+export function computeEg2CanonicalKey(relPatOrTrans) {
+  if (!relPatOrTrans) return null;
+  const relTrans = getPatternTransform(relPatOrTrans);
+  let pat = relTrans && defaultPat222 ? defaultPat222.applyTransformation(relTrans) : relPatOrTrans;
+  if (!pat?.patternData?.CORNERS) return null;
+  let { pieces: cp, orientation: co } = pat.patternData.CORNERS;
+  for (let i = 4; i < 8; i++) {
+    if (co[i] !== 0) return null;
+  }
+  if (cp[4] === 6 && cp[5] === 5 && cp[6] === 4 && cp[7] === 7 && relTrans && yTrans222 && yInvTrans222 && defaultPat222) {
+    pat = defaultPat222.applyTransformation(yTrans222.applyTransformation(relTrans).applyTransformation(yInvTrans222));
+    ({ pieces: cp, orientation: co } = pat.patternData.CORNERS);
+  }
+  if (cp[4] !== 4 || cp[5] !== 7 || cp[6] !== 6 || cp[7] !== 5) return null;
+
+  let best = null;
+  for (let pre = 0; pre < 4; pre++) {
+    for (let post = 0; post < 4; post++) {
+      let s = "";
+      for (let i = 0; i < 4; i++) {
+        const slot = (i + pre) % 4;
+        const piece = (cp[slot] + post) % 4;
+        s += `${piece}${co[slot]}`;
+      }
+      if (best === null || s < best) best = s;
+    }
+  }
+  return best;
+}
+
 function buildLookupTables(kp, defPat) {
   dLayerOrientMap.clear();
+  dLayerEg1OrientMap.clear();
+  dLayerEg2OrientMap.clear();
   faceColorPiecesMap.clear();
   cllKeyMap.clear();
+  eg1KeyMap.clear();
+  eg2KeyMap.clear();
+
+  yTrans222 = kp.algToTransformation(new Alg("y"));
+  yInvTrans222 = yTrans222.invert();
 
   for (const cand of CANDIDATE_ROTATIONS_222) {
     cand.transCache.clear();
@@ -95,17 +164,21 @@ function buildLookupTables(kp, defPat) {
     cand.invTrans = cand.inv ? kp.algToTransformation(new Alg(cand.inv)) : null;
   }
 
+  const eg1BaseSetup = eg1Cases[0]?.setup || "";
+  const eg2BaseSetup = eg2Cases[0]?.setup || "";
+
   for (const rotStr of ORIENTATIONS_24) {
     const alg = new Alg(rotStr);
     const pat = rotStr ? defPat.applyAlg(alg) : defPat;
     const bottomColor = getBottomColorForRotation(rotStr);
     const sig = getDLayerSignature(pat);
     const trans = kp.algToTransformation(alg);
+    const invLeft = trans.invert();
 
     dLayerOrientMap.set(sig, {
       rotStr,
       bottomColor,
-      invTrans: trans.invert()
+      invTrans: invLeft
     });
 
     if (!faceColorPiecesMap.has(bottomColor)) {
@@ -113,6 +186,27 @@ function buildLookupTables(kp, defPat) {
       const { pieces: cp, orientation: co } = pat.patternData.CORNERS;
       for (let s = 4; s < 8; s++) req.set(cp[s], co[s]);
       faceColorPiecesMap.set(bottomColor, req);
+    }
+
+    if (eg1BaseSetup && eg2BaseSetup) {
+      for (const yBar of ["", "y", "y2", "y'"]) {
+        const yAlg = new Alg(yBar);
+        const yInvRight = kp.algToTransformation(yAlg).invert();
+
+        const p1Base = pat.applyAlg(new Alg(eg1BaseSetup));
+        const p1 = yBar ? p1Base.applyAlg(yAlg) : p1Base;
+        const sig1 = getDLayerSignature(p1);
+        if (!dLayerEg1OrientMap.has(sig1)) {
+          dLayerEg1OrientMap.set(sig1, { bottomColor, invLeft, invRight: yInvRight });
+        }
+
+        const p2Base = pat.applyAlg(new Alg(eg2BaseSetup));
+        const p2 = yBar ? p2Base.applyAlg(yAlg) : p2Base;
+        const sig2 = getDLayerSignature(p2);
+        if (!dLayerEg2OrientMap.has(sig2)) {
+          dLayerEg2OrientMap.set(sig2, { bottomColor, invLeft, invRight: yInvRight });
+        }
+      }
     }
   }
 
@@ -131,6 +225,44 @@ function buildLookupTables(kp, defPat) {
       }
     } catch (e) {
       console.warn("Failed to index CLL case:", c.id, e);
+    }
+  }
+
+  for (const c of eg1Cases) {
+    try {
+      const pat = defPat.applyAlg(new Alg(c.setup));
+      const key = computeEg1CanonicalKey(pat);
+      if (key) {
+        eg1KeyMap.set(key, {
+          id: c.id,
+          name: c.name || c.id,
+          shortName: c.shortName || c.id,
+          group: String(c.group || "").replace(/-Group$/, "") || c.cllCounterpart?.[0] || "EG",
+          cllCounterpart: c.cllCounterpart || null,
+          isSkip: false
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to index EG-1 case:", c.id, e);
+    }
+  }
+
+  for (const c of eg2Cases) {
+    try {
+      const pat = defPat.applyAlg(new Alg(c.setup));
+      const key = computeEg2CanonicalKey(pat);
+      if (key) {
+        eg2KeyMap.set(key, {
+          id: c.id,
+          name: c.name || c.id,
+          shortName: c.shortName || c.id,
+          group: String(c.group || "").replace(/-Group$/, "") || c.cllCounterpart?.[0] || "EG",
+          cllCounterpart: c.cllCounterpart || null,
+          isSkip: false
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to index EG-2 case:", c.id, e);
     }
   }
 
@@ -220,7 +352,8 @@ function evaluateCandidateState(patTrans, cand) {
     ? patTrans.applyTransformation(cand.rotTrans)
     : patTrans;
   const pCand = defaultPat222.applyTransformation(tCand);
-  const orient = dLayerOrientMap.get(getDLayerSignature(pCand));
+  const dSig = getDLayerSignature(pCand);
+  const orient = dLayerOrientMap.get(dSig);
 
   if (orient) {
     const relPat = defaultPat222.applyTransformation(orient.invTrans.applyTransformation(tCand));
@@ -233,6 +366,8 @@ function evaluateCandidateState(patTrans, cand) {
         layerColor: orient.bottomColor,
         faceColor: orient.bottomColor,
         cllCase,
+        egMethod: null,
+        egCase: null,
         isSkip: cllKey === "00102030",
         ollOk: true
       };
@@ -243,12 +378,38 @@ function evaluateCandidateState(patTrans, cand) {
   const oppColor = faceColor ? OPPOSITE_COLOR_NAME[faceColor] : null;
   const ollOk = Boolean(faceColor && oppColor && getDLayerColorFaceMatch(pCand, 0, 4, oppColor));
 
+  let egMethod = null;
+  let egCase = null;
+  if (faceColor) {
+    const eg1Orient = dLayerEg1OrientMap.get(dSig);
+    if (eg1Orient) {
+      const relTrans = eg1Orient.invLeft.applyTransformation(tCand).applyTransformation(eg1Orient.invRight);
+      const eg1Key = computeEg1CanonicalKey(defaultPat222.applyTransformation(relTrans));
+      if (eg1Key && eg1KeyMap.has(eg1Key)) {
+        egMethod = "eg1";
+        egCase = eg1KeyMap.get(eg1Key);
+      }
+    } else {
+      const eg2Orient = dLayerEg2OrientMap.get(dSig);
+      if (eg2Orient) {
+        const relTrans = eg2Orient.invLeft.applyTransformation(tCand).applyTransformation(eg2Orient.invRight);
+        const eg2Key = computeEg2CanonicalKey(relTrans);
+        if (eg2Key && eg2KeyMap.has(eg2Key)) {
+          egMethod = "eg2";
+          egCase = eg2KeyMap.get(eg2Key);
+        }
+      }
+    }
+  }
+
   return {
     layerOk: false,
     faceOk: Boolean(faceColor),
     layerColor: null,
     faceColor,
     cllCase: null,
+    egMethod,
+    egCase,
     isSkip: false,
     ollOk
   };
@@ -270,6 +431,30 @@ export function identifyCllFromPattern(patOrTrans) {
         layerColor: ev.layerColor,
         cllCase: ev.cllCase,
         isSkip: ev.isSkip,
+        uFace: cand.uFace,
+        candRot: cand.rot
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Identify a 1st Face color and exact EG-1 (Back Bar) or EG-2 (Diag Swap) case from a 2x2x2 KPattern or KTransformation.
+ * Checks all 6 faces color-neutrally across all 24 cube orientations and bar positions.
+ */
+export function identifyEgFromPattern(patOrTrans) {
+  if (!kp222 || !defaultPat222 || !patOrTrans) return null;
+  const patTrans = getPatternTransform(patOrTrans);
+  if (!patTrans) return null;
+
+  for (const cand of CANDIDATE_ROTATIONS_222) {
+    const ev = evaluateCandidateState(patTrans, cand);
+    if (ev.faceOk && ev.egMethod && ev.egCase) {
+      return {
+        method: ev.egMethod,
+        faceColor: ev.faceColor,
+        egCase: ev.egCase,
         uFace: cand.uFace,
         candRot: cand.rot
       };
@@ -397,7 +582,7 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
   if (!solve) return null;
   if (solve.puzzle && solve.puzzle !== "222") return null;
 
-  const methodPref = ["cll", "auto", "ortega"].includes(options.twoByTwoMethod)
+  const methodPref = ["cll", "auto", "ortega", "eg"].includes(options.twoByTwoMethod)
     ? options.twoByTwoMethod
     : "cll";
   const pauseThresholdMs = options.pauseThresholdMs || DEFAULT_PAUSE_THRESHOLD_MS;
@@ -422,7 +607,7 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
   const maxPauseMs = allPauses.length > 0 ? Math.max(...allPauses.map(p => p.durationMs)) : 0;
 
   if (!kp222 || !defaultPat222 || normMoves.length === 0 || !solve.scramble) {
-    // Support manual CLL practice solves without smart cube move streams
+    // Support manual CLL / EG-1 / EG-2 practice solves without smart cube move streams
     if ((solve.target === "cll" || solve.track === "cll") && solve.id) {
       const foundCll = cllCases.find(c => c.id === solve.id);
       if (foundCll) {
@@ -439,6 +624,46 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
             name: foundCll.name ? `${foundCll.id} (${foundCll.name})` : foundCll.id,
             shortName: foundCll.id,
             group: String(foundCll.group || "").replace(/-Group$/, "") || foundCll.id[0],
+            isSkip: false,
+            ms: rawMs,
+            recogMs: null,
+            execMs: null,
+            setupMoves: "",
+            moveCount: null,
+            pauseCount: allPauses.length,
+            pauseMs: totalPauseMs
+          },
+          egCase: null,
+          pauses: {
+            thresholdMs: pauseThresholdMs,
+            totalCount: allPauses.length,
+            totalMs: totalPauseMs,
+            maxPauseMs,
+            list: allPauses
+          }
+        };
+      }
+    }
+    if ((solve.target === "eg1" || solve.track === "eg1" || solve.target === "eg2" || solve.track === "eg2") && solve.id) {
+      const isEg2 = solve.target === "eg2" || solve.track === "eg2";
+      const pool = isEg2 ? eg2Cases : eg1Cases;
+      const foundEg = pool.find(c => c.id === solve.id);
+      if (foundEg) {
+        return {
+          version: TWO_BY_TWO_ANALYSIS_VERSION,
+          method: isEg2 ? "eg2" : "eg1",
+          methodPref,
+          layerColor: "White",
+          splits: { layer: null, cll: null, eg: rawMs, auf: null, face: null, oll: null, pbl: null },
+          steps: [],
+          aufSummary: null,
+          cllCase: null,
+          egCase: {
+            id: foundEg.id,
+            name: foundEg.name || foundEg.id,
+            shortName: foundEg.shortName || foundEg.id,
+            group: String(foundEg.group || "").replace(/-Group$/, "") || foundEg.cllCounterpart?.[0] || "EG",
+            cllCounterpart: foundEg.cllCounterpart || null,
             isSkip: false,
             ms: rawMs,
             recogMs: null,
@@ -635,7 +860,94 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
     bestOrtegaCandidate.ollEndIdx > bestOrtegaCandidate.faceEndIdx &&
     (N - bestOrtegaCandidate.ollEndIdx) >= 3
   );
+
+  let bestEgCandidate = null;
+  const egTargetPref = (solve.target === "eg1" || solve.target === "eg2") ? solve.target : null;
+  for (const color of TWO_BY_TWO_COLOR_NAMES) {
+    let faceEndIdx = -1;
+    let startCandIdx = -1;
+    for (let i = 0; i < N; i++) {
+      for (let cIdx = 0; cIdx < CANDIDATE_ROTATIONS_222.length; cIdx++) {
+        const st = allCandStates[cIdx][i];
+        if (st?.faceOk && st.egMethod && st.egCase && st.faceColor === color) {
+          faceEndIdx = i;
+          startCandIdx = cIdx;
+          break;
+        }
+      }
+      if (faceEndIdx !== -1) break;
+    }
+    if (faceEndIdx === -1) continue;
+
+    const cand = CANDIDATE_ROTATIONS_222[startCandIdx];
+    const states = allCandStates[startCandIdx];
+    const { egMethod, egCase: egCaseAtStart } = states[faceEndIdx];
+
+    let endCandIdx = startCandIdx;
+    if (allCandStates[startCandIdx][N]?.layerColor !== color) {
+      const matchEnd = allCandStates.findIndex(cStates => cStates[N]?.layerColor === color);
+      if (matchEnd !== -1) endCandIdx = matchEnd;
+    }
+    const endStates = allCandStates[endCandIdx];
+    const endSolved = Boolean(endStates[N]?.isSkip && endStates[N]?.layerColor === color);
+
+    const nextMovePreservesFace = faceEndIdx < N && allCandStates.some(cStates =>
+      Boolean(cStates[faceEndIdx + 1]?.faceOk && cStates[faceEndIdx + 1]?.faceColor === color)
+    );
+
+    let firstPostFaceMove = null;
+    for (let k = faceEndIdx; k < N; k++) {
+      if (!normMoves[k]?.isRotation) {
+        firstPostFaceMove = normMoves[k];
+        break;
+      }
+    }
+    const postMoveIsU = Boolean(firstPostFaceMove && isLayerUMove(firstPostFaceMove.move, cand));
+
+    const score =
+      (egTargetPref && egMethod === egTargetPref ? 500000 : 0) +
+      (endSolved ? 50000 : 0) +
+      (N - faceEndIdx) * 100 +
+      (nextMovePreservesFace ? 25 : 0) +
+      (postMoveIsU ? 10 : 0) +
+      colorPreferenceRank(color) -
+      startCandIdx;
+
+    if (!bestEgCandidate || score > bestEgCandidate.score) {
+      bestEgCandidate = {
+        cand,
+        endCand: CANDIDATE_ROTATIONS_222[endCandIdx],
+        endStates,
+        states,
+        faceEndIdx,
+        faceColor: color,
+        egMethod,
+        egCase: egCaseAtStart,
+        endSolved,
+        score
+      };
+    }
+  }
+
+  const cllIsTrivialSkipAtEnd = Boolean(
+    bestCllCandidate?.cllCase?.isSkip &&
+    bestEgCandidate &&
+    bestEgCandidate.faceEndIdx < bestCllCandidate.layerEndIdx &&
+    (N - bestCllCandidate.layerEndIdx) <= 2
+  );
+  const noRealCllLayer = !bestCllCandidate || bestCllCandidate.layerEndIdx >= N || cllIsTrivialSkipAtEnd;
+  const preferEg = Boolean(
+    methodPref !== "ortega" &&
+    bestEgCandidate &&
+    (
+      Boolean(egTargetPref) ||
+      methodPref === "eg" ||
+      (noRealCllLayer && !hasRealOrtegaFlow)
+    )
+  );
+
   const autoPrefersOrtega = Boolean(
+    !preferEg &&
     methodPref === "auto" &&
     bestOrtegaCandidate &&
     (!bestCllCandidate ||
@@ -643,16 +955,152 @@ export function analyzeTwoByTwoSolveSync(solve, options = {}) {
       (bestOrtegaCandidate.faceEndIdx < bestCllCandidate.layerEndIdx &&
         (hasRealOrtegaFlow || (bestCllCandidate.cllCase?.isSkip && bestCllCandidate.layerEndIdx > 0 && (N - bestCllCandidate.layerEndIdx) > 2))))
   );
-  const useOrtega = methodPref === "ortega" || autoPrefersOrtega;
+  const useOrtega = !preferEg && (methodPref === "ortega" || autoPrefersOrtega);
 
   const splits = {
     layer: null,
     cll: null,
+    eg: null,
     auf: null,
     face: null,
     oll: null,
     pbl: null
   };
+
+  if (preferEg && bestEgCandidate) {
+    const { cand, endCand = cand, endStates = bestEgCandidate.states, faceEndIdx, faceColor, egMethod, egCase } = bestEgCandidate;
+    const startedAtEg = faceEndIdx === 0;
+    const steps = [];
+
+    if (!startedAtEg) {
+      const faceStep = buildPhaseStep({
+        key: "face",
+        label: "1st Face",
+        caseId: faceColor,
+        startIdx: 0,
+        endIdx: faceEndIdx,
+        normMoves,
+        timeAtIndex,
+        allPauses,
+        pauseThresholdMs,
+        cand,
+        isSetupAware: false
+      });
+      splits.face = faceStep.ms;
+      steps.push(faceStep);
+    }
+
+    let aufStartIdx = N;
+    const endedSolved = Boolean(endStates?.[N]?.isSkip);
+    while (aufStartIdx > faceEndIdx) {
+      const prevMove = normMoves[aufStartIdx - 1];
+      if (prevMove?.isRotation) {
+        aufStartIdx--;
+        continue;
+      }
+      if (endedSolved) {
+        const prevSt = endStates[aufStartIdx - 1];
+        if (prevSt?.cllCase?.isSkip && prevSt.layerColor === faceColor) {
+          aufStartIdx--;
+          continue;
+        }
+        break;
+      }
+      if (isLayerSetupMove(prevMove?.move, endCand)) {
+        aufStartIdx--;
+        continue;
+      }
+      break;
+    }
+
+    const egStep = buildPhaseStep({
+      key: egMethod,
+      label: egMethod === "eg2" ? "EG-2" : "EG-1",
+      caseId: egCase ? egCase.shortName : "-",
+      startIdx: faceEndIdx,
+      endIdx: aufStartIdx,
+      normMoves,
+      timeAtIndex,
+      allPauses,
+      pauseThresholdMs,
+      cand,
+      isSetupAware: true
+    });
+    splits.eg = egStep.ms;
+    steps.push(egStep);
+
+    const aufRawMoves = normMoves.slice(aufStartIdx, N).filter(m => !m.isRotation);
+    const aufMs = aufRawMoves.length > 0 && aufStartIdx < N
+      ? Math.max(0, Math.round(timeAtIndex(N) - timeAtIndex(aufStartIdx)))
+      : 0;
+    const aufMovesStr = aufRawMoves.length > 0
+      ? (collapseDoubleFlickMoves(aufRawMoves.map(m => m.move)).join(" ") || "None")
+      : "None";
+    const aufPauses = [];
+    for (const mv of normMoves.slice(aufStartIdx, N)) {
+      if (mv.split >= pauseThresholdMs) aufPauses.push(mv);
+      const matchP = allPauses.find(p => p.moveIndex === mv.index);
+      if (matchP) {
+        matchP.phase = "auf";
+        matchP.phaseLabel = "AUF";
+      }
+    }
+    const aufPauseMs = aufPauses.reduce((acc, m) => acc + m.split, 0);
+    const aufTps = (aufMs > 0 && aufRawMoves.length > 0)
+      ? Number((aufRawMoves.length / (aufMs / 1000)).toFixed(2))
+      : 0;
+    splits.auf = aufMs;
+    const aufSummary = {
+      phase: "auf",
+      label: "AUF",
+      caseId: aufMovesStr,
+      ms: aufMs,
+      recogMs: null,
+      setupMs: null,
+      setupMoves: "",
+      execMs: aufMs,
+      execMoves: aufMovesStr === "None" ? "" : aufMovesStr,
+      accumMs: timeAtIndex(N),
+      moveCount: aufRawMoves.length,
+      tps: aufTps,
+      moves: aufMovesStr === "None" ? "" : aufMovesStr,
+      pauseCount: aufPauses.length,
+      pauseMs: aufPauseMs
+    };
+
+    const resolvedEgCase = egCase
+      ? {
+          ...egCase,
+          ms: egStep.ms,
+          recogMs: egStep.recogMs,
+          setupMs: egStep.setupMs,
+          execMs: egStep.execMs,
+          setupMoves: egStep.setupMoves,
+          moveCount: egStep.moveCount,
+          pauseCount: egStep.pauseCount,
+          pauseMs: egStep.pauseMs
+        }
+      : null;
+
+    return {
+      version: TWO_BY_TWO_ANALYSIS_VERSION,
+      method: egMethod,
+      methodPref,
+      layerColor: faceColor,
+      cllCase: null,
+      egCase: resolvedEgCase,
+      splits,
+      steps,
+      aufSummary,
+      pauses: {
+        thresholdMs: pauseThresholdMs,
+        totalCount: allPauses.length,
+        totalMs: totalPauseMs,
+        maxPauseMs,
+        list: allPauses
+      }
+    };
+  }
 
   if (useOrtega && bestOrtegaCandidate) {
     const { cand, faceEndIdx, faceColor, ollEndIdx } = bestOrtegaCandidate;
@@ -872,7 +1320,7 @@ export async function analyzeTwoByTwoSolve(solve, options = {}) {
 
 export function ensureSolveTwoByTwo(solve, options = {}) {
   if (!solve || (solve.puzzle && solve.puzzle !== "222")) return null;
-  const methodPref = ["cll", "auto", "ortega"].includes(options.twoByTwoMethod)
+  const methodPref = ["cll", "auto", "ortega", "eg"].includes(options.twoByTwoMethod)
     ? options.twoByTwoMethod
     : "cll";
 
@@ -908,8 +1356,8 @@ export async function reanalyzeTwoByTwoSolves(solves = [], options = {}) {
     if (!sv) continue;
     if (sv.puzzle && sv.puzzle !== "222") continue;
     const hasMoves = Array.isArray(sv.moves) && sv.moves.length > 0;
-    const hasManualCll = (sv.target === "cll" || sv.track === "cll") && Boolean(sv.id);
-    if (!hasMoves && !hasManualCll) continue;
+    const hasManualCase = (sv.target === "cll" || sv.track === "cll" || sv.target === "eg1" || sv.track === "eg1" || sv.target === "eg2" || sv.track === "eg2") && Boolean(sv.id);
+    if (!hasMoves && !hasManualCase) continue;
     ensureSolveTwoByTwo(sv, { ...options, force: true });
     sv.updatedAt = Date.now();
     updated++;
@@ -948,9 +1396,10 @@ export function computeTwoByTwoAverages(solves = [], options = {}) {
   const inspectionTimes = [];
   const pickupTimes = [];
   const putdownTimes = [];
-  const phaseBuckets = { layer: [], cll: [], auf: [], face: [], oll: [], pbl: [] };
+  const phaseBuckets = { layer: [], cll: [], eg: [], auf: [], face: [], oll: [], pbl: [] };
   const layerMoveCounts = [];
   const cllMoveCounts = [];
+  const egMoveCounts = [];
   const pauseCounts = [];
   const pauseTimes = [];
   let analyzedCount = 0;
@@ -974,8 +1423,10 @@ export function computeTwoByTwoAverages(solves = [], options = {}) {
     }
     const layerStep = two.steps?.find(st => st.phase === "layer" || st.phase === "face");
     const cllStep = two.steps?.find(st => st.phase === "cll");
+    const egStep = two.steps?.find(st => st.phase === "eg1" || st.phase === "eg2");
     if (typeof layerStep?.moveCount === "number") layerMoveCounts.push(layerStep.moveCount);
     if (typeof cllStep?.moveCount === "number") cllMoveCounts.push(cllStep.moveCount);
+    if (typeof egStep?.moveCount === "number") egMoveCounts.push(egStep.moveCount);
 
     if (two.pauses) {
       pauseCounts.push(two.pauses.totalCount || 0);
@@ -993,12 +1444,14 @@ export function computeTwoByTwoAverages(solves = [], options = {}) {
     putdownMs: avgOf(putdownTimes),
     layer: avgOf(phaseBuckets.layer),
     cll: avgOf(phaseBuckets.cll),
+    eg: avgOf(phaseBuckets.eg),
     auf: avgOf(phaseBuckets.auf),
     face: avgOf(phaseBuckets.face),
     oll: avgOf(phaseBuckets.oll),
     pbl: avgOf(phaseBuckets.pbl),
     layerMoves: avgFloat(layerMoveCounts, 1),
     cllMoves: avgFloat(cllMoveCounts, 1),
+    egMoves: avgFloat(egMoveCounts, 1),
     avgPauseCount: avgFloat(pauseCounts, 1) ?? 0,
     avgPauseMs: avgOf(pauseTimes) ?? 0,
     median: {
@@ -1009,12 +1462,14 @@ export function computeTwoByTwoAverages(solves = [], options = {}) {
       putdownMs: computeMedian(putdownTimes),
       layer: computeMedian(phaseBuckets.layer),
       cll: computeMedian(phaseBuckets.cll),
+      eg: computeMedian(phaseBuckets.eg),
       auf: computeMedian(phaseBuckets.auf),
       face: computeMedian(phaseBuckets.face),
       oll: computeMedian(phaseBuckets.oll),
       pbl: computeMedian(phaseBuckets.pbl),
       layerMoves: medianFloat(layerMoveCounts, 1),
       cllMoves: medianFloat(cllMoveCounts, 1),
+      egMoves: medianFloat(egMoveCounts, 1),
       pauseCount: medianFloat(pauseCounts, 1) ?? 0,
       pauseMs: computeMedian(pauseTimes) ?? 0
     },
@@ -1026,6 +1481,7 @@ export function computeTwoByTwoAverages(solves = [], options = {}) {
       putdownMs: computeTrimmedMean(putdownTimes, 0.10),
       layer: computeTrimmedMean(phaseBuckets.layer, 0.10),
       cll: computeTrimmedMean(phaseBuckets.cll, 0.10),
+      eg: computeTrimmedMean(phaseBuckets.eg, 0.10),
       auf: computeTrimmedMean(phaseBuckets.auf, 0.10),
       face: computeTrimmedMean(phaseBuckets.face, 0.10),
       oll: computeTrimmedMean(phaseBuckets.oll, 0.10),

@@ -68,7 +68,7 @@ export const f2lIntermediateCases = [
     number: 1,
     name: "BR Direct Back-Right Insert",
     group: "Back-Right (BR) Inserts",
-    cameraLongitude: 135,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-01-1", alg: "R' U' R", note: "Rotationless back-right 3-mover", isDefault: true }
     ],
@@ -79,7 +79,7 @@ export const f2lIntermediateCases = [
     number: 2,
     name: "BR Joined Pair Insert",
     group: "Back-Right (BR) Inserts",
-    cameraLongitude: 135,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-02-1", alg: "U' R' U R", note: "Tuck corner+edge straight into BR", isDefault: true }
     ],
@@ -90,7 +90,7 @@ export const f2lIntermediateCases = [
     number: 3,
     name: "BR Split Pair (Same Color Top)",
     group: "Back-Right (BR) Inserts",
-    cameraLongitude: 135,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-03-1", alg: "U R' U' R U2 R' U R", note: "Split above BR then insert rotationless", isDefault: true }
     ],
@@ -101,7 +101,7 @@ export const f2lIntermediateCases = [
     number: 4,
     name: "BR White Facing Up Over Slot",
     group: "Back-Right (BR) Inserts",
-    cameraLongitude: 135,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-04-1", alg: "R' U2 R U R' U' R", note: "Flip corner over edge then R' U' R", isDefault: true }
     ],
@@ -112,7 +112,7 @@ export const f2lIntermediateCases = [
     number: 5,
     name: "BR Corner in Slot (Edge in U)",
     group: "Back-Right (BR) Inserts",
-    cameraLongitude: 135,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-05-1", alg: "R' U R U' R' U' R", note: "Extract + pair in one continuous <R', U> flow", isDefault: true }
     ],
@@ -123,7 +123,7 @@ export const f2lIntermediateCases = [
     number: 6,
     name: "BR Corner Misoriented (Deep Slot)",
     group: "Back-Right (BR) Inserts",
-    cameraLongitude: 135,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-06-1", alg: "R' U' R U2 R' U' R U R' U' R", note: "2-gen <R, U> BR pair without rotation", isDefault: true }
     ],
@@ -134,7 +134,7 @@ export const f2lIntermediateCases = [
     number: 7,
     name: "BL Direct Back-Left Insert",
     group: "Back-Left (BL) Inserts",
-    cameraLongitude: -135,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-07-1", alg: "L U L'", note: "Direct back-left 3-move insert", isDefault: true }
     ],
@@ -145,7 +145,7 @@ export const f2lIntermediateCases = [
     number: 8,
     name: "BL Joined Pair Insert",
     group: "Back-Left (BL) Inserts",
-    cameraLongitude: -135,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-08-1", alg: "U L U' L'", note: "Rotationless joined pair insert into BL", isDefault: true }
     ],
@@ -156,7 +156,7 @@ export const f2lIntermediateCases = [
     number: 9,
     name: "BL Split Pair (Same Color Top)",
     group: "Back-Left (BL) Inserts",
-    cameraLongitude: -135,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-09-1", alg: "U' L U L' U2 L U' L'", note: "Set up BL pair cleanly with left index/ring", isDefault: true }
     ],
@@ -167,7 +167,7 @@ export const f2lIntermediateCases = [
     number: 10,
     name: "BL White Facing Up Over Slot",
     group: "Back-Left (BL) Inserts",
-    cameraLongitude: -135,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-10-1", alg: "L U2 L' U' L U L'", note: "White-up corner flip + BL tuck", isDefault: true }
     ],
@@ -178,7 +178,7 @@ export const f2lIntermediateCases = [
     number: 11,
     name: "BL Corner in Slot (Edge in U)",
     group: "Back-Left (BL) Inserts",
-    cameraLongitude: -135,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-11-1", alg: "L U' L' U L U L'", note: "2-gen <L, U> extract & reinsert", isDefault: true }
     ],
@@ -189,7 +189,7 @@ export const f2lIntermediateCases = [
     number: 12,
     name: "FL Direct Left-Front Insert (No y')",
     group: "Keyhole & Left-Front (FL)",
-    cameraLongitude: -45,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-12-1", alg: "L' U' L", note: "Avoid y' rotation by inserting directly into FL", isDefault: true }
     ],
@@ -200,7 +200,7 @@ export const f2lIntermediateCases = [
     number: 13,
     name: "FL Joined Pair Insert (No y')",
     group: "Keyhole & Left-Front (FL)",
-    cameraLongitude: -45,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-13-1", alg: "U' L' U L", note: "Inverse Lefty into FL", isDefault: true }
     ],
@@ -211,7 +211,7 @@ export const f2lIntermediateCases = [
     number: 14,
     name: "FL White Facing Up Over Slot",
     group: "Keyhole & Left-Front (FL)",
-    cameraLongitude: -45,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-14-1", alg: "L' U2 L U' L' U L", note: "Rotationless <L, U> insert for FL", isDefault: true }
     ],
@@ -222,7 +222,7 @@ export const f2lIntermediateCases = [
     number: 15,
     name: "Keyhole BR Edge (Open FR Slot)",
     group: "Keyhole & Left-Front (FL)",
-    cameraLongitude: 45,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-15-1", alg: "D R' U' R D'", note: "Rotate D to align open FR keyhole corner, drop BR edge", isDefault: true }
     ],
@@ -233,7 +233,7 @@ export const f2lIntermediateCases = [
     number: 16,
     name: "Keyhole FR Edge (Open BR Slot)",
     group: "Keyhole & Left-Front (FL)",
-    cameraLongitude: 45,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-int-16-1", alg: "D' R U R' D", note: "Use open BR corner via D' to drop FR edge in 5 moves", isDefault: true }
     ],
@@ -252,7 +252,7 @@ export const f2lAdvancedCases = [
     number: 1,
     name: "Target FR Corner in BR + Edge in U",
     group: "Cross-Slot Swaps (Piece in Another Slot)",
-    cameraLongitude: 45,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-adv-01-1", alg: "U R' U2 R U' R U R'", note: "Slides corner out of BR directly into FR pair without disturbing Cross", isDefault: true }
     ],
@@ -263,7 +263,7 @@ export const f2lAdvancedCases = [
     number: 2,
     name: "FR ↔ BR Double Slot Commutator 1",
     group: "Cross-Slot Swaps (Piece in Another Slot)",
-    cameraLongitude: 65,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-adv-02-1", alg: "R U' R2' U' R", note: "5-move <R, U> flow pulling FR & BR pieces together", isDefault: true }
     ],
@@ -274,7 +274,7 @@ export const f2lAdvancedCases = [
     number: 3,
     name: "FR ↔ BR Double Slot Commutator 2",
     group: "Cross-Slot Swaps (Piece in Another Slot)",
-    cameraLongitude: 65,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-adv-03-1", alg: "R' U R2 U R'", note: "Inverse flow: solves trapped BR/FR pieces simultaneously", isDefault: true }
     ],
@@ -285,7 +285,7 @@ export const f2lAdvancedCases = [
     number: 4,
     name: "Target FR Edge in BR (Corner in U)",
     group: "Cross-Slot Swaps (Piece in Another Slot)",
-    cameraLongitude: 65,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-adv-04-1", alg: "R2 U' R' U R2", note: "Fast R2 cancellation solving BR + setting FR pair", isDefault: true }
     ],
@@ -296,7 +296,7 @@ export const f2lAdvancedCases = [
     number: 5,
     name: "FL ↔ FR Open-Slot Pair Flow 1",
     group: "Cross-Slot Swaps (Piece in Another Slot)",
-    cameraLongitude: 0,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-adv-05-1", alg: "L' U' L U' R U R'", note: "Extracts FR piece out of FL and completes both front slots", isDefault: true }
     ],
@@ -307,7 +307,7 @@ export const f2lAdvancedCases = [
     number: 6,
     name: "FL ↔ FR Open-Slot Pair Flow 2",
     group: "Cross-Slot Swaps (Piece in Another Slot)",
-    cameraLongitude: 0,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-adv-06-1", alg: "R U' R' U L' U' L", note: "Pairs left-front piece from FR setup into FL in 7 moves", isDefault: true }
     ],
@@ -318,7 +318,7 @@ export const f2lAdvancedCases = [
     number: 7,
     name: "BL ↔ FR Diagonal Cross-Slot Pair",
     group: "Cross-Slot Swaps (Piece in Another Slot)",
-    cameraLongitude: 25,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-adv-07-1", alg: "L U L' R U R'", note: "Solves diagonally opposite BL & FR pieces in 6 moves", isDefault: true }
     ],
@@ -329,7 +329,7 @@ export const f2lAdvancedCases = [
     number: 8,
     name: "Keyhole Swapped FR Pair via BR",
     group: "Cross-Slot Swaps (Piece in Another Slot)",
-    cameraLongitude: 45,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-adv-08-1", alg: "R U2 R2' U' R2 U' R'", note: "Pure <R, U> multi-slot rescue when BR is open", isDefault: true }
     ],
@@ -395,7 +395,7 @@ export const f2lAdvancedCases = [
     number: 14,
     name: "Back Hedgeslammer BR (f R f')",
     group: "Force Yellow Cross (Partial Edge Control)",
-    cameraLongitude: 135,
+    cameraLongitude: 30,
     algs: [
       { id: "f2l-adv-14-1", alg: "f R f'", note: "Wide front-clockwise insert into BR while orienting U edges", isDefault: true }
     ],

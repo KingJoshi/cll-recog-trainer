@@ -143,3 +143,40 @@ export function parseScrambleInput(raw) {
     error: null
   };
 }
+
+const LEAD_TRAIL_AUF_OR_Y_REGEX = /^[Uy](?:2'|'2|3'|'3|''|2"|[23'])?$/;
+const Y_ROTATION_REGEX = /^y(?:2'|'2|3'|'3|''|2"|[23'])?$/;
+
+/**
+ * Count execution moves for an algorithm under standard speedcubing conventions:
+ * - Ignores leading pre-alignment U / y moves and trailing post-AUF U / restoring y moves
+ * - Ignores mid-algorithm y rotations
+ * - Counts x / z rotations as well as all face, wide, and slice turns
+ */
+export function countAlgMoves(algStr) {
+  if (!algStr || typeof algStr !== "string") return 0;
+  const cleaned = cleanAlg(algStr);
+  if (!cleaned) return 0;
+
+  const parsed = parseScrambleInput(cleaned);
+  const tokens = parsed.ok
+    ? [...parsed.moves]
+    : cleaned.split(/\s+/).filter(Boolean);
+
+  let start = 0;
+  let end = tokens.length;
+  while (start < end && LEAD_TRAIL_AUF_OR_Y_REGEX.test(tokens[start])) {
+    start++;
+  }
+  while (end > start && LEAD_TRAIL_AUF_OR_Y_REGEX.test(tokens[end - 1])) {
+    end--;
+  }
+
+  let count = 0;
+  for (let i = start; i < end; i++) {
+    if (!Y_ROTATION_REGEX.test(tokens[i])) {
+      count++;
+    }
+  }
+  return count;
+}

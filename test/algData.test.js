@@ -278,11 +278,47 @@ test('Full mathematical simulation verification of all algorithms', async () => 
   }
 
   // 2c. 2x2 EG-1 (40 cases, Back Bar D=[5,4,6,7]) & EG-2 (40 cases, Diag Swap D=[4,7,6,5])
+  const topPatternKey = (pat) => {
+    const { pieces: cp, orientation: co } = pat.patternData.CORNERS;
+    let best = null;
+    for (let pre = 0; pre < 4; pre++) {
+      for (let post = 0; post < 4; post++) {
+        let s = '';
+        for (let i = 0; i < 4; i++) {
+          const slot = (i + pre) % 4;
+          s += `${(cp[slot] + post) % 4}${co[slot]}`;
+        }
+        if (best === null || s < best) best = s;
+      }
+    }
+    return best;
+  };
+  const cllById = new Map(cllCases.map(c => [c.id, c]));
+  const seenEg1Setups = new Set();
+  const seenEg2Setups = new Set();
+
   for (const c of eg1Cases) {
     const setupPat = def2.applyAlg(new Alg(c.setup));
     assert.deepStrictEqual(setupPat.patternData.CORNERS.pieces.slice(4), [5, 4, 6, 7], `EG-1 ${c.id} must have Back Bar on D`);
     assert.deepStrictEqual(setupPat.patternData.CORNERS.orientation.slice(4), [0, 0, 0, 0], `EG-1 ${c.id} D corners must be oriented`);
+    const modUKey = ['', 'U', 'U2', "U'"].map(u => {
+      const pu = u ? setupPat.applyAlg(new Alg(u)) : setupPat;
+      const d = pu.patternData.CORNERS;
+      return `${d.pieces.join(',')}|${d.orientation.join(',')}`;
+    }).sort()[0];
+    assert.strictEqual(seenEg1Setups.has(modUKey), false, `EG-1 ${c.id} must be unique mod U-AUF`);
+    seenEg1Setups.add(modUKey);
+
+    const cllCounter = cllById.get(c.cllCounterpart);
+    assert.ok(cllCounter, `EG-1 ${c.id} missing cllCounterpart ${c.cllCounterpart}`);
+    assert.strictEqual(topPatternKey(setupPat), topPatternKey(def2.applyAlg(new Alg(cllCounter.setup))), `EG-1 ${c.id} top stickers must match CLL ${c.cllCounterpart}`);
+
+    assert.strictEqual(c.algs.length, 3, `EG-1 ${c.id} must have 3 algorithms`);
     for (const a of c.algs) {
+      const toks = a.alg.trim().split(/\s+/).filter(Boolean);
+      assert.ok(toks.length > 0, `EG-1 ${c.id} ${a.id} non-empty`);
+      assert.ok(!/^U[2']?$/.test(toks[0]), `EG-1 ${c.id} ${a.id} must not start with U (${a.alg})`);
+      assert.ok(!/^U[2']?$/.test(toks[toks.length - 1]), `EG-1 ${c.id} ${a.id} must not end with U (${a.alg})`);
       const algStr = `${c.setup} ${a.startAuf ? a.startAuf + ' ' : ''}${a.alg}`;
       let solved = false;
       for (const auf of ['', 'U', 'U2', "U'"]) {
@@ -292,11 +328,31 @@ test('Full mathematical simulation verification of all algorithms', async () => 
       assert.ok(solved, `EG-1 ${c.id} ${a.id} must solve 2x2`);
     }
   }
+  assert.strictEqual(seenEg1Setups.size, 40, 'EG-1 must have 40 unique cases mod U');
+
   for (const c of eg2Cases) {
     const setupPat = def2.applyAlg(new Alg(c.setup));
     assert.deepStrictEqual(setupPat.patternData.CORNERS.pieces.slice(4), [4, 7, 6, 5], `EG-2 ${c.id} must have Diag swap on D`);
     assert.deepStrictEqual(setupPat.patternData.CORNERS.orientation.slice(4), [0, 0, 0, 0], `EG-2 ${c.id} D corners must be oriented`);
+    const modUKey = ['', 'U', 'U2', "U'"].map(u => {
+      const pu = u ? setupPat.applyAlg(new Alg(u)) : setupPat;
+      const d = pu.patternData.CORNERS;
+      return `${d.pieces.join(',')}|${d.orientation.join(',')}`;
+    }).sort()[0];
+    assert.strictEqual(seenEg2Setups.has(modUKey), false, `EG-2 ${c.id} must be unique mod U-AUF`);
+    seenEg2Setups.add(modUKey);
+
+    const cllCounter = cllById.get(c.cllCounterpart);
+    assert.ok(cllCounter, `EG-2 ${c.id} missing cllCounterpart ${c.cllCounterpart}`);
+    assert.strictEqual(topPatternKey(setupPat), topPatternKey(def2.applyAlg(new Alg(cllCounter.setup))), `EG-2 ${c.id} top stickers must match CLL ${c.cllCounterpart}`);
+
+    assert.strictEqual(c.algs.length, 3, `EG-2 ${c.id} must have 3 algorithms`);
+    assert.ok(c.algs.some(a => /Anti-CLL/i.test(a.note || '')), `EG-2 ${c.id} must include an Anti-CLL variant`);
     for (const a of c.algs) {
+      const toks = a.alg.trim().split(/\s+/).filter(Boolean);
+      assert.ok(toks.length > 0, `EG-2 ${c.id} ${a.id} non-empty`);
+      assert.ok(!/^U[2']?$/.test(toks[0]), `EG-2 ${c.id} ${a.id} must not start with U (${a.alg})`);
+      assert.ok(!/^U[2']?$/.test(toks[toks.length - 1]), `EG-2 ${c.id} ${a.id} must not end with U (${a.alg})`);
       const algStr = `${c.setup} ${a.startAuf ? a.startAuf + ' ' : ''}${a.alg}`;
       let solved = false;
       for (const auf of ['', 'U', 'U2', "U'"]) {
@@ -306,6 +362,7 @@ test('Full mathematical simulation verification of all algorithms', async () => 
       assert.ok(solved, `EG-2 ${c.id} ${a.id} must solve 2x2`);
     }
   }
+  assert.strictEqual(seenEg2Setups.size, 40, 'EG-2 must have 40 unique cases mod U');
 
   // 3. 3x3 PLL
   for (const c of pllCases) {

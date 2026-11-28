@@ -12,6 +12,13 @@
 import { cube3x3x3 } from 'cubing/puzzles';
 import { Alg } from 'cubing/alg';
 
+export const WHITE_CORNER_META_333 = Object.freeze({
+  0: { label: 'White · Green · Red', short: 'W·G·R', colors: ['W', 'G', 'R'] },
+  1: { label: 'White · Blue · Red', short: 'W·B·R', colors: ['W', 'B', 'R'] },
+  2: { label: 'White · Blue · Orange', short: 'W·B·O', colors: ['W', 'B', 'O'] },
+  3: { label: 'White · Green · Orange', short: 'W·G·O', colors: ['W', 'G', 'O'] }
+});
+
 const RIGHTY = "R U R' U'";
 const INV_RIGHTY = "U R U' R'";
 const EDGE_RIGHT = "U R U R' U' y L' U' L U";
@@ -59,6 +66,8 @@ async function getSolverTables333() {
     // Precompute single-petal Daisy moves: U/F/R/B/L quarter/double turns
     const DAISY_MOVES = ["U", "U'", "U2", "R", "R'", "R2", "L", "L'", "L2", "F", "F'", "F2", "B", "B'", "B2"];
     const daisyMoveMap = new Map(DAISY_MOVES.map(m => [m, new Alg(m)]));
+    const SHORT_CORNER_MOVES = ["R", "R'", "R2", "U", "U'", "U2", "F", "F'", "F2"];
+    const shortMoveAlgs = SHORT_CORNER_MOVES.map(m => ({ m, face: m[0], alg: new Alg(m) }));
 
     // 27-state OLL Corner orientation table strictly using Sune & Antisune
     const ollCornerTable = new Map();
@@ -91,7 +100,7 @@ async function getSolverTables333() {
       return yGoalPats.find(g => g.patternData.CENTERS.pieces[0] === uCenter && g.patternData.CENTERS.pieces[2] === fCenter) || pZ2;
     };
 
-    return { kp, solved, pZ2, yGoalPats, rot24Pats, DAISY_MOVES, daisyMoveMap, ollCornerTable, centerGoalByPattern };
+    return { kp, solved, pZ2, yGoalPats, rot24Pats, DAISY_MOVES, daisyMoveMap, shortMoveAlgs, ollCornerTable, centerGoalByPattern };
   })();
   return tablesPromise;
 }
@@ -116,6 +125,68 @@ function edgeSolved(pat, goalPat, slot) {
     pat.patternData.EDGES.pieces[slot] === goalPat.patternData.EDGES.pieces[slot] &&
     pat.patternData.EDGES.orientation[slot] === goalPat.patternData.EDGES.orientation[slot]
   );
+}
+
+function countFaceMoves(movesStr) {
+  if (!movesStr) return 0;
+  return String(movesStr)
+    .trim()
+    .split(/\s+/)
+    .filter(tok => tok && !/^[xyz][2']?$/i.test(tok))
+    .length;
+}
+
+function patCornerAndCrossKey333(pat, whiteCrossPieces) {
+  const c = pat.patternData.CORNERS;
+  const e = pat.patternData.EDGES;
+  const crossPos = whiteCrossPieces.map(wp => {
+    const idx = e.pieces.indexOf(wp);
+    return `${idx}:${e.orientation[idx]}`;
+  });
+  return `${c.pieces.join(',')}|${c.orientation.join(',')}|${crossPos.join(',')}`;
+}
+
+/**
+ * Find the shortest <R, U, F> move sequence solving White corner slot 4 (DFR)
+ * while keeping all 4 White Cross edges (slots 4..7) and `protectedCornerSlots` intact.
+ */
+function findShortestCornerInsert333(
+  startPat,
+  goalPat,
+  protectedCornerSlots,
+  shortMoveAlgs,
+  maxDepth = 4,
+  maxVisited = 4000
+) {
+  const crossOk = (pat) => [4, 5, 6, 7].every(sl => edgeSolved(pat, goalPat, sl));
+  const cornersOk = (pat) => cornerSolved(pat, goalPat, 4) && protectedCornerSlots.every(sl => cornerSolved(pat, goalPat, sl));
+
+  if (crossOk(startPat) && cornersOk(startPat)) return "";
+
+  const whiteCrossPieces = [4, 5, 6, 7].map(sl => goalPat.patternData.EDGES.pieces[sl]);
+  const visited = new Set([patCornerAndCrossKey333(startPat, whiteCrossPieces)]);
+  const queue = [{ pat: startPat, seq: [], lastFace: '' }];
+
+  for (let head = 0; head < queue.length; head++) {
+    const cur = queue[head];
+    if (cur.seq.length >= maxDepth) continue;
+    for (const { m, face, alg } of shortMoveAlgs) {
+      if (face === cur.lastFace) continue;
+      const nextPat = cur.pat.applyAlg(alg);
+      const nextSeq = [...cur.seq, m];
+      if (crossOk(nextPat) && cornersOk(nextPat)) {
+        return nextSeq.join(" ");
+      }
+      if (nextSeq.length < maxDepth && visited.size < maxVisited) {
+        const key = patCornerAndCrossKey333(nextPat, whiteCrossPieces);
+        if (!visited.has(key)) {
+          visited.add(key);
+          queue.push({ pat: nextPat, seq: nextSeq, lastFace: face });
+        }
+      }
+    }
+  }
+  return null;
 }
 
 function findDaisyPetalSeq(startPat, targetPiece, lockedUPetalPieces, daisyMoves, daisyMoveMap) {
@@ -169,13 +240,14 @@ function findDaisyPetalSeq(startPat, targetPiece, lockedUPetalPieces, daisyMoves
 /**
  * Compute dynamic step-by-step beginner 3x3 solution for any valid scramble.
  */
-export async function solveThreeByThreeBeginner(scrambleStr) {
+export async function solveThreeByThreeBeginner(scrambleStr, { stepChoices = {} } = {}) {
   const {
     solved,
     pZ2,
     rot24Pats,
     DAISY_MOVES,
     daisyMoveMap,
+    shortMoveAlgs,
     ollCornerTable,
     centerGoalByPattern
   } = await getSolverTables333();
@@ -318,6 +390,7 @@ export async function solveThreeByThreeBeginner(scrambleStr) {
     if (rotBefore) curGoal = curGoal.applyAlg(new Alg(rotBefore));
 
     const targetCorner = curGoal.patternData.CORNERS.pieces[4];
+    const targetMeta = WHITE_CORNER_META_333[targetCorner] || null;
     if (cornerSolved(simPat, curGoal, 4)) {
       pushStep({
         id: `333-step-corner-${cStep + 1}`,
@@ -326,7 +399,8 @@ export async function solveThreeByThreeBeginner(scrambleStr) {
         title: `White Corner ${cStep + 1}/4: Already Solved`,
         algName: rotBefore ? `Rotate ${rotBefore}` : 'Solved',
         moves: rotBefore,
-        description: `Bottom-Front-Right corner is already in place with matching side colors.`
+        highlightPiece: targetMeta,
+        description: `Highlighted ${targetMeta?.label || 'White'} corner is already in place at Bottom-Front-Right with matching side colors.`
       });
       continue;
     }
@@ -365,14 +439,61 @@ export async function solveThreeByThreeBeginner(scrambleStr) {
     }
     segs.push(insertAlg);
 
+    const stepId = `333-step-corner-${cStep + 1}`;
+    const defaultMoves = joinMoves(...segs);
+    const defaultShortMoves = joinMoves(...segs.slice(rotBefore ? 1 : 0));
+    const defaultFaceCount = countFaceMoves(defaultShortMoves);
+    const defaultDesc = `Place the highlighted ${targetMeta?.label || 'target'} corner above Front-Right and drop it into the bottom layer using ${insertLabel}.`;
+
+    const previewStart = rotBefore ? curPat.applyAlg(new Alg(rotBefore)) : curPat;
+    const protectedCornerSlots = [5, 6, 7].filter(sl => cornerSolved(previewStart, curGoal, sl));
+    const shortestInsert = findShortestCornerInsert333(previewStart, curGoal, protectedCornerSlots, shortMoveAlgs, 4);
+    const altMoves = shortestInsert !== null ? joinMoves(rotBefore, shortestInsert) : null;
+    const altFaceCount = shortestInsert !== null ? countFaceMoves(shortestInsert) : Infinity;
+
+    let options = null;
+    let activeOptionId = 'default';
+    if (shortestInsert && altFaceCount < defaultFaceCount) {
+      const shortestDesc = `${rotBefore ? `Rotate (${rotBefore}) to bring the next corner to Front-Right, then solve ` : 'Solve '}the highlighted ${targetMeta?.label || 'target'} corner with the shortest ${altFaceCount}-move sequence (${shortestInsert}) while keeping the White Cross and already-placed corners solved.`;
+      options = [
+        {
+          id: 'default',
+          label: 'Trigger',
+          algName: insertLabel,
+          moves: defaultMoves,
+          shortMoves: defaultShortMoves,
+          faceMoves: defaultFaceCount,
+          description: defaultDesc
+        },
+        {
+          id: 'shortest',
+          label: 'Shortest',
+          algName: `Shortest (${altFaceCount}m)`,
+          moves: altMoves,
+          shortMoves: shortestInsert,
+          faceMoves: altFaceCount,
+          description: shortestDesc
+        }
+      ];
+      if (stepChoices && stepChoices[stepId] === 'shortest') {
+        activeOptionId = 'shortest';
+      }
+    }
+
+    const chosenOpt = options ? options.find(o => o.id === activeOptionId) || options[0] : null;
     pushStep({
-      id: `333-step-corner-${cStep + 1}`,
+      id: stepId,
       stage: 'white-corners',
       stageLabel: '1st Layer Corners',
-      title: `Solve White Corner ${cStep + 1}/4 (${insertLabel})`,
-      algName: insertLabel,
-      moves: joinMoves(...segs),
-      description: `Place the target White corner above Front-Right and drop it into the bottom layer using ${insertLabel}.`
+      title: chosenOpt && activeOptionId === 'shortest'
+        ? `White Corner ${cStep + 1}/4 (Shortest ${altFaceCount}m)`
+        : `Solve White Corner ${cStep + 1}/4 (${insertLabel})`,
+      algName: chosenOpt ? chosenOpt.algName : insertLabel,
+      moves: chosenOpt ? chosenOpt.moves : defaultMoves,
+      highlightPiece: targetMeta,
+      options,
+      activeOptionId: options ? activeOptionId : undefined,
+      description: chosenOpt ? chosenOpt.description : defaultDesc
     });
   }
 

@@ -138,7 +138,6 @@ test('index.html has 3-slot mode bar, icon-only header, 3-tab Devices modal, spl
   assert.ok(expPanelSlice.includes('id="settingsExpRemoveAllBtn"'));
   assert.ok(expPanelSlice.includes('Remove All'));
   for (const fid of [
-    'eg1', 'eg2', 'twoByTwoFirstLayer',
     'coll', 'cmll', 'wv', 'extraPuzzles', 'customEvents', 'stackmatG5',
     'virtualKeyboard', 'quickSetup', 'metronome', 'ohSettings', 'cstimerImport', 'cubeastImport'
   ]) {
@@ -206,20 +205,23 @@ test('AppStore & syncMerge handle Train->Simulate and 4-tier F2L modes', () => {
   appStore.setF2lMode('basic');
 
   // Experimental features individual gating, Check All / Remove All, legacy migration & LWW sync
-  assert.strictEqual(isBetaTrack('222', 'eg1'), true);
-  assert.strictEqual(isBetaTrack('222', 'eg2'), true);
+  assert.strictEqual(isBetaTrack('222', 'eg1'), false);
+  assert.strictEqual(isBetaTrack('222', 'eg2'), false);
   assert.strictEqual(isBetaTrack('222', 'cll'), false);
+  assert.strictEqual(isBetaTrack('333', 'coll'), true);
   assert.strictEqual(isBetaPuzzle('333'), false);
   assert.strictEqual(isBetaPuzzle('222'), false);
   assert.strictEqual(isBetaPuzzle('666'), true);
   assert.strictEqual(isBetaPuzzle('pyram'), true);
 
   assert.strictEqual(appStore.state.betaFeatures, false);
-  appStore.setExperimentalFeature('eg1', true);
-  assert.strictEqual(isExperimentalEnabled(appStore.state, 'eg1'), true);
-  assert.strictEqual(isExperimentalEnabled(appStore.state, 'eg2'), false);
   assert.strictEqual(isTrackEnabled(appStore.state, '222', 'eg1'), true);
-  assert.strictEqual(isTrackEnabled(appStore.state, '222', 'eg2'), false);
+  assert.strictEqual(isTrackEnabled(appStore.state, '222', 'eg2'), true);
+  appStore.setExperimentalFeature('coll', true);
+  assert.strictEqual(isExperimentalEnabled(appStore.state, 'coll'), true);
+  assert.strictEqual(isExperimentalEnabled(appStore.state, 'cmll'), false);
+  assert.strictEqual(isTrackEnabled(appStore.state, '333', 'coll'), true);
+  assert.strictEqual(isTrackEnabled(appStore.state, '333', 'cmll'), false);
   assert.strictEqual(isPuzzleEnabled(appStore.state, '666'), false);
   assert.strictEqual(appStore.state.betaFeatures, true);
 
@@ -244,21 +246,21 @@ test('AppStore & syncMerge handle Train->Simulate and 4-tier F2L modes', () => {
   const { merged: betaMerged } = mergeSyncPayloads(
     {
       schemaVersion: 2,
-      settings: { betaFeatures: false, experimentalFeatures: { eg1: false, eg2: false } },
+      settings: { betaFeatures: false, experimentalFeatures: { coll: false, cmll: false } },
       updatedAt: 1000,
       sessions: []
     },
     {
       schemaVersion: 2,
-      settings: { betaFeatures: true, experimentalFeatures: { eg1: true, eg2: false, stackmatG5: true } },
+      settings: { betaFeatures: true, experimentalFeatures: { coll: true, cmll: false, stackmatG5: true } },
       updatedAt: 2000,
       sessions: []
     }
   );
   assert.strictEqual(betaMerged.settings.betaFeatures, true);
-  assert.strictEqual(betaMerged.settings.experimentalFeatures.eg1, true);
+  assert.strictEqual(betaMerged.settings.experimentalFeatures.coll, true);
   assert.strictEqual(betaMerged.settings.experimentalFeatures.stackmatG5, true);
-  assert.strictEqual(betaMerged.settings.experimentalFeatures.eg2, false);
+  assert.strictEqual(betaMerged.settings.experimentalFeatures.cmll, false);
 
   // Per-key merge & Check All persistence: older remote missing recent keys must NOT clear them
   const { merged: olderRemoteMerged } = mergeSyncPayloads(
@@ -267,7 +269,7 @@ test('AppStore & syncMerge handle Train->Simulate and 4-tier F2L modes', () => {
       settings: {
         betaFeatures: true,
         experimentalAllEnabled: true,
-        experimentalFeatures: { eg1: true, eg2: true, futureFeatureA: true, futureFeatureB: true }
+        experimentalFeatures: { coll: true, cmll: true, futureFeatureA: true, futureFeatureB: true }
       },
       timestamps: { settings: { experimentalFeatures: 1000, experimentalAllEnabled: 1000 } },
       updatedAt: 1000,
@@ -277,7 +279,7 @@ test('AppStore & syncMerge handle Train->Simulate and 4-tier F2L modes', () => {
       schemaVersion: 2,
       settings: {
         betaFeatures: true,
-        experimentalFeatures: { eg1: true, eg2: true }
+        experimentalFeatures: { coll: true, cmll: true }
       },
       timestamps: { settings: { experimentalFeatures: 5000 } },
       updatedAt: 5000,
@@ -292,14 +294,14 @@ test('AppStore & syncMerge handle Train->Simulate and 4-tier F2L modes', () => {
   const { merged: explicitDisableMerged } = mergeSyncPayloads(
     {
       schemaVersion: 2,
-      settings: { experimentalFeatures: { eg1: true, coll: true } },
+      settings: { experimentalFeatures: { cmll: true, coll: true } },
       timestamps: { settings: { experimentalFeatures: 1000 } },
       updatedAt: 1000,
       sessions: []
     },
     {
       schemaVersion: 2,
-      settings: { experimentalFeatures: { eg1: true, coll: false } },
+      settings: { experimentalFeatures: { cmll: true, coll: false } },
       timestamps: { settings: { experimentalFeatures: 2000 } },
       updatedAt: 2000,
       sessions: []
@@ -308,11 +310,11 @@ test('AppStore & syncMerge handle Train->Simulate and 4-tier F2L modes', () => {
   assert.strictEqual(explicitDisableMerged.settings.experimentalFeatures.coll, false);
 
   // Check All inference & unknown future key preservation in sanitizeExperimentalFeatures
-  const preservedFuture = sanitizeExperimentalFeatures({ eg1: true, futureFeatureX: true }, false, false);
+  const preservedFuture = sanitizeExperimentalFeatures({ coll: true, futureFeatureX: true }, false, false);
   assert.strictEqual(preservedFuture.futureFeatureX, true);
-  assert.strictEqual(preservedFuture.coll, false);
+  assert.strictEqual(preservedFuture.cmll, false);
 
-  const inferredAll = sanitizeExperimentalFeatures({ eg1: true, eg2: true, stackmatG5: true, coll: true }, true);
+  const inferredAll = sanitizeExperimentalFeatures({ coll: true, cmll: true, stackmatG5: true, wv: true }, true);
   assert.strictEqual(inferredAll.cmll, true);
   assert.strictEqual(inferredAll.wv, true);
 
@@ -351,7 +353,7 @@ test('Extended F2L curriculum, Sledge/Hedge algs, and Essential mirror pairs ver
   for (const c of [...f2lIntermediateCases, ...f2lAdvancedCases]) {
     assert.ok(c.setup, `${c.id} missing setup`);
     assert.ok(Array.isArray(c.algs) && c.algs.length >= 1, `${c.id} missing algs`);
-    assert.ok(Number.isFinite(c.cameraLongitude), `${c.id} missing cameraLongitude`);
+    assert.strictEqual(c.cameraLongitude, 30, `${c.id} must keep default 30deg cameraLongitude (Green Front · Yellow Top · Orange Right)`);
     for (const a of c.algs) {
       const after = solved.applyAlg(c.setup).applyAlg(a.alg);
       for (const ci of [4, 5, 6, 7]) {
@@ -415,11 +417,13 @@ test('StudyView renders 4 F2L tiers, White bottom default in Learn, and Essentia
   f2lMode = 'intermediate';
   sv.render();
   assert.strictEqual((container.innerHTML.match(/study-f2l-card-3d/g) || []).length, 16);
-  assert.ok(container.innerHTML.includes('data-camera-longitude="135"'));
+  assert.ok(container.innerHTML.includes('data-camera-longitude="30"'));
+  assert.ok(!container.innerHTML.includes('data-camera-longitude="135"'));
 
   f2lMode = 'advanced';
   sv.render();
   assert.strictEqual((container.innerHTML.match(/study-f2l-card-3d/g) || []).length, 14);
+  assert.ok(!container.innerHTML.includes('data-camera-longitude="135"'));
   assert.ok(container.innerHTML.includes('Force Yellow Cross (Partial Edge Control)'));
 
   // PLL detail preserves 2D diagram
@@ -429,7 +433,7 @@ test('StudyView renders 4 F2L tiers, White bottom default in Learn, and Essentia
 });
 
 test('Newly experimental tracks/sections, 1st Face 3D cards, and 2x2 Inspection bottom picker & reveal toggle work', async () => {
-  assert.strictEqual(getTrackExperimentalFeature('222', 'layer'), 'twoByTwoFirstLayer');
+  assert.strictEqual(getTrackExperimentalFeature('222', 'layer'), null);
   assert.strictEqual(getTrackExperimentalFeature('333', 'coll'), 'coll');
   assert.strictEqual(getTrackExperimentalFeature('333', 'cmll'), 'cmll');
   assert.strictEqual(getTrackExperimentalFeature('333', 'wv'), 'wv');

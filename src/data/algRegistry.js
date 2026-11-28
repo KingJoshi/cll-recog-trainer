@@ -46,12 +46,12 @@ export const PUZZLES = {
       },
       {
         id: "layer",
-        name: "1st Layer (123 Cases by Bottom Pieces)",
+        name: "1st Layer (2 & 3 Bottom-Piece Cases)",
         shortName: "1st Layer",
-        description: "Organized by solved bottom corners (white down + matching side colors): 1-Corner Bar Builder (9) · 2 Bottom Bar (70) · 2 Bottom Diagonal (39) · 3 in Bottom (5)",
+        description: "Comprehensive 2- & 3-bottom-piece cases broken down by bottom shape, Beginner → Master roadmap, and Bar-building technique: 2 Bottom Bar (70) · 2 Bottom Diagonal (39) · 3 in Bottom (5)",
         cases: [],
         caseById: new Map(),
-        groups: ["1 in Bottom", "2 Bottom: Bar", "2 Bottom: Diagonal", "3 in Bottom"]
+        groups: ["2 Bottom: Bar", "2 Bottom: Diagonal", "3 in Bottom"]
       },
       {
         id: "lbl",

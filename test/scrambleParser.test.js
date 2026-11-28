@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { MOVE_TOKEN_REGEX, cleanAlg, normalizeAlgForCompare, parseScrambleInput } from '../src/algParser.js';
+import { MOVE_TOKEN_REGEX, cleanAlg, normalizeAlgForCompare, parseScrambleInput, countAlgMoves } from '../src/algParser.js';
 
 test('MOVE_TOKEN_REGEX matches all valid big cube and 3x3 moves', () => {
   const validMoves = [
@@ -111,4 +111,27 @@ test('cleanAlg preserves and simplifies big cube moves correctly', () => {
     normalizeAlgForCompare("2R2' U2' 2R2' Uw2'"),
     "2R2 U2 2R2 Uw2"
   );
+});
+
+test('countAlgMoves ignores leading/trailing U & y rotations and mid-alg y while counting x/z rotations', () => {
+  // Ja-Perm left-handed Jb mirror (both cleaned and legacy restoring y2 U form) === 13 moves, matching Jb-1
+  assert.strictEqual(countAlgMoves("y2 L' U' L F L' U' L U L F' L2' U L"), 13);
+  assert.strictEqual(countAlgMoves("y2 L' U' L F L' U' L U L F' L2' U L y2 U"), 13);
+  assert.strictEqual(countAlgMoves("R U R' F' R U R' U' R' F R2 U' R' U'"), 13);
+
+  // x and x' rotations MUST be counted
+  assert.strictEqual(countAlgMoves("x R2 F R F' R U2 r' U r U2 x'"), 12);
+
+  // Leading U' alignment is ignored (Ja-2 == Ja-5 == 10 moves)
+  assert.strictEqual(countAlgMoves("U' R' U L' U2 R U' R' U2 R L"), 10);
+  assert.strictEqual(countAlgMoves("R' U L' U2 R U' R' U2 R L"), 10);
+
+  // Mid-alg y / y' rotations and trailing y / U are ignored (Gd-2 == 12 moves)
+  assert.strictEqual(countAlgMoves("R U R' y' R2 u' R U' R' U R' u R2"), 12);
+  assert.strictEqual(countAlgMoves("R U R' y' R2 u' R U' R' U R' u R2 y U'"), 12);
+
+  // Repeat expansion works cleanly with AUF stripping
+  assert.strictEqual(countAlgMoves("U (R U R' F')2 U2"), 8);
+  assert.strictEqual(countAlgMoves("U (R U R' U')2 U2"), 7);
+  assert.strictEqual(countAlgMoves(""), 0);
 });

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { Alg } from 'cubing/alg';
 import { cllCases } from '../src/data/cllData.js';
+import { eg1Cases, eg2Cases } from '../src/data/egData.js';
 import { getSolvedOrientations } from '../src/cube/cubeUtils.js';
 import { DEFAULT_PAUSE_THRESHOLD_MS } from '../src/cfopAnalyzer.js';
 import {
@@ -10,7 +11,10 @@ import {
   initTwoByTwoAnalyzer,
   isTwoByTwoAnalyzerReady,
   computeCllCanonicalKey,
+  computeEg1CanonicalKey,
+  computeEg2CanonicalKey,
   identifyCllFromPattern,
+  identifyEgFromPattern,
   analyzeTwoByTwoSolve,
   ensureSolveTwoByTwo,
   reanalyzeTwoByTwoSolves,
@@ -443,7 +447,7 @@ test('analyzeTwoByTwoSolve prefers real White CLL over trivial Yellow CLL Skip a
 
 test('stale cached 2x2 analysis auto-upgrades to current version, force/reanalyzeTwoByTwoSolves re-runs cached solves, and sessionLogView re-analyzes chosen solves', async () => {
   await initTwoByTwoAnalyzer();
-  assert.strictEqual(TWO_BY_TWO_ANALYSIS_VERSION, 6);
+  assert.strictEqual(TWO_BY_TWO_ANALYSIS_VERSION, 7);
 
   // 1. Stale version cached twoByTwo auto-invalidates on ensureSolveTwoByTwo
   const staleSolve = makeRealisticTwoByTwoSolve({ color: "White", cllId: "H1", stepMs: 140, pauseBeforeCllMs: 460 });
@@ -634,4 +638,149 @@ test('MoYu WCU_MY22 real solves with interleaved gyro rotations detect pll-adj a
   assert.strictEqual(res675.steps.find(s => s.phase === "layer")?.moveCount, 10);
   assert.strictEqual(res675.cllCase?.id, "A2");
   assert.strictEqual(res675.aufSummary?.caseId, "U");
+});
+
+test('identifyEgFromPattern detects all 40 EG-1 and 40 EG-2 cases uniquely and color-neutrally', async () => {
+  await initTwoByTwoAnalyzer();
+  const { defaultPat } = await getSolvedOrientations("2x2x2");
+
+  const eg1Keys = new Set();
+  for (const c of eg1Cases) {
+    const pat = defaultPat.applyAlg(new Alg(c.setup));
+    const key = computeEg1CanonicalKey(pat);
+    assert.ok(key, `Expected EG-1 canonical key for ${c.id}`);
+    assert.strictEqual(eg1Keys.has(key), false, `Duplicate EG-1 key ${key} at ${c.id}`);
+    eg1Keys.add(key);
+
+    const identified = identifyEgFromPattern(pat);
+    assert.ok(identified, `identifyEgFromPattern failed for ${c.id}`);
+    assert.strictEqual(identified.method, "eg1");
+    assert.strictEqual(identified.faceColor, "Yellow");
+    assert.strictEqual(identified.egCase.id, c.id);
+  }
+  assert.strictEqual(eg1Keys.size, 40);
+
+  const eg2Keys = new Set();
+  for (const c of eg2Cases) {
+    const pat = defaultPat.applyAlg(new Alg(c.setup));
+    const key = computeEg2CanonicalKey(pat);
+    assert.ok(key, `Expected EG-2 canonical key for ${c.id}`);
+    assert.strictEqual(eg2Keys.has(key), false, `Duplicate EG-2 key ${key} at ${c.id}`);
+    eg2Keys.add(key);
+
+    const identified = identifyEgFromPattern(pat);
+    assert.ok(identified, `identifyEgFromPattern failed for ${c.id}`);
+    assert.strictEqual(identified.method, "eg2");
+    assert.strictEqual(identified.faceColor, "Yellow");
+    assert.strictEqual(identified.egCase.id, c.id);
+  }
+  assert.strictEqual(eg2Keys.size, 40);
+
+  // Color-neutral checks across White, Green, Blue, Red, Orange bottom faces + bar rotation
+  const colorRotations = [
+    ["White", "z2", "z2"],
+    ["Green", "x'", "x"],
+    ["Blue", "x", "x'"],
+    ["Red", "z", "z'"],
+    ["Orange", "z'", "z"]
+  ];
+  for (const [color, preRot, postRot] of colorRotations) {
+    const eg1Sample = eg1Cases[4]; // P1
+    const pat1 = defaultPat.applyAlg(new Alg(`${preRot} y ${eg1Sample.setup} U2 y' ${postRot}`));
+    const res1 = identifyEgFromPattern(pat1);
+    assert.ok(res1, `Color-neutral EG-1 failed on ${color}`);
+    assert.strictEqual(res1.method, "eg1");
+    assert.strictEqual(res1.faceColor, color);
+    assert.strictEqual(res1.egCase.id, eg1Sample.id);
+
+    const eg2Sample = eg2Cases[7]; // P4
+    const pat2 = defaultPat.applyAlg(new Alg(`${preRot} y' ${eg2Sample.setup} U ${postRot}`));
+    const res2 = identifyEgFromPattern(pat2);
+    assert.ok(res2, `Color-neutral EG-2 failed on ${color}`);
+    assert.strictEqual(res2.method, "eg2");
+    assert.strictEqual(res2.faceColor, color);
+    assert.strictEqual(res2.egCase.id, eg2Sample.id);
+  }
+});
+
+test('analyzeTwoByTwoSolve detects smart-cube EG-1 and EG-2 solves (with 1st Face + AUF) and manual EG attribution', async () => {
+  await initTwoByTwoAnalyzer();
+
+  const buildEgSolve = ({ color = "White", egCaseObj, faceStdTokens, postAufStd = "U'", target = "full" }) => {
+    const rotKey = BASE_ROT_BY_COLOR[color];
+    const algDef = egCaseObj.algs[0];
+    // Notice BASE_ROT_BY_COLOR White is x2; mapAlgTokens uses physical face mapping for rotKey
+    const preTokens = algDef.startAuf ? mapAlgTokens(algDef.startAuf, rotKey) : [];
+    const execTokens = mapAlgTokens(algDef.alg, rotKey);
+    const postTokens = postAufStd ? mapAlgTokens(postAufStd, rotKey) : [];
+
+    // Ensure face tokens do NOT solve the 1st layer completely on their own; verify state after faceTokens is EG-1/EG-2!
+    const allTokens = [...faceStdTokens.flatMap(t => mapAlgTokens(t, rotKey)), ...preTokens, ...execTokens, ...postTokens];
+    const scramble = new Alg(allTokens.join(" ")).invert().toString();
+    const moves = buildTimedMoves(allTokens, {
+      pauseAtIdx: faceStdTokens.length,
+      pauseMs: 510,
+      stepMs: 150,
+    });
+    const cubeMs = moves[moves.length - 1].t;
+    return {
+      puzzle: "222",
+      target,
+      ms: cubeMs,
+      rawMs: cubeMs,
+      cubeMs,
+      moves,
+      scramble,
+      moveCount: moves.length,
+    };
+  };
+
+  // Pick a face-building move sequence that reaches face-with-swap rather than solved layer:
+  // If we use eg1Cases[5] (P2) where faceTokens = ["R", "U'", "R'"] — let us build faceTokens from solved:
+  // Actually any single move like ["R"] has bottom-front swap after setup? Even cleaner: test both target practice (face=0) AND full solve with 1-move face ["F", "R"]!
+  const p2Eg1 = eg1Cases.find(c => c.id === "EG1-P2");
+  const eg1Solve = buildEgSolve({
+    color: "White",
+    egCaseObj: p2Eg1,
+    faceStdTokens: ["R", "U", "R'"],
+    postAufStd: "U",
+    target: "eg1"
+  });
+  const resEg1 = await analyzeTwoByTwoSolve(eg1Solve, { twoByTwoMethod: "auto" });
+  assert.ok(resEg1, "Expected EG-1 smart-cube analysis");
+  assert.strictEqual(resEg1.method, "eg1");
+  assert.strictEqual(resEg1.layerColor, "White");
+  assert.strictEqual(resEg1.egCase?.id, "EG1-P2");
+  assert.strictEqual(resEg1.cllCase, null);
+  assert.ok(resEg1.splits.face > 0);
+  assert.ok(resEg1.splits.eg > 0);
+  assert.strictEqual(resEg1.splits.auf, 150);
+  assert.strictEqual(resEg1.splits.face + resEg1.splits.eg + resEg1.splits.auf, eg1Solve.cubeMs);
+
+  // Free solve (target="full", default twoByTwoMethod="cll") for EG-2 case on Yellow with trailing U2 AUF
+  const u1Eg2 = eg2Cases.find(c => c.id === "EG2-U1");
+  const eg2Solve = buildEgSolve({
+    color: "Yellow",
+    egCaseObj: u1Eg2,
+    faceStdTokens: ["F", "R", "U'"],
+    postAufStd: "U2",
+    target: "full"
+  });
+  const resEg2 = await analyzeTwoByTwoSolve(eg2Solve);
+  assert.ok(resEg2, "Expected EG-2 smart-cube analysis");
+  assert.strictEqual(resEg2.method, "eg2");
+  assert.strictEqual(resEg2.layerColor, "Yellow");
+  assert.strictEqual(resEg2.egCase?.id, "EG2-U1");
+  assert.strictEqual(resEg2.aufSummary?.caseId, "U2");
+
+  // Manual EG-1 & EG-2 solve attribution without smart-cube move stream
+  const manualEg1 = await analyzeTwoByTwoSolve({ puzzle: "222", target: "eg1", id: "EG1-T3", ms: 1420 });
+  assert.strictEqual(manualEg1.method, "eg1");
+  assert.strictEqual(manualEg1.egCase.id, "EG1-T3");
+  assert.strictEqual(manualEg1.splits.eg, 1420);
+
+  const manualEg2 = await analyzeTwoByTwoSolve({ puzzle: "222", track: "eg2", id: "EG2-S4", ms: 1650 });
+  assert.strictEqual(manualEg2.method, "eg2");
+  assert.strictEqual(manualEg2.egCase.id, "EG2-S4");
+  assert.strictEqual(manualEg2.splits.eg, 1650);
 });

@@ -1,12 +1,20 @@
-// Multi-session store & legacy localStorage migration (preserving `cllTrainerSessions` user data)
+// Multi-session store & lossless localStorage -> IndexedDB migration (preserving `cllTrainerSessions` user data)
 
-import { readStorageRaw, writeStorageRaw, readStorageJSON, writeStorageJSON } from './storage.js';
+import { readStorageRaw, writeStorageRaw, readStorageJSON, writeStorageJSON, removeStorageKey } from './storage.js';
+import { isIndexedDbAvailable, idbGet, idbSet } from './indexedDbStore.js';
 
 export const SESSIONS_STORAGE_KEY = "cllTrainerSessions";
 export const LEGACY_V2_SESSIONS_KEY = "cll_speedcube_sessions_v2";
 export const LEGACY_V1_SESSIONS_KEY = "cll_solve_sessions_v1";
 export const LEGACY_SOLVES_KEY = "cllTrainerSolves";
 export const LEGACY_LAYER_SOLVES_KEY = "cllTrainerLayerSolves";
+export const LEGACY_SESSION_STORAGE_KEYS = [
+  SESSIONS_STORAGE_KEY,
+  LEGACY_V2_SESSIONS_KEY,
+  LEGACY_V1_SESSIONS_KEY,
+  LEGACY_SOLVES_KEY,
+  LEGACY_LAYER_SOLVES_KEY
+];
 export const ACTIVE_SESSION_STORAGE_KEY = "cll_active_session_id_v2";
 
 export function createDefaultSession(puzzle = "222", name = "Session 1") {
@@ -63,7 +71,7 @@ function createInitialMainSessions() {
   return initial;
 }
 
-export function loadSessions() {
+export function loadSessions({ persistIfEmpty = !isIndexedDbAvailable() } = {}) {
   try {
     const primary = readStorageJSON(SESSIONS_STORAGE_KEY);
     if (Array.isArray(primary) && primary.length > 0) {
@@ -74,7 +82,7 @@ export function loadSessions() {
         const legacyLayer = getValidLegacySolves(LEGACY_LAYER_SOLVES_KEY);
         if (legacyLayer.length) {
           layerSess.solves = [...legacyLayer];
-          saveSessions(normalized);
+          if (persistIfEmpty) saveSessions(normalized);
         }
       }
       // Also merge any orphan v2 sessions that were stored separately
@@ -86,7 +94,7 @@ export function loadSessions() {
           .map(normalizeSession);
         if (extra.length > 0) {
           normalized.push(...extra);
-          saveSessions(normalized);
+          if (persistIfEmpty) saveSessions(normalized);
         }
       }
       return normalized;
@@ -95,19 +103,21 @@ export function loadSessions() {
     const v2 = readStorageJSON(LEGACY_V2_SESSIONS_KEY);
     if (Array.isArray(v2) && v2.length > 0) {
       const migrated = v2.map(normalizeSession);
-      saveSessions(migrated);
+      if (persistIfEmpty) saveSessions(migrated);
       return migrated;
     }
 
     const v1 = readStorageJSON(LEGACY_V1_SESSIONS_KEY);
     if (Array.isArray(v1) && v1.length > 0) {
       const migrated = v1.map(s => normalizeSession({ ...s, puzzle: s.puzzle || "222" }));
-      saveSessions(migrated);
+      if (persistIfEmpty) saveSessions(migrated);
       return migrated;
     }
 
     const initial = createInitialMainSessions();
-    saveSessions(initial);
+    if (persistIfEmpty) {
+      saveSessions(initial);
+    }
     if (!getActiveSessionId()) {
       setActiveSessionId(initial[0].id);
     }
@@ -159,6 +169,127 @@ export function saveSessions(sessions) {
   } catch {
     return false;
   }
+}
+
+export function mergeSessionLists(primarySessions = [], secondarySessions = []) {
+  const result = [];
+  const byId = new Map();
+
+  const upsert = (rawSess, preferIncomingMeta = false) => {
+    if (!rawSess || typeof rawSess !== "object") return;
+    const norm = normalizeSession(JSON.parse(JSON.stringify(rawSess)));
+    const existing = byId.get(norm.id);
+    if (!existing) {
+      byId.set(norm.id, norm);
+      result.push(norm);
+      return;
+    }
+    const existingTs = Number(existing.updatedAt || 0);
+    const incomingTs = Number(norm.updatedAt || 0);
+    const useIncomingMeta = incomingTs > existingTs || (preferIncomingMeta && incomingTs === existingTs);
+    if (useIncomingMeta) {
+      existing.name = norm.name;
+      existing.puzzle = norm.puzzle || existing.puzzle;
+      existing.target = norm.target || existing.target;
+      existing.size = norm.size || existing.size;
+      existing.showCube = norm.showCube;
+      existing.inspection = norm.inspection;
+      existing.updatedAt = Math.max(existingTs, incomingTs);
+    }
+    existing.solves = mergeSolveLists(existing.solves || [], norm.solves || []);
+  };
+
+  for (const s of (Array.isArray(primarySessions) ? primarySessions : [])) {
+    upsert(s, false);
+  }
+  for (const s of (Array.isArray(secondarySessions) ? secondarySessions : [])) {
+    upsert(s, false);
+  }
+
+  return result;
+}
+
+let idbWriteChain = Promise.resolve(true);
+
+export function saveSessionsToIdb(sessions) {
+  if (!isIndexedDbAvailable()) {
+    return Promise.resolve(saveSessions(sessions));
+  }
+  const snapshot = JSON.parse(JSON.stringify(Array.isArray(sessions) ? sessions : []));
+  const nextWrite = idbWriteChain.then(() => idbSet(SESSIONS_STORAGE_KEY, snapshot), () => idbSet(SESSIONS_STORAGE_KEY, snapshot));
+  idbWriteChain = nextWrite.catch(() => false);
+  return nextWrite;
+}
+
+function readLegacyLocalStorageSessions() {
+  const hasAnyKey = LEGACY_SESSION_STORAGE_KEYS.some(k => readStorageRaw(k) !== null);
+  if (!hasAnyKey) return { hasAnyKey: false, sessions: null };
+
+  const primary = readStorageJSON(SESSIONS_STORAGE_KEY);
+  const v2 = readStorageJSON(LEGACY_V2_SESSIONS_KEY);
+  const v1 = readStorageJSON(LEGACY_V1_SESSIONS_KEY);
+  const legacySolves = getValidLegacySolves(LEGACY_SOLVES_KEY);
+  const legacyLayerSolves = getValidLegacySolves(LEGACY_LAYER_SOLVES_KEY);
+
+  let sessions = null;
+  if (Array.isArray(primary) && primary.length > 0) {
+    sessions = primary.map(normalizeSession);
+    const layerSess = sessions.find(s => s.id === "layer");
+    if (layerSess && layerSess.solves.length === 0 && legacyLayerSolves.length) {
+      layerSess.solves = [...legacyLayerSolves];
+    }
+    if (Array.isArray(v2) && v2.length > 0) {
+      const existingIds = new Set(sessions.map(s => s.id));
+      const extra = v2
+        .filter(s => s && !existingIds.has(s.id) && Array.isArray(s.solves) && s.solves.length > 0)
+        .map(normalizeSession);
+      if (extra.length > 0) sessions.push(...extra);
+    }
+  } else if (Array.isArray(v2) && v2.length > 0) {
+    sessions = v2.map(normalizeSession);
+  } else if (Array.isArray(v1) && v1.length > 0) {
+    sessions = v1.map(s => normalizeSession({ ...s, puzzle: s.puzzle || "222" }));
+  } else if (legacySolves.length || legacyLayerSolves.length) {
+    sessions = createInitialMainSessions();
+  }
+
+  return { hasAnyKey: true, sessions };
+}
+
+export async function loadAndMigrateSessionsFromIdb() {
+  if (!isIndexedDbAvailable()) {
+    return { migrated: false, sessions: null, backend: "localStorage" };
+  }
+
+  const idbRaw = await idbGet(SESSIONS_STORAGE_KEY);
+  const idbSessions = Array.isArray(idbRaw) && idbRaw.length > 0 ? idbRaw.map(normalizeSession) : null;
+  const { hasAnyKey, sessions: lsSessions } = readLegacyLocalStorageSessions();
+
+  if (idbSessions && lsSessions && lsSessions.length > 0) {
+    const merged = mergeSessionLists(idbSessions, lsSessions);
+    const ok = await saveSessionsToIdb(merged);
+    if (ok) {
+      for (const k of LEGACY_SESSION_STORAGE_KEYS) removeStorageKey(k);
+    }
+    return { migrated: ok, sessions: merged, backend: "indexeddb" };
+  }
+
+  if (!idbSessions && lsSessions && lsSessions.length > 0) {
+    const ok = await saveSessionsToIdb(lsSessions);
+    if (ok) {
+      for (const k of LEGACY_SESSION_STORAGE_KEYS) removeStorageKey(k);
+    }
+    return { migrated: ok, sessions: lsSessions, backend: "indexeddb" };
+  }
+
+  if (idbSessions) {
+    if (hasAnyKey) {
+      for (const k of LEGACY_SESSION_STORAGE_KEYS) removeStorageKey(k);
+    }
+    return { migrated: false, sessions: idbSessions, backend: "indexeddb" };
+  }
+
+  return { migrated: false, sessions: null, backend: "indexeddb" };
 }
 
 export function getActiveSessionId() {

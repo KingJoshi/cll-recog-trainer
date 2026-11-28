@@ -100,21 +100,27 @@ test('StudyView renders dedicated 2x2 1st Face, 1st Layer Bottom-Piece Case Grou
     getOhHand: () => 'right'
   });
 
-  // 0. 2x2 & 3x3 Beginner Tutorials (dynamic 3D widgets)
+  // 0. 2x2 & 3x3 Beginner Tutorials (Guide + Walkthrough tabs)
   sv.setTrack('222', 'tutorial');
   assert.ok(container.innerHTML.includes('Beginner 2x2 Guide'));
-  assert.ok(container.innerHTML.includes('tut222ScrambleInput'));
-  assert.ok(container.innerHTML.includes('data-tut-anchor="wgr"'));
+  assert.ok(container.innerHTML.includes('data-tut-tab="guide"') && container.innerHTML.includes('data-tut-tab="walkthrough"'));
   assert.ok(container.innerHTML.includes('Righty'));
   assert.ok(container.innerHTML.includes('T-Perm'));
   assert.ok(!/Ortega|1st Face|\bsexy\b/i.test(container.innerHTML));
+  sv.tutorialState.activeTab = 'walkthrough';
+  sv.render();
+  assert.ok(container.innerHTML.includes('tut222ScrambleInput'));
+  assert.ok(container.innerHTML.includes('data-tut-anchor="wgr"'));
 
   sv.setTrack('333', 'tutorial');
   assert.ok(container.innerHTML.includes('Beginner 3x3 Guide'));
-  assert.ok(container.innerHTML.includes('tut333ScrambleInput'));
+  assert.ok(container.innerHTML.includes('data-tut-tab="guide"') && container.innerHTML.includes('data-tut-tab="walkthrough"'));
   assert.ok(container.innerHTML.includes('Daisy'));
   assert.ok(container.innerHTML.includes('Ua / Ub (M-moves)'));
   assert.ok(!/\bsexy\b/i.test(container.innerHTML));
+  sv.threeByThreeTutorialState.activeTab = 'walkthrough';
+  sv.render();
+  assert.ok(container.innerHTML.includes('tut333ScrambleInput'));
 
   // 1. 2x2 1st Face dedicated study view (simplified hero without 99.8% in hero lead)
   sv.setTrack('222', 'face');
@@ -126,21 +132,26 @@ test('StudyView renders dedicated 2x2 1st Face, 1st Layer Bottom-Piece Case Grou
   assert.ok(!heroLead.includes('99.8%'));
   assert.ok(container.innerHTML.includes('Color Neutrality Benchmarks'));
 
-  // 2. 2x2 1st Layer: default All (123) multi-select across structured groups
+  // 2. 2x2 1st Layer: default All (114) across 2 & 3 bottom-piece groups with Option A mini-chapters & 3 perspectives
   sv.setTrack('222', 'layer');
-  assert.ok(container.innerHTML.includes('1st Layer (123 Cases by Bottom Pieces)'));
-  assert.ok(container.innerHTML.includes('Cases Grid (123)'));
+  assert.ok(container.innerHTML.includes('1st Layer (2 &amp; 3 Bottom-Piece Cases)') || container.innerHTML.includes('1st Layer (2 & 3 Bottom-Piece Cases)'));
+  assert.ok(container.innerHTML.includes('Cases Grid (114)'));
   assert.ok(container.innerHTML.includes('Case Explorer (3D + 2D)'));
   assert.ok(container.innerHTML.includes('Recognition &amp; 2-Look Guide'));
   assert.ok(!container.innerHTML.includes('All Bar System (75)'));
   assert.ok(!container.innerHTML.includes('Bar-on-Left Explorer (75)'));
+  assert.ok(!container.innerHTML.includes('1 in Bottom (9)'), 'Misleading 1 in Bottom group must be removed');
+  assert.ok(!container.innerHTML.includes('data-quiz-section="one-bottom"'));
 
-  assert.ok(container.innerHTML.includes('All (123)'));
-  assert.ok(container.innerHTML.includes('1 in Bottom (9)'));
+  assert.ok(container.innerHTML.includes('All (114)'));
   assert.ok(container.innerHTML.includes('2 Bottom: Bar (70)'));
   assert.ok(container.innerHTML.includes('2 Bottom: Diagonal (39)'));
   assert.ok(container.innerHTML.includes('3 in Bottom (5)'));
-  assert.ok(container.innerHTML.includes('data-quiz-section="one-bottom"'));
+  assert.ok(container.innerHTML.includes('data-quiz-perspective="shape"'));
+  assert.ok(container.innerHTML.includes('data-quiz-perspective="roadmap"'));
+  assert.ok(container.innerHTML.includes('data-quiz-perspective="technique"'));
+  assert.ok(container.innerHTML.includes('data-quiz-chapter-section="two-bar:right-edge"'));
+  assert.ok(container.innerHTML.includes('data-quiz-chapter-section="three-bottom:bp-solved"'));
   assert.ok(container.innerHTML.includes('data-quiz-section="two-bar"'));
   assert.ok(container.innerHTML.includes('data-quiz-section="two-diag"'));
   assert.ok(container.innerHTML.includes('data-quiz-section="three-bottom"'));
@@ -163,26 +174,36 @@ test('StudyView renders dedicated 2x2 1st Face, 1st Layer Bottom-Piece Case Grou
   assert.ok(!container.innerHTML.includes('flbIconLegendBtn'));
   assert.ok(!container.innerHTML.includes('flb-quiz-actions'));
 
-  // Multi-select subset (1 in Bottom + 3 in Bottom = 14)
-  sv.firstLayerExplorerState.quizGroups = new Set(['one-bottom', 'three-bottom']);
+  // Multi-select subset (2 Bottom: Diagonal + 3 in Bottom = 44)
+  sv.firstLayerExplorerState.quizGroups = new Set(['two-diag', 'three-bottom']);
   sv.render();
-  assert.ok(container.innerHTML.includes('All (14)'));
-  assert.ok(container.innerHTML.includes('1B-1'));
+  assert.ok(container.innerHTML.includes('All (44)'));
+  assert.ok(container.innerHTML.includes('D-1'));
   assert.ok(container.innerHTML.includes('3B-1'));
   assert.ok(!container.innerHTML.includes('data-quiz-section="two-bar"'));
 
   // Single group selection
-  sv.firstLayerExplorerState.quizGroups = new Set(['one-bottom']);
-  sv.render();
-  assert.ok(container.innerHTML.includes('All (9)'));
-  assert.ok(container.innerHTML.includes('1B-1'));
-  assert.ok(container.innerHTML.includes('flb-step-hint-mini'));
-
   sv.firstLayerExplorerState.quizGroups = new Set(['two-diag']);
   sv.render();
   assert.ok(container.innerHTML.includes('All (39)'));
   assert.ok(container.innerHTML.includes('D-1'));
-  assert.ok(container.innerHTML.includes('All 4 solved &rarr; CLL'));
+  assert.ok(container.innerHTML.includes('2 Bottom: Diagonal (39)'));
+
+  // Beginner -> Master roadmap perspective
+  sv.firstLayerExplorerState.quizPerspective = 'roadmap';
+  sv.render();
+  assert.ok(container.innerHTML.includes('data-quiz-roadmap="level-1"'));
+  assert.ok(container.innerHTML.includes('data-quiz-roadmap="level-2"'));
+  assert.ok(container.innerHTML.includes('data-quiz-roadmap="level-3"'));
+  assert.ok(container.innerHTML.includes('data-quiz-roadmap="level-4"'));
+
+  // Bar Building & Technique perspective
+  sv.firstLayerExplorerState.quizPerspective = 'technique';
+  sv.render();
+  assert.ok(container.innerHTML.includes('Bar-Building Perspectives'));
+  assert.ok(container.innerHTML.includes('data-quiz-technique="rim-bar"'));
+  assert.ok(container.innerHTML.includes('data-quiz-technique="pair-drop"'));
+  assert.ok(container.innerHTML.includes('data-quiz-technique="bottom-swaps"'));
 
   sv.firstLayerExplorerState.subTab = 'explorer';
   sv.render();
@@ -195,7 +216,7 @@ test('StudyView renders dedicated 2x2 1st Face, 1st Layer Bottom-Piece Case Grou
   assert.ok(container.innerHTML.includes('FRONT RIM BAR'));
   assert.ok(container.innerHTML.includes('TOP RIM BAR'));
   assert.ok(container.innerHTML.includes('BACK RIM BAR'));
-  assert.ok(container.innerHTML.includes('1st Layer Case Breakdown (123 Cases)'));
+  assert.ok(container.innerHTML.includes('1st Layer Case Breakdown (114 Two- &amp; Three-Piece Cases)'));
 
   // 3. 3x3 OH Right-Hand switcher + synthesized RH Mirror / z' algs on Ua
   sv.setTrack('333oh', 'pll');
@@ -301,7 +322,14 @@ test('StudyView replaces Detail (3D) and raw triangle glyphs with consistent Alg
     assert.ok(!gridHtml.includes('Detail (3D)'), `Stale Detail (3D) found in ${puz}/${tid} grid`);
     assert.ok(!gridHtml.includes('&#x25B6;'), `Raw &#x25B6; found in ${puz}/${tid} grid`);
     assert.ok(gridHtml.includes('btn-study-view') && gridHtml.includes('<span>Algs</span>'));
-    assert.ok(gridHtml.includes('btn-study-sim') && gridHtml.includes('<span>Sim</span>'));
+    if (tid === 'f2l') {
+      assert.ok(gridHtml.includes('study-f2l-3d-controls'), 'F2L 3D grid cards should expose inline play controls');
+      assert.ok(gridHtml.includes('btn-f2l-play-3d') && gridHtml.includes('btn-f2l-start-3d') && gridHtml.includes('btn-f2l-next-3d'));
+      assert.ok(gridHtml.includes('btn-twosided-reset-3d'));
+      assert.ok(!gridHtml.includes('btn-study-sim'), 'F2L 3D grid cards omit redundant Sim popup button');
+    } else {
+      assert.ok(gridHtml.includes('btn-study-sim') && gridHtml.includes('<span>Sim</span>'));
+    }
     assert.ok(gridHtml.includes('ui-icon'));
     assert.ok(gridHtml.includes('data-tooltip='));
   }

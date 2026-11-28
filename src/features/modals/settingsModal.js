@@ -22,6 +22,12 @@ import { ALL_SOLVER_FACES } from '../solve/solverWidgetsView.js';
 import { ALL_BOTTOM_FACES } from '../../services/scrambleService.js';
 import { renderBottomLayerPickerHtml, bindBottomLayerPickerEvents } from '../../ui/bottomLayerPicker.js';
 import { showToast } from '../../ui/toastService.js';
+import {
+  isIndexedDbAvailable,
+  getStorageEstimate,
+  requestPersistentStorage,
+  formatBytes
+} from '../../state/indexedDbStore.js';
 
 const COLOR_CONFIG = [
   { key: "yellow", label: "Yellow (Top)" },
@@ -129,6 +135,8 @@ export function createSettingsModalController({
   const settingsCustomEventScramble = typeof document !== "undefined" ? document.getElementById("settingsCustomEventScramble") : null;
   const settingsAddCustomEventBtn = typeof document !== "undefined" ? document.getElementById("settingsAddCustomEventBtn") : null;
   const settingsCustomEventsList = typeof document !== "undefined" ? document.getElementById("settingsCustomEventsList") : null;
+  const settingsStorageStatus = typeof document !== "undefined" ? document.getElementById("settingsStorageStatus") : null;
+  const settingsRequestPersistBtn = typeof document !== "undefined" ? document.getElementById("settingsRequestPersistBtn") : null;
   const settingsNavBtns = typeof document !== "undefined" ? Array.from(document.querySelectorAll("[data-settings-tab]")) : [];
   const settingsTabPanels = typeof document !== "undefined" ? Array.from(document.querySelectorAll("[data-settings-panel]")) : [];
   const colorSubtabBtns = typeof document !== "undefined" ? Array.from(document.querySelectorAll("[data-color-subtab]")) : [];
@@ -164,6 +172,31 @@ export function createSettingsModalController({
     } else if (activeTab === "devices") {
       getSmartCubeCtrl()?.syncExperimentalDevicesUI?.();
       getSmartCubeCtrl()?.updateBluetoothUI?.();
+    } else if (activeTab === "sync") {
+      void refreshStorageStatus();
+    }
+  }
+
+  async function refreshStorageStatus() {
+    if (!settingsStorageStatus && !settingsRequestPersistBtn) return;
+    const est = await getStorageEstimate();
+    const idbOn = isIndexedDbAvailable();
+    const parts = [idbOn ? "IndexedDB active" : "localStorage fallback"];
+    if (est.supported && est.quota > 0) {
+      parts.push(`${formatBytes(est.usage)} used of ${formatBytes(est.quota)}`);
+    }
+    if (est.localStorageBytes > 0) {
+      parts.push(`localStorage: ${formatBytes(est.localStorageBytes)}`);
+    }
+    if (typeof navigator !== "undefined" && navigator.storage?.persisted) {
+      parts.push(est.persisted ? "Persistent" : "Temporary");
+    }
+    if (settingsStorageStatus) {
+      settingsStorageStatus.textContent = parts.join(" · ");
+    }
+    if (settingsRequestPersistBtn) {
+      const canRequestPersist = idbOn && typeof navigator !== "undefined" && Boolean(navigator.storage?.persist) && !est.persisted;
+      settingsRequestPersistBtn.hidden = !canRequestPersist;
     }
   }
   const settingsOhHandLeftBtn = typeof document !== "undefined" ? document.getElementById("settingsOhHandLeftBtn") : null;
@@ -629,6 +662,7 @@ export function createSettingsModalController({
     solverWidgets?.updateFaceChipsUI?.();
     solverWidgets?.updateCrossFacesUI?.();
     getCloudSyncCtrl()?.render?.();
+    void refreshStorageStatus();
     modalManager.open(modal, {
       initialFocus: closeBtn,
       onClose: () => {
@@ -796,6 +830,16 @@ export function createSettingsModalController({
       const tab = btn.dataset.settingsTab;
       if (tab) setActiveTab(tab);
     });
+  });
+
+  settingsRequestPersistBtn?.addEventListener("click", async () => {
+    const granted = await requestPersistentStorage();
+    if (granted) {
+      showToast("Persistent storage enabled.", "success", 2800);
+    } else {
+      showToast("Browser kept storage as best-effort — your data is still safely stored in IndexedDB.", "info", 3800);
+    }
+    await refreshStorageStatus();
   });
 
   colorSubtabBtns.forEach(btn => {
@@ -1083,6 +1127,7 @@ export function createSettingsModalController({
     close,
     renderToggles,
     renderCustomEvents,
-    refreshActiveViews
+    refreshActiveViews,
+    refreshStorageStatus
   };
 }

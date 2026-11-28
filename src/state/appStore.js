@@ -33,11 +33,15 @@ import {
 import {
   loadSessions,
   saveSessions,
+  saveSessionsToIdb,
+  loadAndMigrateSessionsFromIdb,
+  mergeSessionLists,
   getActiveSessionId,
   setActiveSessionId,
   resolveSessionForTarget,
   splitSessionByTarget
 } from './sessionStore.js';
+import { isIndexedDbAvailable, requestPersistentStorage } from './indexedDbStore.js';
 
 export const STORAGE_KEYS = {
   STATS: "cllTrainerStats",
@@ -56,25 +60,10 @@ export const STORAGE_KEYS = {
 export const VALID_PUZZLES = ["222", "333", "333oh", "444", "555", "666", "777", "fto", "pyram", "skewb", "minx", "sq1", "clock", "333bf"];
 export const DEFAULT_VISIBLE_EVENTS = ["222", "333", "333oh", "444", "555"];
 export const ALL_BUILTIN_EVENT_IDS = [...VALID_PUZZLES];
-export const BETA_TRACK_IDS_222 = new Set(["tutorial", "face", "eg1", "eg2", "layer"]);
+export const BETA_TRACK_IDS_222 = new Set();
 export const BETA_TRACK_IDS_333 = new Set(["tutorial", "coll", "cmll", "wv"]);
 
 export const EXPERIMENTAL_FEATURES = Object.freeze([
-  {
-    id: "eg1",
-    label: "2x2 EG-1",
-    description: "40 EG-1 algorithm cases across Learn, Train, Timed Drills, and Simulate"
-  },
-  {
-    id: "eg2",
-    label: "2x2 EG-2",
-    description: "40 EG-2 algorithm cases across Learn, Train, Timed Drills, and Simulate"
-  },
-  {
-    id: "twoByTwoFirstLayer",
-    label: "2x2 1st Layer",
-    description: "75-case 2x2 1st Layer explorer, grid/quiz, 2-look guide, and inspection/timed drills"
-  },
   {
     id: "coll",
     label: "3x3 COLL",
@@ -140,11 +129,7 @@ export const EXPERIMENTAL_FEATURE_IDS = EXPERIMENTAL_FEATURES.map(f => f.id);
 
 export function getTrackExperimentalFeature(puzzleId, trackId) {
   if (!trackId) return null;
-  if (puzzleId === "222") {
-    if (trackId === "eg1") return "eg1";
-    if (trackId === "eg2") return "eg2";
-    if (trackId === "layer") return "twoByTwoFirstLayer";
-  } else if (puzzleId === "333" || puzzleId === "333oh") {
+  if (puzzleId === "333" || puzzleId === "333oh") {
     if (trackId === "coll") return "coll";
     if (trackId === "cmll") return "cmll";
     if (trackId === "wv") return "wv";
@@ -338,6 +323,9 @@ export class AppStore {
   constructor() {
     this.listeners = new Set();
     this._isHydrating = false;
+    this._idbHydrated = !isIndexedDbAvailable();
+    this._sessionsModifiedBeforeIdbHydrate = false;
+    this._storageBackend = isIndexedDbAvailable() ? "indexeddb" : "localStorage";
 
     const cookiePrefs = readCookieJSON(STORAGE_KEYS.UI_COOKIE, {}) || {};
     const rawSettings = readStorageJSON(STORAGE_KEYS.SETTINGS, null);
@@ -430,8 +418,8 @@ export class AppStore {
       selectedByTrack["222:cll"] = savedSettings.selected.filter(id => caseById.has(id));
     }
 
-    // Sessions
-    const sessions = loadSessions();
+    // Sessions (avoid writing dummy sessions to localStorage when IndexedDB is available)
+    const sessions = loadSessions({ persistIfEmpty: !isIndexedDbAvailable() });
     const hasRecordedSolves = sessions.some(s => Array.isArray(s.solves) && s.solves.length > 0);
     const savedActiveSession = savedSettings.activeSessionId || getActiveSessionId() || sessions[0].id;
     const activeSessionId = sessions.some(s => s.id === savedActiveSession) ? savedActiveSession : sessions[0].id;
@@ -658,12 +646,25 @@ export class AppStore {
     const sess = this.getActiveSession();
     sess.solves = nextSolves;
     this.saveSessions({ silent: true });
-    writeStorageJSON(STORAGE_KEYS.SOLVES, Array.isArray(nextSolves) ? nextSolves.slice(-200) : []);
+    if (!isIndexedDbAvailable()) {
+      writeStorageJSON(STORAGE_KEYS.SOLVES, Array.isArray(nextSolves) ? nextSolves.slice(-200) : []);
+    }
     this._emitPersist("solves", { sessionId: sess.id });
   }
 
   saveSessions({ silent = false } = {}) {
-    saveSessions(this.state.sessions);
+    if (isIndexedDbAvailable()) {
+      if (!this._idbHydrated) {
+        this._sessionsModifiedBeforeIdbHydrate = true;
+      }
+      void saveSessionsToIdb(this.state.sessions).then(ok => {
+        if (!ok) {
+          this.notify("storageError", { section: "sessions" });
+        }
+      });
+    } else {
+      saveSessions(this.state.sessions);
+    }
     setActiveSessionId(this.state.activeSessionId);
     if (!silent) this._emitPersist("sessions");
   }
@@ -736,7 +737,9 @@ export class AppStore {
       sess.solves = nextLayerSolves;
       this.saveSessions({ silent: true });
     }
-    writeStorageJSON(STORAGE_KEYS.LAYER_SOLVES, nextLayerSolves);
+    if (!isIndexedDbAvailable()) {
+      writeStorageJSON(STORAGE_KEYS.LAYER_SOLVES, nextLayerSolves);
+    }
     this._emitPersist("layerSolves");
   }
 
@@ -1682,12 +1685,14 @@ export class AppStore {
 
       this.loadTrackSelection(currentPuzzle, currentTrackId);
 
-      // Persist hydrated state to localStorage & cookie while _isHydrating suppresses persist loop
+      // Persist hydrated state to IndexedDB / localStorage & cookie while _isHydrating suppresses persist loop
       this.saveSettings();
       this.saveSessions();
-      writeStorageJSON(STORAGE_KEYS.SOLVES, Array.isArray(activeSession.solves) ? activeSession.solves.slice(-200) : []);
-      const layerSess = s.sessions.find(sess => sess.id === "layer");
-      if (layerSess) writeStorageJSON(STORAGE_KEYS.LAYER_SOLVES, layerSess.solves || []);
+      if (!isIndexedDbAvailable()) {
+        writeStorageJSON(STORAGE_KEYS.SOLVES, Array.isArray(activeSession.solves) ? activeSession.solves.slice(-200) : []);
+        const layerSess = s.sessions.find(sess => sess.id === "layer");
+        if (layerSess) writeStorageJSON(STORAGE_KEYS.LAYER_SOLVES, layerSess.solves || []);
+      }
       this.saveStats();
       this.saveCaseTags();
       this.saveCustomCllLabels();
@@ -1697,6 +1702,54 @@ export class AppStore {
     }
 
     this.notify("hydrate", { source: "sync", prev: this.lastHydratePrev });
+  }
+
+  async hydrateFromIndexedDb() {
+    if (this._idbHydrated || !isIndexedDbAvailable()) {
+      this._idbHydrated = true;
+      return { hydrated: false, migrated: false };
+    }
+
+    const res = await loadAndMigrateSessionsFromIdb();
+    this._idbHydrated = true;
+    void requestPersistentStorage();
+
+    if (Array.isArray(res.sessions) && res.sessions.length > 0) {
+      this._isHydrating = true;
+      try {
+        const s = this.state;
+        const nextSessions = this._sessionsModifiedBeforeIdbHydrate
+          ? mergeSessionLists(s.sessions, res.sessions)
+          : res.sessions;
+
+        if (this._sessionsModifiedBeforeIdbHydrate) {
+          void saveSessionsToIdb(nextSessions);
+        }
+
+        s.sessions = nextSessions;
+        const activeSession = nextSessions.find(sess => sess.id === s.activeSessionId) || nextSessions[0];
+        s.activeSessionId = activeSession.id;
+        if (activeSession.target) {
+          s.solveTarget = activeSession.target;
+          if (!isTrackEnabled(s, s.currentPuzzle, s.solveTarget)) {
+            s.solveTarget = s.mode === "solve" ? "full" : getFallbackTrackForPuzzle(s.currentPuzzle);
+          }
+        }
+        s.lastSolve = activeSession.solves?.length ? activeSession.solves[activeSession.solves.length - 1] : null;
+        s.sessionLogPage = 1;
+        this.syncEffectiveSolveOptions();
+      } finally {
+        this._isHydrating = false;
+      }
+
+      this.notify("hydrate", { source: "indexeddb" });
+      return { hydrated: true, migrated: Boolean(res.migrated) };
+    }
+
+    if (Array.isArray(this.state.sessions) && this.state.sessions.length > 0) {
+      await saveSessionsToIdb(this.state.sessions);
+    }
+    return { hydrated: false, migrated: Boolean(res.migrated) };
   }
 }
 

@@ -12,6 +12,14 @@ import {
   solveTwoByTwoBeginner
 } from '../../cube/twoByTwoBeginnerSolver.js';
 import {
+  TWO_BY_TWO_OLL_VISUAL_GUIDE,
+  T_PERM_PLL_VISUAL_GUIDE,
+  render222OllDiagramSvg,
+  renderPllTpermDiagramSvg,
+  renderOllVisualGuideCardHtml,
+  renderPllTpermVisualGuideCardHtml
+} from './tutorialVisualGuides.js';
+import {
   createInlineCubeManager,
   renderTutorialStepSectionsHtml,
   bindTutorialStepSimButtons
@@ -25,12 +33,20 @@ import {
   ICON_RESET_ANGLE
 } from '../../ui/transportIcons.js';
 
+export {
+  TWO_BY_TWO_OLL_VISUAL_GUIDE,
+  T_PERM_PLL_VISUAL_GUIDE,
+  render222OllDiagramSvg,
+  renderPllTpermDiagramSvg
+};
+
 export const DEFAULT_222_TUTORIAL_SCRAMBLE = "R U' F2 U2 R' F U R2";
 
 const cubeManager222 = createInlineCubeManager({ maxLive: 12 });
 
 export function createTwoByTwoTutorialState() {
   return {
+    activeTab: 'guide',
     scramble: DEFAULT_222_TUTORIAL_SCRAMBLE,
     anchorId: 'wgr',
     stepChoices: {},
@@ -74,94 +90,119 @@ export async function ensureTwoByTwoTutorialPlan(state) {
 }
 
 export function renderTwoByTwoTutorialHtml(state) {
+  const activeTab = state.activeTab === 'walkthrough' ? 'walkthrough' : 'guide';
   const key = buildPlanKey(state);
   const hasReadyPlan = Boolean(state.plan && state.planKey === key);
   const scrMoveCount = String(state.scramble || '').trim().split(/\s+/).filter(Boolean).length;
 
+  const tabsHtml = `
+    <div class="flb-subtabs" role="tablist" aria-label="2x2 Beginner Tutorial views">
+      <button type="button" class="flb-subtab-btn ${activeTab === 'guide' ? 'active' : ''}" data-tut-tab="guide" role="tab" aria-selected="${activeTab === 'guide'}">&#x1F4D6; Guide</button>
+      <button type="button" class="flb-subtab-btn ${activeTab === 'walkthrough' ? 'active' : ''}" data-tut-tab="walkthrough" role="tab" aria-selected="${activeTab === 'walkthrough'}">&#x1F9ED; Walkthrough</button>
+    </div>
+  `;
+
+  const guidePanelHtml = `
+    <section class="guide-card guide-card-full flb-hero-card">
+      <h3 class="guide-card-title">&#x1F393; Beginner 2x2 Guide &mdash; Minimal Algorithms, Visual Step-by-Step</h3>
+      <p class="flb-hero-lead">
+        Solve any 2x2 scramble using only <strong>3 easy patterns</strong>: <strong>Righty</strong> for the White layer, <strong>Sune &amp; Antisune</strong> (Sune in reverse) for Yellow on top, and <strong>T-Perm</strong> to match the final side colors.
+      </p>
+
+      <div class="tut-cheat-grid">
+        <div class="tut-cheat-card">
+          <div class="tut-cheat-head"><strong>1. White Corners</strong><span class="badge">Righty</span></div>
+          <code>R U R' U'</code>
+          <span>And Inverse Righty (<code>U R U' R'</code>). Repeat around Bottom clockwise.</span>
+        </div>
+        <div class="tut-cheat-card">
+          <div class="tut-cheat-head"><strong>2. Yellow Face (OLL)</strong><span class="badge">Sune / Reverse</span></div>
+          <code>R U R' U R U2 R'</code>
+          <span>Antisune is just Sune in reverse: <code>R U2 R' U' R U' R'</code>.</span>
+        </div>
+        <div class="tut-cheat-card">
+          <div class="tut-cheat-head"><strong>3. Top Side Swap (PLL)</strong><span class="badge">T-Perm</span></div>
+          <code>R U R' U' R' F R2 U' R' U' R U R' F'</code>
+          <span>Put matching Bar on Left (run twice if no Bar exists yet).</span>
+        </div>
+      </div>
+    </section>
+
+    ${renderOllVisualGuideCardHtml({ puzzle: '222', headingId: 'tut222OllGuideTitle' })}
+
+    ${renderPllTpermVisualGuideCardHtml({ puzzle: '222', headingId: 'tut222PllGuideTitle' })}
+
+    <div class="tut-guide-cta-bar">
+      <button type="button" class="btn btn-primary btn-small" data-tut-tab="walkthrough">&#x1F9ED; Open Interactive 3D Walkthrough &rarr;</button>
+    </div>
+  `;
+
+  const walkthroughPanelHtml = `
+    <section class="guide-card guide-card-full tut-controls-card">
+      <div class="tut-scramble-card-layout">
+        <div class="tut-scramble-3d-box tut-3d-card">
+          <div class="tut-scramble-3d-head">
+            <strong>Scramble Preview</strong>
+            <span class="badge">White Top · Green Front</span>
+          </div>
+          <div class="tut-3d-wrap tut-scramble-3d-wrap" data-cube-id="tut222-scramble-preview" data-cube-puzzle="222" data-cube-setup="" data-cube-moves="${escapeHtml(state.scramble)}">
+            <span class="study-visual-loading">3D Cube</span>
+          </div>
+          <div class="tut-3d-controls" role="group" aria-label="2x2 scramble preview controls">
+            <button type="button" class="btn btn-xs btn-icon-only tut-3d-reset-btn" data-cube-id="tut222-scramble-preview" title="Reset 3D angle" aria-label="Reset 3D angle">${ICON_RESET_ANGLE}</button>
+            <button type="button" class="btn btn-xs btn-icon-only tut-3d-start-btn" data-cube-id="tut222-scramble-preview" title="Jump to solved state" aria-label="Jump to solved state" disabled>${ICON_SKIP_START}</button>
+            <button type="button" class="btn btn-xs btn-icon-only tut-3d-prev-btn" data-cube-id="tut222-scramble-preview" title="Step back 1 scramble move" aria-label="Step back 1 scramble move" disabled>${ICON_STEP_BACK}</button>
+            <button type="button" class="btn btn-xs btn-icon-only btn-primary tut-3d-play-btn" data-cube-id="tut222-scramble-preview" title="Play / Pause scramble" aria-label="Play / Pause scramble" ${scrMoveCount === 0 ? 'disabled' : ''}>${ICON_PLAY}</button>
+            <button type="button" class="btn btn-xs btn-icon-only tut-3d-next-btn" data-cube-id="tut222-scramble-preview" title="Step forward 1 scramble move" aria-label="Step forward 1 scramble move" ${scrMoveCount === 0 ? 'disabled' : ''}>${ICON_STEP_FORWARD}</button>
+            <button type="button" class="btn btn-xs btn-icon-only tut-3d-end-btn" data-cube-id="tut222-scramble-preview" title="Fast-forward to final scramble state" aria-label="Fast-forward to final scramble state" ${scrMoveCount === 0 ? 'disabled' : ''}>${ICON_SKIP_END}</button>
+            <span class="tut-3d-status">${scrMoveCount > 0 ? `0/${scrMoveCount}` : 'Solved'}</span>
+          </div>
+        </div>
+
+        <div class="tut-scramble-controls-col">
+          <div class="tut-scramble-row">
+            <label for="tut222ScrambleInput" class="tut-control-label">2x2 Scramble:</label>
+            <input type="text" id="tut222ScrambleInput" class="sim-input tut-scramble-input" value="${escapeHtml(state.scramble)}" spellcheck="false" autocomplete="off" aria-label="2x2 scramble sequence">
+            <button type="button" class="btn btn-small btn-primary" id="tut222SolveBtn">Solve Steps</button>
+            <button type="button" class="btn btn-small" id="tut222NewScrambleBtn">&#x1F3B2; New Scramble</button>
+          </div>
+
+          <div class="tut-anchor-row" role="group" aria-label="Choose starting White bottom-left anchor corner">
+            <span class="tut-control-label">Bottom-Left White Anchor:</span>
+            <div class="tut-anchor-pills">
+              ${TWO_BY_TWO_ANCHORS.map(a => `
+                <button type="button" class="tut-anchor-btn ${state.anchorId === a.id ? 'active' : ''}" data-tut-anchor="${a.id}" aria-pressed="${state.anchorId === a.id}">
+                  ${escapeHtml(a.label)}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          ${hasReadyPlan ? `
+            <div class="tut-plan-summary">
+              <span class="badge badge-solved">${state.plan.steps.length} steps</span>
+              <span class="badge">${state.plan.totalMoves} total moves</span>
+              <span class="hint">Anchor: <strong>${escapeHtml(state.plan.anchor.label)}</strong> in Bottom-Front-Left &rarr; clockwise around White.</span>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    </section>
+
+    ${state.error ? `<div class="guide-card guide-card-full tut-error-card">${escapeHtml(state.error)}</div>` : ''}
+
+    ${hasReadyPlan
+      ? renderTutorialStepSectionsHtml(state.plan.steps, '222')
+      : `<div class="guide-card guide-card-full"><span class="study-visual-loading">Computing visual 3D solve steps…</span></div>`
+    }
+  `;
+
   return `
     <div class="flb-wrap">
-      <section class="guide-card guide-card-full flb-hero-card">
-        <h3 class="guide-card-title">&#x1F393; Beginner 2x2 Guide &mdash; Minimal Algorithms, Visual Step-by-Step</h3>
-        <p class="flb-hero-lead">
-          Solve any 2x2 scramble using only <strong>3 easy patterns</strong>: <strong>Righty</strong> for the White layer, <strong>Sune &amp; Antisune</strong> (Sune in reverse) for Yellow on top, and <strong>T-Perm</strong> to match the final side colors.
-        </p>
-
-        <div class="tut-cheat-grid">
-          <div class="tut-cheat-card">
-            <div class="tut-cheat-head"><strong>1. White Corners</strong><span class="badge">Righty</span></div>
-            <code>R U R' U'</code>
-            <span>And Inverse Righty (<code>U R U' R'</code>). Repeat around Bottom clockwise.</span>
-          </div>
-          <div class="tut-cheat-card">
-            <div class="tut-cheat-head"><strong>2. Yellow Face (OLL)</strong><span class="badge">Sune / Reverse</span></div>
-            <code>R U R' U R U2 R'</code>
-            <span>Antisune is just Sune in reverse: <code>R U2 R' U' R U' R'</code>.</span>
-          </div>
-          <div class="tut-cheat-card">
-            <div class="tut-cheat-head"><strong>3. Top Side Swap (PLL)</strong><span class="badge">T-Perm</span></div>
-            <code>R U R' U' R' F R2 U' R' U' R U R' F'</code>
-            <span>Put matching Bar on Left (run twice if no Bar exists yet).</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="guide-card guide-card-full tut-controls-card">
-        <div class="tut-scramble-card-layout">
-          <div class="tut-scramble-3d-box tut-3d-card">
-            <div class="tut-scramble-3d-head">
-              <strong>Scramble Preview</strong>
-              <span class="badge">White Top · Green Front</span>
-            </div>
-            <div class="tut-3d-wrap tut-scramble-3d-wrap" data-cube-id="tut222-scramble-preview" data-cube-puzzle="222" data-cube-setup="" data-cube-moves="${escapeHtml(state.scramble)}">
-              <span class="study-visual-loading">3D Cube</span>
-            </div>
-            <div class="tut-3d-controls" role="group" aria-label="2x2 scramble preview controls">
-              <button type="button" class="btn btn-xs btn-icon-only tut-3d-reset-btn" data-cube-id="tut222-scramble-preview" title="Reset 3D angle" aria-label="Reset 3D angle">${ICON_RESET_ANGLE}</button>
-              <button type="button" class="btn btn-xs btn-icon-only tut-3d-start-btn" data-cube-id="tut222-scramble-preview" title="Jump to solved state" aria-label="Jump to solved state" disabled>${ICON_SKIP_START}</button>
-              <button type="button" class="btn btn-xs btn-icon-only tut-3d-prev-btn" data-cube-id="tut222-scramble-preview" title="Step back 1 scramble move" aria-label="Step back 1 scramble move" disabled>${ICON_STEP_BACK}</button>
-              <button type="button" class="btn btn-xs btn-icon-only btn-primary tut-3d-play-btn" data-cube-id="tut222-scramble-preview" title="Play / Pause scramble" aria-label="Play / Pause scramble" ${scrMoveCount === 0 ? 'disabled' : ''}>${ICON_PLAY}</button>
-              <button type="button" class="btn btn-xs btn-icon-only tut-3d-next-btn" data-cube-id="tut222-scramble-preview" title="Step forward 1 scramble move" aria-label="Step forward 1 scramble move" ${scrMoveCount === 0 ? 'disabled' : ''}>${ICON_STEP_FORWARD}</button>
-              <button type="button" class="btn btn-xs btn-icon-only tut-3d-end-btn" data-cube-id="tut222-scramble-preview" title="Fast-forward to final scramble state" aria-label="Fast-forward to final scramble state" ${scrMoveCount === 0 ? 'disabled' : ''}>${ICON_SKIP_END}</button>
-              <span class="tut-3d-status">${scrMoveCount > 0 ? `0/${scrMoveCount}` : 'Solved'}</span>
-            </div>
-          </div>
-
-          <div class="tut-scramble-controls-col">
-            <div class="tut-scramble-row">
-              <label for="tut222ScrambleInput" class="tut-control-label">2x2 Scramble:</label>
-              <input type="text" id="tut222ScrambleInput" class="sim-input tut-scramble-input" value="${escapeHtml(state.scramble)}" spellcheck="false" autocomplete="off" aria-label="2x2 scramble sequence">
-              <button type="button" class="btn btn-small btn-primary" id="tut222SolveBtn">Solve Steps</button>
-              <button type="button" class="btn btn-small" id="tut222NewScrambleBtn">&#x1F3B2; New Scramble</button>
-            </div>
-
-            <div class="tut-anchor-row" role="group" aria-label="Choose starting White bottom-left anchor corner">
-              <span class="tut-control-label">Bottom-Left White Anchor:</span>
-              <div class="tut-anchor-pills">
-                ${TWO_BY_TWO_ANCHORS.map(a => `
-                  <button type="button" class="tut-anchor-btn ${state.anchorId === a.id ? 'active' : ''}" data-tut-anchor="${a.id}" aria-pressed="${state.anchorId === a.id}">
-                    ${escapeHtml(a.label)}
-                  </button>
-                `).join('')}
-              </div>
-            </div>
-
-            ${hasReadyPlan ? `
-              <div class="tut-plan-summary">
-                <span class="badge badge-solved">${state.plan.steps.length} steps</span>
-                <span class="badge">${state.plan.totalMoves} total moves</span>
-                <span class="hint">Anchor: <strong>${escapeHtml(state.plan.anchor.label)}</strong> in Bottom-Front-Left &rarr; clockwise around White.</span>
-              </div>
-            ` : ''}
-          </div>
-        </div>
-      </section>
-
-      ${state.error ? `<div class="guide-card guide-card-full tut-error-card">${escapeHtml(state.error)}</div>` : ''}
-
-      ${hasReadyPlan
-        ? renderTutorialStepSectionsHtml(state.plan.steps, '222')
-        : `<div class="guide-card guide-card-full"><span class="study-visual-loading">Computing visual 3D solve steps…</span></div>`
-      }
+      ${tabsHtml}
+      <div class="flb-tab-panel">
+        ${activeTab === 'guide' ? guidePanelHtml : walkthroughPanelHtml}
+      </div>
     </div>
   `;
 }
@@ -172,6 +213,21 @@ export function bindTwoByTwoTutorialEvents(
   { onRerender, onQuickSimSolutions, onSimulateCase, getSimSpeed, getShowReflection } = {}
 ) {
   if (!container) return;
+
+  container.querySelectorAll('[data-tut-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const nextTab = btn.dataset.tutTab === 'walkthrough' ? 'walkthrough' : 'guide';
+      const curTab = state.activeTab === 'walkthrough' ? 'walkthrough' : 'guide';
+      if (nextTab === curTab) return;
+      if (curTab === 'walkthrough') {
+        cubeManager222.teardown();
+      }
+      state.activeTab = nextTab;
+      onRerender?.();
+    });
+  });
+
+  if (state.activeTab !== 'walkthrough') return;
 
   const key = buildPlanKey(state);
   if ((!state.plan || state.planKey !== key) && !state.error) {
